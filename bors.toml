@@ -1,7 +1,5 @@
 status = [
-  'test-linux',
-  'test-macos',
-  'test-windows'
+  'test_success',
 ]
 delete_merged_branches = true
 timeout_sec = 3600

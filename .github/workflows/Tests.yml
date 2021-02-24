@@ -1,4 +1,4 @@
-name: Run tests
+name: Run Tests
 
 on:
   pull_request:
@@ -24,3 +24,8 @@ jobs:
           version: ${{ matrix.julia-version }}
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+  test_success:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - run: echo "All tests passed"
