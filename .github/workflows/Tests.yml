@@ -1,0 +1,31 @@
+name: Run Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - staging
+      - trying
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        julia-version: ['1.5']
+        julia-arch: [x64]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    steps:
+      - uses: styfle/cancel-workflow-action@0.6.0
+        with:
+          access_token: ${{ github.token }}
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.julia-version }}
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+  test_success:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - run: echo "All tests passed"
