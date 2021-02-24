@@ -26,6 +26,7 @@ end
 
     for submodule in ["DataStorage",
                       "ParameterDistribution",
+                      "Observations",
                       "EnsembleKalmanProcessModule"]
 
         if all_tests || has_submodule(submodule) || "EnsembleKalmanProcesses" in ARGS
