@@ -1,7 +1,12 @@
 module EnsembleKalmanProcesses
 
-function hello()
-    "hello world"
-end
+using Distributions, Statistics, LinearAlgebra, DocStringExtensions
 
-end
+#auxilliaries
+include("ParameterDistribution.jl")
+include("DataStorage.jl")
+
+#updates:
+include("EnsembleKalmanProcess.jl")
+
+end # module
