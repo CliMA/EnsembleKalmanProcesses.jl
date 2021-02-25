@@ -198,7 +198,7 @@ lorenz_settings_G = lorenz_settings; # initialize to truth settings
 log_transform(a::AbstractArray) = log.(a)
 exp_transform(a::AbstractArray) = exp.(a)
 
-N_ens = 50 # number of ensemble members
+N_ens = 20 # number of ensemble members
 N_iter = 5 # number of EKI iterations
 # initial parameters: N_params x N_ens
 initial_params = construct_initial_ensemble(priors, N_ens; rng_seed=rng_seed)
@@ -238,6 +238,20 @@ end
 
 u_stored= get_u(ekiobj,return_array=false)
 g_stored= get_g(ekiobj,return_array=false)
+
 @save data_save_directory*"parameter_storage.jld2" u_stored
 @save data_save_directory*"data_storage.jld2" g_stored
 
+#plots
+u_init = get_u_prior(ekiobj)
+for i in 1:N_iter
+    u_i = get_u(ekiobj,i)
+    p = plot(u_i[1,:], u_i[2,:], seriestype=:scatter, xlims = extrema(u_init[1,:]), ylims = extrema(u_init[2,:]))
+    plot!([params_true[1]], xaxis="u1", yaxis="u2", seriestype="vline",
+        linestyle=:dash, linecolor=:red, label = false,
+        title = "EKI iteration = " * string(i)
+        )
+    plot!([params_true[2]], seriestype="hline", linestyle=:dash, linecolor=:red, label = "optimum")
+    display(p)
+    sleep(0.5)
+end
