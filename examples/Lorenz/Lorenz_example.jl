@@ -243,6 +243,7 @@ g_stored= get_g(ekiobj,return_array=false)
 @save data_save_directory*"data_storage.jld2" g_stored
 
 #plots
+gr(size=(600,600))
 u_init = get_u_prior(ekiobj)
 for i in 1:N_iter
     u_i = get_u(ekiobj,i)
