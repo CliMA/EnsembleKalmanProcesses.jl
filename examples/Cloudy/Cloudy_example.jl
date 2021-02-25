@@ -204,3 +204,34 @@ g_stored= get_g(ekiobj,return_array=false)
 @save data_save_directory*"parameter_storage.jld2" u_stored
 @save data_save_directory*"data_storage.jld2" g_stored
 
+#plots
+gr(size=(1800,600))
+
+u_init = get_u_prior(ekiobj)
+for i in 1:N_iter
+    u_i = get_u(ekiobj,i)
+    p1 = plot(u_i[1,:], u_i[2,:], seriestype=:scatter, xlims = extrema(u_init[1,:]), ylims = extrema(u_init[2,:]))
+    plot!(p1,[transformed_params_true[1]], xaxis="u1", yaxis="u2", seriestype="vline",
+        linestyle=:dash, linecolor=:red, label = false,
+        title = "EKI iteration = " * string(i)
+        )
+    plot!(p1,[transformed_params_true[2]], seriestype="hline", linestyle=:dash, linecolor=:red, label = "optimum")
+
+    p2 = plot(u_i[2,:], u_i[3,:], seriestype=:scatter, xlims = extrema(u_init[2,:]), ylims = extrema(u_init[3,:]))
+    plot!(p2,[transformed_params_true[2]], xaxis="u1", yaxis="u2", seriestype="vline",
+        linestyle=:dash, linecolor=:red, label = false,
+        title = "EKI iteration = " * string(i)
+        )
+    plot!(p2,[transformed_params_true[3]], seriestype="hline", linestyle=:dash, linecolor=:red, label = "optimum")
+
+    p3 = plot(u_i[3,:], u_i[1,:], seriestype=:scatter, xlims = extrema(u_init[3,:]), ylims = extrema(u_init[1,:]))
+    plot!(p3,[transformed_params_true[3]], xaxis="u1", yaxis="u2", seriestype="vline",
+        linestyle=:dash, linecolor=:red, label = false,
+        title = "EKI iteration = " * string(i)
+        )
+    plot!(p3,[transformed_params_true[1]], seriestype="hline", linestyle=:dash, linecolor=:red, label = "optimum")
+
+    p=plot(p1, p2, p3, layout=(1,3))    
+    display(p)
+    sleep(0.5)
+end
