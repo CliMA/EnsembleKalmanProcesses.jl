@@ -2,8 +2,8 @@ using Distributions
 using LinearAlgebra
 using Random
 using Plots
-using CalibrateEmulateSample.EnsembleKalmanProcesses
-using CalibrateEmulateSample.ParameterDistributionStorage
+using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
+using EnsembleKalmanProcesses.ParameterDistributionStorage
 
 # Seed for pseudo-random number generator for reproducibility
 rng_seed = 41
@@ -38,16 +38,16 @@ prior_cov = get_cov(prior)
 # Calibrate
 N_ens = 50  # number of ensemble members
 N_iter = 20 # number of EKI iterations
-initial_ensemble = EnsembleKalmanProcesses.construct_initial_ensemble(prior, N_ens;
+initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
                                                 rng_seed=rng_seed)
 
-ekiobj = EnsembleKalmanProcesses.EnsembleKalmanProcess(initial_ensemble,
+ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
                     y_obs, Γy, Inversion())
 #
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
     g_ens = hcat([G(params_i[:,i]) for i in 1:N_ens]...)
-    EnsembleKalmanProcesses.update_ensemble!(ekiobj, g_ens)
+    EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
 end
 
 u_init = get_u_prior(ekiobj)
@@ -90,16 +90,16 @@ prior_cov = get_cov(prior)
 # Calibrate
 N_ens = 50  # number of ensemble members
 N_iter = 40 # number of EKI iterations
-initial_ensemble = EnsembleKalmanProcesses.construct_initial_ensemble(prior, N_ens;
+initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
                                                 rng_seed=rng_seed)
 
-ekiobj = EnsembleKalmanProcesses.EnsembleKalmanProcess(initial_ensemble,
+ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
                     y_obs, Γy, Inversion())
 #
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
     g_ens = hcat([G(params_i[:,i]) for i in 1:N_ens]...)
-    EnsembleKalmanProcesses.update_ensemble!(ekiobj, g_ens)
+    EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
 end
 
 u_init = get_u_prior(ekiobj)
