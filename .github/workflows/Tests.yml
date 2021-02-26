@@ -24,6 +24,12 @@ jobs:
           version: ${{ matrix.julia-version }}
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+      
+      - if: startsWith(matrix.os,'ubuntu') && ${{ github.event_name }} == 'pull_request'
+        uses: julia-actions/julia-uploadcodecov@latest
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   test_success:
     runs-on: ubuntu-latest
     needs: test
