@@ -1,0 +1,52 @@
+name: Documentation
+
+on:
+  push:
+    branches:
+      - master
+      - trying
+      - staging
+    tags: '*'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'Project.toml'
+      - 'Manifest.toml'
+
+jobs:
+  docs-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.8.0
+        with:
+          access_token: ${{ github.token }}
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: 1.5.4
+      - name: Cache artifacts
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-artifacts
+        with:
+          path: ~/.julia/artifacts
+          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-test-${{ env.cache-name }}-
+            ${{ runner.os }}-test-
+            ${{ runner.os }}-
+      - name: Install dependencies
+        env:
+          PYTHON: ""
+        run: |
+          julia --color=yes --project -e 'using Pkg; Pkg.instantiate()'
+          julia --color=yes --project=docs/ -e 'using Pkg; Pkg.instantiate()'
+          julia --color=yes --project=docs/ -e 'using Pkg; Pkg.precompile()'
+      - name: Build and deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JULIA_PROJECT: "docs/"
+        run: julia --color=yes --project=docs/ docs/make.jl
