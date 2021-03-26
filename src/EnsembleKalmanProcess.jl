@@ -93,23 +93,38 @@ end
 
 
 """
-    get_X(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
+    get_u(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
 
-Get X=u or X=g for the EKI iteration. Returns a DataContainer object unless array is specified.
+Get for the EKI iteration. Returns a DataContainer object unless array is specified.
 """
 function get_u(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
     return  return_array ? get_data(ekp.u[iteration]) : ekp.u[iteration]
 end
 
+"""
+    get_g(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
+
+Get for the EKI iteration. Returns a DataContainer object unless array is specified.
+"""
 function get_g(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
     return return_array ? get_data(ekp.g[iteration]) : ekp.g[iteration]
 end
 
+"""
+    get_u(ekp::EnsembleKalmanProcess; return_array=true)
+
+Get for the EKI iteration. Returns a DataContainer object unless array is specified.
+"""
 function get_u(ekp::EnsembleKalmanProcess; return_array=true) where {IT <: Integer}
     N_stored_u = get_N_iterations(ekp)+1
     return [get_u(ekp, it, return_array=return_array) for it in 1:N_stored_u]
 end
 
+"""
+    get_g(ekp::EnsembleKalmanProcess; return_array=true)
+
+Get for the EKI iteration. Returns a DataContainer object unless array is specified.
+"""
 function get_g(ekp::EnsembleKalmanProcess; return_array=true) where {IT <: Integer}
     N_stored_g = get_N_iterations(ekp)
     return [get_g(ekp, it, return_array=return_array) for it in 1:N_stored_g]
@@ -118,8 +133,6 @@ end
 
 """
     get_u_final(ekp::EnsembleKalmanProcess, return_array=true)
-    get_u_prior(ekp::EnsembleKalmanProcess, return_array=true)
-    get_g_final(ekp::EnsembleKalmanProcess, return_array=true)
 
 Get the final or prior iteration of parameters or model ouputs, returns a DataContainer Object if return_array is false.
 """
@@ -127,9 +140,21 @@ function get_u_final(ekp::EnsembleKalmanProcess; return_array=true)
     return return_array ? get_u(ekp,size(ekp.u)[1]) : ekp.u[end]
 end
 
+"""
+    get_u_prior(ekp::EnsembleKalmanProcess, return_array=true)
+
+Get the final or prior iteration of parameters or model ouputs, returns a DataContainer Object if return_array is false.
+"""
+
 function get_u_prior(ekp::EnsembleKalmanProcess; return_array=true)
     return return_array ? get_u(ekp,1) : ekp.u[1]
 end
+
+"""
+    get_g_final(ekp::EnsembleKalmanProcess, return_array=true)
+
+Get the final or prior iteration of parameters or model ouputs, returns a DataContainer Object if return_array is false.
+"""
 
 function get_g_final(ekp::EnsembleKalmanProcess; return_array=true)
     return return_array ? get_g(ekp,size(ekp.g)[1]) : ekp.g[end]
@@ -143,6 +168,7 @@ get number of times update has been called (equals size(g), or size(u)-1)
 function get_N_iterations(ekp::EnsembleKalmanProcess)
     return size(ekp.u)[1] - 1 
 end
+
 """
     construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed=42) where {IT<:Int}
 
@@ -170,6 +196,7 @@ end
 
 """
    find_ekp_stepsize(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, g::Array{FT, 2}; cov_threshold::FT=0.01) where {FT}
+
 Find largest stepsize for the EK solver that leads to a reduction of the determinant of the sample
 covariance matrix no greater than cov_threshold. 
 """

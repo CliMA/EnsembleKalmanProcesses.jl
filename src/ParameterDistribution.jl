@@ -52,12 +52,12 @@ end
 
 # For the transforms
 abstract type ConstraintType end
+
 """
     struct Constraint <: ConstraintType
 
 Contains two functions to map between constrained and unconstrained spaces.
 """
-
 struct Constraint <: ConstraintType
     constrained_to_unconstrained::Function
     unconstrained_to_constrained::Function
@@ -366,20 +366,30 @@ function get_cov(pd::ParameterDistribution)
     return cat(block_cov...,dims=(1,2)) #build the block diagonal (dense) matrix
     
 end
+
+"""
+    get_mean(pd::Parameterized)
+
+returns a mean of parameterized distribution
+"""
+function get_mean(d::Parameterized)
+    return mean(d.distribution)
+end
+
+"""
+    get_mean(pd::Samples)
+
+returns a mean of the samples
+"""
+function get_mean(d::Samples)
+    return mean(d.distribution_samples, dims=2) #parameters are columns
+end
+
 """
     function get_mean(pd::ParameterDistribution)
 
 returns a mean of the distirbutions
 """
-
-function get_mean(d::Parameterized)
-    return mean(d.distribution)
-end
-
-function get_mean(d::Samples)
-    return mean(d.distribution_samples, dims=2) #parameters are columns
-end
-
 function get_mean(pd::ParameterDistribution)
     return reshape(cat([get_mean(d) for d in pd.distributions]...,dims=1),:,1)
 end

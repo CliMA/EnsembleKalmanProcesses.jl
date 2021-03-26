@@ -1,4 +1,5 @@
 status = [
+  'docs-build',
   'test_success',
 ]
 delete_merged_branches = true
