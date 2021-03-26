@@ -43,5 +43,6 @@ if !isempty(get(ENV, "CI", ""))
     repo = "github.com/CliMA/EnsembleKalmanProcesses.jl.git",
     versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"],
     push_preview = true,
+    devbranch = "main",
   )
 end
