@@ -6,6 +6,7 @@ on:
     branches:
       - staging
       - trying
+      - main
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -25,10 +26,17 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       
-      - if: startsWith(matrix.os,'ubuntu') && ${{ github.event_name }} == 'pull_request'
-        uses: julia-actions/julia-uploadcodecov@latest
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Generate coverage file
+        run: julia --project -e 'using Pkg; Pkg.add("Coverage");
+                                 using Coverage;
+                                 LCOV.writefile("coverage-lcov.info", Codecov.process_folder())'
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+
+      - name: Submit coverage
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+        if: ${{ matrix.os == 'ubuntu-latest' }}
 
   test_success:
     runs-on: ubuntu-latest
