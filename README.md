@@ -10,7 +10,7 @@ Implements Optimization and approximate uncertainty quantification algorithms, E
 | **Bors**             | [![Bors enabled][bors-img]][bors-url]            |
 
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
-[docs-latest-url]: https://CliMA.github.io/EnsembleKalmanProcesses.jl/latest/
+[docs-latest-url]: https://CliMA.github.io/EnsembleKalmanProcesses.jl/dev/
 
 [docs-bld-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Docs.yml/badge.svg?branch=main
 [docs-bld-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Docs.yml
