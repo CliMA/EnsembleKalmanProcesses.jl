@@ -139,7 +139,7 @@ noise_level = 1.0
 μ_noise = zeros(length(yt))
 
 # We construct the observations object with the samples and the cov.
-truth = Obs(samples, Γy, y_names[1])
+truth = Obs(Array(samples'), Γy, y_names[1])
 @everywhere truth = $truth
 
 ###
