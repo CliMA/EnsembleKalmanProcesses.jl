@@ -133,12 +133,12 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 @everywhere N_iter = 1 # number of EKI iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
-constraints = [[no_constraint()], [no_constraint()],
+@everywhere constraints = [[no_constraint()], [no_constraint()],
                 [no_constraint()], [no_constraint()],
                 [no_constraint()], [no_constraint()],
                 [no_constraint()], [no_constraint()],[no_constraint()]]
 
-priors = ParameterDistribution(prior_dist, constraints, param_names)
+@everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
 @everywhere initial_params = construct_initial_ensemble(priors, N_ens)
 precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf)
 @everywhere initial_params = $initial_params
