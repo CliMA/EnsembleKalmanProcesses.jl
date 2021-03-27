@@ -40,35 +40,18 @@ logmeans[6], log_stds[6] = logmean_and_logstd(0.2, 0.2)
 logmeans[7], log_stds[7] = logmean_and_logstd(0.2, 0.2)
 logmeans[8], log_stds[8] = logmean_and_logstd(8.0, 1.0)
 logmeans[9], log_stds[9] = logmean_and_logstd(0.2, 0.2)
-prior_dist = [Distributions.Normal(logmeans[1], log_stds[1]),
-                        Distributions.Normal(logmeans[2], log_stds[2]),
-                        Distributions.Normal(logmeans[3], log_stds[3]),
-                        Distributions.Normal(logmeans[4], log_stds[4]),
-                        Distributions.Normal(logmeans[5], log_stds[5]),
-                        Distributions.Normal(logmeans[6], log_stds[6]),
-                        Distributions.Normal(logmeans[7], log_stds[7]),
-                        Distributions.Normal(logmeans[8], log_stds[8]),
-                        Distributions.Normal(logmeans[9], log_stds[9])]
+prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
+                        Parameterized(Normal(logmeans[2], log_stds[2])),
+                        Parameterized(Normal(logmeans[3], log_stds[3])),
+                        Parameterized(Normal(logmeans[4], log_stds[4])),
+                        Parameterized(Normal(logmeans[5], log_stds[5])),
+                        Parameterized(Normal(logmeans[6], log_stds[6])),
+                        Parameterized(Normal(logmeans[7], log_stds[7])),
+                        Parameterized(Normal(logmeans[8], log_stds[8])),
+                        Parameterized(Normal(logmeans[9], log_stds[9]))]
+
+                        Parameterized
 @everywhere prior_dist = $prior_dist
-# Second option: Uniform distributions
-#@everywhere priors = [Distributions.Uniform(0, 1),
-#                        Distributions.Uniform(0, 1),
-#                        Distributions.Uniform(0, 4),
-#                        Distributions.Uniform(0, 1),
-#                        Distributions.Uniform(0, 1),
-#                        Distributions.Uniform(0, 1),
-#                        Distributions.Uniform(0, 1),
-#                        Distributions.Uniform(3, 10),
-#                        Distributions.Uniform(0, 1) ]
-
-
-# # Prior option 2: Log-normal in original space defined by mode and std
-# logmean_c_m, logstd_c_m = logmean_and_logstd_from_mode_std(0.5, 0.3)
-# logmean_c_ϵ, logstd_c_ϵ = logmean_and_logstd_from_mode_std(0.5, 0.3)
-# println("Logmean and logstd of the prior: ", logmean_c_m, " ", logstd_c_m)
-# priors = [Distributions.Normal(logmean_c_m, logstd_c_m),    # prior on c_m
-#           Distributions.Normal(logmean_c_ϵ, logstd_c_ϵ)]    # prior on c_ϵ
-
 ###
 ###  Retrieve true LES samples
 ###
