@@ -10,7 +10,7 @@
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
 @everywhere include(joinpath(@__DIR__, "helper_funcs.jl"))
 using JLD
-using NPZ
+@everywhere using NPZ
 ###
 ###  Define the parameters and their priors
 ###

@@ -93,23 +93,21 @@ function interp_padeops(padeops_data,
     # Weak verification of limits for independent vars 
     @assert abs(padeops_z[end] - z_scm[end])/padeops_z[end] <= 0.1
     @assert abs(padeops_z[end] - z_scm[end])/z_scm[end] <= 0.1
-    @assert abs(padeops_t[end] - t_scm[end])/padeops_t[end] <= 0.1
-    @assert abs(padeops_t[end] - t_scm[end])/t_scm[end] <= 0.1
 
     # Create interpolating function
-    padeops_itp = interpolate( (padeops_z, padeops_t), padeops_data,
+    padeops_itp = interpolate( (padeops_t, padeops_z), padeops_data,
                 ( Gridded(Linear()), Gridded(Linear()) ) )
-    return padeops_itp(z_scm, t_scm)
+    return padeops_itp(t_scm, z_scm)
 end
 
 function padeops_m_σ2(padeops_data,
                     padeops_z,
                     padeops_t,
                     z_scm,
-                    t_scm
-                    dims_ = 2)
+                    t_scm,
+                    dims_ = 1)
     # Compute variance along axis dims_
-    padeops_var = var(padeops_data, dims=dims_)
+    padeops_var = cov(padeops_data, dims=dims_)
     return interp_padeops(padeops_data,padeops_z,padeops_t,z_scm, t_scm), padeops_var
 end
 
