@@ -84,6 +84,35 @@ function obs_LES(y_names::Array{String, 1},
     return y_, y_tvar
 end
 
+function interp_padeops(padeops_data,
+                    padeops_z,
+                    padeops_t,
+                    z_scm,
+                    t_scm
+                    )
+    # Weak verification of limits for independent vars 
+    @assert abs(padeops_z[end] - z_scm[end])/padeops_z[end] <= 0.1
+    @assert abs(padeops_z[end] - z_scm[end])/z_scm[end] <= 0.1
+    @assert abs(padeops_t[end] - t_scm[end])/padeops_t[end] <= 0.1
+    @assert abs(padeops_t[end] - t_scm[end])/t_scm[end] <= 0.1
+
+    # Create interpolating function
+    padeops_itp = interpolate( (padeops_z, padeops_t), padeops_data,
+                ( Gridded(Linear()), Gridded(Linear()) ) )
+    return padeops_itp(z_scm, t_scm)
+end
+
+function padeops_m_σ2(padeops_data,
+                    padeops_z,
+                    padeops_t,
+                    z_scm,
+                    t_scm
+                    dims_ = 2)
+    # Compute variance along axis dims_
+    padeops_var = var(padeops_data, dims=dims_)
+    return interp_padeops(padeops_data,padeops_z,padeops_t,z_scm, t_scm), padeops_var
+end
+
 function get_profile(sim_dir::String,
                      var_name::Array{String,1};
                      ti::Float64=0.0,
@@ -107,11 +136,17 @@ function get_profile(sim_dir::String,
             end
         else
             for i in 1:length(var_name)
-                var_ = nc_fetch(sim_dir, "profiles", var_name[i])
-                # LES vertical fluxes are per volume, not mass
-                if occursin("resolved_z_flux", var_name[i])
-                    rho_half=nc_fetch(sim_dir, "reference", "rho0_half")
-                    var_ = var_.*rho_half
+                if occursin("horizontal_vel", var_name[i])
+                    u_ = nc_fetch(sim_dir, "profiles", "u_mean")
+                    v_ = nc_fetch(sim_dir, "profiles", "v_mean")
+                    var_ = sqrt.(u_.^2 + v_.^2)
+                else
+                    var_ = nc_fetch(sim_dir, "profiles", var_name[i])
+                    # LES vertical fluxes are per volume, not mass
+                    if occursin("resolved_z_flux", var_name[i])
+                        rho_half=nc_fetch(sim_dir, "reference", "rho0_half")
+                        var_ = var_.*rho_half
+                    end
                 end
                 append!(prof_vec, mean(var_[:, ti_index:tf_index], dims=2))
             end

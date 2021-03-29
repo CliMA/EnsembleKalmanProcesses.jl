@@ -10,7 +10,7 @@
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
 @everywhere include(joinpath(@__DIR__, "helper_funcs.jl"))
 using JLD
-
+using NPZ
 ###
 ###  Define the parameters and their priors
 ###
@@ -54,47 +54,28 @@ prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
 ###
 ###  Retrieve true LES samples from PyCLES data
 ###
+# This is the true value of the observables (e.g. LES horizontal mean)
+@everywhere data_dir = "/groups/esm/ilopezgo/padeops_data/"
+@everywhere padeops_t = npzread( string(data_dir,"time_padeops.npy") )*3600.0
+@everywhere padeops_z = npzread( string(data_dir,"zCell_padeops.npy") )*1000.0
+@everywhere padeops_theta = npzread( string(data_dir,"potT_padeops.npy") )
+@everywhere padeops_uh = npzread( string(data_dir,"wind_speed_padeops.npy") )
 
-# This is the true value of the observables (e.g. LES ensemble mean for EDMF)
-@everywhere ti = [10800.0, 28800.0, 10800.0, 18000.0]
-@everywhere tf = [14400.0, 32400.0, 14400.0, 21600.0]
-y_names = Array{String, 1}[]
-push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]) #DYCOMS_RF01
-push!(y_names, ["thetal_mean", "u_mean", "v_mean", "tke_mean"]) #GABLS
-push!(y_names, ["thetal_mean", "total_flux_h"]) #Nieuwstadt
-push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]) #Bomex
-@everywhere y_names=$y_names
-
-# Get observations
-@everywhere yt = zeros(0)
-@everywhere sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
-yt_var_list = []
-
-les_dir = string("/groups/esm/ilopezgo/Output.", sim_names[1],".may20")
+# Times on which to interpolate
+@everywhere t_fig3 = ([4, 6, 8, 10, 12, 15.5, 17, 18.5, 20, 21.5])*3600.0
+@everywhere t_fig5b = ([6, 7, 8, 9, 10, 11, 12, 13])*3600.0
+# Get SCM vertical grid
+@everywhere sim_names = ["Kumar_dc_init_m1"]
 sim_dir = string("Output.", sim_names[1],".00000")
 z_scm = get_profile(sim_dir, ["z_half"])
-yt_, yt_var_ = obs_LES(y_names[1], les_dir, ti[1], tf[1], z_scm = z_scm)
+# Initialize objectives
+@everywhere yt = zeros(0)
+yt_var_list = []
+
+yt_, yt_var_ = padeops_m_σ2(padeops_theta, padeops_z, padeops_t, z_scm, t_fig3)
 append!(yt, yt_)
 push!(yt_var_list, yt_var_)
-
-les_dir = string("/groups/esm/ilopezgo/Output.", sim_names[2],".iles128wCov")
-sim_dir = string("Output.", sim_names[2],".00000")
-z_scm = get_profile(sim_dir, ["z_half"])
-yt_, yt_var_ = obs_LES(y_names[2], les_dir, ti[2], tf[2], z_scm = z_scm)
-append!(yt, yt_)
-push!(yt_var_list, yt_var_)
-
-les_dir = string("/groups/esm/ilopezgo/Output.Soares.dry11")
-sim_dir = string("Output.", sim_names[3],".00000")
-z_scm = get_profile(sim_dir, ["z_half"])
-yt_, yt_var_ = obs_LES(y_names[3], les_dir, ti[3], tf[3], z_scm = z_scm)
-append!(yt, yt_)
-push!(yt_var_list, yt_var_)
-
-les_dir = string("/groups/esm/ilopezgo/Output.Bomex.may18")
-sim_dir = string("Output.", sim_names[4],".00000")
-z_scm = get_profile(sim_dir, ["z_half"])
-yt_, yt_var_ = obs_LES(y_names[4], les_dir, ti[4], tf[4], z_scm = z_scm)
+yt_, yt_var_ = padeops_m_σ2(padeops_uh, padeops_z, padeops_t, z_scm, t_fig5b)
 append!(yt, yt_)
 push!(yt_var_list, yt_var_)
 
@@ -105,11 +86,12 @@ for sim_covmat in yt_var_list
     vars = length(sim_covmat[1,:])
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = sim_covmat
     global vars_num = vars_num+vars
-    #println(det(sim_covmat))
 end
-println( det(yt_var))
 @everywhere yt_var = $yt_var
 @everywhere n_observables = length(yt)
+padeops_names = Array{String, 1}[]
+push!(padeops_names, ["theta_fig3", "uh_fig5b"])
+@everywhere padeops_names=$padeops_names
 
 # This is how many samples of the true data we have
 n_samples = 1
@@ -119,9 +101,8 @@ samples[1,:] = yt
 noise_level = 1.0
 Γy = noise_level^2 * (yt_var)
 μ_noise = zeros(length(yt))
-
 # We construct the observations object with the samples and the cov.
-truth = Obs(Array(samples'), Γy, y_names[1])
+truth = Obs(Array(samples'), Γy, padeops_names[1])
 @everywhere truth = $truth
 
 
@@ -140,6 +121,7 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 
 @everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
 @everywhere initial_params = construct_initial_ensemble(priors, N_ens)
+y_names = ["thetal_mean", "horizontal_vel"]
 precondition_ensemble!(Array(initial_params'), priors, param_names, y_names, ti, tf)
 @everywhere initial_params = $initial_params
 
