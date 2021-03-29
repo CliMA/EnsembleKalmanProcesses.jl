@@ -10,11 +10,9 @@ function run_SCAMPy(u::Array{FT, 1},
                     y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
                     scm_dir::String,
                     ti::Union{FT, Array{FT,1}},
-                    tf::Union{FT, Array{FT,1}},
+                    tf::Union{FT, Array{FT,1}} = nothing,
                     ) where {FT<:AbstractFloat}
-    #print("length(u) = ", length(u), "\n")
-    #print("length(u) = ", length(u'), "\n")
-    #print("length(u_names) = ", length(u_names), "\n")   
+ 
     exe_path = string(scm_dir, "call_SCAMPy.sh")
     sim_uuid  = u[1]
     for i in 2:length(u_names)
@@ -33,7 +31,11 @@ function run_SCAMPy(u::Array{FT, 1},
         sim_dir = sim_dirs[i]
         if length(ti) > 1
             ti_ = ti[i]
-            tf_ = tf[i]
+            if !isnothing(tf)
+                tf_ = tf[i]
+            else
+                tf_ = tf
+            end
         else
             ti_ = ti
             tf_ = tf
@@ -114,7 +116,7 @@ end
 function get_profile(sim_dir::String,
                      var_name::Array{String,1};
                      ti::Float64=0.0,
-                     tf::Float64=0.0,
+                     tf::Float64=nothing,
                      getFullHeights=false)
 
     if length(var_name) == 1 && occursin("z_half", var_name[1])
@@ -123,11 +125,12 @@ function get_profile(sim_dir::String,
         t = nc_fetch(sim_dir, "timeseries", "t")
         dt = t[2]-t[1]
         ti_diff, ti_index = findmin( broadcast(abs, t.-ti) )
-        tf_diff, tf_index = findmin( broadcast(abs, t.-tf) )
-        
+        if !isnothing(tf)
+            tf_diff, tf_index = findmin( broadcast(abs, t.-tf) )
+        end
         prof_vec = zeros(0)
         # If simulation does not contain values for ti or tf, return high value
-        if ti_diff > dt || tf_diff > dt
+        if ti_diff > dt
             for i in 1:length(var_name)
                 var_ = nc_fetch(sim_dir, "profiles", var_name[i])
                 append!(prof_vec, 1.0e4*ones(length(var_[:, 1])))
@@ -146,7 +149,11 @@ function get_profile(sim_dir::String,
                         var_ = var_.*rho_half
                     end
                 end
-                append!(prof_vec, mean(var_[:, ti_index:tf_index], dims=2))
+                if !isnothing(tf)
+                    append!(prof_vec, mean(var_[:, ti_index:tf_index], dims=2))
+                else
+                    append!(prof_vec, var_[:, ti_index])
+                end
             end
         end
     end
