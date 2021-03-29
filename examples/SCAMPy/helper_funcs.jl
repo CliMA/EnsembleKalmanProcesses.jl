@@ -10,7 +10,7 @@ function run_SCAMPy(u::Array{FT, 1},
                     y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
                     scm_dir::String,
                     ti::Union{FT, Array{FT,1}},
-                    tf::Union{FT, Array{FT,1}} = nothing,
+                    tf::Union{FT, Array{FT,1}, Nothing} = nothing,
                     ) where {FT<:AbstractFloat}
  
     exe_path = string(scm_dir, "call_SCAMPy.sh")
@@ -25,7 +25,8 @@ function run_SCAMPy(u::Array{FT, 1},
     sim_uuid = string(sim_uuid, ".txt")
     sim_dirs = readlines(sim_uuid)
     run(`rm $sim_uuid`)
-
+    
+    #if length(ti) != length(sim_dirs)
     y_scm = zeros(0)
     for i in 1:length(sim_dirs)
         sim_dir = sim_dirs[i]
@@ -116,7 +117,7 @@ end
 function get_profile(sim_dir::String,
                      var_name::Array{String,1};
                      ti::Float64=0.0,
-                     tf::Float64=nothing,
+                     tf=nothing,
                      getFullHeights=false)
 
     if length(var_name) == 1 && occursin("z_half", var_name[1])
@@ -163,7 +164,7 @@ end
 function get_timevar_profile(sim_dir::String,
                      var_name::Array{String,1};
                      ti::Float64=0.0,
-                     tf::Float64=0.0,
+                     tf=0.0,
                      getFullHeights=false,
                      z_scm::Union{Array{Float64, 1}, Nothing} = nothing)
 
@@ -303,8 +304,8 @@ the same prior.
 """
 function precondition_ensemble!(params::Array{FT, 2}, priors,
     unames::Vector{String}, y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-    ti::Union{FT, Array{FT,1}}, tf::Union{FT, Array{FT,1}};
-    lim::FT=1.0e3,) where {IT<:Int, FT}
+    ti::Union{FT, Array{FT,1}},
+    tf::Union{FT, Array{FT,1}, Nothing}=nothing, lim::FT=1.0e3,) where {IT<:Int, FT}
 
     N_ens = size(params)[1]
     scm_dir = "/home/ilopezgo/SCAMPy/"

@@ -121,7 +121,7 @@ truth = Obs(Array(samples'), Γy, padeops_names[1])
 
 @everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
 @everywhere initial_params = construct_initial_ensemble(priors, N_ens)
-y_names = ["thetal_mean", "horizontal_vel"]
+@everywhere y_names = ["thetal_mean", "horizontal_vel"]
 precondition_ensemble!(Array(initial_params'), priors, param_names, y_names, t_fig3)
 @everywhere initial_params = $initial_params
 
