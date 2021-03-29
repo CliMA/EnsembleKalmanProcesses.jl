@@ -26,29 +26,51 @@ function run_SCAMPy(u::Array{FT, 1},
     sim_dirs = readlines(sim_uuid)
     run(`rm $sim_uuid`)
     
-    #if length(ti) != length(sim_dirs)
     y_scm = zeros(0)
-    for i in 1:length(sim_dirs)
-        sim_dir = sim_dirs[i]
-        if length(ti) > 1
+    # For now it is assumed that if these
+    # do not coincide, there is only one
+    # simulation.
+    if length(ti) != length(sim_dirs)
+        @assert length(sim_dirs) == 1
+        for i in 1:length(ti)
+            sim_dir = sim_dirs[1]
             ti_ = ti[i]
             if !isnothing(tf)
                 tf_ = tf[i]
             else
                 tf_ = tf
             end
-        else
-            ti_ = ti
-            tf_ = tf
+            if typeof(y_names)==Array{Array{String,1},1}
+                y_names_ = y_names[i]
+            else
+                y_names_ = y_names
+            end
+            append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+            run(`rm -r $sim_dir`)
         end
+    else
+        for i in 1:length(sim_dirs)
+            sim_dir = sim_dirs[i]
+            if length(ti) > 1
+                ti_ = ti[i]
+                if !isnothing(tf)
+                    tf_ = tf[i]
+                else
+                    tf_ = tf
+                end
+            else
+                ti_ = ti
+                tf_ = tf
+            end
 
-        if typeof(y_names)==Array{Array{String,1},1}
-            y_names_ = y_names[i]
-        else
-            y_names_ = y_names
+            if typeof(y_names)==Array{Array{String,1},1}
+                y_names_ = y_names[i]
+            else
+                y_names_ = y_names
+            end
+            append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+            run(`rm -r $sim_dir`)
         end
-        append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
-        run(`rm -r $sim_dir`)
     end
 
     for i in eachindex(y_scm)
