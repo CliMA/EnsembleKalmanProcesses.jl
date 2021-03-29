@@ -8,7 +8,7 @@
 @everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 @everywhere using EnsembleKalmanProcesses.Observations
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
-include(joinpath(@__DIR__, "helper_funcs.jl"))
+@everywhere include(joinpath(@__DIR__, "helper_funcs.jl"))
 using JLD
 
 ###
@@ -129,8 +129,8 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-@everywhere N_ens = 5 # number of ensemble members
-@everywhere N_iter = 1 # number of EKI iterations.
+@everywhere N_ens = 10 # number of ensemble members
+@everywhere N_iter = 3 # number of EKI iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
 @everywhere constraints = [[no_constraint()], [no_constraint()],
@@ -140,15 +140,15 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 
 @everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
 @everywhere initial_params = construct_initial_ensemble(priors, N_ens)
-precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf)
+precondition_ensemble!(Array(initial_params'), priors, param_names, y_names, ti, tf)
 @everywhere initial_params = $initial_params
 
-@everywhere ekobj = EnsembleKalmanProcess(initial_params, yt_, yt_var_, Inversion()) 
+@everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, yt_var, Inversion()) 
 
 g_ens = zeros(N_ens, n_observables)
 
 @everywhere scm_dir = "/home/ilopezgo/SCAMPy/"
-@everywhere params_i = deepcopy(exp_transform(ekobj.u[end]))
+@everywhere params_i = deepcopy(exp_transform(get_u_final(ekobj)))
 
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
    y_names, scm_dir, ti, tf)
@@ -166,32 +166,31 @@ end
 for i in 1:N_iter
     # Note that the parameters are exp-transformed when used as input
     # to SCAMPy
-    @everywhere params_i = deepcopy(exp_transform(ekobj.u[end]))
-    @everywhere params_i = [params_i[i, :] for i in 1:size(params_i, 1)]
-    g_ens_arr = pmap(g_, params_i)
+    @everywhere params_i = deepcopy(exp_transform(get_u_final(ekobj)))
+    # @everywhere params_i = [params_i[i, :] for i in 1:size(params_i, 1)]
+    @everywhere params = [row[:] for row in eachrow(params_i')]
+    g_ens_arr = pmap(g_, params)
     println(string("\n\nEKI evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
       g_ens[j, :] = g_ens_arr[j]
     end
-    update_ensemble!(ekobj, g_ens)
+    update_ensemble!(ekobj, Array(g_ens') )
     println("\nEnsemble updated.\n")
-    println("\nEnsemble covariance det. for iteration ", size(ekobj.u)[1])
-    println(det(cov(deepcopy((ekobj.u[end])), dims=1)))
     # Save EKI information to file
     save( string(outdir_path,"/eki.jld"), "eki_u", ekobj.u, "eki_g", ekobj.g,
-        "truth_mean", ekobj.g_t, "truth_cov", ekobj.cov, "eki_err", ekobj.err)
+        "truth_mean", ekobj.obs_mean, "truth_cov", ekobj.obs_noise_cov, "eki_err", ekobj.err)
 end
 
 # Save EKI information to file
 save("eki.jld", "eki_u", ekobj.u, "eki_g", ekobj.g,
-        "truth_mean", ekobj.g_t, "truth_cov", ekobj.cov, "eki_err", ekobj.err)
+        "truth_mean", ekobj.obs_mean, "truth_cov", ekobj.obs_noise_cov, "eki_err", ekobj.err)
 
 # EKI results: Has the ensemble collapsed toward the truth? Store and analyze.
 println("\nEKI ensemble mean at last stage (original space):")
-println(mean(deepcopy(exp_transform(ekobj.u[end])), dims=1))
+println(mean(deepcopy(exp_transform(get_u_final(ekobj) )), dims=1))
 
 println("\nEnsemble covariance det. 1st iteration, transformed space.")
-println(det(cov(deepcopy((ekobj.u[1])), dims=1)))
+println(det(cov(deepcopy((get_u(ekobj, 1) )), dims=1)))
 
 println("\nEnsemble covariance det. last iteration, transformed space.")
-println(det(cov(deepcopy((ekobj.u[end])), dims=1)))
+println(det(cov(deepcopy((get_u_final(ekobj) )), dims=1)))

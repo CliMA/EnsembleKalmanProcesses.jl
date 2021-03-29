@@ -12,7 +12,9 @@ function run_SCAMPy(u::Array{FT, 1},
                     ti::Union{FT, Array{FT,1}},
                     tf::Union{FT, Array{FT,1}},
                     ) where {FT<:AbstractFloat}
-    
+    #print("length(u) = ", length(u), "\n")
+    #print("length(u) = ", length(u'), "\n")
+    #print("length(u_names) = ", length(u_names), "\n")   
     exe_path = string(scm_dir, "call_SCAMPy.sh")
     sim_uuid  = u[1]
     for i in 2:length(u_names)
