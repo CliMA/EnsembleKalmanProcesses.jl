@@ -328,7 +328,7 @@ the same prior.
 """
 function precondition_ensemble!(params::Array{FT, 2}, priors,
     unames::Vector{String}, y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-    ti::Union{FT, Array{FT,1}},
+    ti::Union{FT, Array{FT,1}};
     tf::Union{FT, Array{FT,1}, Nothing}=nothing, lim::FT=1.0e3,) where {IT<:Int, FT}
 
     scm_dir = "/home/ilopezgo/SCAMPy/"
@@ -343,7 +343,7 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
         println(string(length(unstable_param_inds), " unstable parameters found.
             Sampling new parameters from prior." ))
         new_params = construct_initial_ensemble(priors, length(unstable_param_inds))
-        precondition_ensemble!(new_params, priors, unames,
+        precondition_ensemble!(Array(new_params'), priors, unames,
             y_names, ti, tf=tf, lim=lim)
         params[unstable_param_inds, :] = new_params
     end
