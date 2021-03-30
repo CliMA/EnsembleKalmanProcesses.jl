@@ -24,7 +24,7 @@ using JLD
 
 # Assume lognormal priors for all parameters
 # Note: For the EDMF model to run, all parameters need to be nonnegative. 
-# The EKI update can result in violations of 
+# The EKp update can result in violations of 
 # these constraints - therefore, we perform CES in log space, i.e.,
 # (the parameters can then simply be obtained by exponentiating the final results). 
 
@@ -130,7 +130,7 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 ###
 
 @everywhere N_ens = 10 # number of ensemble members
-@everywhere N_iter = 3 # number of EKI iterations.
+@everywhere N_iter = 3 # number of EKp iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
 @everywhere constraints = [[no_constraint()], [no_constraint()],
@@ -161,7 +161,7 @@ catch e
     println("Output directory already exists. Output may be overwritten.")
 end
 
-# EKI iterations
+# EKP iterations
 @everywhere Δt = 1.0
 for i in 1:N_iter
     # Note that the parameters are exp-transformed when used as input
@@ -170,23 +170,19 @@ for i in 1:N_iter
     # @everywhere params_i = [params_i[i, :] for i in 1:size(params_i, 1)]
     @everywhere params = [row[:] for row in eachrow(params_i')]
     g_ens_arr = pmap(g_, params)
-    println(string("\n\nEKI evaluation ",i," finished. Updating ensemble ...\n"))
+    println(string("\n\nEKp evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
       g_ens[j, :] = g_ens_arr[j]
     end
     update_ensemble!(ekobj, Array(g_ens') )
     println("\nEnsemble updated.\n")
-    # Save EKI information to file
-    save( string(outdir_path,"/eki.jld"), "eki_u", ekobj.u, "eki_g", ekobj.g,
-        "truth_mean", ekobj.obs_mean, "truth_cov", ekobj.obs_noise_cov, "eki_err", ekobj.err)
+    # Save EKp information to file
+    save( string(outdir_path,"/ekp.jld"), "ekp_u", get_u(ekobj), "ekp_g", get_g(ekobj),
+        "truth_mean", ekobj.obs_mean, "truth_cov", ekobj.obs_noise_cov, "ekp_err", ekobj.err)
 end
 
-# Save EKI information to file
-save("eki.jld", "eki_u", ekobj.u, "eki_g", ekobj.g,
-        "truth_mean", ekobj.obs_mean, "truth_cov", ekobj.obs_noise_cov, "eki_err", ekobj.err)
-
-# EKI results: Has the ensemble collapsed toward the truth? Store and analyze.
-println("\nEKI ensemble mean at last stage (original space):")
+# EKp results: Has the ensemble collapsed toward the truth? Store and analyze.
+println("\nEKp ensemble mean at last stage (original space):")
 println(mean(deepcopy(exp_transform(get_u_final(ekobj) )), dims=1))
 
 println("\nEnsemble covariance det. 1st iteration, transformed space.")
