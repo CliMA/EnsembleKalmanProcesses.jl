@@ -12,7 +12,9 @@ function run_SCAMPy(u::Array{FT, 1},
                     ti::Union{FT, Array{FT,1}},
                     tf::Union{FT, Array{FT,1}, Nothing} = nothing,
                     ) where {FT<:AbstractFloat}
- 
+
+    # Check dimensionality
+    @assert length(u_names) == length(u)
     exe_path = string(scm_dir, "call_SCAMPy.sh")
     sim_uuid  = u[1]
     for i in 2:length(u_names)
@@ -27,9 +29,8 @@ function run_SCAMPy(u::Array{FT, 1},
     run(`rm $sim_uuid`)
     
     y_scm = zeros(0)
-    # For now it is assumed that if these
-    # do not coincide, there is only one
-    # simulation.
+    # For now it is assumed that if these do not coincide,
+    # there is only one simulation.
     if length(ti) != length(sim_dirs)
         @assert length(sim_dirs) == 1
         sim_dir = sim_dirs[1]
@@ -75,7 +76,7 @@ function run_SCAMPy(u::Array{FT, 1},
 
     for i in eachindex(y_scm)
         if isnan(y_scm[i])
-            y_scm[i] = 1.0e4
+            y_scm[i] = 1.0e5
         end
     end
 
@@ -146,11 +147,8 @@ function get_profile(sim_dir::String,
         prof_vec = nc_fetch(sim_dir, "profiles", var_name[1])
     else
         t = nc_fetch(sim_dir, "timeseries", "t")
-        if length(t) > 1
-            dt = abs(t[2]-t[1])
-        else
-            dt = 0.0
-        end
+        dt = length(t) > 1 ? abs(t[2]-t[1]) : 0.0
+        # Check that times are contained in simulation output
         ti_diff, ti_index = findmin( broadcast(abs, t.-ti) )
         if !isnothing(tf)
             tf_diff, tf_index = findmin( broadcast(abs, t.-tf) )
@@ -162,7 +160,7 @@ function get_profile(sim_dir::String,
                  "t[1] = ", t[1], "t[end] = ", t[end])
             for i in 1:length(var_name)
                 var_ = nc_fetch(sim_dir, "profiles", "z_half")
-                append!(prof_vec, 1.0e4*ones(length(var_[:])))
+                append!(prof_vec, 1.0e5*ones(length(var_[:])))
             end
         else
             for i in 1:length(var_name)
@@ -323,7 +321,7 @@ end
 
 """
     precondition_ensemble!(params::Array{FT, 2}, priors, 
-        unames::Vector{String}, ::Union{Array{String, 1}, Array{Array{String,1},1}}, 
+        param_names::Vector{String}, ::Union{Array{String, 1}, Array{Array{String,1},1}}, 
         ti::Union{FT, Array{FT,1}}, tf::Union{FT, Array{FT,1}};
         lim::FT=1.0e3,) where {IT<:Int, FT}
 
@@ -331,25 +329,33 @@ Substitute all unstable parameters by stable parameters drawn from
 the same prior.
 """
 function precondition_ensemble!(params::Array{FT, 2}, priors,
-    unames::Vector{String}, y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
+    param_names::Vector{String}, y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
     ti::Union{FT, Array{FT,1}};
-    tf::Union{FT, Array{FT,1}, Nothing}=nothing, lim::FT=1.0e3,) where {IT<:Int, FT}
+    tf::Union{FT, Array{FT,1}, Nothing}=nothing, lim::FT=1.0e4,) where {IT<:Int, FT}
+
+    # Check dimensionality
+    @assert length(param_names) == size(params, 1)
+    @assert length(priors) == size(params, 1)
 
     scm_dir = "/home/ilopezgo/SCAMPy/"
     params_i = deepcopy(exp.(params))
-    params_i = [params_i[i, :] for i in 1:size(params_i, 1)]
-    g_(x::Array{Float64,1}) = run_SCAMPy(x, unames, y_names, scm_dir, ti, tf)
-    g_ens_arr = pmap(g_, params_i)
-    unstable_param_inds = findall(x->x>50, count.(x->x>lim, g_ens_arr))
-    println(string("Unstable parameter indices: ", unstable_param_inds))
+    g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names, y_names, scm_dir, ti, tf)
+    params_i = [row[:] for row in eachrow(params_i')]
+    N_ens = size(params_i, 1)
+    g_ens_arr = pmap(g_, params_i) # [N_ens N_output]
+    @assert size(g_ens_arr, 1) == N_ens
+    N_out = size(g_ens_arr, 2)
+    # If more than 1/4 of outputs are over limit lim, deemed as unstable simulation
+    unstable_point_inds = findall(x->x>Integer(floor(N_out/4)), count.(x->x>lim, g_ens_arr))
+    println(string("Unstable parameter indices: ", unstable_point_inds))
     # Recursively eliminate all unstable parameters
-    if !isempty(unstable_param_inds)
-        println(string(length(unstable_param_inds), " unstable parameters found.
+    if !isempty(unstable_point_inds)
+        println(string(length(unstable_point_inds), " unstable parameters found.
             Sampling new parameters from prior." ))
-        new_params = construct_initial_ensemble(priors, length(unstable_param_inds))
-        precondition_ensemble!(Array(new_params'), priors, unames,
+        new_params = construct_initial_ensemble(priors, length(unstable_point_inds))
+        precondition_ensemble!(new_params, priors, param_names,
             y_names, ti, tf=tf, lim=lim)
-        params[unstable_param_inds, :] = new_params
+        params[:, unstable_point_inds] = new_params
     end
     println("\nPreconditioning finished.")
     return
