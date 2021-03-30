@@ -335,7 +335,6 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
 
     # Check dimensionality
     @assert length(param_names) == size(params, 1)
-    @assert length(priors) == size(params, 1)
 
     scm_dir = "/home/ilopezgo/SCAMPy/"
     params_i = deepcopy(exp.(params))
