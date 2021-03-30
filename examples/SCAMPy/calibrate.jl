@@ -140,7 +140,7 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 
 @everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
 @everywhere initial_params = construct_initial_ensemble(priors, N_ens)
-precondition_ensemble!(Array(initial_params'), priors, param_names, y_names, ti, tf)
+precondition_ensemble!(Array(initial_params'), priors, param_names, y_names, ti, tf=tf)
 @everywhere initial_params = $initial_params
 
 @everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, yt_var, Inversion()) 
@@ -153,7 +153,7 @@ g_ens = zeros(N_ens, n_observables)
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
    y_names, scm_dir, ti, tf)
 
-outdir_path = string("results_p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
+outdir_path = string("results_pycles_p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
 command = `mkdir $outdir_path`
 try
     run(command)
