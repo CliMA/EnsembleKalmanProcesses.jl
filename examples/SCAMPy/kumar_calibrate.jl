@@ -11,6 +11,7 @@
 @everywhere include(joinpath(@__DIR__, "helper_funcs.jl"))
 using JLD
 @everywhere using NPZ
+
 ###
 ###  Define the parameters and their priors
 ###
@@ -24,7 +25,7 @@ using JLD
 
 # Assume lognormal priors for all parameters
 # Note: For the EDMF model to run, all parameters need to be nonnegative. 
-# The EKI update can result in violations of 
+# The ekp update can result in violations of 
 # these constraints - therefore, we perform CES in log space, i.e.,
 # (the parameters can then simply be obtained by exponentiating the final results). 
 
@@ -62,8 +63,9 @@ prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
 @everywhere padeops_uh = npzread( string(data_dir,"wind_speed_padeops.npy") )
 
 # Times on which to interpolate
-@everywhere t_fig3 = ([4, 6, 8, 10, 12, 15.5, 17, 18.5, 20, 21.5])*3600.0
-@everywhere t_fig5b = ([6, 7, 8, 9, 10, 11, 12, 13])*3600.0
+@everywhere t_fig3 = ([4, 8, 12, 17, 20])*3600.0
+# @everywhere t_fig3 = ([4, 6, 8, 10, 12, 15.5, 17, 18.5, 20, 21.5])*3600.0
+# @everywhere t_fig5b = ([6, 7, 8, 9, 10, 11, 12, 13])*3600.0
 # Get SCM vertical grid
 @everywhere sim_names = ["Kumar_dc_init_m1"]
 sim_dir = string("Output.", sim_names[1],".00000")
@@ -91,7 +93,7 @@ yt_var = yt_var + Matrix(0.1I, size(yt_var)[1], size(yt_var)[2]) #Uncertainty in
 @everywhere yt_var = $yt_var
 @everywhere n_observables = length(yt)
 padeops_names = Array{String, 1}[]
-push!(padeops_names, ["theta_fig3", "uh_fig5b"])
+push!(padeops_names, ["theta_fig3", "uh"])
 @everywhere padeops_names=$padeops_names
 
 # This is how many samples of the true data we have
@@ -111,8 +113,8 @@ truth = Obs(Array(samples'), Γy, padeops_names[1])
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-@everywhere N_ens = 20 # number of ensemble members
-@everywhere N_iter = 10 # number of EKI iterations.
+@everywhere N_ens = 10 # number of ensemble members
+@everywhere N_iter = 3 # number of ekp iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
 @everywhere constraints = [[no_constraint()], [no_constraint()],
@@ -135,7 +137,7 @@ g_ens = zeros(N_ens, n_observables)
 
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names, y_names, scm_dir, t_fig3)
 
-outdir_path = string("results_p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
+outdir_path = string("results_kumar_p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
 command = `mkdir $outdir_path`
 try
     run(command)
@@ -143,32 +145,27 @@ catch e
     println("Output directory already exists. Output may be overwritten.")
 end
 
-# EKI iterations
+# ekp iterations
 @everywhere Δt = 1.0
 for i in 1:N_iter
     # Note that the parameters are exp-transformed when used as input
     # to SCAMPy
     @everywhere params_i = deepcopy(exp_transform(get_u_final(ekobj)))
-    # @everywhere params_i = [params_i[i, :] for i in 1:size(params_i, 1)]
     @everywhere params = [row[:] for row in eachrow(params_i')]
     g_ens_arr = pmap(g_, params)
-    println(string("\n\nEKI evaluation ",i," finished. Updating ensemble ...\n"))
+    println(string("\n\nekp evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
       g_ens[j, :] = g_ens_arr[j]
     end
     update_ensemble!(ekobj, Array(g_ens') )
     println("\nEnsemble updated.\n")
-    # Save EKI information to file
-    save( string(outdir_path,"/eki.jld"), "eki_u", ekobj.u, "eki_g", ekobj.g,
-        "truth_mean", ekobj.obs_mean, "truth_cov", ekobj.obs_noise_cov, "eki_err", ekobj.err)
+    # Save ekp information to file
+    save( string(outdir_path,"/ekp.jld"), "ekp_u", get_u(ekobj), "ekp_g", get_g(ekobj),
+        "truth_mean", ekobj.obs_mean, "truth_cov", ekobj.obs_noise_cov, "ekp_err", ekobj.err)
 end
 
-# Save EKI information to file
-save("eki.jld", "eki_u", ekobj.u, "eki_g", ekobj.g,
-        "truth_mean", ekobj.obs_mean, "truth_cov", ekobj.obs_noise_cov, "eki_err", ekobj.err)
-
-# EKI results: Has the ensemble collapsed toward the truth? Store and analyze.
-println("\nEKI ensemble mean at last stage (original space):")
+# ekp results: Has the ensemble collapsed toward the truth? Store and analyze.
+println("\nekp ensemble mean at last stage (original space):")
 println(mean(deepcopy(exp_transform(get_u_final(ekobj) )), dims=1))
 
 println("\nEnsemble covariance det. 1st iteration, transformed space.")
