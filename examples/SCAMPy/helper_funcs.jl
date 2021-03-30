@@ -132,9 +132,10 @@ function padeops_m_σ2(padeops_data,
                     z_scm,
                     t_scm,
                     dims_ = 1)
+    padeops_snapshot = interp_padeops(padeops_data,padeops_z,padeops_t,z_scm, t_scm)
     # Compute variance along axis dims_
     padeops_var = cov(padeops_data, dims=dims_)
-    return interp_padeops(padeops_data,padeops_z,padeops_t,z_scm, t_scm), padeops_var
+    return padeops_snapshot, padeops_var
 end
 
 function get_profile(sim_dir::String,

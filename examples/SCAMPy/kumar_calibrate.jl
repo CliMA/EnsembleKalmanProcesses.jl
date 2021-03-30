@@ -57,8 +57,8 @@ prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
 ###
 # This is the true value of the observables (e.g. LES horizontal mean)
 @everywhere data_dir = "/groups/esm/ilopezgo/padeops_data/"
-@everywhere padeops_t = npzread( string(data_dir,"time_padeops.npy") )*3600.0
-@everywhere padeops_z = npzread( string(data_dir,"zCell_padeops.npy") )*1000.0
+@everywhere padeops_t = npzread( string(data_dir,"time_padeops.npy") )*3600.0 # s
+@everywhere padeops_z = npzread( string(data_dir,"zCell_padeops.npy") )*1000.0 # m
 @everywhere padeops_theta = npzread( string(data_dir,"potT_padeops.npy") )
 @everywhere padeops_uh = npzread( string(data_dir,"wind_speed_padeops.npy") )
 
@@ -74,12 +74,13 @@ z_scm = get_profile(sim_dir, ["z_half"])
 @everywhere yt = zeros(0)
 yt_var_list = []
 
-yt_, yt_var_ = padeops_m_σ2(padeops_theta, padeops_z, padeops_t, z_scm, t_fig3)
-append!(yt, yt_)
-push!(yt_var_list, yt_var_)
-yt_, yt_var_ = padeops_m_σ2(padeops_uh, padeops_z, padeops_t, z_scm, t_fig3)
-append!(yt, yt_)
-push!(yt_var_list, yt_var_)
+for t_ in t_fig3
+    yt_, yt_var_ = padeops_m_σ2(padeops_theta, padeops_z, padeops_t, z_scm, t_)
+    append!(yt, yt_)
+    push!(yt_var_list, yt_var_)
+    yt_, yt_var_ = padeops_m_σ2(padeops_uh, padeops_z, padeops_t, z_scm, t_)
+    append!(yt, yt_)
+    push!(yt_var_list, yt_var_)
 
 @everywhere yt = $yt
 yt_var = zeros(length(yt), length(yt))
