@@ -140,7 +140,7 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 
 @everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
 @everywhere initial_params = construct_initial_ensemble(priors, N_ens)
-precondition_ensemble!(Array(initial_params'), priors, param_names, y_names, ti, tf)
+precondition_ensemble!( initial_params, priors, param_names, y_names, ti, tf)
 @everywhere initial_params = $initial_params
 
 @everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, yt_var, Inversion()) 
@@ -148,8 +148,6 @@ precondition_ensemble!(Array(initial_params'), priors, param_names, y_names, ti,
 g_ens = zeros(N_ens, n_observables)
 
 @everywhere scm_dir = "/home/ilopezgo/SCAMPy/"
-@everywhere params_i = deepcopy(exp_transform(get_u_final(ekobj)))
-
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
    y_names, scm_dir, ti, tf)
 

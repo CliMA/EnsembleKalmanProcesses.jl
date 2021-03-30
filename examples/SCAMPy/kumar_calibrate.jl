@@ -125,19 +125,17 @@ truth = Obs(Array(samples'), Γy, padeops_names[1])
 @everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
 @everywhere initial_params = construct_initial_ensemble(priors, N_ens)
 @everywhere y_names = ["thetal_mean", "horizontal_vel"]
-precondition_ensemble!( Array(initial_params'), priors, param_names, y_names, t_fig3)
+precondition_ensemble!(initial_params, priors, param_names, y_names, t_fig3)
 @everywhere initial_params = $initial_params
 
 @everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, yt_var, Inversion()) 
 
 g_ens = zeros(N_ens, n_observables)
-
 @everywhere scm_dir = "/home/ilopezgo/SCAMPy/"
-@everywhere params_i = deepcopy(exp_transform(get_u_final(ekobj)))
-
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names, y_names, scm_dir, t_fig3)
 
-outdir_path = string("results_kumar_p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
+outdir_path = string("results_kumar_p", n_param,"_n", noise_level,"_e",
+    N_ens, "_i", N_iter, "_d", N_yt)
 command = `mkdir $outdir_path`
 try
     run(command)
