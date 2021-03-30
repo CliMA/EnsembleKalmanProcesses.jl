@@ -128,6 +128,10 @@ truth = Obs(Array(samples'), Γy, padeops_names[1])
 precondition_ensemble!(initial_params, priors, param_names, y_names, t_fig3)
 @everywhere initial_params = $initial_params
 
+# Check dimensionality
+@everywhere N_par_, N_ens_ = size(initial_params)
+@assert N_par_ == length(constraints)
+@assert N_ens == N_ens_
 @everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, yt_var, Inversion()) 
 
 g_ens = zeros(N_ens, n_observables)
