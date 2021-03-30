@@ -32,15 +32,15 @@ using JLD
 # Prior: Log-normal in original space defined by mean and std
 logmeans = zeros(n_param)
 log_stds = zeros(n_param)
-logmeans[1], log_stds[1] = logmean_and_logstd(0.2, 0.2)
-logmeans[2], log_stds[2] = logmean_and_logstd(0.4, 0.2)
+logmeans[1], log_stds[1] = logmean_and_logstd(0.3, 0.2)
+logmeans[2], log_stds[2] = logmean_and_logstd(0.3, 0.2)
 logmeans[3], log_stds[3] = logmean_and_logstd(2.0, 1.0)
-logmeans[4], log_stds[4] = logmean_and_logstd(0.2, 0.2)
+logmeans[4], log_stds[4] = logmean_and_logstd(0.4, 0.2)
 logmeans[5], log_stds[5] = logmean_and_logstd(0.2, 0.2)
 logmeans[6], log_stds[6] = logmean_and_logstd(0.2, 0.2)
 logmeans[7], log_stds[7] = logmean_and_logstd(0.2, 0.2)
 logmeans[8], log_stds[8] = logmean_and_logstd(8.0, 1.0)
-logmeans[9], log_stds[9] = logmean_and_logstd(0.2, 0.2)
+logmeans[9], log_stds[9] = logmean_and_logstd(0.4, 0.2)
 prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
                         Parameterized(Normal(logmeans[2], log_stds[2])),
                         Parameterized(Normal(logmeans[3], log_stds[3])),
@@ -63,7 +63,7 @@ prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
 @everywhere padeops_uh = npzread( string(data_dir,"wind_speed_padeops.npy") )
 
 # Times on which to interpolate
-@everywhere t_fig3 = ([4, 8, 12, 17, 20])*3600.0
+@everywhere t_fig3 = ([4, 12, 20])*3600.0
 # @everywhere t_fig3 = ([4, 6, 8, 10, 12, 15.5, 17, 18.5, 20, 21.5])*3600.0
 # @everywhere t_fig5b = ([6, 7, 8, 9, 10, 11, 12, 13])*3600.0
 # Get SCM vertical grid
@@ -89,7 +89,7 @@ for sim_covmat in yt_var_list
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = sim_covmat
     global vars_num = vars_num+vars
 end
-yt_var = yt_var + Matrix(0.1I, size(yt_var)[1], size(yt_var)[2]) #Uncertainty inflation
+yt_var = yt_var + Matrix(0.01I, size(yt_var)[1], size(yt_var)[2]) #Uncertainty inflation
 @everywhere yt_var = $yt_var
 @everywhere n_observables = length(yt)
 padeops_names = Array{String, 1}[]

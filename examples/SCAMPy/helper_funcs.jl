@@ -146,7 +146,11 @@ function get_profile(sim_dir::String,
         prof_vec = nc_fetch(sim_dir, "profiles", var_name[1])
     else
         t = nc_fetch(sim_dir, "timeseries", "t")
-        dt = abs(t[2]-t[1])
+        if length(t) > 1
+            dt = abs(t[2]-t[1])
+        else
+            dt = 0.0
+        end
         ti_diff, ti_index = findmin( broadcast(abs, t.-ti) )
         if !isnothing(tf)
             tf_diff, tf_index = findmin( broadcast(abs, t.-tf) )
