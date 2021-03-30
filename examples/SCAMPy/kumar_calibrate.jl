@@ -87,6 +87,7 @@ for sim_covmat in yt_var_list
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = sim_covmat
     global vars_num = vars_num+vars
 end
+yt_var = yt_var + Matrix(0.1I, size(yt_var)[1], size(yt_var)[2]) #Uncertainty inflation
 @everywhere yt_var = $yt_var
 @everywhere n_observables = length(yt)
 padeops_names = Array{String, 1}[]
@@ -110,8 +111,8 @@ truth = Obs(Array(samples'), Γy, padeops_names[1])
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-@everywhere N_ens = 10 # number of ensemble members
-@everywhere N_iter = 3 # number of EKI iterations.
+@everywhere N_ens = 20 # number of ensemble members
+@everywhere N_iter = 10 # number of EKI iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
 @everywhere constraints = [[no_constraint()], [no_constraint()],
@@ -132,8 +133,7 @@ g_ens = zeros(N_ens, n_observables)
 @everywhere scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere params_i = deepcopy(exp_transform(get_u_final(ekobj)))
 
-@everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
-   y_names, scm_dir, t_fig3)
+@everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names, y_names, scm_dir, t_fig3)
 
 outdir_path = string("results_p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
 command = `mkdir $outdir_path`

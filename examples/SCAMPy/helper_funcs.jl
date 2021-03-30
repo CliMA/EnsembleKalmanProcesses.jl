@@ -32,8 +32,8 @@ function run_SCAMPy(u::Array{FT, 1},
     # simulation.
     if length(ti) != length(sim_dirs)
         @assert length(sim_dirs) == 1
+        sim_dir = sim_dirs[1]
         for i in 1:length(ti)
-            sim_dir = sim_dirs[1]
             ti_ = ti[i]
             if !isnothing(tf)
                 tf_ = tf[i]
@@ -46,8 +46,8 @@ function run_SCAMPy(u::Array{FT, 1},
                 y_names_ = y_names
             end
             append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
-            run(`rm -r $sim_dir`)
         end
+        run(`rm -r $sim_dir`)
     else
         for i in 1:length(sim_dirs)
             sim_dir = sim_dirs[i]
@@ -146,7 +146,7 @@ function get_profile(sim_dir::String,
         prof_vec = nc_fetch(sim_dir, "profiles", var_name[1])
     else
         t = nc_fetch(sim_dir, "timeseries", "t")
-        dt = t[2]-t[1]
+        dt = abs(t[2]-t[1])
         ti_diff, ti_index = findmin( broadcast(abs, t.-ti) )
         if !isnothing(tf)
             tf_diff, tf_index = findmin( broadcast(abs, t.-tf) )
@@ -154,9 +154,11 @@ function get_profile(sim_dir::String,
         prof_vec = zeros(0)
         # If simulation does not contain values for ti or tf, return high value
         if ti_diff > dt
+            println("ti_diff > dt ", "ti_diff = ", ti_diff, "dt = ", dt, "ti = ", ti,
+                 "t[1] = ", t[1], "t[end] = ", t[end])
             for i in 1:length(var_name)
-                var_ = nc_fetch(sim_dir, "profiles", var_name[i])
-                append!(prof_vec, 1.0e4*ones(length(var_[:, 1])))
+                var_ = nc_fetch(sim_dir, "profiles", "z_half")
+                append!(prof_vec, 1.0e4*ones(length(var_[:])))
             end
         else
             for i in 1:length(var_name)
@@ -329,14 +331,11 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
     ti::Union{FT, Array{FT,1}},
     tf::Union{FT, Array{FT,1}, Nothing}=nothing, lim::FT=1.0e3,) where {IT<:Int, FT}
 
-    N_ens = size(params)[1]
     scm_dir = "/home/ilopezgo/SCAMPy/"
     params_i = deepcopy(exp.(params))
     params_i = [params_i[i, :] for i in 1:size(params_i, 1)]
-    g_(x::Array{Float64,1}) = run_SCAMPy(x, unames,
-       y_names, scm_dir, ti, tf)
+    g_(x::Array{Float64,1}) = run_SCAMPy(x, unames, y_names, scm_dir, ti, tf)
     g_ens_arr = pmap(g_, params_i)
-    N_obs = length(g_ens_arr[1])
     unstable_param_inds = findall(x->x>50, count.(x->x>lim, g_ens_arr))
     println(string("Unstable parameter indices: ", unstable_param_inds))
     # Recursively eliminate all unstable parameters
@@ -345,7 +344,7 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
             Sampling new parameters from prior." ))
         new_params = construct_initial_ensemble(priors, length(unstable_param_inds))
         precondition_ensemble!(new_params, priors, unames,
-            y_names, ti, tf, lim=lim)
+            y_names, ti, tf=tf, lim=lim)
         params[unstable_param_inds, :] = new_params
     end
     println("\nPreconditioning finished.")
