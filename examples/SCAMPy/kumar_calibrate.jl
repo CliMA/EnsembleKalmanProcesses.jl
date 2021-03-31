@@ -81,6 +81,7 @@ for t_ in t_fig3
     yt_, yt_var_ = padeops_m_σ2(padeops_uh, padeops_z, padeops_t, z_scm, t_)
     append!(yt, yt_)
     push!(yt_var_list, yt_var_)
+end
 
 @everywhere yt = $yt
 yt_var = zeros(length(yt), length(yt))
@@ -114,8 +115,8 @@ truth = Obs(Array(samples'), Γy, padeops_names[1])
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-@everywhere N_ens = 10 # number of ensemble members
-@everywhere N_iter = 3 # number of ekp iterations.
+@everywhere N_ens = 50 # number of ensemble members
+@everywhere N_iter = 10 # number of ekp iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
 @everywhere constraints = [[no_constraint()], [no_constraint()],
