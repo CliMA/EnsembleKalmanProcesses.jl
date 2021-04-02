@@ -158,4 +158,63 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     # algorithm employed still does not include the correction term for finite-sized
     # ensembles.
     @test abs(sum(diag(posterior_cov_inv\cov(get_u_final(eksobj),dims=2))) - n_par) > 1e-5
+
+
+
+    ###
+    ###  Calibrate (3): Unscented Kalman Inversion
+    ###
+
+    N_iter = 20 # number of UKI iterations
+    α_reg =  1.0
+    update_freq = 0
+    process = Unscented(prior_mean, prior_cov, length(y_star),  α_reg, update_freq)
+    ukiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(y_star, Γy, process)
+
+    # UKI iterations
+    params_i_vec = []
+    g_ens_vec = []
+    for i in 1:N_iter
+        params_i = get_u_final(ukiobj)
+        push!(params_i_vec,params_i)
+        g_ens = G(params_i)
+        push!(g_ens_vec, g_ens)
+        if i == 1
+            g_ens_t = permutedims(g_ens, (2,1))
+            @test_throws DimensionMismatch EnsembleKalmanProcessModule.update_ensemble!(ukiobj, g_ens_t)
+        end
+        EnsembleKalmanProcessModule.update_ensemble!(ukiobj, g_ens)
+    end
+    push!(params_i_vec,get_u_final(ukiobj))
+    
+    @test get_u_prior(ukiobj) == params_i_vec[1]
+    @test get_u(ukiobj) == params_i_vec
+    @test get_g(ukiobj) == g_ens_vec
+    @test get_g_final(ukiobj) == g_ens_vec[end]
+    @test get_error(ukiobj) == ukiobj.err
+    
+    # UKI results: Test if ensemble has collapsed toward the true parameter 
+    # values
+    uki_final_result = get_u_mean_final(ukiobj)
+    @test norm(u_star - uki_final_result) < 0.5
+
+    if TEST_PLOT_OUTPUT
+        gr()
+        θ_mean_arr = hcat(ukiobj.process.u_mean...)
+        N_θ = length(ukiobj.process.u_mean[1])
+        θθ_std_arr = zeros(Float64, (N_θ, N_iter+1))
+        for i = 1:N_iter+1
+            for j = 1:N_θ
+                θθ_std_arr[j, i] = sqrt(ukiobj.process.uu_cov[i][j,j])
+            end
+        end
+
+        ites = Array(LinRange(1, N_iter+1, N_iter+1))
+        p = plot(ites,grid=false, θ_mean_arr[1,:], yerror=3.0*θθ_std_arr[1,:],  label="u1")
+        plot!(ites, fill(u_star[1], N_iter+1), linestyle=:dash, linecolor=:grey,label=nothing)
+        plot!(ites,grid=false, θ_mean_arr[2,:], yerror=3.0*θθ_std_arr[2,:], label="u2", xaxis="Iterations")
+        plot!(ites, fill(u_star[2], N_iter+1), linestyle=:dash, linecolor=:grey,label=nothing)
+        savefig(p, "UKI_test.png")
+    end
+
 end
