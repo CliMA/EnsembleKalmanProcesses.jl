@@ -17,6 +17,7 @@ pages = [
     "Home" => "index.md",
     "Installation instructions" => "installation_instructions.md",
     "Prior distributions" => "parameter_distributions.md",
+    "Observations" => "observations.md",
     "API" => api,
 ]
 
