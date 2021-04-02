@@ -16,6 +16,7 @@ api = ["EnsembleKalmanProcessModule" => "API/EnsembleKalmanProcessModule.md",
 pages = [
     "Home" => "index.md",
     "Installation instructions" => "installation_instructions.md",
+    "Prior distributions" => "parameter_distributions.md",
     "API" => api,
 ]
 
