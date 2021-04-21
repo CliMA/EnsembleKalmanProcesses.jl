@@ -193,7 +193,8 @@ function get_timevar_profile(sim_dir::String,
                      ti::Float64=0.0,
                      tf=0.0,
                      getFullHeights=false,
-                     z_scm::Union{Array{Float64, 1}, Nothing} = nothing)
+                     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
+                     var_cond = False)
 
     t = nc_fetch(sim_dir, "timeseries", "t")
     dt = t[2]-t[1]
@@ -201,7 +202,6 @@ function get_timevar_profile(sim_dir::String,
     tf_diff, tf_index = findmin( broadcast(abs, t.-tf) )
     prof_vec = zeros(0, length(ti_index:tf_index))
 
-    # If simulation does not contain values for ti or tf, return high value
     for i in 1:length(var_name)
         var_ = nc_fetch(sim_dir, "profiles", var_name[i])
         # LES vertical fluxes are per volume, not mass
@@ -228,19 +228,19 @@ function get_timevar_profile(sim_dir::String,
             prof_vec_zscm = cat(prof_vec_zscm,
                 prof_vec_itp(z_scm, 1:tf_index-ti_index+1), dims=1)
         end
-        # Get correlation matrix, substitute NaNs by zeros
-        #cov_mat = cor(prof_vec_zscm, dims=2)
-        #cov_mat[findall(x->isnan(x), cov_mat)] .= 0.0
+
         cov_mat = cov(prof_vec_zscm, dims=2)
-        for i in 1:num_outputs
-            #cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] = (
-            #    cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] .* sqrt(maxvar_vec[i]) )
-            #cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] = (
-            #    cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] .* sqrt(maxvar_vec[i]) )
-            cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), 1 + length(z_scm)*(i-1) : i*length(z_scm)] = (
-               cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), 1 + length(z_scm)*(i-1) : i*length(z_scm)]
-               - Diagonal(cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), 1 + length(z_scm)*(i-1) : i*length(z_scm)])
-               + maxvar_vec[i]*Diagonal(ones(length(z_scm), length(z_scm))))
+        if var_cond
+            for i in 1:num_outputs
+                #cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] = (
+                #    cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] .* sqrt(maxvar_vec[i]) )
+                #cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] = (
+                #    cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] .* sqrt(maxvar_vec[i]) )
+                cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), 1 + length(z_scm)*(i-1) : i*length(z_scm)] = (
+                   cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), 1 + length(z_scm)*(i-1) : i*length(z_scm)]
+                   - Diagonal(cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), 1 + length(z_scm)*(i-1) : i*length(z_scm)])
+                   + maxvar_vec[i]*Diagonal(ones(length(z_scm), length(z_scm))))
+            end
         end
     else
         cov_mat = cov(prof_vec, dims=2)
