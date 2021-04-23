@@ -88,12 +88,15 @@ function obs_LES(y_names::Array{String, 1},
                     ti::Float64,
                     tf::Float64;
                     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
+                    normalize = false,
                     ) where {FT<:AbstractFloat}
     
     y_names_les = get_les_names(y_names, sim_dir)
+    y_tvar, maxvar_vec = get_timevar_profile(sim_dir, y_names_les,
+        ti = ti, tf = tf, z_scm=z_scm, normalize=normalize)
     y_highres = get_profile(sim_dir, y_names_les, ti = ti, tf = tf)
-    y_tvar = get_timevar_profile(sim_dir, y_names_les,
-        ti = ti, tf = tf, z_scm=z_scm)
+    if normalize
+        y_highres = normalize_profile(y_highres, y_names, maxvar_vec)
     if !isnothing(z_scm)
         y_ = zeros(0)
         z_les = get_profile(sim_dir, ["z_half"])
@@ -108,6 +111,21 @@ function obs_LES(y_names::Array{String, 1},
         y_ = y_highres
     end
     return y_, y_tvar
+end
+
+function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6)
+    eig = eigen(y_var)
+    eigvals, eigvecs = eig; # eigvecs is matrix with eigvecs as cols
+    # Get index of leading eigenvalues
+    leading_eigs = findall(>(allowed_var_loss), eigvals/maximum(eigvals))
+    P_pca = eigvecs[:, leading_eigs]
+    λ_pca = eigvals[leading_eigs]
+    # Check correct PCA projection
+    @assert Diagonal(λ_pca) ≈ P_pca'*y_var*P_pca
+    # Project mean
+    y_pca = P_pca'*y_mean
+    y_var_pca = Diagonal(λ_pca)
+    return y_pca, y_var_pca
 end
 
 function interp_padeops(padeops_data,
@@ -188,13 +206,23 @@ function get_profile(sim_dir::String,
     return prof_vec 
 end
 
+function normalize_profile(profile, var_name, var_vec)
+    prof_vec = deepcopy(profile)
+    dim_variable = Integer(length(profile)/length(var_name))
+    for i in 1:length(var_name)
+        prof_vec[dim_variable*(i-1)+1:dim_variable*i] =
+            prof_vec[dim_variable*(i-1)+1:dim_variable*i] ./ sqrt(var_vec[i])
+    end
+    return prof_vec 
+end
+
 function get_timevar_profile(sim_dir::String,
                      var_name::Array{String,1};
                      ti::Float64=0.0,
                      tf=0.0,
                      getFullHeights=false,
                      z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
-                     var_cond=false)
+                     normalize=false)
 
     t = nc_fetch(sim_dir, "timeseries", "t")
     dt = t[2]-t[1]
@@ -230,22 +258,18 @@ function get_timevar_profile(sim_dir::String,
         end
 
         cov_mat = cov(prof_vec_zscm, dims=2)
-        if var_cond
+        if normalize
             for i in 1:num_outputs
-                #cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] = (
-                #    cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] .* sqrt(maxvar_vec[i]) )
-                #cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] = (
-                #    cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] .* sqrt(maxvar_vec[i]) )
-                cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), 1 + length(z_scm)*(i-1) : i*length(z_scm)] = (
-                   cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), 1 + length(z_scm)*(i-1) : i*length(z_scm)]
-                   - Diagonal(cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), 1 + length(z_scm)*(i-1) : i*length(z_scm)])
-                   + maxvar_vec[i]*Diagonal(ones(length(z_scm), length(z_scm))))
+                cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] = (
+                   cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] ./ sqrt(maxvar_vec[i]) )
+                cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] = (
+                   cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] ./ sqrt(maxvar_vec[i]) )
             end
         end
     else
         cov_mat = cov(prof_vec, dims=2)
     end
-    return cov_mat
+    return cov_mat, maxvar_vec
 end
 
 function get_les_names(scm_y_names::Array{String,1}, sim_dir::String)
