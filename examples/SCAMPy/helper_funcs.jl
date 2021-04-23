@@ -97,6 +97,7 @@ function obs_LES(y_names::Array{String, 1},
     y_highres = get_profile(sim_dir, y_names_les, ti = ti, tf = tf)
     if normalize
         y_highres = normalize_profile(y_highres, y_names, maxvar_vec)
+    end
     if !isnothing(z_scm)
         y_ = zeros(0)
         z_les = get_profile(sim_dir, ["z_half"])

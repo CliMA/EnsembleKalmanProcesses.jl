@@ -36,7 +36,7 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
 for i in range(0,1,length=2)
     normalize = Bool(i)
-    suffix = normalize ? "_normalized" : "" 
+    suffix = normalize ? "_normalized" : "_wscales" 
 
     yt = zeros(0)
     yt_var_list = []
@@ -53,6 +53,7 @@ for i in range(0,1,length=2)
     yt_pca, yt_var_pca = obs_PCA(yt_, yt_var_)
     append!(yt_pca_list, yt_pca)
     push!(yt_pca_var_list, yt_var_pca)
+    @assert length(yt_pca) == length(yt_var_pca[1,:])
 
     les_dir = string("/groups/esm/ilopezgo/Output.", sim_names[2],".iles128wCov")
     sim_dir = string("Output.", sim_names[2],".00000")
@@ -64,6 +65,7 @@ for i in range(0,1,length=2)
     yt_pca, yt_var_pca = obs_PCA(yt_, yt_var_)
     append!(yt_pca_list, yt_pca)
     push!(yt_pca_var_list, yt_var_pca)
+    @assert length(yt_pca) == length(yt_var_pca[1,:])
 
     les_dir = string("/groups/esm/ilopezgo/Output.Soares.dry11")
     sim_dir = string("Output.", sim_names[3],".00000")
@@ -75,6 +77,7 @@ for i in range(0,1,length=2)
     yt_pca, yt_var_pca = obs_PCA(yt_, yt_var_)
     append!(yt_pca_list, yt_pca)
     push!(yt_pca_var_list, yt_var_pca)
+    @assert length(yt_pca) == length(yt_var_pca[1,:])
 
     les_dir = string("/groups/esm/ilopezgo/Output.Bomex.may18")
     sim_dir = string("Output.", sim_names[4],".00000")
@@ -86,21 +89,22 @@ for i in range(0,1,length=2)
     yt_pca, yt_var_pca = obs_PCA(yt_, yt_var_)
     append!(yt_pca_list, yt_pca)
     push!(yt_pca_var_list, yt_var_pca)
+    @assert length(yt_pca) == length(yt_var_pca[1,:])
 
     yt_var = zeros(length(yt), length(yt))
     vars_num = 1
     for sim_covmat in yt_var_list
         vars = length(sim_covmat[1,:])
         yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = sim_covmat
-        global vars_num = vars_num+vars
+        vars_num = vars_num+vars
     end
 
-    yt_var_pca = zeros(length(yt_pca), length(yt_pca))
+    yt_var_pca = zeros(length(yt_pca_list), length(yt_pca_list))
     vars_num = 1
     for sim_covmat in yt_pca_var_list
         vars = length(sim_covmat[1,:])
         yt_var_pca[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = sim_covmat
-        global vars_num = vars_num+vars
+        vars_num = vars_num+vars
     end
 
     npzwrite("obs_cov"*suffix*".npy", yt_var)
