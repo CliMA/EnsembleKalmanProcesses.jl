@@ -114,6 +114,24 @@ function obs_LES(y_names::Array{String, 1},
     return y_, y_tvar
 end
 
+"""
+    obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6)
+
+Perform dimensionality reduction using principal component analysis on
+the variance y_var. Only eigenvectors with eigenvalues
+
+    eigval >  allowed_var_loss * maximum(eigvals)
+
+are retained.
+Inputs:
+ - y_mean :: Mean of the observations.
+ - y_var :: Variance of the observations.
+ - allowed_var_loss :: Lower limit for eigenvalues retained.
+Outputs:
+ - y_pca :: Projection of y_mean onto principal subspace spanned by eigenvectors.
+ - y_var_pca :: Projection of y_var on principal subspace.
+ - P_pca :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
+"""
 function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6)
     eig = eigen(y_var)
     eigvals, eigvecs = eig; # eigvecs is matrix with eigvecs as cols
@@ -126,7 +144,7 @@ function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6)
     # Project mean
     y_pca = P_pca'*y_mean
     y_var_pca = Diagonal(λ_pca)
-    return y_pca, y_var_pca
+    return y_pca, y_var_pca, P_pca
 end
 
 function interp_padeops(padeops_data,
@@ -207,9 +225,17 @@ function get_profile(sim_dir::String,
     return prof_vec 
 end
 
-function normalize_profile(profile, var_name, var_vec)
-    prof_vec = deepcopy(profile)
-    dim_variable = Integer(length(profile)/length(var_name))
+"""
+    normalize_profile(profile_vec, var_name, var_vec)
+
+Perform normalization of profiles contained in profile_vec
+using the standard deviation associated with each variable in
+var_name. Variances for each variable are contained
+in var_vec.
+"""
+function normalize_profile(profile_vec, var_name, var_vec)
+    prof_vec = deepcopy(profile_vec)
+    dim_variable = Integer(length(profile_vec)/length(var_name))
     for i in 1:length(var_name)
         prof_vec[dim_variable*(i-1)+1:dim_variable*i] =
             prof_vec[dim_variable*(i-1)+1:dim_variable*i] ./ sqrt(var_vec[i])

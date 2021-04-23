@@ -42,6 +42,7 @@ for i in range(0,1,length=2)
     yt_var_list = []
     yt_pca_list = zeros(0)
     yt_pca_var_list = []
+    P_pca_list = []
 
     les_dir = string("/groups/esm/ilopezgo/Output.", sim_names[1],".may20")
     sim_dir = string("Output.", sim_names[1],".00000")
@@ -50,9 +51,10 @@ for i in range(0,1,length=2)
     append!(yt, yt_)
     push!(yt_var_list, yt_var_)
     npzwrite("dycoms_z.npy", z_scm)
-    yt_pca, yt_var_pca = obs_PCA(yt_, yt_var_)
+    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_)
     append!(yt_pca_list, yt_pca)
     push!(yt_pca_var_list, yt_var_pca)
+    push!(P_pca_list, P_pca)
     @assert length(yt_pca) == length(yt_var_pca[1,:])
 
     les_dir = string("/groups/esm/ilopezgo/Output.", sim_names[2],".iles128wCov")
@@ -62,9 +64,10 @@ for i in range(0,1,length=2)
     append!(yt, yt_)
     push!(yt_var_list, yt_var_)
     npzwrite("gabls_z.npy", z_scm)
-    yt_pca, yt_var_pca = obs_PCA(yt_, yt_var_)
+    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_)
     append!(yt_pca_list, yt_pca)
     push!(yt_pca_var_list, yt_var_pca)
+    push!(P_pca_list, P_pca)
     @assert length(yt_pca) == length(yt_var_pca[1,:])
 
     les_dir = string("/groups/esm/ilopezgo/Output.Soares.dry11")
@@ -74,9 +77,10 @@ for i in range(0,1,length=2)
     append!(yt, yt_)
     push!(yt_var_list, yt_var_)
     npzwrite("nieuwstadt_z.npy", z_scm)
-    yt_pca, yt_var_pca = obs_PCA(yt_, yt_var_)
+    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_)
     append!(yt_pca_list, yt_pca)
     push!(yt_pca_var_list, yt_var_pca)
+    push!(P_pca_list, P_pca)
     @assert length(yt_pca) == length(yt_var_pca[1,:])
 
     les_dir = string("/groups/esm/ilopezgo/Output.Bomex.may18")
@@ -86,9 +90,10 @@ for i in range(0,1,length=2)
     append!(yt, yt_)
     push!(yt_var_list, yt_var_)
     npzwrite("bomex_z.npy", z_scm)
-    yt_pca, yt_var_pca = obs_PCA(yt_, yt_var_)
+    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_)
     append!(yt_pca_list, yt_pca)
     push!(yt_pca_var_list, yt_var_pca)
+    push!(P_pca_list, P_pca)
     @assert length(yt_pca) == length(yt_var_pca[1,:])
 
     yt_var = zeros(length(yt), length(yt))
@@ -107,6 +112,7 @@ for i in range(0,1,length=2)
         vars_num = vars_num+vars
     end
 
+    # Write covariances to file
     npzwrite("obs_cov"*suffix*".npy", yt_var)
     npzwrite("obs_cov_pca"*suffix*".npy", yt_var_pca)
 end

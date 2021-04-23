@@ -49,6 +49,9 @@ prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
                         Parameterized(Normal(logmeans[7], log_stds[7])),
                         Parameterized(Normal(logmeans[8], log_stds[8])),
                         Parameterized(Normal(logmeans[9], log_stds[9]))]
+prior_dist2 = [Parameterized(Normal(logmeans[x], log_stds[x]))
+                for x in range(1, n_param, length=n_param) ]
+@assert prior_dist == prior_dist2
 @everywhere prior_dist = $prior_dist
 
 ###
