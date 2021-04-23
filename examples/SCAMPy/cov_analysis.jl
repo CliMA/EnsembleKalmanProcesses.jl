@@ -10,6 +10,7 @@ using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 using JLD
+using NPZ
 
 ###
 ###  Define the parameters and their priors
@@ -49,7 +50,6 @@ prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
                         Parameterized(Normal(logmeans[7], log_stds[7])),
                         Parameterized(Normal(logmeans[8], log_stds[8])),
                         Parameterized(Normal(logmeans[9], log_stds[9]))]
-prior_dist = $prior_dist
 
 ###
 ###  Retrieve true LES samples from PyCLES data
@@ -63,7 +63,6 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 push!(y_names, ["thetal_mean", "u_mean", "v_mean", "tke_mean"]) #GABLS
 push!(y_names, ["thetal_mean", "total_flux_h"]) #Nieuwstadt
 push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]) #Bomex
-y_names=$y_names
 
 # Get observations
 yt = zeros(0)
@@ -76,6 +75,7 @@ z_scm = get_profile(sim_dir, ["z_half"])
 yt_, yt_var_ = obs_LES(y_names[1], les_dir, ti[1], tf[1], z_scm = z_scm)
 append!(yt, yt_)
 push!(yt_var_list, yt_var_)
+npzwrite("dycoms_z.npy", z_scm)
 
 les_dir = string("/groups/esm/ilopezgo/Output.", sim_names[2],".iles128wCov")
 sim_dir = string("Output.", sim_names[2],".00000")
@@ -83,6 +83,7 @@ z_scm = get_profile(sim_dir, ["z_half"])
 yt_, yt_var_ = obs_LES(y_names[2], les_dir, ti[2], tf[2], z_scm = z_scm)
 append!(yt, yt_)
 push!(yt_var_list, yt_var_)
+npzwrite("gabls_z.npy", z_scm)
 
 les_dir = string("/groups/esm/ilopezgo/Output.Soares.dry11")
 sim_dir = string("Output.", sim_names[3],".00000")
@@ -90,6 +91,7 @@ z_scm = get_profile(sim_dir, ["z_half"])
 yt_, yt_var_ = obs_LES(y_names[3], les_dir, ti[3], tf[3], z_scm = z_scm)
 append!(yt, yt_)
 push!(yt_var_list, yt_var_)
+npzwrite("nieuwstadt_z.npy", z_scm)
 
 les_dir = string("/groups/esm/ilopezgo/Output.Bomex.may18")
 sim_dir = string("Output.", sim_names[4],".00000")
@@ -97,6 +99,7 @@ z_scm = get_profile(sim_dir, ["z_half"])
 yt_, yt_var_ = obs_LES(y_names[4], les_dir, ti[4], tf[4], z_scm = z_scm)
 append!(yt, yt_)
 push!(yt_var_list, yt_var_)
+npzwrite("bomex_z.npy", z_scm)
 
 yt_var = zeros(length(yt), length(yt))
 vars_num = 1
@@ -107,7 +110,6 @@ for sim_covmat in yt_var_list
     #println(det(sim_covmat))
 end
 println( det(yt_var))
-yt_var = $yt_var
 n_observables = length(yt)
 
 # This is how many samples of the true data we have
@@ -120,4 +122,5 @@ noise_level = 1.0
 μ_noise = zeros(length(yt))
 
 save("obs_cov.jld", "cov_mat", yt_var)
+npzwrite("obs_cov.npy", yt_var)
 

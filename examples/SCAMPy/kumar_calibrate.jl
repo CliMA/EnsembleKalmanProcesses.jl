@@ -63,7 +63,7 @@ prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
 @everywhere padeops_uh = npzread( string(data_dir,"wind_speed_padeops.npy") )
 
 # Times on which to interpolate
-@everywhere t_fig3 = ([4, 12, 20])*3600.0
+@everywhere t_fig3 = ([4, 8, 12, 16, 20])*3600.0
 # @everywhere t_fig3 = ([4, 6, 8, 10, 12, 15.5, 17, 18.5, 20, 21.5])*3600.0
 # @everywhere t_fig5b = ([6, 7, 8, 9, 10, 11, 12, 13])*3600.0
 # Get SCM vertical grid
@@ -91,7 +91,6 @@ for sim_covmat in yt_var_list
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = sim_covmat
     global vars_num = vars_num+vars
 end
-yt_var = yt_var + Matrix(0.01I, size(yt_var)[1], size(yt_var)[2]) #Uncertainty inflation
 @everywhere yt_var = $yt_var
 @everywhere n_observables = length(yt)
 padeops_names = Array{String, 1}[]
@@ -103,8 +102,9 @@ n_samples = 1
 samples = zeros(n_samples, length(yt))
 samples[1,:] = yt
 # Noise level of the samples, which scales the time variance of each output.
-noise_level = 1.0
-Γy = noise_level^2 * (yt_var)
+noise_level = 0.005
+Γy = yt_var + Matrix(noise_level*I, size(yt_var)[1], size(yt_var)[2]) #Uncertainty inflation (nugget)
+@everywhere Γy = $Γy
 μ_noise = zeros(length(yt))
 # We construct the observations object with the samples and the cov.
 truth = Obs(Array(samples'), Γy, padeops_names[1])
@@ -116,7 +116,7 @@ truth = Obs(Array(samples'), Γy, padeops_names[1])
 ###
 
 @everywhere N_ens = 50 # number of ensemble members
-@everywhere N_iter = 10 # number of ekp iterations.
+@everywhere N_iter = 20 # number of ekp iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
 @everywhere constraints = [[no_constraint()], [no_constraint()],
@@ -134,7 +134,7 @@ precondition_ensemble!(initial_params, priors, param_names, y_names, t_fig3)
 @everywhere N_par_, N_ens_ = size(initial_params)
 @assert N_par_ == length(constraints)
 @assert N_ens == N_ens_
-@everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, yt_var, Inversion()) 
+@everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, Inversion()) 
 
 g_ens = zeros(N_ens, n_observables)
 @everywhere scm_dir = "/home/ilopezgo/SCAMPy/"

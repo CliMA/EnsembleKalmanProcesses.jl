@@ -194,7 +194,7 @@ function get_timevar_profile(sim_dir::String,
                      tf=0.0,
                      getFullHeights=false,
                      z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
-                     var_cond = False)
+                     var_cond=false)
 
     t = nc_fetch(sim_dir, "timeseries", "t")
     dt = t[2]-t[1]
