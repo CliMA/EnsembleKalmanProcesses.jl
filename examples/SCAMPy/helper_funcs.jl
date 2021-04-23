@@ -250,12 +250,12 @@ function get_timevar_profile(sim_dir::String,
         prof_vec_zscm = zeros(0, length(ti_index:tf_index))
         maxvar_vec = zeros(num_outputs) 
         for i in 1:num_outputs
-            maxvar_vec[i] = maximum(var(prof_vec[1 + length(z_les)*(i-1) : i*length(z_les), :], dims=2))
             prof_vec_itp = interpolate( (z_les, 1:tf_index-ti_index+1),
                 prof_vec[1 + length(z_les)*(i-1) : i*length(z_les), :],
                 ( Gridded(Linear()), NoInterp() ))
             prof_vec_zscm = cat(prof_vec_zscm,
                 prof_vec_itp(z_scm, 1:tf_index-ti_index+1), dims=1)
+            maxvar_vec[i] = maximum(var(prof_vec_zscm[1 + length(z_scm)*(i-1) : i*length(z_scm), :], dims=2))
         end
 
         cov_mat = cov(prof_vec_zscm, dims=2)
