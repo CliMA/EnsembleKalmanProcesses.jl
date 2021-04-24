@@ -11,6 +11,7 @@ function run_SCAMPy(u::Array{FT, 1},
                     scm_dir::String,
                     ti::Union{FT, Array{FT,1}},
                     tf::Union{FT, Array{FT,1}, Nothing} = nothing,
+                    P_pca_list = nothing,
                     ) where {FT<:AbstractFloat}
 
     # Check dimensionality
@@ -46,7 +47,11 @@ function run_SCAMPy(u::Array{FT, 1},
             else
                 y_names_ = y_names
             end
-            append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+            if !isnothing(P_pca_list)
+                append!(y_scm, P_pca_list[1]' * get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+            else
+                append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+            end
         end
         run(`rm -r $sim_dir`)
     else
@@ -69,7 +74,11 @@ function run_SCAMPy(u::Array{FT, 1},
             else
                 y_names_ = y_names
             end
-            append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+            if !isnothing(P_pca_list)
+                append!(y_scm, P_pca_list[i]' * get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+            else
+                append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+            end
             run(`rm -r $sim_dir`)
         end
     end
@@ -140,9 +149,9 @@ function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6)
     P_pca = eigvecs[:, leading_eigs]
     λ_pca = eigvals[leading_eigs]
     # Check correct PCA projection
-    @assert Diagonal(λ_pca) ≈ P_pca'*y_var*P_pca
+    @assert Diagonal(λ_pca) ≈ P_pca' * y_var * P_pca
     # Project mean
-    y_pca = P_pca'*y_mean
+    y_pca = P_pca' * y_mean
     y_var_pca = Diagonal(λ_pca)
     return y_pca, y_var_pca, P_pca
 end

@@ -40,18 +40,8 @@ logmeans[6], log_stds[6] = logmean_and_logstd(0.2, 0.2)
 logmeans[7], log_stds[7] = logmean_and_logstd(0.2, 0.2)
 logmeans[8], log_stds[8] = logmean_and_logstd(8.0, 1.0)
 logmeans[9], log_stds[9] = logmean_and_logstd(0.2, 0.2)
-prior_dist = [Parameterized(Normal(logmeans[1], log_stds[1])),
-                        Parameterized(Normal(logmeans[2], log_stds[2])),
-                        Parameterized(Normal(logmeans[3], log_stds[3])),
-                        Parameterized(Normal(logmeans[4], log_stds[4])),
-                        Parameterized(Normal(logmeans[5], log_stds[5])),
-                        Parameterized(Normal(logmeans[6], log_stds[6])),
-                        Parameterized(Normal(logmeans[7], log_stds[7])),
-                        Parameterized(Normal(logmeans[8], log_stds[8])),
-                        Parameterized(Normal(logmeans[9], log_stds[9]))]
-prior_dist2 = [Parameterized(Normal(logmeans[x], log_stds[x]))
+prior_dist = [Parameterized(Normal(logmeans[Integer(x)], log_stds[Integer(x)]))
                 for x in range(1, n_param, length=n_param) ]
-@assert prior_dist == prior_dist2
 @everywhere prior_dist = $prior_dist
 
 ###
@@ -69,39 +59,30 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 @everywhere y_names=$y_names
 
 # Get observations
+@everywhere normalized = true
 @everywhere yt = zeros(0)
 @everywhere sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
+@everywhere sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
 yt_var_list = []
+P_pca_list = []
 
-les_dir = string("/groups/esm/ilopezgo/Output.", sim_names[1],".may20")
-sim_dir = string("Output.", sim_names[1],".00000")
-z_scm = get_profile(sim_dir, ["z_half"])
-yt_, yt_var_ = obs_LES(y_names[1], les_dir, ti[1], tf[1], z_scm = z_scm)
-append!(yt, yt_)
-push!(yt_var_list, yt_var_)
-
-les_dir = string("/groups/esm/ilopezgo/Output.", sim_names[2],".iles128wCov")
-sim_dir = string("Output.", sim_names[2],".00000")
-z_scm = get_profile(sim_dir, ["z_half"])
-yt_, yt_var_ = obs_LES(y_names[2], les_dir, ti[2], tf[2], z_scm = z_scm)
-append!(yt, yt_)
-push!(yt_var_list, yt_var_)
-
-les_dir = string("/groups/esm/ilopezgo/Output.Soares.dry11")
-sim_dir = string("Output.", sim_names[3],".00000")
-z_scm = get_profile(sim_dir, ["z_half"])
-yt_, yt_var_ = obs_LES(y_names[3], les_dir, ti[3], tf[3], z_scm = z_scm)
-append!(yt, yt_)
-push!(yt_var_list, yt_var_)
-
-les_dir = string("/groups/esm/ilopezgo/Output.Bomex.may18")
-sim_dir = string("Output.", sim_names[4],".00000")
-z_scm = get_profile(sim_dir, ["z_half"])
-yt_, yt_var_ = obs_LES(y_names[4], les_dir, ti[4], tf[4], z_scm = z_scm)
-append!(yt, yt_)
-push!(yt_var_list, yt_var_)
-
+for (i, sim_name) in enumerate(sim_names)
+    if occursin("Nieuwstadt", sim_name)
+        les_dir = string("/groups/esm/ilopezgo/Output.", "Soares", sim_suffix[i])
+    else
+        les_dir = string("/groups/esm/ilopezgo/Output.", sim_name, sim_suffix[i])
+    end
+    sim_dir = string("Output.", sim_name,".00000")
+    z_scm = get_profile(sim_dir, ["z_half"])
+    yt_, yt_var_ = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
+    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_)
+    @assert length(yt_pca) == length(yt_var_pca[1,:])
+    append!(yt, yt_pca)
+    push!(yt_var_list, yt_var_pca)
+    push!(P_pca_list, P_pca)
+end
 @everywhere yt = $yt
+@everywhere P_pca_list = $P_pca_list
 yt_var = zeros(length(yt), length(yt))
 vars_num = 1
 for sim_covmat in yt_var_list
@@ -110,7 +91,6 @@ for sim_covmat in yt_var_list
     global vars_num = vars_num+vars
     #println(det(sim_covmat))
 end
-println( det(yt_var))
 @everywhere yt_var = $yt_var
 @everywhere n_observables = length(yt)
 
@@ -132,15 +112,12 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-@everywhere N_ens = 10 # number of ensemble members
-@everywhere N_iter = 3 # number of EKp iterations.
+@everywhere N_ens = 50 # number of ensemble members
+@everywhere N_iter = 10 # number of EKp iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
-@everywhere constraints = [[no_constraint()], [no_constraint()],
-                [no_constraint()], [no_constraint()],
-                [no_constraint()], [no_constraint()],
-                [no_constraint()], [no_constraint()],[no_constraint()]]
-
+@everywhere constraints = [ [no_constraint()] for x in range(1, n_param, length=n_param) ]
+println(length(prior_dist), length(constraints), length(param_names))
 @everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
 @everywhere initial_params = construct_initial_ensemble(priors, N_ens)
 precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
@@ -152,9 +129,9 @@ g_ens = zeros(N_ens, n_observables)
 
 @everywhere scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
-   y_names, scm_dir, ti, tf)
+   y_names, scm_dir, ti, tf, P_pca_list)
 
-outdir_path = string("results_pycles_p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
+outdir_path = string("results_pycles_PCA_p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
 command = `mkdir $outdir_path`
 try
     run(command)
@@ -189,5 +166,3 @@ println(mean(deepcopy(exp_transform(get_u_final(ekobj) )), dims=1))
 println("\nEnsemble covariance det. 1st iteration, transformed space.")
 println(det(cov(deepcopy((get_u(ekobj, 1) )), dims=1)))
 
-println("\nEnsemble covariance det. last iteration, transformed space.")
-println(det(cov(deepcopy((get_u_final(ekobj) )), dims=1)))
