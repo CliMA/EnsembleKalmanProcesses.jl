@@ -9,12 +9,12 @@ The ensemble Kalman sampler is an interacting particle system in stochastic diff
 
 ### Problem Formulation
 
-The data $y$ and parameter vector $\theta$ are assumed to be related according to:
-
-\\[ y = \mathcal{G}(\theta) + \eta, \\]
-
-
-where $\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d$  denotes the forward model, $y \in \mathbb{R}^d$ is the vector of observations, and $\eta$ is the observational noise, which is assumed to be drawn from a d-dimensional Gaussian with distribution \mathcal{N}(0, \Gamma_y). The objective of the inverse problem is to compute the unknown model parameters $\theta$ given the observations $\y$, the known forward model $\mathcal{G}$, and noise characteristics $\eta$ of the process.
+The data ``y`` and parameter vector ``\theta`` are assumed to be related according to:
+```math
+    y = \mathcal{G}(\theta) + \eta, \,
+```
+where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the
+forward model, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a d-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown model parameters ``\theta`` given the observations ``y``, the known forward model ``\mathcal{G}``, and noise characteristics $\eta$ of the process.
 
 
 ### How to Construct an Ensemble Kalman Sampler
