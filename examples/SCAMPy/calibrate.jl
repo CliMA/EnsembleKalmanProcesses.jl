@@ -28,28 +28,29 @@ using JLD
 # these constraints - therefore, we perform CES in log space, i.e.,
 # (the parameters can then simply be obtained by exponentiating the final results). 
 
-# Prior: Log-normal in original space defined by mean and std
-logmeans = zeros(n_param)
-log_stds = zeros(n_param)
-logmeans[1], log_stds[1] = logmean_and_logstd(0.2, 0.2)
-logmeans[2], log_stds[2] = logmean_and_logstd(0.4, 0.2)
-logmeans[3], log_stds[3] = logmean_and_logstd(2.0, 1.0)
-logmeans[4], log_stds[4] = logmean_and_logstd(0.2, 0.2)
-logmeans[5], log_stds[5] = logmean_and_logstd(0.2, 0.2)
-logmeans[6], log_stds[6] = logmean_and_logstd(0.2, 0.2)
-logmeans[7], log_stds[7] = logmean_and_logstd(0.2, 0.2)
-logmeans[8], log_stds[8] = logmean_and_logstd(8.0, 1.0)
-logmeans[9], log_stds[9] = logmean_and_logstd(0.2, 0.2)
-prior_dist = [Parameterized(Normal(logmeans[Integer(x)], log_stds[Integer(x)]))
+# Prior: Transform to unconstrained gaussian space
+constraints = [bounded(0.01, 0.3),
+                bounded(0.01, 0.9),
+                bounded(0.25, 4.0),
+                bounded(0.01, 0.5),
+                bounded(0.01, 0.5),
+                bounded(0.0, 0.5),
+                bounded(0.0, 0.5),
+                bounded(5.0, 15.0),
+                bounded(0.1, 0.8)]
+# All vars are standard Gaussians in unconstrained space
+prior_dist = [Parameterized(Normal(0.0, 1.0))
                 for x in range(1, n_param, length=n_param) ]
 @everywhere prior_dist = $prior_dist
+@everywhere constraints = $constraints
+@everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
 
 ###
 ###  Retrieve true LES samples from PyCLES data
 ###
 
 # This is the true value of the observables (e.g. LES ensemble mean for EDMF)
-@everywhere ti = [10800.0, 28800.0, 10800.0, 18000.0]
+@everywhere ti = [7200.0, 25200.0, 7200.0, 14400.0]
 @everywhere tf = [14400.0, 32400.0, 14400.0, 21600.0]
 y_names = Array{String, 1}[]
 push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]) #DYCOMS_RF01
@@ -60,11 +61,13 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 
 # Get observations
 @everywhere normalized = true
+@everywhere perform_PCA = true
+
 @everywhere yt = zeros(0)
-@everywhere sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
-@everywhere sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
 yt_var_list = []
 P_pca_list = []
+@everywhere sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
+@everywhere sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
 
 for (i, sim_name) in enumerate(sim_names)
     if occursin("Nieuwstadt", sim_name)
@@ -72,44 +75,41 @@ for (i, sim_name) in enumerate(sim_names)
     else
         les_dir = string("/groups/esm/ilopezgo/Output.", sim_name, sim_suffix[i])
     end
-    sim_dir = string("Output.", sim_name,".00000")
+    sim_dir = string("Output.", sim_name, ".00000")
     z_scm = get_profile(sim_dir, ["z_half"])
     yt_, yt_var_ = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
-    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-2)
-    @assert length(yt_pca) == length(yt_var_pca[1,:])
-    append!(yt, yt_pca)
-    push!(yt_var_list, yt_var_pca)
-    push!(P_pca_list, P_pca)
-    
-    # No PCA
-    # append!(yt, yt_)
-    # push!(yt_var_list, yt_var_)
+    if perform_PCA
+        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-2)
+        append!(yt, yt_pca)
+        push!(yt_var_list, yt_var_pca)
+    else
+        append!(yt, yt_)
+        push!(yt_var_list, yt_var_)
+        P_pca_list = nothing
+    end
 end
+
 @everywhere yt = $yt
+@everywhere yt_var_list = $yt_var_list
 @everywhere P_pca_list = $P_pca_list
-yt_var = zeros(length(yt), length(yt))
+@everywhere N_yt = length(yt) # Length of data array
+
+yt_var = zeros(N_yt, N_yt)
 vars_num = 1
 for sim_covmat in yt_var_list
     vars = length(sim_covmat[1,:])
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = sim_covmat
     global vars_num = vars_num+vars
-    println("DETERMINANT OF PCA OBS NOISE COV MATRIX, ", det(sim_covmat))
+    println("DETERMINANT OF PCA OBS NOISE COV MATRIX FOR 1 FLOW, ", det(sim_covmat))
 end
 @everywhere yt_var = $yt_var
-@everywhere n_observables = length(yt)
 
-# This is how many samples of the true data we have
-n_samples = 1
-samples = zeros(n_samples, length(yt))
-samples[1,:] = yt
-# Noise level of the samples, which scales the time variance of each output.
+# Regularization nugget
 @everywhere noise_level = 0.0
-@everywhere Γy = noise_level * Matrix(1.0I, n_observables, n_observables) + yt_var
-μ_noise = zeros(length(yt))
+@everywhere Γy = noise_level * Matrix(1.0I, N_yt, N_yt) + yt_var
 println("DETERMINANT OF FULL OBS NOISE COV MATRIX, ", det(Γy))
-
 # We construct the observations object with the samples and the cov.
-truth = Obs(Array(samples'), Γy, y_names[1])
+truth = Obs(Array(yt'), Γy, y_names[1])
 @everywhere truth = $truth
 
 
@@ -118,19 +118,15 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 ###
 
 @everywhere N_ens = 50 # number of ensemble members
-@everywhere N_iter = 26 # number of EKp iterations.
-@everywhere N_yt = length(yt) # Length of data array
+@everywhere N_iter = 10 # number of EKp iterations.
 
-@everywhere constraints = [ [no_constraint()] for x in range(1, n_param, length=n_param) ]
-println(length(prior_dist), length(constraints), length(param_names))
-@everywhere priors = ParameterDistribution(prior_dist, constraints, param_names)
-@everywhere initial_params = construct_initial_ensemble(priors, N_ens)
+initial_params = construct_initial_ensemble(priors, N_ens)
 precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 @everywhere initial_params = $initial_params
 
 @everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, Inversion()) 
 
-g_ens = zeros(N_ens, n_observables)
+g_ens = zeros(N_ens, N_yt)
 
 @everywhere scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
@@ -149,9 +145,9 @@ end
 for i in 1:N_iter
     # Note that the parameters are exp-transformed when used as input
     # to SCAMPy
-    @everywhere params_i = deepcopy(exp_transform(get_u_final(ekobj)))
-    # @everywhere params_i = [params_i[i, :] for i in 1:size(params_i, 1)]
-    @everywhere params = [row[:] for row in eachrow(params_i')]
+    @everywhere params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
+        get_u_final(ekobj)) )
+    @everywhere params = [row[:] for row in eachrow(params_cons_i')]
     g_ens_arr = pmap(g_, params)
     println(string("\n\nEKp evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
@@ -160,11 +156,15 @@ for i in 1:N_iter
     update_ensemble!(ekobj, Array(g_ens') )
     println("\nEnsemble updated.\n")
     # Save EKp information to file
-    save( string(outdir_path,"/ekp.jld"), "ekp_u", get_u(ekobj), "ekp_g", get_g(ekobj),
-        "truth_mean", ekobj.obs_mean, "truth_cov", ekobj.obs_noise_cov, "ekp_err", ekobj.err)
+    save( string(outdir_path,"/ekp.jld"), 
+        "ekp_u", transform_unconstrained_to_constrained(priors, get_u_final(ekobj)),
+        "ekp_g", get_g(ekobj),
+        "truth_mean", ekobj.obs_mean,
+        "truth_cov", ekobj.obs_noise_cov,
+        "ekp_err", ekobj.err)
 end
 
-# EKp results: Has the ensemble collapsed toward the truth? Store and analyze.
+# EKp results: Has the ensemble collapsed toward the truth?
 println("\nEKp ensemble mean at last stage (original space):")
 println(mean(deepcopy(exp_transform(get_u_final(ekobj) )), dims=1))
 

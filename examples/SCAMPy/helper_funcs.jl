@@ -4,6 +4,8 @@ using Interpolations
 using LinearAlgebra
 using Glob
 using JLD
+# EKP modules
+using EnsembleKalmanProcesses.ParameterDistributionStorage
 
 function run_SCAMPy(u::Array{FT, 1},
                     u_names::Array{String, 1},
@@ -396,22 +398,27 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
 
     # Check dimensionality
     @assert length(param_names) == size(params, 1)
+    # Wrapper around SCAMPy in original output coordinates
+    g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names, y_names, scm_dir, ti, tf)
 
     scm_dir = "/home/ilopezgo/SCAMPy/"
-    params_i = deepcopy(exp.(params))
-    g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names, y_names, scm_dir, ti, tf)
-    params_i = [row[:] for row in eachrow(params_i')]
-    N_ens = size(params_i, 1)
-    g_ens_arr = pmap(g_, params_i) # [N_ens N_output]
+    params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, params))    
+    params_cons_i = [row[:] for row in eachrow(params_cons_i')]
+    N_ens = size(params_cons_i, 1)
+    g_ens_arr = pmap(g_, params_cons_i) # [N_ens N_output]
     @assert size(g_ens_arr, 1) == N_ens
     N_out = size(g_ens_arr, 2)
     # If more than 1/4 of outputs are over limit lim, deemed as unstable simulation
-    unstable_point_inds = findall(x->x>Integer(floor(N_out/4)), count.(x->x>lim, g_ens_arr))
+    uns_vals_frac = sum(count.(x->x>lim, g_ens_arr), dims=2)./N_out
+    unstable_point_inds = findall(x->x>0.25), uns_vals_frac)
     println(string("Unstable parameter indices: ", unstable_point_inds))
     # Recursively eliminate all unstable parameters
     if !isempty(unstable_point_inds)
-        println(string(length(unstable_point_inds), " unstable parameters found.
-            Sampling new parameters from prior." ))
+        println(length(unstable_point_inds), " unstable parameters found:" ))
+        for j in length(unstable_point_inds)
+            println(params[:, unstable_point_inds[j]])
+        end
+        println("Sampling new parameters from prior...")
         new_params = construct_initial_ensemble(priors, length(unstable_point_inds))
         precondition_ensemble!(new_params, priors, param_names,
             y_names, ti, tf=tf, lim=lim)
