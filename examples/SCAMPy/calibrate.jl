@@ -75,11 +75,15 @@ for (i, sim_name) in enumerate(sim_names)
     sim_dir = string("Output.", sim_name,".00000")
     z_scm = get_profile(sim_dir, ["z_half"])
     yt_, yt_var_ = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
-    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-4)
+    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-2)
     @assert length(yt_pca) == length(yt_var_pca[1,:])
     append!(yt, yt_pca)
     push!(yt_var_list, yt_var_pca)
     push!(P_pca_list, P_pca)
+    
+    # No PCA
+    # append!(yt, yt_)
+    # push!(yt_var_list, yt_var_)
 end
 @everywhere yt = $yt
 @everywhere P_pca_list = $P_pca_list
@@ -89,7 +93,7 @@ for sim_covmat in yt_var_list
     vars = length(sim_covmat[1,:])
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = sim_covmat
     global vars_num = vars_num+vars
-    #println(det(sim_covmat))
+    println("DETERMINANT OF PCA OBS NOISE COV MATRIX, ", det(sim_covmat))
 end
 @everywhere yt_var = $yt_var
 @everywhere n_observables = length(yt)
@@ -99,9 +103,10 @@ n_samples = 1
 samples = zeros(n_samples, length(yt))
 samples[1,:] = yt
 # Noise level of the samples, which scales the time variance of each output.
-noise_level = 1.0
-Γy = noise_level^2 * (yt_var)
+@everywhere noise_level = 0.0
+@everywhere Γy = noise_level * Matrix(1.0I, n_observables, n_observables) + yt_var
 μ_noise = zeros(length(yt))
+println("DETERMINANT OF FULL OBS NOISE COV MATRIX, ", det(Γy))
 
 # We construct the observations object with the samples and the cov.
 truth = Obs(Array(samples'), Γy, y_names[1])
@@ -113,7 +118,7 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 ###
 
 @everywhere N_ens = 50 # number of ensemble members
-@everywhere N_iter = 20 # number of EKp iterations.
+@everywhere N_iter = 26 # number of EKp iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
 @everywhere constraints = [ [no_constraint()] for x in range(1, n_param, length=n_param) ]
@@ -123,7 +128,7 @@ println(length(prior_dist), length(constraints), length(param_names))
 precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 @everywhere initial_params = $initial_params
 
-@everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, yt_var, Inversion()) 
+@everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, Inversion()) 
 
 g_ens = zeros(N_ens, n_observables)
 
