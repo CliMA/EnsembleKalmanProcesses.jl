@@ -75,7 +75,7 @@ for (i, sim_name) in enumerate(sim_names)
     sim_dir = string("Output.", sim_name,".00000")
     z_scm = get_profile(sim_dir, ["z_half"])
     yt_, yt_var_ = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
-    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_)
+    yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-4)
     @assert length(yt_pca) == length(yt_var_pca[1,:])
     append!(yt, yt_pca)
     push!(yt_var_list, yt_var_pca)
@@ -113,7 +113,7 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 ###
 
 @everywhere N_ens = 50 # number of ensemble members
-@everywhere N_iter = 10 # number of EKp iterations.
+@everywhere N_iter = 20 # number of EKp iterations.
 @everywhere N_yt = length(yt) # Length of data array
 
 @everywhere constraints = [ [no_constraint()] for x in range(1, n_param, length=n_param) ]
