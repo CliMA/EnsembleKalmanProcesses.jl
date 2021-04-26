@@ -29,15 +29,15 @@ using JLD
 # (the parameters can then simply be obtained by exponentiating the final results). 
 
 # Prior: Transform to unconstrained gaussian space
-constraints = [bounded(0.01, 0.3),
-                bounded(0.01, 0.9),
-                bounded(0.25, 4.0),
-                bounded(0.01, 0.5),
-                bounded(0.01, 0.5),
-                bounded(0.0, 0.5),
-                bounded(0.0, 0.5),
-                bounded(5.0, 15.0),
-                bounded(0.1, 0.8)]
+constraints = [ [bounded(0.01, 0.3)],
+                [bounded(0.01, 0.9)],
+                [bounded(0.25, 4.0)],
+                [bounded(0.01, 0.5)],
+                [bounded(0.01, 0.5)],
+                [bounded(0.0, 0.5)],
+                [bounded(0.0, 0.5)],
+                [bounded(5.0, 15.0)],
+                [bounded(0.1, 0.8)]]
 # All vars are standard Gaussians in unconstrained space
 prior_dist = [Parameterized(Normal(0.0, 1.0))
                 for x in range(1, n_param, length=n_param) ]
@@ -82,10 +82,11 @@ for (i, sim_name) in enumerate(sim_names)
         yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-2)
         append!(yt, yt_pca)
         push!(yt_var_list, yt_var_pca)
+        push!(P_pca_list, P_pca)
     else
         append!(yt, yt_)
         push!(yt_var_list, yt_var_)
-        P_pca_list = nothing
+        global P_pca_list = nothing
     end
 end
 
@@ -104,12 +105,15 @@ for sim_covmat in yt_var_list
 end
 @everywhere yt_var = $yt_var
 
+n_samples = 1
+samples = zeros(n_samples, length(yt))
+samples[1,:] = yt
 # Regularization nugget
 @everywhere noise_level = 0.0
 @everywhere Γy = noise_level * Matrix(1.0I, N_yt, N_yt) + yt_var
 println("DETERMINANT OF FULL OBS NOISE COV MATRIX, ", det(Γy))
 # We construct the observations object with the samples and the cov.
-truth = Obs(Array(yt'), Γy, y_names[1])
+truth = Obs(Array(samples'), Γy, y_names[1])
 @everywhere truth = $truth
 
 
@@ -117,7 +121,7 @@ truth = Obs(Array(yt'), Γy, y_names[1])
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-@everywhere N_ens = 50 # number of ensemble members
+@everywhere N_ens = 20 # number of ensemble members
 @everywhere N_iter = 10 # number of EKp iterations.
 
 initial_params = construct_initial_ensemble(priors, N_ens)
@@ -147,8 +151,12 @@ for i in 1:N_iter
     # to SCAMPy
     @everywhere params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
         get_u_final(ekobj)) )
+    println("size(get_u_final(ekobj)): ", size(get_u_final(ekobj)) )    
+    println("params_cons_i: ", size(params_cons_i) )
     @everywhere params = [row[:] for row in eachrow(params_cons_i')]
+    println("size(params): ", size(params))
     g_ens_arr = pmap(g_, params)
+    println("size(g_ens_arr): ", size(g_ens_arr))
     println(string("\n\nEKp evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
       g_ens[j, :] = g_ens_arr[j]
