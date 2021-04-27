@@ -413,7 +413,7 @@ Apply the transformation to map (possibly constrained) parameter samples `xarray
 Here, `xarray` contains parameters as columns and samples as rows.
 """
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{FT,2}) where {FT <: Real}
-    return Array(hcat([c.constrained_to_unconstrained.(get_u_final(ekobj)[i,:]) for (i,c) in enumerate(priors.constraints)]...)')
+    return Array(hcat([c.constrained_to_unconstrained.(xarray[i,:]) for (i,c) in enumerate(pd.constraints)]...)')
 end
 
 """
@@ -432,7 +432,7 @@ Apply the transformation to map parameter samples `xarray` from the unconstraine
 Here, `xarray` contains parameters as columns and samples as rows.
 """
 function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{FT,2}) where {FT <: Real}
-    return Array(hcat([c.unconstrained_to_constrained.(get_u_final(ekobj)[i,:]) for (i,c) in enumerate(priors.constraints)]...)')
+    return Array(hcat([c.unconstrained_to_constrained.(xarray[i,:]) for (i,c) in enumerate(pd.constraints)]...)')
 end
 
 
