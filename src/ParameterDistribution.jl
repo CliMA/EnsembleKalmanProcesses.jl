@@ -402,20 +402,38 @@ end
 
 Apply the transformation to map (possibly constrained) parameters `xarray` into the unconstrained space
 """
-function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{FT}) where {FT <: Real}
+function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{FT,1}) where {FT <: Real}
     return cat([c.constrained_to_unconstrained(xarray[i]) for (i,c) in enumerate(pd.constraints)]...,dims=1)
 end
 
 """
-    function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{Real})
+    function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{FT,2})
+
+Apply the transformation to map (possibly constrained) parameter samples `xarray` into the unconstrained space.
+Here, `xarray` contains parameters as columns and samples as rows.
+"""
+function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{FT,2}) where {FT <: Real}
+    return Array(hcat([c.constrained_to_unconstrained.(get_u_final(ekobj)[i,:]) for (i,c) in enumerate(priors.constraints)]...)')
+end
+
+"""
+    function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{<:Real,1})
 
 Apply the transformation to map parameters `xarray` from the unconstrained space into (possibly constrained) space
 """
-function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{FT}) where {FT <: Real}
+function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{FT,1}) where {FT <: Real}
     return cat([c.unconstrained_to_constrained(xarray[i]) for (i,c) in enumerate(pd.constraints)]...,dims=1)
 end
 
+"""
+    function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{FT,2})
 
+Apply the transformation to map parameter samples `xarray` from the unconstrained space into (possibly constrained) space.
+Here, `xarray` contains parameters as columns and samples as rows.
+"""
+function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{FT,2}) where {FT <: Real}
+    return Array(hcat([c.unconstrained_to_constrained.(get_u_final(ekobj)[i,:]) for (i,c) in enumerate(priors.constraints)]...)')
+end
 
 
 
