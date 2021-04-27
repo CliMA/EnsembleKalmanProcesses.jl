@@ -62,6 +62,8 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 # Get observations
 @everywhere normalized = true
 @everywhere perform_PCA = true
+@everywhere pool_norm = true
+@everywhere eigval_norm = false
 
 @everywhere yt = zeros(0)
 yt_var_list = []
@@ -79,7 +81,8 @@ for (i, sim_name) in enumerate(sim_names)
     z_scm = get_profile(sim_dir, ["z_half"])
     yt_, yt_var_ = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
     if perform_PCA
-        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-2)
+        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-2,
+            eigval_norm = eigval_norm, pool_norm = pool_norm)
         append!(yt, yt_pca)
         push!(yt_var_list, yt_var_pca)
         push!(P_pca_list, P_pca)
@@ -136,7 +139,12 @@ g_ens = zeros(N_ens, N_yt)
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
    y_names, scm_dir, ti, tf, P_pca_list)
 
-outdir_path = string("results_pycles_PCA_p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
+# Name of outdir
+prefix = "results_pycles_"
+prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
+prefix = pool_norm ? string(prefix, "pooled_") : prefix
+prefix = eigval_norm ? string(prefix, "eignorm_") : prefix
+outdir_path = string(prefix, "p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
 command = `mkdir $outdir_path`
 try
     run(command)
