@@ -442,8 +442,11 @@ Apply the transformation to map parameter sample ensembles `xarray` from the unc
 Here, `xarray` contains parameters sample ensembles for different EKP iterations.
 """
 function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{Array{FT,2},1}) where {FT <: Real}
-    return [ Array(hcat([c.unconstrained_to_constrained.(xarray[j][i,:]) for (i,c) in enumerate(pd.constraints)]...)')
-            for j in length(xarray)]
+    transf_xarray = []
+    for elem in xarray
+           push!(transf_xarray, transform_unconstrained_to_constrained(pd, elem))
+       end
+    return transf_xarray
 end
 
 
