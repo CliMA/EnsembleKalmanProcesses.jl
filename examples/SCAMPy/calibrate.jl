@@ -173,7 +173,7 @@ for i in 1:N_iter
     println("\nEnsemble updated.\n")
     # Save EKp information to file
     save( string(outdir_path,"/ekp.jld"), 
-        "ekp_u", transform_unconstrained_to_constrained(priors, get_u_final(ekobj)),
+        "ekp_u", transform_unconstrained_to_constrained(priors, get_u(ekobj)),
         "ekp_g", get_g(ekobj),
         "truth_mean", ekobj.obs_mean,
         "truth_cov", ekobj.obs_noise_cov,

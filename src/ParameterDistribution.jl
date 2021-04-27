@@ -435,6 +435,17 @@ function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarra
     return Array(hcat([c.unconstrained_to_constrained.(xarray[i,:]) for (i,c) in enumerate(pd.constraints)]...)')
 end
 
+"""
+    function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{FT,2})
+
+Apply the transformation to map parameter sample ensembles `xarray` from the unconstrained space into (possibly constrained) space.
+Here, `xarray` contains parameters sample ensembles for different EKP iterations.
+"""
+function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{Array{FT,2},1}) where {FT <: Real}
+    return [ Array(hcat([c.unconstrained_to_constrained.(xarray[j][i,:]) for (i,c) in enumerate(pd.constraints)]...)'))
+            for j in xarray]
+end
+
 
 
 end # of module
