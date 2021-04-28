@@ -66,7 +66,7 @@ Note that no information about the forward model is necessary to instantiate the
 
 ### Updating the ensemble
 
-Once the ensemble Kalman sampling object `eks_obj` has been initialized, the initial ensemble of particles is iteratively updated by the `update_ensemble!` function, which takes as arguments the `eks_obj` and the evaluations of the forward model at each member of the current ensemble. In the following example, the forward model `G_ens` (defined elsewhere, e.g. in a separate module) maps an array of `N_ens` parameters (size: `p × N_ens`) to the array of corresponding data (size: `d x N_ens`). The `update_ensemble!` function then stores the updated ensemble as well as the forward model evaluations in `eks_obj`.
+Once the ensemble Kalman sampling object `eks_obj` has been initialized, the initial ensemble of particles is iteratively updated by the `update_ensemble!` function, which takes as arguments the `eks_obj` and the evaluations of the forward model at each member of the current ensemble. In the following example, the forward map `G` (defined elsewhere, e.g. in a separate module) maps a parameter to the corresponding data -- this is done for each parameter in the ensemble, such that the resulting `g_ens` is of size `d x N_ens`. The `update_ensemble!` function then stores the updated ensemble as well as the evaluations of the forward map in `eks_obj`.
 
 
 ```julia
@@ -74,7 +74,7 @@ N_iter = 20 # Number of steps of the algorithm
 
 for i in 1:N_iter
     params_i = get_u_final(eks_obj)  # Get current ensemble
-    g_ens = G_ens(params_i)  # Evaluate forward model
+    g_ens = hcat([G(params_i[:,i]) for i in 1:N_ens]...) 
     update_ensemble!(eks_obj, g_ens)  # Update ensemble
 end
 ```

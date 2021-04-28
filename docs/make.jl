@@ -20,6 +20,7 @@ pages = [
     "Installation instructions" => "installation_instructions.md",
     "Prior distributions" => "parameter_distributions.md",
     "Observations" => "observations.md",
+    "Ensemble Kalman Sampler" => "ensemble_kalman_sampler.md"
     "Examples" => examples,
     "API" => api,
 ]
