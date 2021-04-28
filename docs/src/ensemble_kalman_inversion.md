@@ -4,17 +4,27 @@ One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl`
 
 \\[ y = \mathcal{G}(\theta) + \eta, \\]
 
-where $\mathcal{G}$ denotes the forward map, $y \in \mathbb{R}^d$ is the vector of observations and $\eta \sim \mathcal{N}(0, \Gamma_y)$ is additive Gaussian observational noise. Note that $p$ is the size of the parameter vector $\theta$ and $d$ is taken to be the size of the observation vector $y$. The EKI update equation for parameter vector $\theta^{(j)}$ of ensemble element $j$ is
+where $\mathcal{G}$ denotes the forward map, $y \in \mathbb{R}^d$ is the vector of observations and $\eta \sim \mathcal{N}(0, \Gamma_y)$ is additive Gaussian observational noise. Note that $p$ is the size of the parameter vector $\theta$ and $d$ is taken to be the size of the observation vector $y$. The EKI update equation for parameter vector $\theta^{(j)}$ of ensemble member $j$ is
 
 ```math
-\theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)},
+\theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)},
 ```
 
-where the subscript $n$ indicates the iteration, $J$ is the number of elements in the ensemble and $\bar{\mathcal{G}}$ is the mean value of $\mathcal{G}(\theta)$ across ensemble elements,
+where the subscript $n=1, \dots, N_{it}$ indicates the iteration, $J$ is the number of members in the ensemble and $\bar{\mathcal{G}}_n$ is the mean value of $\mathcal{G}(\theta)$ across ensemble members,
 
-\\[ \bar{\mathcal{G}} = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta^{(k)}). \\]
+```math
+\bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)}).
+```
 
-For typical applications, a near-optimal solution $\theta$ can be found after as few as 10 iterations of the algorithm. The obtained solution is optimal in the sense of the mean squared error loss, details can be found in [Iglesias et al (2013)](http://dx.doi.org/10.1088/0266-5611/29/4/045001). The algorithm performs better with larger ensembles. As a rule of thumb, the number of elements in the ensemble should be larger than $10p$, although the optimal ensemble size may depend on the problem setting and the computational power available.
+The EKI algorithm is considered converged when the ensemble achieves sufficient consensus/collapse in parameter space. The final estimate $\bar{\theta}_{N_{it}}$ is taken to be the ensemble mean at the final iteration,
+
+```math
+\bar{\theta}_{N_{it}} = \dfrac{1}{J}\sum_{k=1}^J\theta_{N_{it}}^{(k)}.
+```
+
+For typical applications, a near-optimal solution $\theta$ can be found after as few as 10 iterations of the algorithm. The obtained solution is optimal in the sense of the mean squared error loss, details can be found in [Iglesias et al (2013)](http://dx.doi.org/10.1088/0266-5611/29/4/045001). The algorithm performs better with larger ensembles. As a rule of thumb, the number of members in the ensemble should be larger than $10p$, although the optimal ensemble size may depend on the problem setting and the computational power available.
+
+### Creating the EKI Object
 
 An ensemble Kalman inversion object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Inversion()` process type.
 
@@ -24,32 +34,46 @@ Creating an ensemble Kalman inversion object requires as arguments:
  3. The covariance of the observational noise, a matrix of size `[d × d]`
  4. The `Inversion()` process type.
 
-A typical initialization of the `Inversion()` process may be in terms of a user-defined `prior`, a summary of the observation statistics given by the mean `y` and covariance `obs_noise_cov`, and a desired number of elements in the ensemble,
+A typical initialization of the `Inversion()` process takes a user-defined `prior`, a summary of the observation statistics given by the mean `y` and covariance `obs_noise_cov`, and a desired number of members in the ensemble,
 ```julia
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
-J = 50  # number of ensemble elements
+J = 50  # number of ensemble members
 initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble from prior
 
 ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion())
 ```
 
-Note that no information about the forward map is necessary to initialize the Inversion process. The only forward map information required by the inversion process consists of model evaluations at the ensemble elements, necessary to update the ensemble.
+See the [Prior distributions](https://clima.github.io/EnsembleKalmanProcesses.jl/previews/PR21/parameter_distributions/) section to learn about the construction of priors in `EnsembleKalmanProcesses.jl`.
 
 ### Updating the Ensemble
 
 Once the ensemble Kalman inversion object `ekiobj` has been initialized, any number of updates can be performed using the inversion algorithm.
 
-A call to the inversion algorithm can be performed with the `update_ensemble!` function. This function takes as arguments the `ekiobj` and the evaluations of the forward map at each element of the current ensemble. The `update_ensemble!` function then stores the new updated ensemble and the inputted forward map evaluations in `ekiobj`.
+A call to the inversion algorithm can be performed with the `update_ensemble!` function. This function takes as arguments the `ekiobj` and the evaluations of the forward map at each member of the current ensemble. The `update_ensemble!` function then stores the new updated ensemble and the inputted forward map evaluations in `ekiobj`.
 
 A typical use of the `update_ensemble!` function given the ensemble Kalman inversion object `ekiobj` and the forward map `G` is
 ```julia
 N_iter = 20 # Number of steps of the algorithm
 
-for i in 1:N_iter
-    params_i = get_u_final(ekiobj) # Get current ensemble
-    g_ens = hcat([G(params_i[:,i]) for i in 1:J]...) # Evaluate forward map
+for n in 1:N_iter
+    θ_n = get_u_final(ekiobj) # Get current ensemble
+    physical_params = transform_unconstrained_to_constrained(prior, θ_n) # Transform parameters to physical space
+    g_ens = hcat([G(physical_params[:,i]) for i in 1:J]...) # Evaluate forward map
     update_ensemble!(ekiobj, g_ens) # Update ensemble
 end
+```
+
+In the previous update, note that the parameters stored in `ekiobj` are given in the unconstrained Gaussian space where the EKI algorithm is performed. The map between this unconstrained space and the (possibly constrained) physical space of parameters is encoded in the `prior` object. The forward map `G` accepts as inputs the parameters in (possibly constrained) physical space, so it is necessary to apply `transform_unconstrained_to_constrained` before evaluations. See the [Prior distributions](https://clima.github.io/EnsembleKalmanProcesses.jl/previews/PR21/parameter_distributions/) section for more details on parameter transformations.
+
+### Solution
+
+The EKI algorithm drives the initial ensemble, sampled from the prior, towards the support region of the posterior distribution. The algorithm also drives the ensemble members towards consensus. The optimal parameter `θ_optim` found by the algorithm is given by the mean of the last ensemble (i.e., the ensemble after the last iteration),
+
+```julia
+using Statistics
+
+θ_optim = mean(get_u_final(ekiobj), dims=2)
+sigma = cov(get_u_final(ekiobj), dims=2) # Compare with prior covariance
 ```

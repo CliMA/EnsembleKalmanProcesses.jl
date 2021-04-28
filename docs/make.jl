@@ -23,6 +23,7 @@ pages = [
     "Ensemble Kalman Inversion" => "ensemble_kalman_inversion.md",
     "Examples" => examples,
     "API" => api,
+    "Glossary" => "glossary.md",
 ]
 
 #----------
