@@ -10,7 +10,7 @@
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
 @everywhere include(joinpath(@__DIR__, "helper_funcs.jl"))
 using JLD
-
+using JLD2
 ###
 ###  Define the parameters and their priors
 ###
@@ -62,7 +62,7 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 # Get observations
 @everywhere normalized = true
 @everywhere perform_PCA = true
-@everywhere pool_norm = true
+@everywhere pool_norm = false
 @everywhere eigval_norm = false
 
 @everywhere yt = zeros(0)
@@ -112,7 +112,7 @@ n_samples = 1
 samples = zeros(n_samples, length(yt))
 samples[1,:] = yt
 # Regularization nugget
-@everywhere noise_level = 0.0
+@everywhere noise_level = 10.0
 @everywhere Γy = noise_level * Matrix(1.0I, N_yt, N_yt) + yt_var
 println("DETERMINANT OF FULL OBS NOISE COV MATRIX, ", det(Γy))
 # We construct the observations object with the samples and the cov.
@@ -125,7 +125,7 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 ###
 
 @everywhere N_ens = 20 # number of ensemble members
-@everywhere N_iter = 10 # number of EKp iterations.
+@everywhere N_iter = 20 # number of EKp iterations.
 
 initial_params = construct_initial_ensemble(priors, N_ens)
 precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
@@ -171,8 +171,10 @@ for i in 1:N_iter
     end
     update_ensemble!(ekobj, Array(g_ens') )
     println("\nEnsemble updated.\n")
+    println("Type of get_u", typeof(get_u(ekobj)))
+    println("Type of ekp_u transformed, ", typeof(transform_unconstrained_to_constrained(priors, get_u(ekobj))) )
     # Save EKp information to file
-    save( string(outdir_path,"/ekp.jld"), 
+    save( string(outdir_path,"/ekp.jld2"), 
         "ekp_u", transform_unconstrained_to_constrained(priors, get_u(ekobj)),
         "ekp_g", get_g(ekobj),
         "truth_mean", ekobj.obs_mean,
