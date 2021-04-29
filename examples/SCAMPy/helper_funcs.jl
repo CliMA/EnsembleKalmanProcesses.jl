@@ -81,13 +81,13 @@ function run_SCAMPy(u::Array{FT, 1},
             else
                 y_names_ = y_names
             end
-            if !isnothing(P_pca_list)
-                y_scm_flow = P_pca_list[i]' * get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
+            if !isnothing(norm_var_list)
+                y_scm_flow = normalize_profile(get_profile(sim_dir, y_names_, ti = ti_, tf = tf_), y_names_, norm_var_list[i])
             else
                 y_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
             end
-            if !isnothing(norm_var_list)
-                y_scm_flow = normalize_profile(y_scm_flow, y_names_, norm_var_list[i])
+            if !isnothing(P_pca_list)
+                y_scm_flow = P_pca_list[i]' * y_scm_flow
             end
             append!(y_scm, y_scm_flow)
             run(`rm -r $sim_dir`)

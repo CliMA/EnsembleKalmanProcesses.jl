@@ -99,6 +99,7 @@ end
 @everywhere yt_var_list = $yt_var_list
 @everywhere P_pca_list = $P_pca_list
 @everywhere N_yt = length(yt) # Length of data array
+@everywhere maxvar_vec_list = $maxvar_vec_list
 
 yt_var = zeros(N_yt, N_yt)
 vars_num = 1
@@ -126,7 +127,7 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-@everywhere N_ens = 20 # number of ensemble members
+@everywhere N_ens = 50 # number of ensemble members
 @everywhere N_iter = 10 # number of EKp iterations.
 
 initial_params = construct_initial_ensemble(priors, N_ens)
@@ -142,11 +143,11 @@ g_ens = zeros(N_ens, N_yt)
    y_names, scm_dir, ti, tf, P_pca_list = P_pca_list, norm_var_list = maxvar_vec_list)
 
 # Name of outdir
-prefix = "results_pycles_"
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
 prefix = pool_norm ? string(prefix, "pooled_") : prefix
 prefix = eigval_norm ? string(prefix, "eignorm_") : prefix
 outdir_path = string(prefix, "p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
+println("Name of outdir path for this EKP, ", outdir_path)
 command = `mkdir $outdir_path`
 try
     run(command)
