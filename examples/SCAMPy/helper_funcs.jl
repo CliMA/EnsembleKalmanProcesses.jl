@@ -12,7 +12,8 @@ function run_SCAMPy(u::Array{FT, 1},
                     y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
                     scm_dir::String,
                     ti::Union{FT, Array{FT,1}},
-                    tf::Union{FT, Array{FT,1}, Nothing} = nothing,
+                    tf::Union{FT, Array{FT,1}, Nothing} = nothing;
+                    norm_var_list = nothing,
                     P_pca_list = nothing,
                     ) where {FT<:AbstractFloat}
 
@@ -50,10 +51,14 @@ function run_SCAMPy(u::Array{FT, 1},
                 y_names_ = y_names
             end
             if !isnothing(P_pca_list)
-                append!(y_scm, P_pca_list[1]' * get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+                y_scm_flow = P_pca_list[1]' * get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
             else
-                append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+                y_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
             end
+            if !isnothing(norm_var_list)
+                y_scm_flow = normalize_profile(y_scm_flow, y_names_, norm_var_list[1])
+            end
+            append!(y_scm, y_scm_flow)
         end
         run(`rm -r $sim_dir`)
     else
@@ -77,10 +82,14 @@ function run_SCAMPy(u::Array{FT, 1},
                 y_names_ = y_names
             end
             if !isnothing(P_pca_list)
-                append!(y_scm, P_pca_list[i]' * get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+                y_scm_flow = P_pca_list[i]' * get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
             else
-                append!(y_scm, get_profile(sim_dir, y_names_, ti = ti_, tf = tf_))
+                y_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
             end
+            if !isnothing(norm_var_list)
+                y_scm_flow = normalize_profile(y_scm_flow, y_names_, norm_var_list[i])
+            end
+            append!(y_scm, y_scm_flow)
             run(`rm -r $sim_dir`)
         end
     end
@@ -122,7 +131,7 @@ function obs_LES(y_names::Array{String, 1},
     else
         y_ = y_highres
     end
-    return y_, y_tvar
+    return y_, y_tvar, maxvar_vec
 end
 
 """

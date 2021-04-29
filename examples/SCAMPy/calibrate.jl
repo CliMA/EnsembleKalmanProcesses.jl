@@ -39,7 +39,7 @@ constraints = [ [bounded(0.01, 0.3)],
                 [bounded(5.0, 15.0)],
                 [bounded(0.1, 0.8)]]
 # All vars are standard Gaussians in unconstrained space
-prior_dist = [Parameterized(Normal(0.0, 1.0))
+prior_dist = [Parameterized(Normal(0.0, 0.5))
                 for x in range(1, n_param, length=n_param) ]
 @everywhere prior_dist = $prior_dist
 @everywhere constraints = $constraints
@@ -68,6 +68,7 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 @everywhere yt = zeros(0)
 yt_var_list = []
 P_pca_list = []
+maxvar_vec_list = []
 @everywhere sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
 @everywhere sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
 
@@ -79,7 +80,8 @@ for (i, sim_name) in enumerate(sim_names)
     end
     sim_dir = string("Output.", sim_name, ".00000")
     z_scm = get_profile(sim_dir, ["z_half"])
-    yt_, yt_var_ = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
+    yt_, yt_var_, maxvar_vec = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
+    push!(maxvar_vec_list, maxvar_vec)
     if perform_PCA
         yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-2,
             eigval_norm = eigval_norm, pool_norm = pool_norm)
@@ -112,7 +114,7 @@ n_samples = 1
 samples = zeros(n_samples, length(yt))
 samples[1,:] = yt
 # Regularization nugget
-@everywhere noise_level = 10.0
+@everywhere noise_level = 1.0
 @everywhere Γy = noise_level * Matrix(1.0I, N_yt, N_yt) + yt_var
 println("DETERMINANT OF FULL OBS NOISE COV MATRIX, ", det(Γy))
 # We construct the observations object with the samples and the cov.
@@ -125,7 +127,7 @@ truth = Obs(Array(samples'), Γy, y_names[1])
 ###
 
 @everywhere N_ens = 20 # number of ensemble members
-@everywhere N_iter = 20 # number of EKp iterations.
+@everywhere N_iter = 10 # number of EKp iterations.
 
 initial_params = construct_initial_ensemble(priors, N_ens)
 precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
@@ -137,7 +139,7 @@ g_ens = zeros(N_ens, N_yt)
 
 @everywhere scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
-   y_names, scm_dir, ti, tf, P_pca_list)
+   y_names, scm_dir, ti, tf, P_pca_list = P_pca_list, norm_var_list = maxvar_vec_list)
 
 # Name of outdir
 prefix = "results_pycles_"
