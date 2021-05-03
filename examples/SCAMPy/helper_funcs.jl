@@ -7,6 +7,30 @@ using JLD
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
+"""
+    run_SCAMPy(u, u_names, y_names, scm_dir,
+                    ti, tf = nothing;
+                    norm_var_list = nothing,
+                    P_pca_list = nothing)
+
+Run call_SCAMPy.sh using a set of parameters u and return
+the value of outputs defined in y_names, possibly after
+normalization and projection onto lower dimensional space
+using PCA.
+
+Inputs:
+ - u :: Values of parameters to be used in simulations.
+ - u_names :: SCAMPy names for parameters u.
+ - y_names :: Name of outputs requested for each flow configuration.
+ - ti :: Vector of starting times for observation intervals. If tf=nothing,
+         snapshots at ti are returned.
+ - tf :: Vector of ending times for observation intervals.
+ - norm_var_list :: Pooled variance vectors. If given, use to normalize output.
+ - P_pca_list :: Vector of projection matrices P_pca for each flow configuration.
+Outputs:
+ - g_scm :: Vector of model evaluations concatenated for all flow configurations.
+ - g_scm_pca :: Projection of g_scm onto principal subspace spanned by eigenvectors.
+"""
 function run_SCAMPy(u::Array{FT, 1},
                     u_names::Array{String, 1},
                     y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
@@ -32,77 +56,81 @@ function run_SCAMPy(u::Array{FT, 1},
     sim_dirs = readlines(sim_uuid)
     run(`rm $sim_uuid`)
     
-    y_scm = zeros(0)
-    # For now it is assumed that if these do not coincide,
-    # there is only one simulation.
+    g_scm = zeros(0)
+    g_scm_pca = zeros(0)
+    # For now it is assumed that if length(ti) != length(sim_dirs),
+    # there is only one simulation and multiple time intervals.
     if length(ti) != length(sim_dirs)
         @assert length(sim_dirs) == 1
         sim_dir = sim_dirs[1]
-        for i in 1:length(ti)
-            ti_ = ti[i]
-            if !isnothing(tf)
-                tf_ = tf[i]
-            else
-                tf_ = tf
-            end
-            if typeof(y_names)==Array{Array{String,1},1}
-                y_names_ = y_names[i]
-            else
-                y_names_ = y_names
+        for (i, ti_) in enumerate(ti)
+            tf_ = !isnothing(tf)? tf[i] : nothing
+            y_names_ = typeof(y_names)==Array{Array{String,1},1}? y_names[i] : y_names
+
+            g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
+            if !isnothing(norm_var_list)
+                g_scm_flow = normalize_profile(g_scm_flow, y_names_, norm_var_list[1])
             end
             if !isnothing(P_pca_list)
-                y_scm_flow = P_pca_list[1]' * get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
-            else
-                y_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
+                append!(g_scm_pca, P_pca_list[1]' * g_scm_flow)
             end
-            if !isnothing(norm_var_list)
-                y_scm_flow = normalize_profile(y_scm_flow, y_names_, norm_var_list[1])
-            end
-            append!(y_scm, y_scm_flow)
+            append!(g_scm, g_scm_flow)
         end
         run(`rm -r $sim_dir`)
     else
-        for i in 1:length(sim_dirs)
-            sim_dir = sim_dirs[i]
-            if length(ti) > 1
-                ti_ = ti[i]
-                if !isnothing(tf)
-                    tf_ = tf[i]
-                else
-                    tf_ = tf
-                end
-            else
-                ti_ = ti
-                tf_ = tf
-            end
+        for (i, sim_dir) in enumerate(sim_dirs)
+            ti_ = ti[i]
+            tf_ = !isnothing(tf)? tf[i] : nothing
+            y_names_ = typeof(y_names)==Array{Array{String,1},1}? y_names[i] : y_names
 
-            if typeof(y_names)==Array{Array{String,1},1}
-                y_names_ = y_names[i]
-            else
-                y_names_ = y_names
-            end
+            g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
             if !isnothing(norm_var_list)
-                y_scm_flow = normalize_profile(get_profile(sim_dir, y_names_, ti = ti_, tf = tf_), y_names_, norm_var_list[i])
-            else
-                y_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
+                g_scm_flow = normalize_profile(g_scm_flow, y_names_, norm_var_list[i])
             end
+            append!(g_scm, g_scm_flow)
             if !isnothing(P_pca_list)
-                y_scm_flow = P_pca_list[i]' * y_scm_flow
+                append!(g_scm_pca, P_pca_list[i]' * g_scm_flow)
             end
-            append!(y_scm, y_scm_flow)
+            
             run(`rm -r $sim_dir`)
         end
     end
 
-    for i in eachindex(y_scm)
-        if isnan(y_scm[i])
-            y_scm[i] = 1.0e5
+    for i in eachindex(g_scm)
+        if isnan(g_scm[i])
+            g_scm[i] = 1.0e5
         end
     end
-
-    return y_scm
+    if !isnothing(P_pca_list)
+        for i in eachindex(g_scm_pca)
+            if isnan(g_scm_pca[i])
+                g_scm_pca[i] = 1.0e5
+            end
+        end
+        return g_scm, g_scm_pca
+    else
+        return g_scm
+    end
 end
 
+"""
+    obs_LES(y_names, sim_dir, ti, tf;
+            z_scm = nothing, normalize = false)
+
+Get LES output for observed variables y_names, interpolated to
+z_scm (if given), and possibly normalized with respect to the pooled variance.
+
+Inputs:
+ - y_names :: Name of outputs requested for each flow configuration.
+ - ti :: Vector of starting times for observation intervals. If tf=nothing,
+         snapshots at ti are returned.
+ - tf :: Vector of ending times for observation intervals.
+ - z_scm :: If given, interpolate LES observations to given levels.
+ - normalize :: If true, normalize observations and cov matrix by pooled variances.
+Outputs:
+ - y_ :: Mean of observations, possibly interpolated to z_scm levels.
+ - y_tvar :: Observational covariance matrix, possibly pool-normalized.
+"""
 function obs_LES(y_names::Array{String, 1},
                     sim_dir::String,
                     ti::Float64,
@@ -266,7 +294,7 @@ function normalize_profile(profile_vec, var_name, var_vec)
         prof_vec[dim_variable*(i-1)+1:dim_variable*i] =
             prof_vec[dim_variable*(i-1)+1:dim_variable*i] ./ sqrt(var_vec[i])
     end
-    return prof_vec 
+    return prof_vec
 end
 
 function get_timevar_profile(sim_dir::String,
@@ -481,3 +509,9 @@ end
 
 log_transform(a::AbstractArray) = log.(a)
 exp_transform(a::AbstractArray) = exp.(a)
+
+function compute_errors(g_arr, y)
+    diffs = [g - y for g in g_arr]
+    errors = map(x->dot(x,x), diffs)
+    return errors
+end
