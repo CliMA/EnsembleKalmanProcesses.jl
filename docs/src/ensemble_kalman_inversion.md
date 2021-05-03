@@ -24,6 +24,15 @@ The EKI algorithm is considered converged when the ensemble achieves sufficient 
 
 For typical applications, a near-optimal solution $\theta$ can be found after as few as 10 iterations of the algorithm. The obtained solution is optimal in the sense of the mean squared error loss, details can be found in [Iglesias et al (2013)](http://dx.doi.org/10.1088/0266-5611/29/4/045001). The algorithm performs better with larger ensembles. As a rule of thumb, the number of members in the ensemble should be larger than $10p$, although the optimal ensemble size may depend on the problem setting and the computational power available.
 
+### Constructing the Forward Map
+
+The forward map $\mathcal{G}$ maps the space of unconstrained parameters $\theta \in \mathbb{R}^p$ to the outputs $y\in \mathbb{R}^d$. In practice, the user may not have access to such a map directly. Consider a situation where the goal is to learn a set of parameters $\phi$ of a dynamical model $\Psi:\mathbb{R}^p \rightarrow \mathbb{R}^o$, given observations $y \in \mathbb{R}^d$ and a set of constraints on the value of $\phi$. Then, the forward map may be constructed as
+
+```math
+\mathcal{G} = \mathcal{H} \circ \Psi \circ \mathcal{T}^{-1},
+```
+where $\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d$ is the observation map and $\mathcal{T}$ is the transformation map from constrained to unconstrained parameter spaces, such that $\mathcal{T}(\phi)=\theta$. A family of standard transformation maps and their inverse are available in the `ParameterDistributionStorage` module.
+
 ### Creating the EKI Object
 
 An ensemble Kalman inversion object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Inversion()` process type.
@@ -45,27 +54,28 @@ initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble fr
 ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion())
 ```
 
-See the [Prior distributions](https://clima.github.io/EnsembleKalmanProcesses.jl/previews/PR21/parameter_distributions/) section to learn about the construction of priors in `EnsembleKalmanProcesses.jl`.
+See the [Prior distributions](https://clima.github.io/EnsembleKalmanProcesses.jl/previews/PR21/parameter_distributions/) section to learn about the construction of priors in `EnsembleKalmanProcesses.jl`. The prior is assumed to be over the unconstrained parameter space where $\theta$ is defined. For applications where enforcing parameter bounds is necessary, the `ParameterDistributionStorage` module provides functions to map from constrained to unconstrained space and viceversa. 
 
 ### Updating the Ensemble
 
 Once the ensemble Kalman inversion object `ekiobj` has been initialized, any number of updates can be performed using the inversion algorithm.
 
-A call to the inversion algorithm can be performed with the `update_ensemble!` function. This function takes as arguments the `ekiobj` and the evaluations of the forward map at each member of the current ensemble. The `update_ensemble!` function then stores the new updated ensemble and the inputted forward map evaluations in `ekiobj`.
+A call to the inversion algorithm can be performed with the `update_ensemble!` function. This function takes as arguments the `ekiobj` and the evaluations of the forward map at each member of the current ensemble. The `update_ensemble!` function then stores the new updated ensemble and the inputted forward map evaluations in `ekiobj`. 
 
-A typical use of the `update_ensemble!` function given the ensemble Kalman inversion object `ekiobj` and the forward map `G` is
+A typical use of the `update_ensemble!` function given the ensemble Kalman inversion object `ekiobj`, the dynamical model `Ψ` and the observation map `H` is
 ```julia
 N_iter = 20 # Number of steps of the algorithm
 
 for n in 1:N_iter
     θ_n = get_u_final(ekiobj) # Get current ensemble
-    physical_params = transform_unconstrained_to_constrained(prior, θ_n) # Transform parameters to physical space
-    g_ens = hcat([G(physical_params[:,i]) for i in 1:J]...) # Evaluate forward map
+    ϕ_n = transform_unconstrained_to_constrained(prior, θ_n) # Transform parameters to physical/constrained space
+    G_n = [ H( Ψ((ϕ_n[:,i]) ) for i in 1:J]
+    g_ens = hcat(G_n...) # Evaluate forward map
     update_ensemble!(ekiobj, g_ens) # Update ensemble
 end
 ```
 
-In the previous update, note that the parameters stored in `ekiobj` are given in the unconstrained Gaussian space where the EKI algorithm is performed. The map between this unconstrained space and the (possibly constrained) physical space of parameters is encoded in the `prior` object. The forward map `G` accepts as inputs the parameters in (possibly constrained) physical space, so it is necessary to apply `transform_unconstrained_to_constrained` before evaluations. See the [Prior distributions](https://clima.github.io/EnsembleKalmanProcesses.jl/previews/PR21/parameter_distributions/) section for more details on parameter transformations.
+In the previous update, note that the parameters stored in `ekiobj` are given in the unconstrained Gaussian space where the EKI algorithm is performed. The map $\mathcal{T}^{-1}$ between this unconstrained space and the (possibly constrained) physical space of parameters is encoded in the `prior` object. The dynamical model `Ψ` accepts as inputs the parameters in (possibly constrained) physical space, so it is necessary to apply `transform_unconstrained_to_constrained` before evaluations. See the [Prior distributions](https://clima.github.io/EnsembleKalmanProcesses.jl/previews/PR21/parameter_distributions/) section for more details on parameter transformations.
 
 ### Solution
 
@@ -75,5 +85,4 @@ The EKI algorithm drives the initial ensemble, sampled from the prior, towards t
 using Statistics
 
 θ_optim = mean(get_u_final(ekiobj), dims=2)
-sigma = cov(get_u_final(ekiobj), dims=2) # Compare with prior covariance
 ```
