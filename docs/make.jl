@@ -21,6 +21,7 @@ pages = [
     "Prior distributions" => "parameter_distributions.md",
     "Observations" => "observations.md",
     "Ensemble Kalman Inversion" => "ensemble_kalman_inversion.md",
+    "Ensemble Kalman Sampler" => "ensemble_kalman_sampler.md",
     "Examples" => examples,
     "API" => api,
     "Glossary" => "glossary.md",
