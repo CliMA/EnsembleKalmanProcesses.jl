@@ -7,14 +7,53 @@ Ensemble Kalman Sampling ([Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903
 The ensemble Kalman sampler is an interacting particle system in stochastic differential equation form, and it is based on a dynamic which transforms an arbitrary initial distribution into the desired posterior distribution, over an infinite time horizon -- see [Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), for a comprehensive description of the method. The ensemble Kalman sampling algorithm results from the introduction of a (judiciously chosen) noise to the ensemble Kalman inversion algorithm. Note that while there are also noisy variants of the standard ensemble Kalman inversion, ensemble Kalman sampling differs from them in its noise structure (its noise is added in parameter space, not in  data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization).
 
 
-### Problem Formulation
+### Problem Formulation and Ensemble Kalman Sampling Algorithm
 
 The data ``y`` and parameter vector ``\theta`` are assumed to be related according to:
 ```math
-    y = \mathcal{G}(\theta) + \eta, \,
+    y = \mathcal{G}(\theta) + \eta,
 ```
-where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the
-forward model, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a d-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown model parameters ``\theta`` given the observations ``y``, the known forward model ``\mathcal{G}``, and noise characteristics $\eta$ of the process.
+where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a d-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics $\eta$ of the process. 
+
+
+### Ensemble Kalman Sampling Algorithm
+
+
+The ensemble Kalman sampler is based on the following update equation for the parameter vector $\theta^{(j)}$ of ensemble member $j$:
+
+```math
+\begin{aligned}
+\theta_{n+1}^{(*,j)} &= \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)} - \Delta t_n \mathrm{C}(\Theta_n) \Gamma_{\theta}^{-1} \theta_{n + 1}^{(*, j)} \\
+\theta_{n + 1}^{j} &= \theta_{n+1}^{(*, j)} + \sqrt{2 \Delta t \mathrm{C}(\Theta_n)} \xi_n^{j}
+\end{aligned}
+```
+
+where the subscript $n=1, \dots, N_{it}$ indicates the iteration, $J$ is the ensemble size (i.e., the number of particles in the ensemble), $\Delta t$ is an adaptive time step, $\Gamma_{\theta}$ is the prior covariance, and $\xi_n^{(j)}$ \sim \mathcal{N}(0, I)$. $\bar{\mathcal{G}}_n$ is the ensemble mean of $\mathcal{G}(\theta)$,
+
+```math
+\bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)})
+```
+
+The $p \times p$ matrix $\mathrm{C}(\Theta_n)$ is the empirical covariance between particles,
+
+```math
+\mathrm{C}(\Theta) = \frac{1}{J} \sum_{k=1}^J (\theta^{(k)} - \bar{\theta}) \otimes (\theta^{(k)} - \bar{\theta}),
+```
+where $\bar{\theta}$ is the ensemble mean of the particles,
+
+```math
+\bar{\theta} = \dfrac{1}{J}\sum_{k=1}^J\theta^{(k)}
+```
+
+
+### Constructing the Forward Map
+
+At the core of the forward map ``\mathcal{G}`` is the dynamical model ``\Psi:\mathbb{R}^p \rightarrow \mathbb{R}^o`` (running ``\Psi`` is usually where the computational heavy-lifting is done), but the map ``\mathcal{G}`` may include additional components such as a transformation of the (unbounded) parameters ``\theta`` to a constrained domain the dynamical model can work with, or some post-processing of the output of ``\Psi`` to generate the observations. For example, ``\mathcal{G}`` may take the following form:
+
+```math
+\mathcal{G} = \mathcal{H} \circ \Psi \circ \mathcal{T}^{-1},
+```
+where $\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d$ is the observation map and $\mathcal{T}$ is the transformation map from constrained to unconstrained parameter spaces, such that $\mathcal{T}(\phi)=\theta$. A family of standard transformation maps and their inverses are available in the `ParameterDistributionStorage` module.
 
 
 ### How to Construct an Ensemble Kalman Sampler
@@ -35,21 +74,11 @@ The following example shows how an ensemble Kalman sampling object is instantiat
 
 ```julia
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributionStorage  # required to create the prior
 using Distributions
 
-# Construct priors for parameters "A" and "B" (see `ParameterDistributionStorage` docs)
-p1 = "A"  # parameter name
-c1 = no_constraint() # A has no constraints
-d1 = Parameterized(Normal(0, 1))  # A has a standard normal distribution in prior space
-p2 = "B"  # parameter name
-c2 = no_constraint()  # B has no constraints
-d2 = Parameterized(Normal(0, 1))  # B has a standard normal distribution in prior space
-
-distributions = [d1, d2]
-constraints = [[c1], [c2]]
-names = [p1, p2] 
-prior = ParameterDistribution(distributions, constraints, names)
+# Construct prior (see `ParameterDistributionStorage.jl` docs
+prior = ParameterDistribution(...)
 prior_mean = get_mean(prior)
 prior_cov = get_cov(prior)
 
@@ -62,30 +91,36 @@ eks_process = Sampler(prior_mean, prior_cov)
 eks_obj = EnsembleKalmanProcess(initial_ensemble, obs_mean, obs_noise_cov, eks_process)
 ```
 
-Note that no information about the forward model is necessary to instantiate the ensemble Kalman process. The forward model is only used in the process of updating the initial ensemble, where it maps the ensemble of particles (parameters) to the corresponding data.
 
 ### Updating the ensemble
 
 Once the ensemble Kalman sampling object `eks_obj` has been initialized, the initial ensemble of particles is iteratively updated by the `update_ensemble!` function, which takes as arguments the `eks_obj` and the evaluations of the forward model at each member of the current ensemble. In the following example, the forward map `G` (defined elsewhere, e.g. in a separate module) maps a parameter to the corresponding data -- this is done for each parameter in the ensemble, such that the resulting `g_ens` is of size `d x N_ens`. The `update_ensemble!` function then stores the updated ensemble as well as the evaluations of the forward map in `eks_obj`.
 
+A typical use of the `update_ensemble!` function given the ensemble Kalman sampler object `eks_obj`, the dynamical model `Ψ`, and the observation map `H` may look as follows:
+
 
 ```julia
-N_iter = 20 # Number of steps of the algorithm
+N_iter = 10 # Number of iterations
 
-for i in 1:N_iter
-    params_i = get_u_final(eks_obj)  # Get current ensemble
-    g_ens = hcat([G(params_i[:,i]) for i in 1:N_ens]...) 
-    update_ensemble!(eks_obj, g_ens)  # Update ensemble
+for n in 1:N_iter
+    θ_n = get_u_final(eks_obj) # Get current ensemble
+    ϕ_n = transform_unconstrained_to_constrained(prior, θ_n) # Transform parameters to physical/constrained space
+    G_n = [H(Ψ((ϕ_n[:, i])) for i in 1:J]
+    g_ens = hcat(G_n...) # Evaluate forward map
+    update_ensemble!(eks_obj, g_ens) # Update ensemble
 end
 ```
 
 ### Solution
 
-The ensemble Kalman sampling algorithm converts the initial ensemble of particles into approximate samples of the posterior distribution. Thus, the optimal parameter `theta_optim` found by the algorithm is given by the mean of the ''last ensemble'' (i.e., the ensemble after the last iteration), and the standard deviation of the last ensemble serves as a measure of the uncertainty of the optimal parameter. `theta_optim` and its standard deviation `sigma` can be accessed as follows: 
+The solution of the ensemble Kalman sampling algorithm is a Gaussian distribution, whose mean and covariance can be extracted from the ''last ensemble'' (i.e., the ensemble after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter `θ_optim` for the given calibration problem. These statistics can be accessed as follows: 
+
 
 ```julia
 using Statistics
 
-theta_optim = mean(get_u_final(eks_obj), dims=2)
+# mean of the Gaussian distribution, also the optimal parameter for the calibration problem
+θ_optim = mean(get_u_final(eks_obj), dims=2)
+# covariance of the Gaussian distribution
 sigma = cov(get_u_final(eks_obj), dims=2)
 ```
