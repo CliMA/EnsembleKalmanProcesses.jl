@@ -23,21 +23,21 @@ The ensemble Kalman sampler is based on the following update equation for the pa
 
 ```math
 \begin{aligned}
-\theta_{n+1}^{(*,j)} &= \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)} - \Delta t_n \mathrm{C}(\Theta_n) \Gamma_{\theta}^{-1} \theta_{n + 1}^{(*, j)} \\
-\theta_{n + 1}^{j} &= \theta_{n+1}^{(*, j)} + \sqrt{2 \Delta t \mathrm{C}(\Theta_n)} \xi_n^{j}
+\theta_{n+1}^{(*, j)} &= \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)} - \Delta t_n \mathsf{C}(\Theta_n) \Gamma_{\theta}^{-1} \theta_{n + 1}^{(*, j)} \\
+\theta_{n + 1}^{j} &= \theta_{n+1}^{(*, j)} + \sqrt{2 \Delta t_n \mathsf{C}(\Theta_n)} \xi_n^{j}
 \end{aligned}
 ```
 
-where the subscript $n=1, \dots, N_{it}$ indicates the iteration, $J$ is the ensemble size (i.e., the number of particles in the ensemble), $\Delta t$ is an adaptive time step, $\Gamma_{\theta}$ is the prior covariance, and $\xi_n^{(j)}$ \sim \mathcal{N}(0, I)$. $\bar{\mathcal{G}}_n$ is the ensemble mean of $\mathcal{G}(\theta)$,
+where the subscript $n=1, \dots, N_{it}$ indicates the iteration, $J$ is the ensemble size (i.e., the number of particles in the ensemble), $\Delta t$ is an adaptive time step, $\Gamma_{\theta}$ is the prior covariance, and $\xi_n^{(j)} \sim \mathcal{N}(0, \mathrm{I})$. $\bar{\mathcal{G}}_n$ is the ensemble mean of $\mathcal{G}(\theta)$,
 
 ```math
 \bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)})
 ```
 
-The $p \times p$ matrix $\mathrm{C}(\Theta_n)$ is the empirical covariance between particles,
+The $p \times p$ matrix $\mathsf{C}(\Theta_n)$ is the empirical covariance between particles,
 
 ```math
-\mathrm{C}(\Theta) = \frac{1}{J} \sum_{k=1}^J (\theta^{(k)} - \bar{\theta}) \otimes (\theta^{(k)} - \bar{\theta}),
+\mathsf{C}(\Theta) = \frac{1}{J} \sum_{k=1}^J (\theta^{(k)} - \bar{\theta}) \otimes (\theta^{(k)} - \bar{\theta}),
 ```
 where $\bar{\theta}$ is the ensemble mean of the particles,
 
@@ -83,7 +83,7 @@ prior_mean = get_mean(prior)
 prior_cov = get_cov(prior)
 
 # Construct initial ensemble
-N_ens = 50  # number of ensemble members
+N_ens = 50  # ensemble size
 initial_ensemble = construct_initial_ensemble(prior, N_ens) 
 
 # Construct ensemble Kalman process 
@@ -113,7 +113,7 @@ end
 
 ### Solution
 
-The solution of the ensemble Kalman sampling algorithm is a Gaussian distribution, whose mean and covariance can be extracted from the ''last ensemble'' (i.e., the ensemble after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter `θ_optim` for the given calibration problem. These statistics can be accessed as follows: 
+The solution of the ensemble Kalman sampling algorithm is a Gaussian distribution whose mean and covariance can be extracted from the ''last ensemble'' (i.e., the ensemble after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter `θ_optim` for the given calibration problem. These statistics can be accessed as follows: 
 
 
 ```julia
