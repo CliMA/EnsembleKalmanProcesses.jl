@@ -7,7 +7,7 @@ Ensemble Kalman Sampling ([Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903
 The ensemble Kalman sampler is an interacting particle system in stochastic differential equation form, and it is based on a dynamic which transforms an arbitrary initial distribution into the desired posterior distribution, over an infinite time horizon -- see [Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), for a comprehensive description of the method. The ensemble Kalman sampling algorithm results from the introduction of a judiciously chosen noise to the ensemble Kalman inversion algorithm. Note that while there are also noisy variants of the standard ensemble Kalman inversion, ensemble Kalman sampling differs from them in its noise structure (its noise is added in parameter space, not in  data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization).
 
 
-### Problem Formulation and Ensemble Kalman Sampling Algorithm
+### Problem Formulation
 
 The data ``y`` and parameter vector ``\theta`` are assumed to be related according to:
 ```math
