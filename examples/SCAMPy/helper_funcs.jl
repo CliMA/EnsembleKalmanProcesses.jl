@@ -64,8 +64,8 @@ function run_SCAMPy(u::Array{FT, 1},
         @assert length(sim_dirs) == 1
         sim_dir = sim_dirs[1]
         for (i, ti_) in enumerate(ti)
-            tf_ = !isnothing(tf)? tf[i] : nothing
-            y_names_ = typeof(y_names)==Array{Array{String,1},1}? y_names[i] : y_names
+            tf_ = !isnothing(tf) ? tf[i] : nothing
+            y_names_ = typeof(y_names)==Array{Array{String,1},1} ? y_names[i] : y_names
 
             g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
             if !isnothing(norm_var_list)
@@ -80,8 +80,8 @@ function run_SCAMPy(u::Array{FT, 1},
     else
         for (i, sim_dir) in enumerate(sim_dirs)
             ti_ = ti[i]
-            tf_ = !isnothing(tf)? tf[i] : nothing
-            y_names_ = typeof(y_names)==Array{Array{String,1},1}? y_names[i] : y_names
+            tf_ = !isnothing(tf) ? tf[i] : nothing
+            y_names_ = typeof(y_names)==Array{Array{String,1},1} ? y_names[i] : y_names
 
             g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
             if !isnothing(norm_var_list)
@@ -107,6 +107,8 @@ function run_SCAMPy(u::Array{FT, 1},
                 g_scm_pca[i] = 1.0e5
             end
         end
+        println("LENGTH OF G_SCM_ARR", length(g_scm))
+        println("LENGTH OF G_SCM_ARR_PCA", length(g_scm_pca))
         return g_scm, g_scm_pca
     else
         return g_scm

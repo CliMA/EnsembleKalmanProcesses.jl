@@ -79,8 +79,8 @@ for (i, sim_name) in enumerate(sim_names)
     yt_, yt_var_, pool_var = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
     push!(pool_var_list, pool_var)
     if perform_PCA
-        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 1.0e-2,
-            eigval_norm = eigval_norm, pool_norm = pool_norm)
+        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 5.0e-3,
+            eigval_norm = eigval_norm, pool_norm = pool_norm)         #1.0e-2-->45, 50.e-2 --> 25, 8.0e-2 --> 19, 1.0e-1->17, 2.0e-1 --> 10
         append!(yt, yt_pca)
         push!(yt_var_list, yt_var_pca)
         push!(P_pca_list, P_pca)
@@ -117,7 +117,7 @@ n_samples = 1
 samples = zeros(n_samples, length(yt))
 samples[1,:] = yt
 # Regularization nugget
-@everywhere noise_level = 1.0
+@everywhere noise_level = 0.0
 @everywhere Γy = noise_level * Matrix(1.0I, N_yt, N_yt) + yt_var
 println("DETERMINANT OF FULL OBS NOISE COV MATRIX, ", det(Γy))
 
@@ -125,7 +125,7 @@ println("DETERMINANT OF FULL OBS NOISE COV MATRIX, ", det(Γy))
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-@everywhere N_ens = 50 # number of ensemble members
+@everywhere N_ens = 100 # number of ensemble members
 @everywhere N_iter = 10 # number of EKP iterations.
 
 initial_params = construct_initial_ensemble(priors, N_ens)
@@ -153,6 +153,7 @@ end
 
 # EKP iterations
 g_ens = zeros(N_ens, N_yt)
+norm_err_list = []
 @everywhere Δt = 1.0
 for i in 1:N_iter
     # Note that the parameters are exp-transformed when used as input
@@ -160,11 +161,16 @@ for i in 1:N_iter
     @everywhere params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
         get_u_final(ekobj)) )
     @everywhere params = [row[:] for row in eachrow(params_cons_i')]
-    g_ens_arr, g_ens_arr_pca = pmap(g_, params)
-    println(string("\n\nEKp evaluation ",i," finished. Updating ensemble ...\n"))
+    array_of_tuples = pmap(g_, params) # Outer dim is params iterator
+    (g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),2)
+    println("LENGTH OF G_ENS_ARR", length(g_ens_arr))
+    println("LENGTH OF G_ENS_ARR_PCA", length(g_ens_arr_pca))
+    println(string("\n\nEKP evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
       g_ens[j, :] = g_ens_arr_pca[j]
     end
+    # Get normalized error
+    push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
     update_ensemble!(ekobj, Array(g_ens') )
     println("\nEnsemble updated. Saving results to file...\n")
     # Save EKP information to file
@@ -174,7 +180,7 @@ for i in 1:N_iter
         "truth_mean", ekobj.obs_mean,
         "truth_cov", ekobj.obs_noise_cov,
         "ekp_err", ekobj.err,
-        "norm_err", compute_errors(g_ens_arr, y))
+        "norm_err", norm_err_list)
 end
 
 # EKP results: Has the ensemble collapsed toward the truth?
