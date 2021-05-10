@@ -183,8 +183,9 @@ function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6;
     pool_norm = false, eigval_norm = false)
     eig = eigen(y_var)
     eigvals, eigvecs = eig; # eigvecs is matrix with eigvecs as cols
-    # Get index of leading eigenvalues
-    leading_eigs = findall(<(1.0-allowed_var_loss), cumsum(eigvals)/sum(eigvals))
+    # Get index of leading eigenvalues, eigvals are ordered from low to high in julia
+    # This expression recovers 1 extra eigenvalue compared to threshold
+    leading_eigs = findall(<(1.0-allowed_var_loss), -cumsum(eigvals)/sum(eigvals).+1)
     P_pca = eigvecs[:, leading_eigs]
     λ_pca = eigvals[leading_eigs]
     # Check correct PCA projection
