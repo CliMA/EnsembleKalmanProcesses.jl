@@ -10,6 +10,7 @@
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
 @everywhere include(joinpath(@__DIR__, "helper_funcs.jl"))
 using JLD2
+using NPZ
 
 ###
 ###  Define the parameters and their priors
@@ -102,7 +103,18 @@ end
 @everywhere N_yt = length(yt) # Length of data array
 @everywhere pool_var_list = $pool_var_list
 
-# Construct global observational covariance matrix
+# Construct global observational covariance matrix, no TSVD
+yt_var_big = zeros(length(yt_big), length(yt_big))
+vars_num = 1
+for flow_cov in yt_var_list_big
+    vars = length(flow_cov[1,:])
+    yt_var_big[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = flow_cov
+    global vars_num = vars_num+vars
+    println("DETERMINANT OF OBS NOISE COV MATRIX FOR 1 FLOW, ", det(flow_cov))
+end
+@everywhere yt_var_big = $yt_var_big
+
+# Construct global observational covariance matrix, TSVD
 yt_var = zeros(N_yt, N_yt)
 vars_num = 1
 for flow_cov in yt_var_list
@@ -125,8 +137,8 @@ println("DETERMINANT OF FULL OBS NOISE COV MATRIX, ", det(Γy))
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-@everywhere N_ens = 100 # number of ensemble members
-@everywhere N_iter = 10 # number of EKP iterations.
+@everywhere N_ens = 5 # number of ensemble members
+@everywhere N_iter = 1 # number of EKP iterations.
 
 initial_params = construct_initial_ensemble(priors, N_ens)
 # Discard unstable parameter combinations
@@ -154,15 +166,16 @@ end
 # EKP iterations
 g_ens = zeros(N_ens, N_yt)
 norm_err_list = []
+y_big_list = []
+g_big_list = []
 @everywhere Δt = 1.0
 for i in 1:N_iter
-    # Note that the parameters are exp-transformed when used as input
-    # to SCAMPy
+    # Note that the parameters are transformed when used as input to SCAMPy
     @everywhere params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
         get_u_final(ekobj)) )
     @everywhere params = [row[:] for row in eachrow(params_cons_i')]
     array_of_tuples = pmap(g_, params) # Outer dim is params iterator
-    (g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),2)
+    (g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),2) # Outer dim is G̃, G 
     println("LENGTH OF G_ENS_ARR", length(g_ens_arr))
     println("LENGTH OF G_ENS_ARR_PCA", length(g_ens_arr_pca))
     println(string("\n\nEKP evaluation ",i," finished. Updating ensemble ...\n"))
@@ -171,6 +184,8 @@ for i in 1:N_iter
     end
     # Get normalized error
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
+    push!(y_big_list, yt_big)
+    push!(g_big_list, g_ens_arr)
     update_ensemble!(ekobj, Array(g_ens') )
     println("\nEnsemble updated. Saving results to file...\n")
     # Save EKP information to file
@@ -180,7 +195,20 @@ for i in 1:N_iter
         "truth_mean", ekobj.obs_mean,
         "truth_cov", ekobj.obs_noise_cov,
         "ekp_err", ekobj.err,
-        "norm_err", norm_err_list)
+        "norm_err", norm_err_list,
+        "truth_mean_big", y_big_list,
+        "g_big", g_big_list,
+        "truth_cov_big", yt_var_big,
+        "P_pca", P_pca_list,
+        )
+    npzwrite(string(outdir_path,"/phi_params.npy"), transform_unconstrained_to_constrained(priors, get_u(ekobj)))
+    npzwrite(string(outdir_path,"/y_mean.npy"), ekobj.obs_mean)
+    npzwrite(string(outdir_path,"/Gamma_y.npy"), ekobj.obs_noise_cov)
+    npzwrite(string(outdir_path,"/norm_err.npy"), norm_err_list)
+    npzwrite(string(outdir_path,"/Gamma_y_big.npy"), yt_var_big)
+    npzwrite(string(outdir_path,"/g_big.npy"), g_big_list)
+    npzwrite(string(outdir_path,"/y_mean_big.npy"), y_big_list)
+    npzwrite(string(outdir_path,"/P_pca.npy"), P_pca_list)
 end
 
 # EKP results: Has the ensemble collapsed toward the truth?

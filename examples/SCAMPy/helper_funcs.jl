@@ -168,15 +168,12 @@ end
     obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6)
 
 Perform dimensionality reduction using principal component analysis on
-the variance y_var. Only eigenvectors with eigenvalues
-
-    eigval >  allowed_var_loss * maximum(eigvals)
-
-are retained.
+the variance y_var. Only eigenvectors with eigenvalues that contribute
+to the leading 1-allowed_var_loss variance are retained.
 Inputs:
  - y_mean :: Mean of the observations.
  - y_var :: Variance of the observations.
- - allowed_var_loss :: Lower limit for eigenvalues retained.
+ - allowed_var_loss :: Maximum variance loss allowed.
 Outputs:
  - y_pca :: Projection of y_mean onto principal subspace spanned by eigenvectors.
  - y_var_pca :: Projection of y_var on principal subspace.
@@ -187,7 +184,7 @@ function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6;
     eig = eigen(y_var)
     eigvals, eigvecs = eig; # eigvecs is matrix with eigvecs as cols
     # Get index of leading eigenvalues
-    leading_eigs = findall(>(allowed_var_loss), eigvals/maximum(eigvals))
+    leading_eigs = findall(<(1.0-allowed_var_loss), cumsum(eigvals)/sum(eigvals))
     P_pca = eigvecs[:, leading_eigs]
     λ_pca = eigvals[leading_eigs]
     # Check correct PCA projection
@@ -474,6 +471,18 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
 end
 
 """
+    compute_errors(g_arr, y)
+
+Computes the L2-norm error of each elmt of g_arr
+wrt vector y.
+"""
+function compute_errors(g_arr, y)
+    diffs = [g - y for g in g_arr]
+    errors = map(x->dot(x,x), diffs)
+    return errors
+end
+
+"""
     logmean_and_logstd(μ, σ)
 
 Returns the lognormal parameters μ and σ from the mean μ and std σ of the 
@@ -511,9 +520,3 @@ end
 
 log_transform(a::AbstractArray) = log.(a)
 exp_transform(a::AbstractArray) = exp.(a)
-
-function compute_errors(g_arr, y)
-    diffs = [g - y for g in g_arr]
-    errors = map(x->dot(x,x), diffs)
-    return errors
-end
