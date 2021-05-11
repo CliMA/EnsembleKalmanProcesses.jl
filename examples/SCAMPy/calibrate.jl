@@ -202,11 +202,12 @@ for i in 1:N_iter
     # Convert to arrays
     phi_params = Array{Array{Float64,2},1}(transform_unconstrained_to_constrained(priors, get_u(ekobj)))
     phi_params_arr = zeros(i+1, n_param, N_ens)
+    g_big_arr = zeros(i, N_ens, length(yt_big))
     for (k,elem) in enumerate(phi_params)
       phi_params_arr[k,:,:] = elem
-      # if k < i + 1
-
-      # end
+      if k < i + 1
+        g_big_arr[k,:,:] = hcat(g_big_list[k]...)'
+      end
     end
     norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
     npzwrite(string(outdir_path,"/y_mean.npy"), ekobj.obs_mean)
@@ -214,10 +215,11 @@ for i in 1:N_iter
     npzwrite(string(outdir_path,"/y_mean_big.npy"), yt_big)
     npzwrite(string(outdir_path,"/Gamma_y_big.npy"), yt_var_big)
     npzwrite(string(outdir_path,"/phi_params.npy"), phi_params_arr)
-    npzwrite(string(outdir_path,"/norm_err.npy"), norm_err_list)
-    
-    #npzwrite(string(outdir_path,"/g_big.npy"), g_big_list) # TBD
-    #npzwrite(string(outdir_path,"/P_pca.npy"), P_pca_list) # TBD
+    npzwrite(string(outdir_path,"/norm_err.npy"), norm_err_arr)
+    npzwrite(string(outdir_path,"/g_big.npy"), g_big_arr)
+    for (l, P_pca) in enumerate(P_pca_list)
+      npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
+    end
 end
 
 # EKP results: Has the ensemble collapsed toward the truth?
