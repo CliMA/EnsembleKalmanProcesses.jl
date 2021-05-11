@@ -78,7 +78,7 @@ for (i, sim_name) in enumerate(sim_names)
     yt_, yt_var_, pool_var = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
     push!(pool_var_list, pool_var)
     if perform_PCA
-        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 5.0e-3,
+        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 5.0e-2,
             eigval_norm = eigval_norm, pool_norm = pool_norm)
         append!(yt, yt_pca)
         push!(yt_var_list, yt_var_pca)
@@ -94,12 +94,6 @@ for (i, sim_name) in enumerate(sim_names)
 end
 
 N_yt = length(yt) # Length of data array
-# yt = $yt
-# yt_var_list = $yt_var_list
-# yt_big = $yt_big
-# yt_var_list_big = $yt_var_list_big
-# P_pca_list = $P_pca_list
-# pool_var_list = $pool_var_list
 
 # Construct global observational covariance matrix, no TSVD
 yt_var_big = zeros(length(yt_big), length(yt_big))
@@ -108,9 +102,8 @@ for (k,flow_cov) in enumerate(yt_var_list_big)
     vars = length(flow_cov[1,:])
     yt_var_big[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = flow_cov
     global vars_num = vars_num+vars
-    println("DETERMINANT OF Γy FOR ", sim_names[k], det(flow_cov))
+    println("DETERMINANT OF Γy FOR ", sim_names[k], " ", det(flow_cov))
 end
-# yt_var_big = $yt_var_big
 
 # Construct global observational covariance matrix, TSVD
 yt_var = zeros(N_yt, N_yt)
@@ -119,9 +112,8 @@ for (k,flow_cov) in enumerate(yt_var_list)
     vars = length(flow_cov[1,:])
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = flow_cov
     global vars_num = vars_num+vars
-    println("DETERMINANT OF PCA Γy FOR ", sim_names[k], det(flow_cov))
+    println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(flow_cov))
 end
-# yt_var = $yt_var
 
 n_samples = 1
 samples = zeros(n_samples, length(yt))
@@ -137,18 +129,19 @@ println("DETERMINANT OF FULL Γy, ", det(Γy))
 
 N_ens = 5 # number of ensemble members
 N_iter = 1 # number of EKP iterations.
-println("NUMBER OF ENSEMBLE MEMBERS, ", N_ens)
-println("NUMBER OF ITERATIONS, ", N_iter)
+println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
+println("NUMBER OF ITERATIONS: ", N_iter)
 
 initial_params = construct_initial_ensemble(priors, N_ens)
 # Discard unstable parameter combinations, parallel
-#precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
+precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 
 ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, Inversion())
 scm_dir = "/home/ilopezgo/SCAMPy/"
-g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
-   y_names, scm_dir, ti, tf, P_pca_list = P_pca_list, norm_var_list = pool_var_list)
-@everywhere g_ = $g_
+@everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
+   $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list) 
+
+#@everywhere g_(x::Array{Float64,1}) = $g_(x::Array{Float64,1})
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
 prefix = pool_norm ? string(prefix, "pooled_") : prefix
