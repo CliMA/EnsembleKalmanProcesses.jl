@@ -127,8 +127,8 @@ println("DETERMINANT OF FULL Γy, ", det(Γy))
     ###  Calibrate: Ensemble Kalman Inversion
     ###
 
-N_ens = 5 # number of ensemble members
-N_iter = 1 # number of EKP iterations.
+N_ens = 50 # number of ensemble members
+N_iter = 10 # number of EKP iterations.
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
 
@@ -141,7 +141,6 @@ scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
    $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list) 
 
-#@everywhere g_(x::Array{Float64,1}) = $g_(x::Array{Float64,1})
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
 prefix = pool_norm ? string(prefix, "pooled_") : prefix
@@ -191,6 +190,7 @@ for i in 1:N_iter
         "g_big", g_big_list,
         "truth_cov_big", yt_var_big,
         "P_pca", P_pca_list,
+        "pool_var", pool_var_list,
         )
     # Convert to arrays
     phi_params = Array{Array{Float64,2},1}(transform_unconstrained_to_constrained(priors, get_u(ekobj)))
@@ -212,6 +212,7 @@ for i in 1:N_iter
     npzwrite(string(outdir_path,"/g_big.npy"), g_big_arr)
     for (l, P_pca) in enumerate(P_pca_list)
       npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
+      npzwrite(string(outdir_path,"/pool_var_",sim_names[l],".npy"), pool_var_list[l])
     end
 end
 
