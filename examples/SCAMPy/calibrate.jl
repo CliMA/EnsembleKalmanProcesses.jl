@@ -12,12 +12,12 @@
 using JLD2
 using NPZ
 
-###
-###  Define the parameters and their priors
-###
+    ###
+    ###  Define the parameters and their priors
+    ###
 
 # Define the parameters that we want to learn
-@everywhere param_names = ["entrainment_factor", "detrainment_factor", "sorting_power", 
+param_names = ["entrainment_factor", "detrainment_factor", "sorting_power", 
 	"tke_ed_coeff", "tke_diss_coeff", "pressure_normalmode_adv_coeff", 
          "pressure_normalmode_buoy_coeff1", "pressure_normalmode_drag_coeff", "static_stab_coeff"]
 n_param = length(param_names)
@@ -36,31 +36,29 @@ constraints = [ [bounded(0.01, 0.3)],
 prior_dist = [Parameterized(Normal(0.0, 0.5))
                 for x in range(1, n_param, length=n_param) ]
 priors = ParameterDistribution(prior_dist, constraints, param_names)
-@everywhere priors = $priors
 
-###
-###  Retrieve true LES samples from PyCLES data
-###
+    ###
+    ###  Retrieve true LES samples from PyCLES data
+    ###
 
-# Define observation window per flow condition
-@everywhere ti = [7200.0, 25200.0, 7200.0, 14400.0]
-@everywhere tf = [14400.0, 32400.0, 14400.0, 21600.0]
-# Define variables per flow condition
+# Define observation window per flow configuration
+ti = [7200.0, 25200.0, 7200.0, 14400.0]
+tf = [14400.0, 32400.0, 14400.0, 21600.0]
+# Define variables per flow configuration
 y_names = Array{String, 1}[]
 push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]) #DYCOMS_RF01
 push!(y_names, ["thetal_mean", "u_mean", "v_mean", "tke_mean"]) #GABLS
 push!(y_names, ["thetal_mean", "total_flux_h"]) #Nieuwstadt
 push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]) #Bomex
-@everywhere y_names=$y_names
 
-# Define preconditioning of inverse problem
-@everywhere normalized = true
-@everywhere perform_PCA = true
-@everywhere pool_norm = false
-@everywhere eigval_norm = false
+# Define preconditioning and regularization of inverse problem
+normalized = true
+perform_PCA = true
+pool_norm = false
+eigval_norm = false
 
-@everywhere sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
-@everywhere sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
+sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
+sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
 # Init arrays
 yt = zeros(0)
 yt_var_list = []
@@ -81,7 +79,7 @@ for (i, sim_name) in enumerate(sim_names)
     push!(pool_var_list, pool_var)
     if perform_PCA
         yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 5.0e-3,
-            eigval_norm = eigval_norm, pool_norm = pool_norm)         #1.0e-2-->45, 50.e-2 --> 25, 8.0e-2 --> 19, 1.0e-1->17, 2.0e-1 --> 10
+            eigval_norm = eigval_norm, pool_norm = pool_norm)
         append!(yt, yt_pca)
         push!(yt_var_list, yt_var_pca)
         push!(P_pca_list, P_pca)
@@ -95,61 +93,62 @@ for (i, sim_name) in enumerate(sim_names)
     push!(yt_var_list_big, yt_var_)
 end
 
-@everywhere yt = $yt
-@everywhere yt_var_list = $yt_var_list
-@everywhere yt_big = $yt_big
-@everywhere yt_var_list_big = $yt_var_list_big
-@everywhere P_pca_list = $P_pca_list
-@everywhere N_yt = length(yt) # Length of data array
-@everywhere pool_var_list = $pool_var_list
+N_yt = length(yt) # Length of data array
+# yt = $yt
+# yt_var_list = $yt_var_list
+# yt_big = $yt_big
+# yt_var_list_big = $yt_var_list_big
+# P_pca_list = $P_pca_list
+# pool_var_list = $pool_var_list
 
 # Construct global observational covariance matrix, no TSVD
 yt_var_big = zeros(length(yt_big), length(yt_big))
 vars_num = 1
-for flow_cov in yt_var_list_big
+for (k,flow_cov) in enumerate(yt_var_list_big)
     vars = length(flow_cov[1,:])
     yt_var_big[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = flow_cov
     global vars_num = vars_num+vars
-    println("DETERMINANT OF OBS NOISE COV MATRIX FOR 1 FLOW, ", det(flow_cov))
+    println("DETERMINANT OF Γy FOR ", sim_names[k], det(flow_cov))
 end
-@everywhere yt_var_big = $yt_var_big
+# yt_var_big = $yt_var_big
 
 # Construct global observational covariance matrix, TSVD
 yt_var = zeros(N_yt, N_yt)
 vars_num = 1
-for flow_cov in yt_var_list
+for (k,flow_cov) in enumerate(yt_var_list)
     vars = length(flow_cov[1,:])
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = flow_cov
     global vars_num = vars_num+vars
-    println("DETERMINANT OF PCA OBS NOISE COV MATRIX FOR 1 FLOW, ", det(flow_cov))
+    println("DETERMINANT OF PCA Γy FOR ", sim_names[k], det(flow_cov))
 end
-@everywhere yt_var = $yt_var
+# yt_var = $yt_var
 
 n_samples = 1
 samples = zeros(n_samples, length(yt))
 samples[1,:] = yt
 # Regularization nugget
-@everywhere noise_level = 0.0
-@everywhere Γy = noise_level * Matrix(1.0I, N_yt, N_yt) + yt_var
-println("DETERMINANT OF FULL OBS NOISE COV MATRIX, ", det(Γy))
+noise_level = 0.0
+Γy = noise_level * Matrix(1.0I, N_yt, N_yt) + yt_var
+println("DETERMINANT OF FULL Γy, ", det(Γy))
 
-###
-###  Calibrate: Ensemble Kalman Inversion
-###
+    ###
+    ###  Calibrate: Ensemble Kalman Inversion
+    ###
 
-@everywhere N_ens = 5 # number of ensemble members
-@everywhere N_iter = 1 # number of EKP iterations.
+N_ens = 5 # number of ensemble members
+N_iter = 1 # number of EKP iterations.
+println("NUMBER OF ENSEMBLE MEMBERS, ", N_ens)
+println("NUMBER OF ITERATIONS, ", N_iter)
 
 initial_params = construct_initial_ensemble(priors, N_ens)
-# Discard unstable parameter combinations
-precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
-@everywhere initial_params = $initial_params
+# Discard unstable parameter combinations, parallel
+#precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 
-@everywhere ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, Inversion())
-@everywhere scm_dir = "/home/ilopezgo/SCAMPy/"
-@everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
+ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, Inversion())
+scm_dir = "/home/ilopezgo/SCAMPy/"
+g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names,
    y_names, scm_dir, ti, tf, P_pca_list = P_pca_list, norm_var_list = pool_var_list)
-
+@everywhere g_ = $g_
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
 prefix = pool_norm ? string(prefix, "pooled_") : prefix
@@ -167,12 +166,13 @@ end
 g_ens = zeros(N_ens, N_yt)
 norm_err_list = []
 g_big_list = []
-@everywhere Δt = 1.0
+Δt = 1.0
 for i in 1:N_iter
     # Note that the parameters are transformed when used as input to SCAMPy
-    @everywhere params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
+    params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
         get_u_final(ekobj)) )
-    @everywhere params = [row[:] for row in eachrow(params_cons_i')]
+    params = [row[:] for row in eachrow(params_cons_i')]
+    @everywhere params = $params
     array_of_tuples = pmap(g_, params) # Outer dim is params iterator
     (g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),2) # Outer dim is G̃, G 
     println("LENGTH OF G_ENS_ARR", length(g_ens_arr))
