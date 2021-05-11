@@ -166,7 +166,6 @@ end
 # EKP iterations
 g_ens = zeros(N_ens, N_yt)
 norm_err_list = []
-y_big_list = []
 g_big_list = []
 @everywhere Δt = 1.0
 for i in 1:N_iter
@@ -184,7 +183,6 @@ for i in 1:N_iter
     end
     # Get normalized error
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
-    push!(y_big_list, yt_big)
     push!(g_big_list, g_ens_arr)
     update_ensemble!(ekobj, Array(g_ens') )
     println("\nEnsemble updated. Saving results to file...\n")
@@ -196,19 +194,30 @@ for i in 1:N_iter
         "truth_cov", ekobj.obs_noise_cov,
         "ekp_err", ekobj.err,
         "norm_err", norm_err_list,
-        "truth_mean_big", y_big_list,
+        "truth_mean_big", yt_big,
         "g_big", g_big_list,
         "truth_cov_big", yt_var_big,
         "P_pca", P_pca_list,
         )
-    npzwrite(string(outdir_path,"/phi_params.npy"), transform_unconstrained_to_constrained(priors, get_u(ekobj)))
+    # Convert to arrays
+    phi_params = Array{Array{Float64,2},1}(transform_unconstrained_to_constrained(priors, get_u(ekobj)))
+    phi_params_arr = zeros(i+1, n_param, N_ens)
+    for (k,elem) in enumerate(phi_params)
+      phi_params_arr[k,:,:] = elem
+      # if k < i + 1
+
+      # end
+    end
+    norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
     npzwrite(string(outdir_path,"/y_mean.npy"), ekobj.obs_mean)
     npzwrite(string(outdir_path,"/Gamma_y.npy"), ekobj.obs_noise_cov)
-    npzwrite(string(outdir_path,"/norm_err.npy"), norm_err_list)
+    npzwrite(string(outdir_path,"/y_mean_big.npy"), yt_big)
     npzwrite(string(outdir_path,"/Gamma_y_big.npy"), yt_var_big)
-    npzwrite(string(outdir_path,"/g_big.npy"), g_big_list)
-    npzwrite(string(outdir_path,"/y_mean_big.npy"), y_big_list)
-    npzwrite(string(outdir_path,"/P_pca.npy"), P_pca_list)
+    npzwrite(string(outdir_path,"/phi_params.npy"), phi_params_arr)
+    npzwrite(string(outdir_path,"/norm_err.npy"), norm_err_list)
+    
+    #npzwrite(string(outdir_path,"/g_big.npy"), g_big_list) # TBD
+    #npzwrite(string(outdir_path,"/P_pca.npy"), P_pca_list) # TBD
 end
 
 # EKP results: Has the ensemble collapsed toward the truth?
