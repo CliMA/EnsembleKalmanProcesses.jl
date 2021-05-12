@@ -165,7 +165,7 @@ function obs_LES(y_names::Array{String, 1},
 end
 
 """
-    obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6)
+    obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
 
 Perform dimensionality reduction using principal component analysis on
 the variance y_var. Only eigenvectors with eigenvalues that contribute
@@ -179,8 +179,7 @@ Outputs:
  - y_var_pca :: Projection of y_var on principal subspace.
  - P_pca :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
 """
-function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6;
-    pool_norm = false, eigval_norm = false)
+function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
     eig = eigen(y_var)
     eigvals, eigvecs = eig; # eigvecs is matrix with eigvecs as cols
     # Get index of leading eigenvalues, eigvals are ordered from low to high in julia
@@ -190,11 +189,6 @@ function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-6;
     λ_pca = eigvals[leading_eigs]
     # Check correct PCA projection
     @assert Diagonal(λ_pca) ≈ P_pca' * y_var * P_pca
-    if pool_norm
-        λ_pca = λ_pca/maximum(λ_pca)
-    elseif eigval_norm
-        λ_pca = ones(length((λ_pca)))
-    end
     # Project mean
     y_pca = P_pca' * y_mean
     y_var_pca = Diagonal(λ_pca)

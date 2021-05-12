@@ -54,8 +54,7 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 # Define preconditioning and regularization of inverse problem
 normalized = true
 perform_PCA = true
-pool_norm = false
-eigval_norm = false
+flow_norm = true
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
 sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
@@ -78,8 +77,7 @@ for (i, sim_name) in enumerate(sim_names)
     yt_, yt_var_, pool_var = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
     push!(pool_var_list, pool_var)
     if perform_PCA
-        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 5.0e-2,
-            eigval_norm = eigval_norm, pool_norm = pool_norm)
+        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 5.0e-2)
         append!(yt, yt_pca)
         push!(yt_var_list, yt_var_pca)
         push!(P_pca_list, P_pca)
@@ -93,8 +91,7 @@ for (i, sim_name) in enumerate(sim_names)
     push!(yt_var_list_big, yt_var_)
 end
 
-N_yt = length(yt) # Length of data array
-
+d = length(yt) # Length of data array
 # Construct global observational covariance matrix, no TSVD
 yt_var_big = zeros(length(yt_big), length(yt_big))
 vars_num = 1
@@ -106,11 +103,11 @@ for (k,flow_cov) in enumerate(yt_var_list_big)
 end
 
 # Construct global observational covariance matrix, TSVD
-yt_var = zeros(N_yt, N_yt)
+yt_var = zeros(d, d)
 vars_num = 1
 for (k,flow_cov) in enumerate(yt_var_list)
     vars = length(flow_cov[1,:])
-    yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = flow_cov
+    yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = flow_norm ? flow_cov .* vars : flow_cov
     global vars_num = vars_num+vars
     println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(flow_cov))
 end
@@ -120,7 +117,7 @@ samples = zeros(n_samples, length(yt))
 samples[1,:] = yt
 # Regularization nugget
 noise_level = 0.0
-Γy = noise_level * Matrix(1.0I, N_yt, N_yt) + yt_var
+Γy = noise_level * Matrix(1.0I, d, d) + yt_var
 println("DETERMINANT OF FULL Γy, ", det(Γy))
 
     ###
@@ -143,9 +140,8 @@ scm_dir = "/home/ilopezgo/SCAMPy/"
 
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
-prefix = pool_norm ? string(prefix, "pooled_") : prefix
-prefix = eigval_norm ? string(prefix, "eignorm_") : prefix
-outdir_path = string(prefix, "p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", N_yt)
+prefix = flow_norm ? string(prefix, "flnorm_") : prefix
+outdir_path = string(prefix, "p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", d)
 println("Name of outdir path for this EKP, ", outdir_path)
 command = `mkdir $outdir_path`
 try
@@ -155,10 +151,10 @@ catch e
 end
 
 # EKP iterations
-g_ens = zeros(N_ens, N_yt)
+g_ens = zeros(N_ens, d)
 norm_err_list = []
 g_big_list = []
-Δt = 1.0
+Δt = flow_norm ? 1.0/length(sim_names) : 1.0/d
 for i in 1:N_iter
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
