@@ -55,7 +55,8 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 normalized = true
 perform_PCA = true
 flow_norm = true
-
+variance_loss = 2.0e-2
+# 1.0e-1 -> 22, 5.0e-2 -> 35, 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
 sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
 # Init arrays
@@ -77,7 +78,7 @@ for (i, sim_name) in enumerate(sim_names)
     yt_, yt_var_, pool_var = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
     push!(pool_var_list, pool_var)
     if perform_PCA
-        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, 5.0e-2)
+        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, variance_loss)
         append!(yt, yt_pca)
         push!(yt_var_list, yt_var_pca)
         push!(P_pca_list, P_pca)
@@ -111,6 +112,7 @@ for (k,flow_cov) in enumerate(yt_var_list)
     global vars_num = vars_num+vars
     println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(flow_cov))
 end
+println("NUMBER OF OUTPUTS CONSIDERED ", d, " CAPTURING FRACTION OF VARIANCE: ", variance_loss)
 
 n_samples = 1
 samples = zeros(n_samples, length(yt))
@@ -131,7 +133,7 @@ println("NUMBER OF ITERATIONS: ", N_iter)
 
 initial_params = construct_initial_ensemble(priors, N_ens)
 # Discard unstable parameter combinations, parallel
-precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
+#precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 
 ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, Inversion())
 scm_dir = "/home/ilopezgo/SCAMPy/"
