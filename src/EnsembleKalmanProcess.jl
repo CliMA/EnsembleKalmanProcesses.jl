@@ -81,15 +81,15 @@ Structure that is used in Ensemble Kalman processes
 $(DocStringExtensions.FIELDS)
 """
 struct EnsembleKalmanProcess{FT<:AbstractFloat, IT<:Int, P<:Process}
-    "Array of stores for parameters (u), each of size [parameter_dim × N_ens]"
+    "Array of stores for parameters (u), each of size [N_par × N_ens]"
     u::Array{DataContainer{FT}}
-    "vector of the observed vector size [data_dim]"
+    "vector of the observed vector size [N_obs]"
     obs_mean::Vector{FT}
-    "covariance matrix of the observational noise, of size [data_dim × data_dim]"
+    "covariance matrix of the observational noise, of size [N_obs × N_obs]"
     obs_noise_cov::Array{FT, 2}
     "ensemble size"
     N_ens::IT
-    "Array of stores for forward model outputs, each of size  [data_dim × N_ens]"
+    "Array of stores for forward model outputs, each of size  [N_obs × N_ens]"
     g::Array{DataContainer{FT}}
     "vector of errors"
     err::Vector{FT}
@@ -239,7 +239,7 @@ function find_ekp_stepsize(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, g::Arr
     else
         Δt = FT(1)
     end
-    # final_params [parameter_dim × N_ens]
+    # final_params [N_par × N_ens]
     cov_init = cov(get_u_final(ekp), dims=2)
     while accept_stepsize == false
         ekp_copy = deepcopy(ekp)
@@ -261,26 +261,30 @@ end
 
 Updates the ensemble according to which type of Process we have. Model outputs g_in need to be a output_dim × n_samples array (i.e data are columms)
 """
-function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, g_in::Array{FT,2}; cov_threshold::FT=0.01, Δt_new=nothing) where {FT, IT}
+function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion},
+                          g_in::Array{FT,2};
+                          cov_threshold::FT=0.01,
+                          Δt_new=nothing,
+                          deterministic_forward_map=true) where {FT, IT}
 
+    # Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
+    
     #catch works when g non-square
     if !(size(g_in)[2] == ekp.N_ens) 
          throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g_in do not match, try transposing g_in or check ensemble size"))
     end
 
     # We enforce that data are rows here...
-    # u: N_ens × parameter_dim
-    # g: N_ens × data_dim
+    # u: N_ens × N_par
+    # g: N_ens × N_obs
     u_old = get_u_final(ekp)
-    u_old = permutedims(u_old,(2,1))    
-    u = u_old
+    u = permutedims(u_old,(2,1))
     g = permutedims(g_in,(2,1))
-    
-           
+    N_obs = size(g, 2)
+
     cov_init = cov(u, dims=1)
 
     u_bar = fill(FT(0), size(u)[2])
-    # g: N_ens × data_dim
     g_bar = fill(FT(0), size(g)[2])
 
     cov_ug = fill(FT(0), size(u)[2], size(g)[2])
@@ -305,7 +309,7 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, g_in::A
         g_bar += g_ens
 
         #add to cov
-        cov_ug += u_ens * g_ens' # cov_ug is [parameter_dim × data_dim]
+        cov_ug += u_ens * g_ens' # cov_ug is [N_par × N_obs]
         cov_gg += g_ens * g_ens'
     end
 
@@ -314,23 +318,26 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, g_in::A
     cov_ug = cov_ug / ekp.N_ens - u_bar * g_bar'
     cov_gg = cov_gg / ekp.N_ens - g_bar * g_bar'
 
-    # Update the parameters (with additive noise too)
-    noise = rand(MvNormal(zeros(size(g)[2]),
-                          ekp.obs_noise_cov/ekp.Δt[end]), ekp.N_ens) # data_dim × N_ens
-    # Add obs_mean (data_dim) to each column of noise (data_dim × N_ens), then
-    # transpose into N_ens × data_dim
-    y = (ekp.obs_mean .+ noise)'
-    # data_dim × data_dim \ [N_ens × data_dim - N_ens × data_dim]'
-    # --> tmp is data_dim × N_ens
-    tmp = (cov_gg + ekp.obs_noise_cov) \ (y - g)'
-    u += (cov_ug * tmp)' # N_ens × parameter_dim
+    # Scale noise using Δt
+    scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
+    noise = rand(MvNormal(zeros(N_obs), scaled_obs_noise_cov), ekp.N_ens)
+
+    # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens), if
+    # G is deterministic, then transpose into N_ens × N_obs
+    y = deterministic_forward_map ? (ekp.obs_mean .+ noise)' : ekp.obs_mean'
+
+    # N_obs × N_obs \ [N_ens × N_obs - N_ens × N_obs]'
+    # --> tmp is N_obs × N_ens
+    tmp = (cov_gg + scaled_obs_noise_cov) \ (y - g)'
+    u += (cov_ug * tmp)' # N_ens × N_par
 
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns=false))
     push!(ekp.g, DataContainer(g, data_are_columns=false))
-    # u_old is N_ens × parameter_dim, g is N_ens × data_dim,
+    # u is N_ens × N_par, g is N_ens × N_obs,
     # but stored in data container with N_ens as the 2nd dim
     
+    # Store error
     compute_error!(ekp)
 
     # Check convergence
@@ -350,20 +357,20 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}}, g_in:
          throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g_in do not match, try transposing or check ensemble size"))
     end
 
-    # u: N_ens × parameter_dim
-    # g: N_ens × data_dim
+    # u: N_ens × N_par
+    # g: N_ens × N_obs
     u_old = get_u_final(ekp)
     u_old = permutedims(u_old,(2,1))
     u = u_old
     g = permutedims(g_in, (2,1))
    
-    # u_mean: parameter_dim × 1
+    # u_mean: N_par × 1
     u_mean = mean(u', dims=2)
-    # g_mean: data_dim × 1
+    # g_mean: N_obs × 1
     g_mean = mean(g', dims=2)
-    # g_cov: data_dim × data_dim
+    # g_cov: N_obs × N_obs
     g_cov = cov(g, corrected=false)
-    # u_cov: parameter_dim × parameter_dim
+    # u_cov: N_par × N_par
     u_cov = cov(u, corrected=false)
 
     # Building tmp matrices for EKS update:
@@ -387,7 +394,7 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}}, g_in:
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns=false))
     push!(ekp.g, DataContainer(g, data_are_columns=false))
-    # u_old is N_ens × parameter_dim, g is N_ens × data_dim,
+    # u_old is N_ens × N_par, g is N_ens × N_obs,
     # but stored in data container with N_ens as the 2nd dim
 
     compute_error!(ekp)
