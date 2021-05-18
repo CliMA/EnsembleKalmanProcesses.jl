@@ -49,7 +49,6 @@ n_par = length(par_names)
 N0_true = 300.0  # number of particles (scaling factor for Gamma distribution)
 θ_true = 1.5597  # scale parameter of Gamma distribution
 k_true = 0.0817  # shape parameter of Gamma distribution
-params_true = [N0_true, θ_true, k_true]
 # Note that dist_true is a Cloudy distribution, not a Distributions.jl 
 # distribution
 ϕ_true = [N0_true, θ_true, k_true]
@@ -61,7 +60,7 @@ dist_true = ParticleDistributions.GammaPrimitiveParticleDistribution(ϕ_true...)
 ###
 
 # Define constraints
-lbound_N0 = 0.4 * N0_true 
+lbound_N0 = 0.4 * N0_true
 lbound_θ = 1.0e-1
 lbound_k = 1.0e-4
 c1 = bounded_below(lbound_N0)
@@ -106,7 +105,7 @@ tspan = (0., 1.0)
 ###
 
 model_settings_true = ModelSettings(kernel, dist_true, moments, tspan)
-G_t = run_dyn_model(params_true, model_settings_true)
+G_t = run_dyn_model(ϕ_true, model_settings_true)
 n_samples = 100
 y_t = zeros(length(G_t), n_samples)
 # In a perfect model setting, the "observational noise" represents the 
