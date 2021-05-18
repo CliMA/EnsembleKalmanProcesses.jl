@@ -179,6 +179,10 @@ println(θ_true)
 println("\nUKI results:")
 println(get_u_mean_final(ukiobj))
 
+u_stored= get_u(ukiobj, return_array=false)
+g_stored= get_g(ukiobj, return_array=false)
+@save data_save_directory*"parameter_storage_uki.jld2" u_stored
+@save data_save_directory*"data_storage_uki.jld2" g_stored
 
 ####
 θ_mean_arr = hcat(ukiobj.process.u_mean...)

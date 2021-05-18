@@ -164,8 +164,8 @@ println(mean(get_u_final(ekiobj), dims=2))
 
 u_stored= get_u(ekiobj, return_array=false)
 g_stored= get_g(ekiobj, return_array=false)
-@save data_save_directory*"parameter_storage.jld2" u_stored
-@save data_save_directory*"data_storage.jld2" g_stored
+@save data_save_directory*"parameter_storage_eki.jld2" u_stored
+@save data_save_directory*"data_storage_eki.jld2" g_stored
 
 #plots
 gr(size=(1800, 600))
