@@ -1,10 +1,10 @@
-# Import modules
+# Import modules to all processes
 @everywhere using Pkg
 @everywhere Pkg.activate(".")
-@everywhere using Distributions  # probability distributions and associated functions
+@everywhere using Distributions
 @everywhere using StatsBase
 @everywhere using LinearAlgebra
-# Import Calibrate-Emulate-Sample modules
+# Import EKP modules
 @everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 @everywhere using EnsembleKalmanProcesses.Observations
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
@@ -12,9 +12,9 @@
 using JLD2
 using NPZ
 
-    ###
-    ###  Define the parameters and their priors
-    ###
+#########
+#########  Define the parameters and their priors
+#########
 
 # Define the parameters that we want to learn
 param_names = ["entrainment_factor", "detrainment_factor", "sorting_power", 
@@ -37,9 +37,9 @@ prior_dist = [Parameterized(Normal(0.0, 0.5))
                 for x in range(1, n_param, length=n_param) ]
 priors = ParameterDistribution(prior_dist, constraints, param_names)
 
-    ###
-    ###  Retrieve true LES samples from PyCLES data
-    ###
+#########
+#########  Retrieve true LES samples from PyCLES data and transform
+#########
 
 # Define observation window per flow configuration
 ti = [7200.0, 25200.0, 7200.0, 14400.0]
@@ -54,9 +54,10 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 # Define preconditioning and regularization of inverse problem
 normalized = true
 perform_PCA = true
-flow_norm = true
+config_norm = true
 variance_loss = 2.0e-2
 # 1.0e-1 -> 22, 5.0e-2 -> 35, 
+
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
 sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
 # Init arrays
@@ -96,23 +97,23 @@ d = length(yt) # Length of data array
 # Construct global observational covariance matrix, no TSVD
 yt_var_big = zeros(length(yt_big), length(yt_big))
 vars_num = 1
-for (k,flow_cov) in enumerate(yt_var_list_big)
-    vars = length(flow_cov[1,:])
-    yt_var_big[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = flow_cov
+for (k,config_cov) in enumerate(yt_var_list_big)
+    vars = length(config_cov[1,:])
+    yt_var_big[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = config_cov
     global vars_num = vars_num+vars
-    println("DETERMINANT OF Γy FOR ", sim_names[k], " ", det(flow_cov))
+    println("DETERMINANT OF Γy FOR ", sim_names[k], " ", det(config_cov))
 end
 
 # Construct global observational covariance matrix, TSVD
 yt_var = zeros(d, d)
 vars_num = 1
-for (k,flow_cov) in enumerate(yt_var_list)
-    vars = length(flow_cov[1,:])
-    yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = flow_norm ? flow_cov .* vars : flow_cov
+for (k,config_cov) in enumerate(yt_var_list)
+    vars = length(config_cov[1,:])
+    yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = config_norm ? config_cov .* vars : config_cov
     global vars_num = vars_num+vars
-    println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(flow_cov))
+    println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(config_cov))
 end
-println("NUMBER OF OUTPUTS CONSIDERED ", d, " CAPTURING FRACTION OF VARIANCE: ", variance_loss)
+println("NUMBER OF OUTPUTS CONSIDERED ", d, " CAPTURING FRACTION OF VARIANCE: ", 1.0-variance_loss)
 
 n_samples = 1
 samples = zeros(n_samples, length(yt))
@@ -122,9 +123,9 @@ noise_level = 0.0
 Γy = noise_level * Matrix(1.0I, d, d) + yt_var
 println("DETERMINANT OF FULL Γy, ", det(Γy))
 
-    ###
-    ###  Calibrate: Ensemble Kalman Inversion
-    ###
+#########
+#########  Calibrate: Ensemble Kalman Inversion
+#########
 
 N_ens = 50 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
@@ -142,7 +143,7 @@ scm_dir = "/home/ilopezgo/SCAMPy/"
 
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
-prefix = flow_norm ? string(prefix, "flnorm_") : prefix
+prefix = config_norm ? string(prefix, "cfnorm_") : prefix
 outdir_path = string(prefix, "p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", d)
 println("Name of outdir path for this EKP, ", outdir_path)
 command = `mkdir $outdir_path`
@@ -156,7 +157,7 @@ end
 g_ens = zeros(N_ens, d)
 norm_err_list = []
 g_big_list = []
-Δt = flow_norm ? 1.0/length(sim_names) : 1.0/d
+Δt = config_norm ? 1.0/length(sim_names) : 1.0/d
 for i in 1:N_iter
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 

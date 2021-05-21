@@ -142,11 +142,11 @@ function obs_LES(y_names::Array{String, 1},
                     ) where {FT<:AbstractFloat}
     
     y_names_les = get_les_names(y_names, sim_dir)
-    y_tvar, maxvar_vec = get_timevar_profile(sim_dir, y_names_les,
+    y_tvar, poolvar_vec = get_time_covariance(sim_dir, y_names_les,
         ti = ti, tf = tf, z_scm=z_scm, normalize=normalize)
     y_highres = get_profile(sim_dir, y_names_les, ti = ti, tf = tf)
     if normalize
-        y_highres = normalize_profile(y_highres, y_names, maxvar_vec)
+        y_highres = normalize_profile(y_highres, y_names, poolvar_vec)
     end
     if !isnothing(z_scm)
         y_ = zeros(0)
@@ -161,7 +161,7 @@ function obs_LES(y_names::Array{String, 1},
     else
         y_ = y_highres
     end
-    return y_, y_tvar, maxvar_vec
+    return y_, y_tvar, poolvar_vec
 end
 
 """
@@ -291,7 +291,25 @@ function normalize_profile(profile_vec, var_name, var_vec)
     return prof_vec
 end
 
-function get_timevar_profile(sim_dir::String,
+"""
+    get_time_covariance(sim_dir::String,
+                     var_name::Array{String,1};
+                     ti::Float64=0.0,
+                     tf=0.0,
+                     getFullHeights=false,
+                     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
+                     normalize=false)
+
+Obtain the covariance matrix of a group of profiles, where the covariance
+is obtained in time.
+Inputs:
+ - sim_dir :: Name of simulation directory.
+ - var_name :: List of variable names to be included.
+ - ti, tf :: Initial and final times defining averaging interval.
+ - z_scm :: If given, interpolates covariance matrix to this locations.
+ - normalize :: Boolean specifying variable normalization.
+"""
+function get_time_covariance(sim_dir::String,
                      var_name::Array{String,1};
                      ti::Float64=0.0,
                      tf=0.0,
@@ -301,50 +319,36 @@ function get_timevar_profile(sim_dir::String,
 
     t = nc_fetch(sim_dir, "timeseries", "t")
     dt = t[2]-t[1]
+    # Find closest interval in data
     ti_diff, ti_index = findmin( broadcast(abs, t.-ti) )
     tf_diff, tf_index = findmin( broadcast(abs, t.-tf) )
-    prof_vec = zeros(0, length(ti_index:tf_index))
+    ts_vec = zeros(0, length(ti_index:tf_index))
+    num_outputs = length(var_name)
+    poolvar_vec = zeros(num_outputs)
 
-    for i in 1:length(var_name)
+    for i in 1:num_outputs
         var_ = nc_fetch(sim_dir, "profiles", var_name[i])
         # LES vertical fluxes are per volume, not mass
         if occursin("resolved_z_flux", var_name[i])
             rho_half=nc_fetch(sim_dir, "reference", "rho0_half")
             var_ = var_.*rho_half
         end
-        prof_vec = cat(prof_vec, var_[:, ti_index:tf_index], dims=1)
+        # Store pooled variance
+        poolvar_vec[i] = mean(var(var_[:, ti_index:tf_index], dims=2))
+        ts_var_i = normalize ? var_[:, ti_index:tf_index]./ sqrt(poolvar_vec[i]) : var_[:, ti_index:tf_index]
+        # Interpolate in space
+        if !isnothing(z_scm)
+            z_les = getFullHeights ? get_profile(sim_dir, ["z"]) : get_profile(sim_dir, ["z_half"])
+            # Create interpolant
+            ts_var_i_itp = interpolate( (z_les, 1:tf_index-ti_index+1),
+                                        ts_var_i, ( Gridded(Linear()), NoInterp() ))
+            # Interpolate
+            ts_var_i = ts_var_i_itp(z_scm, 1:tf_index-ti_index+1)
+        end
+        ts_vec = cat(ts_vec, ts_var_i, dims=1)
     end
-    if !isnothing(z_scm)
-        if !getFullHeights
-            z_les = get_profile(sim_dir, ["z_half"])
-        else
-            z_les = get_profile(sim_dir, ["z"])
-        end
-        num_outputs = Integer(length(prof_vec[:, 1])/length(z_les))
-        prof_vec_zscm = zeros(0, length(ti_index:tf_index))
-        maxvar_vec = zeros(num_outputs) 
-        for i in 1:num_outputs
-            prof_vec_itp = interpolate( (z_les, 1:tf_index-ti_index+1),
-                prof_vec[1 + length(z_les)*(i-1) : i*length(z_les), :],
-                ( Gridded(Linear()), NoInterp() ))
-            prof_vec_zscm = cat(prof_vec_zscm,
-                prof_vec_itp(z_scm, 1:tf_index-ti_index+1), dims=1)
-            maxvar_vec[i] = maximum(var(prof_vec_zscm[1 + length(z_scm)*(i-1) : i*length(z_scm), :], dims=2))
-        end
-
-        cov_mat = cov(prof_vec_zscm, dims=2)
-        if normalize
-            for i in 1:num_outputs
-                cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] = (
-                   cov_mat[1 + length(z_scm)*(i-1) : i*length(z_scm), :] ./ sqrt(maxvar_vec[i]) )
-                cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] = (
-                   cov_mat[:, 1 + length(z_scm)*(i-1) : i*length(z_scm)] ./ sqrt(maxvar_vec[i]) )
-            end
-        end
-    else
-        cov_mat = cov(prof_vec, dims=2)
-    end
-    return cov_mat, maxvar_vec
+    cov_mat = cov(ts_vec, dims=2)
+    return cov_mat, poolvar_vec
 end
 
 function get_les_names(scm_y_names::Array{String,1}, sim_dir::String)
