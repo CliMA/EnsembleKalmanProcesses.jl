@@ -4,7 +4,7 @@ We provide the following template for how the tools may be applied.
 
 For small examples typically have 2 files.
 
-- `DynamicalModel.jl` Contains the forward map. The inputs should be the so-called free parameters we are interested in learning, and the output should be the measured data
+- `DynamicalModel.jl` Contains the dynamical model ``\Psi`` and the observation map ``\mathcal{H}``. The inputs should be the so-called free parameters (in the constrained/physical space that is the input domain of the dynamical model) we are interested in learning, and the output should be the measured data.
 - The example script which contains the inverse problem setup and solve
 
 ## The structure of the example script
