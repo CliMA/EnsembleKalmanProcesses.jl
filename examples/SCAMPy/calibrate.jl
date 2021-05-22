@@ -55,8 +55,8 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 normalized = true
 perform_PCA = true
 config_norm = true
-variance_loss = 2.0e-2
-# 1.0e-1 -> 22, 5.0e-2 -> 35, 
+variance_loss = 3.0e-1
+# 1.0e-1 -> 22, 5.0e-2 -> 35, 2.0e-2 -> 50
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
 sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
@@ -127,12 +127,12 @@ println("DETERMINANT OF FULL Γy, ", det(Γy))
 #########  Calibrate: Ensemble Kalman Inversion
 #########
 
-N_ens = 50 # number of ensemble members
+N_ens = 100 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
 
-initial_params = construct_initial_ensemble(priors, N_ens)
+initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
 # Discard unstable parameter combinations, parallel
 #precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 
