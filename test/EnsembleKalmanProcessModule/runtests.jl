@@ -85,7 +85,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         end
         EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
     end
-    push!(params_i_vec,get_u_final(ekiobj))
+    push!(params_i_vec, get_u_final(ekiobj))
     
     @test get_u_prior(ekiobj) == params_i_vec[1]
     @test get_u(ekiobj) == params_i_vec
@@ -112,7 +112,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     end
 
     ###
-    ###  Calibrate (2): Ensemble Kalman Sampleer
+    ###  Calibrate (2): Ensemble Kalman Sampler
     ###
     eksobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
                       y_obs, Γy,
