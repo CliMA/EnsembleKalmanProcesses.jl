@@ -325,7 +325,6 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion},
     # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens), if
     # G is deterministic, then transpose into N_ens × N_obs
     y = deterministic_forward_map ? (ekp.obs_mean .+ noise)' : (ekp.obs_mean .+ zero(noise) )'
-    println("Bongers!")
 
     # N_obs × N_obs \ [N_ens × N_obs - N_ens × N_obs]'
     # --> tmp is N_obs × N_ens

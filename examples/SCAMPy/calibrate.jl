@@ -55,7 +55,7 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 normalized = true
 perform_PCA = true
 config_norm = true
-variance_loss = 3.0e-1
+variance_loss = 2.0e-2
 # 1.0e-1 -> 22, 5.0e-2 -> 35, 2.0e-2 -> 50
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
@@ -126,17 +126,19 @@ println("DETERMINANT OF FULL Γy, ", det(Γy))
 #########
 #########  Calibrate: Ensemble Kalman Inversion
 #########
-
-N_ens = 100 # number of ensemble members
+algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
+noisy_obs = false # true
+N_ens = 200 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
+deterministic_forward_map = noisy_obs ? true : false
 
 initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
 # Discard unstable parameter combinations, parallel
 #precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 
-ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, Inversion())
+ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, algo )
 scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
    $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list) 
@@ -144,6 +146,8 @@ scm_dir = "/home/ilopezgo/SCAMPy/"
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
 prefix = config_norm ? string(prefix, "cfnorm_") : prefix
+prefix = typeof(algo) == Sampler{Float64} ? string(prefix, "eks_") : prefix
+prefix = noisy_obs ? prefix : string(prefix, "nfo_")
 outdir_path = string(prefix, "p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", d)
 println("Name of outdir path for this EKP, ", outdir_path)
 command = `mkdir $outdir_path`
@@ -175,7 +179,11 @@ for i in 1:N_iter
     # Get normalized error
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
     push!(g_big_list, g_ens_arr)
-    update_ensemble!(ekobj, Array(g_ens') )
+    if typeof(algo) != Sampler{Float64}
+        update_ensemble!(ekobj, Array(g_ens') , deterministic_forward_map = deterministic_forward_map)
+    else
+        update_ensemble!(ekobj, Array(g_ens') )
+    end
     println("\nEnsemble updated. Saving results to file...\n")
     # Save EKP information to file
     save(string(outdir_path,"/ekp.jld2"),
