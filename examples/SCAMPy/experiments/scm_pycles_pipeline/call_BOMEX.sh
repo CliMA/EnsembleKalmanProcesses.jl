@@ -26,8 +26,10 @@ for simname in "${simnames[@]}"
 do
     # Create directory to store input files
     mkdir sim_${simname}${suffix}
-    cp paramlist_${simname}.in sim_${simname}${suffix}/paramlist_${simname}.in
-    cp ${simname}.in sim_${simname}${suffix}/${simname}.in
+    cp Output.${simname}.00000/paramlist_${simname}.in sim_${simname}${suffix}/paramlist_${simname}.in
+    cp Output.${simname}.00000/${simname}.in sim_${simname}${suffix}/${simname}.in
+    cp Output.${simname}.00000/paramlist_${simname}.in paramlist_${simname}.in
+    cp Output.${simname}.00000/${simname}.in ${simname}.in
 
     # Modify parameters from input files
     for (( i=1; i<=$num_params; i++ ))
@@ -51,6 +53,7 @@ do
     cp sim_${simname}${suffix}/paramlist_${simname}.in ${output_dir}Output.${simname}.${uuid}/paramlist_${simname}.in
     cp sim_${simname}${suffix}/${simname}.in ${output_dir}Output.${simname}.${uuid}/${simname}.in
     rm -r sim_${simname}${suffix}
+    rm paramlist_${simname}.in ${simname}.in
     echo ${output_dir}Output.${simname}.${uuid} >> ${allparams}.txt
 done
 

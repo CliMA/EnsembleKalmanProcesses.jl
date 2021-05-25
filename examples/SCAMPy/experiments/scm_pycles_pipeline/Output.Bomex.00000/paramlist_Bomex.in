@@ -6,9 +6,9 @@
         "EDMF_PrognosticTKE": {
             "aspect_ratio": 0.2,
             "constant_plume_spacing": 1333.0,
-            "detrainment_factor": 0.51,
+            "detrainment_factor": 0.01,
             "entrainment_ed_mf_sigma": 50.0,
-            "entrainment_factor": 0.13,
+            "entrainment_factor": 0.01,
             "entrainment_scale": 0.004,
             "entrainment_sigma": 10.0,
             "entrainment_smin_tke_coeff": 0.3,
