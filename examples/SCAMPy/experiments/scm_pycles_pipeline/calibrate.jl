@@ -172,6 +172,8 @@ for i in 1:N_iter
     # Or you can also save information to numpy files with NPZ
     npzwrite(string(outdir_path,"/y_mean.npy"), ekobj.obs_mean)
     npzwrite(string(outdir_path,"/Gamma_y.npy"), ekobj.obs_noise_cov)
+    npzwrite(string(outdir_path,"/ekp_err.npy"), ekobj.err)
+    npzwrite(string(outdir_path,"/ekp_g.npy"), get_g(ekobj))
     npzwrite(string(outdir_path,"/phi_params.npy"), phi_params_arr)
     for (l, P_pca) in enumerate(P_pca_list)
       npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
