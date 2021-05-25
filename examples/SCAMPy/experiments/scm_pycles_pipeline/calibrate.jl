@@ -32,9 +32,9 @@ n_param = length(param_names)
 
 # Prior information: Define transform to unconstrained gaussian space
 constraints = [ [bounded(0.01, 0.3)],
-                [bounded(0.01, 0.9)]]
+                [bounded(0.01, 1.0)]]
 # All vars are standard Gaussians in unconstrained space
-prior_dist = [Parameterized(Normal(0.0, 0.5))
+prior_dist = [Parameterized(Normal(0.0, 1.0))
                 for x in range(1, n_param, length=n_param) ]
 priors = ParameterDistribution(prior_dist, constraints, param_names)
 
@@ -52,6 +52,7 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 # Define preconditioning and regularization of inverse problem
 perform_PCA = true # Performs PCA on data
 
+# Define name of PyCLES simulation to learn from
 sim_names = ["Bomex"]
 sim_suffix = [".may18"]
 
@@ -101,15 +102,15 @@ samples[1,:] = yt
 
 algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors))
 noisy_obs = true
-N_ens = 2 # number of ensemble members
-N_iter = 1 # number of EKP iterations.
+N_ens = 20 # number of ensemble members
+N_iter = 10 # number of EKP iterations.
 Δt = 1.0
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
 
 initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
 ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, algo )
-scm_dir = "/home/ilopezgo/SCAMPy/"
+scm_dir = "SCAMPy/"
 
 # Define caller function
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
@@ -173,7 +174,6 @@ for i in 1:N_iter
     npzwrite(string(outdir_path,"/y_mean.npy"), ekobj.obs_mean)
     npzwrite(string(outdir_path,"/Gamma_y.npy"), ekobj.obs_noise_cov)
     npzwrite(string(outdir_path,"/ekp_err.npy"), ekobj.err)
-    npzwrite(string(outdir_path,"/ekp_g.npy"), get_g(ekobj))
     npzwrite(string(outdir_path,"/phi_params.npy"), phi_params_arr)
     for (l, P_pca) in enumerate(P_pca_list)
       npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
