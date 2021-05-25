@@ -39,11 +39,12 @@ function run_SCAMPy(u::Array{FT, 1},
                     tf::Union{FT, Array{FT,1}, Nothing} = nothing;
                     norm_var_list = nothing,
                     P_pca_list = nothing,
+                    scampy_handler = "call_SCAMPy.sh",
                     ) where {FT<:AbstractFloat}
 
     # Check dimensionality
     @assert length(u_names) == length(u)
-    exe_path = string(scm_dir, "call_SCAMPy.sh")
+    exe_path = string(scm_dir, scampy_handler)
     sim_uuid  = u[1]
     for i in 2:length(u_names)
         sim_uuid = string(sim_uuid,u[i])
@@ -138,7 +139,7 @@ function obs_LES(y_names::Array{String, 1},
                     ti::Float64,
                     tf::Float64;
                     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
-                    normalize = false,
+                    normalize = true,
                     ) where {FT<:AbstractFloat}
     
     y_names_les = get_les_names(y_names, sim_dir)

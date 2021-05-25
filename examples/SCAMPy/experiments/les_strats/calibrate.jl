@@ -1,6 +1,6 @@
 # Import modules to all processes
 @everywhere using Pkg
-@everywhere Pkg.activate(".")
+@everywhere Pkg.activate("../..")
 @everywhere using Distributions
 @everywhere using StatsBase
 @everywhere using LinearAlgebra
@@ -8,7 +8,7 @@
 @everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 @everywhere using EnsembleKalmanProcesses.Observations
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
-@everywhere include(joinpath(@__DIR__, "helper_funcs.jl"))
+@everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
 using JLD2
 using NPZ
 
@@ -128,8 +128,8 @@ println("DETERMINANT OF FULL Γy, ", det(Γy))
 #########
 algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
 noisy_obs = true
-N_ens = 100 # number of ensemble members
-N_iter = 10 # number of EKP iterations.
+N_ens = 2 # number of ensemble members
+N_iter = 1 # number of EKP iterations.
 Δt = config_norm ? 1.0/length(sim_names) : 1.0/d
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)

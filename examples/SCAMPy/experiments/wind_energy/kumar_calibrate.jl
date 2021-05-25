@@ -1,6 +1,6 @@
 # Import modules
 @everywhere using Pkg
-@everywhere Pkg.activate(".")
+@everywhere Pkg.activate("../..")
 @everywhere using Distributions  # probability distributions and associated functions
 @everywhere using StatsBase
 @everywhere using LinearAlgebra
