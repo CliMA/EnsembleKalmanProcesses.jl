@@ -101,10 +101,9 @@ samples[1,:] = yt
 #########
 
 algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors))
-noisy_obs = true
 N_ens = 20 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
-Δt = 1.0
+Δt = 1.0 # Artificial time stepper of the EKI.
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
 
