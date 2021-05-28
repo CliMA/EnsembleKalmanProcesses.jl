@@ -1,11 +1,11 @@
 # Lorenz 96 example
 
-#### Overview
+## Overview
 
-The Lorenz 96 (hereafter L96) example is a toy-problem for the application of the EnsembleKalmanPRocesses.jl optimization and approximate uncertainty quantification methodologies.
+The Lorenz 96 (hereafter L96) example is a toy-problem for the application of the EnsembleKalmanProcesses.jl optimization and approximate uncertainty quantification methodologies.
 The standard L96 equations are implemented with an additional forcing term with time dependence.
 
-#### Lorenz 96 equations
+## Lorenz 96 equations
 
 The standard single-scale L96 equations are implemented.
 The Lorenz 96 system \cite{lorenz1996predictability} is given by 
@@ -33,7 +33,7 @@ The L96 dynamics are solved with RK4 integration.
 The system is solved over time horizon ```0``` to `tend` at fixed time step `dt`.
 
 
-#### Structure
+## Structure
 
 The main code is located in `Lorenz_example.jl` which provides the functionality to run the L96 dynamical system, extract time-averaged statistics from the L96 states, and use the time-average statistics for optimization and uncertainty quantification.
 
@@ -41,7 +41,7 @@ The L96 system is solved in `GModel.jl` according to the time integration settin
 The types of statistics to be collected are detailed in `GModel.jl`.
 
 
-#### Lorenz dynamics inputs
+## Lorenz dynamics inputs
 
 ### Dynamics settings
 The use of the transient forcing term is with the flag, `dynamics`. Stationary forcing is `dynamics=1` and transient forcing is used with `dynamics=2`.
@@ -56,7 +56,7 @@ N_iter = 5 # number of EKI iterations
 ```
 
 
-#### Setting up the Inverse Problem
+## Setting up the Inverse Problem
 The goal is to learn ```F_s``` and ```A``` based on the time averaged statistics in a perfect model setting.
 The true parameters are
 ```julia
@@ -86,18 +86,18 @@ priors = ParameterDistribution(prior_distns, constraints, prior_names)
 ### Observational Noise
 The observational noise can be generated using the L96 system or prescribed, as specified by `var_prescribe`. 
 
-## `var_prescribe==true`
+`var_prescribe==true`
 The observational noise is constructed by generating independent instantiations of the L96 statistics of interest at the true parameters for different initial conditions.
 The empirical covariance matrix is constructed.
 
-## `var_prescribe==false`
+`var_prescribe==false`
 The observational noise is prescribed as a Gaussian distribution with prescribed mean and variance.
 
-#### Running the Example
+## Running the Example
 The L96 parameter estimation can be run using `julia --project Lorenz_example.jl`
 
 
-### Solution and Output
+## Solution and Output
 The output will provide the estimated parameters 
 
 ## Printed output
@@ -113,4 +113,4 @@ println(mean(get_u_final(ekiobj), dims=2))
 The parameters and forward model outputs will be saved in `parameter_storage.jld2` and `data_storage.jld2`, respectively.
 
 ## Plots
-A scatter plot of the parameter estimates compared to the true parameters will be provided.
+A scatter plot of the parameter estimates compared to the true parameters will be provided in the directory `output`.
