@@ -253,6 +253,9 @@ for i in 1:N_iter
         title = "EKI iteration = " * string(i)
         )
     plot!([params_true[2]], seriestype="hline", linestyle=:dash, linecolor=:red, label = "optimum")
-    display(p)
+    #display(p)
+    figpath = joinpath(figure_save_directory, "posterior_EKP_it_$(i).png")    
+    savefig(figpath)    
+    #linkfig(figpath)
     sleep(0.5)
 end
