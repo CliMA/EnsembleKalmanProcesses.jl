@@ -265,7 +265,8 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion},
                           g_in::Array{FT,2};
                           cov_threshold::FT=0.01,
                           Δt_new=nothing,
-                          deterministic_forward_map=true) where {FT, IT}
+                          deterministic_forward_map=true,
+                          imperf_model_inflation=false) where {FT, IT}
 
     # Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
     
@@ -328,7 +329,7 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion},
 
     # N_obs × N_obs \ [N_ens × N_obs - N_ens × N_obs]'
     # --> tmp is N_obs × N_ens
-    tmp = (cov_gg + scaled_obs_noise_cov) \ (y - g)'
+    tmp = imperf_model_inflation ? (cov_gg + scaled_obs_noise_cov + Diagonal( mean( (g' .- ekp.obs_mean)'.^2 , dims=1) ) ) \ (y - g)' : (cov_gg + scaled_obs_noise_cov) \ (y - g)'
     u += (cov_ug * tmp)' # N_ens × N_par
 
     # store new parameters (and model outputs)
