@@ -265,7 +265,7 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion},
                           g_in::Array{FT,2};
                           cov_threshold::FT=0.01,
                           Δt_new=nothing,
-                          deterministic_forward_map=true) where {FT, IT}
+                          deterministic_forward_map=true,) where {FT, IT}
 
     # Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
     

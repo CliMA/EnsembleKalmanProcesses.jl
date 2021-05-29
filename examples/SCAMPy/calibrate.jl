@@ -54,8 +54,10 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 # Define preconditioning and regularization of inverse problem
 normalized = true
 perform_PCA = true
-config_norm = true
-variance_loss = 2.0e-1
+config_norm = false
+cutoff_reg = true
+alpha = 10.0
+variance_loss = 1.0e-1
 # 1.0e-1 -> 22, 5.0e-2 -> 35, 2.0e-2 -> 50
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
@@ -109,7 +111,9 @@ yt_var = zeros(d, d)
 vars_num = 1
 for (k,config_cov) in enumerate(yt_var_list)
     vars = length(config_cov[1,:])
-    yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = config_norm ? config_cov .* vars : config_cov
+    yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = cutoff_reg ? 
+         (config_cov + (alpha*minimum(diag(config_cov))) .* Matrix(1.0I, size(config_cov)) ) .* vars : config_cov
+    ### yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = config_norm ? config_cov .* vars : config_cov
     global vars_num = vars_num+vars
     println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(config_cov))
 end
@@ -124,13 +128,14 @@ noise_level = 0.0
 println("DETERMINANT OF FULL Γy, ", det(Γy))
 
 #########
-#########  Calibrate: Ensemble Kalman Inversion
+#########  Calibrate: Ensemble Kanversion
 #########
-algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
+algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
+# Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 )
 noisy_obs = true
-N_ens = 100 # number of ensemble members
+N_ens = typeof(algo) == Unscented{Float64,Int64} ? 2*n_param + 1 : 50 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
-Δt = config_norm ? 1.0/length(sim_names) : 1.0/d
+Δt = 1.0  # config_norm ? 1.0/length(sim_names) : 1.0/d
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
 deterministic_forward_map = noisy_obs ? true : false
@@ -138,8 +143,8 @@ deterministic_forward_map = noisy_obs ? true : false
 initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
 # Discard unstable parameter combinations, parallel
 #precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
-
-ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, algo )
+println(typeof(algo))
+ekobj = typeof(algo) == Unscented{Float64,Int64} ?  EnsembleKalmanProcess(yt, Γy, algo ) : EnsembleKalmanProcess(initial_params, yt, Γy, algo )
 scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
    $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list) 
@@ -147,7 +152,9 @@ scm_dir = "/home/ilopezgo/SCAMPy/"
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
 prefix = config_norm ? string(prefix, "cfnorm_") : prefix
+prefix = cutoff_reg ? string(prefix, "creg", alpha, "_") : prefix
 prefix = typeof(algo) == Sampler{Float64} ? string(prefix, "eks_") : prefix
+prefix = typeof(algo) == Unscented{Float64,Int64} ? string(prefix, "uki_") : prefix
 prefix = noisy_obs ? prefix : string(prefix, "nfo_")
 prefix = Δt ≈ 1 ? prefix : string(prefix, "dt", Δt, "_")
 outdir_path = string(prefix, "p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", d)
@@ -180,7 +187,7 @@ for i in 1:N_iter
     # Get normalized error
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
     push!(g_big_list, g_ens_arr)
-    if typeof(algo) != Sampler{Float64}
+    if typeof(algo) == Inversion
         update_ensemble!(ekobj, Array(g_ens') , Δt_new=Δt, deterministic_forward_map = deterministic_forward_map)
     else
         update_ensemble!(ekobj, Array(g_ens') )
