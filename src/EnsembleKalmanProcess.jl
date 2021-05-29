@@ -329,7 +329,7 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion},
 
     # N_obs × N_obs \ [N_ens × N_obs - N_ens × N_obs]'
     # --> tmp is N_obs × N_ens
-    tmp = imperf_model_inflation ? (cov_gg + scaled_obs_noise_cov + Diagonal( mean( (g' .- ekp.obs_mean)', dims=1).^2 ) ) \ (y - g)' : (cov_gg + scaled_obs_noise_cov) \ (y - g)'
+    tmp = imperf_model_inflation ? (cov_gg + scaled_obs_noise_cov + Diagonal( vec(mean( (g' .- ekp.obs_mean)', dims=1).^2 )) ) \ (y - g)' : (cov_gg + scaled_obs_noise_cov) \ (y - g)'
     u += (cov_ug * tmp)' # N_ens × N_par
 
     # store new parameters (and model outputs)
