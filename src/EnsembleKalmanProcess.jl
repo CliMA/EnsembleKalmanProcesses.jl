@@ -257,12 +257,12 @@ function find_ekp_stepsize(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, g::Arr
 end
 
 """
-    update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, <:Process}, g_in::Array{FT,2} cov_threshold::FT=0.01, Δt_new=nothing) where {FT, IT}
+    update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, <:Process}, g::Array{FT,2} cov_threshold::FT=0.01, Δt_new=nothing) where {FT, IT}
 
-Updates the ensemble according to which type of Process we have. Model outputs g_in need to be a output_dim × n_samples array (i.e data are columms)
+Updates the ensemble according to which type of Process we have. Model outputs g need to be a N_obs × N_ens array (i.e data are columms)
 """
 function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion},
-                          g_in::Array{FT,2};
+                          g::Array{FT,2};
                           cov_threshold::FT=0.01,
                           Δt_new=nothing,
                           deterministic_forward_map=true,) where {FT, IT}
@@ -270,25 +270,18 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion},
     # Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
     
     #catch works when g non-square
-    if !(size(g_in)[2] == ekp.N_ens) 
-         throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g_in do not match, try transposing g_in or check ensemble size"))
+    if !(size(g)[2] == ekp.N_ens) 
+         throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g do not match, try transposing g or check ensemble size"))
     end
 
-    # We enforce that data are rows here...
-    # u: N_ens × N_par
-    # g: N_ens × N_obs
-    u_old = get_u_final(ekp)
-    u = permutedims(u_old,(2,1))
-    g = permutedims(g_in,(2,1))
-    N_obs = size(g, 2)
+    # u: N_par × N_ens 
+    # g: N_obs × N_ens
+    u = get_u_final(ekp)
+    N_obs = size(g, 1)
 
-    cov_init = cov(u, dims=1)
-
-    u_bar = fill(FT(0), size(u)[2])
-    g_bar = fill(FT(0), size(g)[2])
-
-    cov_ug = fill(FT(0), size(u)[2], size(g)[2])
-    cov_gg = fill(FT(0), size(g)[2], size(g)[2])
+    cov_init = cov(u, dims=2)
+    cov_ug = cov(u,g, dims = 2, corrected=false) # [N_par × N_obs]
+    cov_gg = cov(g,g, dims = 2, corrected=false) # [N_obs × N_obs]
 
     if !isnothing(Δt_new)
         push!(ekp.Δt, Δt_new)
@@ -298,44 +291,22 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Inversion},
         push!(ekp.Δt, ekp.Δt[end])
     end
 
-    # update means/covs with new param/observation pairs u, g
-    for j = 1:ekp.N_ens
-
-        u_ens = u[j, :]
-        g_ens = g[j, :]
-
-        # add to mean
-        u_bar += u_ens
-        g_bar += g_ens
-
-        #add to cov
-        cov_ug += u_ens * g_ens' # cov_ug is [N_par × N_obs]
-        cov_gg += g_ens * g_ens'
-    end
-
-    u_bar = u_bar / ekp.N_ens
-    g_bar = g_bar / ekp.N_ens
-    cov_ug = cov_ug / ekp.N_ens - u_bar * g_bar'
-    cov_gg = cov_gg / ekp.N_ens - g_bar * g_bar'
-
     # Scale noise using Δt
     scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
     noise = rand(MvNormal(zeros(N_obs), scaled_obs_noise_cov), ekp.N_ens)
 
-    # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens), if
-    # G is deterministic, then transpose into N_ens × N_obs
-    y = deterministic_forward_map ? (ekp.obs_mean .+ noise)' : (ekp.obs_mean .+ zero(noise) )'
+    # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
+    # G is deterministic
+    y = deterministic_forward_map ? (ekp.obs_mean .+ noise) : (ekp.obs_mean .+ zero(noise))
 
-    # N_obs × N_obs \ [N_ens × N_obs - N_ens × N_obs]'
-    # --> tmp is N_obs × N_ens
-    tmp = imperf_model_inflation ? (cov_gg + scaled_obs_noise_cov + Diagonal( vec(mean( (g' .- ekp.obs_mean)', dims=1).^2 )) ) \ (y - g)' : (cov_gg + scaled_obs_noise_cov) \ (y - g)'
-    u += (cov_ug * tmp)' # N_ens × N_par
+    # N_obs × N_obs \ [N_obs × N_ens]
+    # --> tmp is [N_obs × N_ens]
+    tmp = (cov_gg + scaled_obs_noise_cov) \ (y - g)
+    u += (cov_ug * tmp) # [N_par × N_ens]
 
     # store new parameters (and model outputs)
-    push!(ekp.u, DataContainer(u, data_are_columns=false))
-    push!(ekp.g, DataContainer(g, data_are_columns=false))
-    # u is N_ens × N_par, g is N_ens × N_obs,
-    # but stored in data container with N_ens as the 2nd dim
+    push!(ekp.u, DataContainer(u, data_are_columns=true))
+    push!(ekp.g, DataContainer(g, data_are_columns=true))
     
     # Store error
     compute_error!(ekp)

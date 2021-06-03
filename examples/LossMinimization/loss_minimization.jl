@@ -32,7 +32,7 @@ prior_distns = [Parameterized(Normal(0., sqrt(1))),
 constraints = [[no_constraint()], [no_constraint()]]
 prior_names = ["u1", "u2"]
 prior = ParameterDistribution(prior_distns, constraints, prior_names)
-prior_mean = reshape(get_mean(prior),:)
+prior_mean = get_mean(prior)
 prior_cov = get_cov(prior)
 
 # Calibrate
@@ -84,7 +84,7 @@ prior_distns = [Parameterized(Normal(0., sqrt(2))),
 constraints = [[no_constraint()], [no_constraint()]]
 prior_names = ["u1", "u2"]
 prior = ParameterDistribution(prior_distns, constraints, prior_names)
-prior_mean = reshape(get_mean(prior),:)
+prior_mean = get_mean(prior)
 prior_cov = get_cov(prior)
 
 # Calibrate

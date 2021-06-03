@@ -388,10 +388,10 @@ end
 """
     function get_mean(pd::ParameterDistribution)
 
-returns a mean of the distirbutions
+returns a mean of the distributions
 """
 function get_mean(pd::ParameterDistribution)
-    return reshape(cat([get_mean(d) for d in pd.distributions]...,dims=1),:,1)
+    return cat([get_mean(d) for d in pd.distributions]...,dims=1)
 end
 
 
