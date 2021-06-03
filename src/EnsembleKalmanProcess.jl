@@ -12,8 +12,9 @@ using DocStringExtensions
 
 export EnsembleKalmanProcess, Inversion, Sampler, Unscented
 export MiniBatchKalmanProcess
-export get_u, get_g
-export get_u_prior, get_u_final, get_u_mean_final, get_g_final, get_N_iterations, get_error
+export get_u, get_g, get_obs, get_obs_cov
+export get_u_prior, get_u_final, get_u_mean_final, get_g_final
+export get_N_iterations, get_error, get_obs_final, get_obs_cov_final
 export construct_initial_ensemble
 export compute_error!
 export update_ensemble!
@@ -245,11 +246,11 @@ end
 
 function get_obs(ekp::MiniBatchKalmanProcess; return_array=true) where {IT <: Integer}
     N_stored_obs = get_N_iterations(ekp)
-    return [get_obs(ekp, it, return_array=return_array) for it in 1:N_stored_obs]
+    return [get_obs(ekp, it) for it in 1:N_stored_obs]
 end
 
-function get_obs_final(ekp::MiniBatchKalmanProcess; return_array=true)
-    return return_array ? get_obs(ekp,size(ekp.obs_mean)[1]) : ekp.obs_mean[end]
+function get_obs_final(ekp::MiniBatchKalmanProcess)
+    return ekp.obs_mean[end]
 end
 
 function get_obs_cov(ekp::MiniBatchKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}

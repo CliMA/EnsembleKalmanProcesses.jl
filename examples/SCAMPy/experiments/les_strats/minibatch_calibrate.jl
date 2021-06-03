@@ -189,8 +189,8 @@ for i in 1:N_iter
     save(string(outdir_path,"/ekp.jld2"),
         "ekp_u", transform_unconstrained_to_constrained(priors, get_u(ekobj)),
         "ekp_g", get_g(ekobj),
-        "truth_mean", ekobj.obs_mean,
-        "truth_cov", ekobj.obs_noise_cov,
+        "truth_mean", get_obs(ekobj),
+        "truth_cov", get_obs_cov(ekobj),
         "ekp_err", ekobj.err,
         "norm_err", norm_err_list,
         "truth_mean_big", yt_big,
@@ -210,8 +210,6 @@ for i in 1:N_iter
       end
     end
     norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
-    npzwrite(string(outdir_path,"/y_mean.npy"), ekobj.obs_mean)
-    npzwrite(string(outdir_path,"/Gamma_y.npy"), ekobj.obs_noise_cov)
     npzwrite(string(outdir_path,"/y_mean_big.npy"), yt_big)
     npzwrite(string(outdir_path,"/Gamma_y_big.npy"), yt_var_big)
     npzwrite(string(outdir_path,"/phi_params.npy"), phi_params_arr)
