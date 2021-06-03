@@ -1,0 +1,52 @@
+{
+    "grid": {
+        "dims": 1,
+        "dz": 12.5,
+        "gw": 2,
+        "nz": 160
+    },
+    "meta": {
+        "casename": "Kumar_dc_init_m1",
+        "simname": "Kumar_dc_init_m1",
+        "uuid": "0229f074-6e8d-47ff-8b05-d36b6dd51515"
+    },
+    "microphysics": {
+        "rain_model": "None"
+    },
+    "output": {
+        "output_root": "./"
+    },
+    "stats_io": {
+        "frequency": 60.0,
+        "stats_dir": "stats"
+    },
+    "thermodynamics": {
+        "quadrature_order": 3,
+        "quadrature_type": "log-normal",
+        "sgs": "quadrature",
+        "thermal_variable": "thetal"
+    },
+    "time_stepping": {
+        "dt": 5.0,
+        "t_max": 86400.0
+    },
+    "turbulence": {
+        "EDMF_PrognosticTKE": {
+            "calc_scalar_var": true,
+            "calculate_tke": true,
+            "constant_area": false,
+            "entrainment": "moisture_deficit",
+            "extrapolate_buoyancy": true,
+            "mixing_length": "sbtd_eq",
+            "pressure_closure_asp_label": "const",
+            "pressure_closure_buoy": "normalmode",
+            "pressure_closure_drag": "normalmode",
+            "updraft_number": 1,
+            "use_constant_plume_spacing": false,
+            "use_local_micro": true,
+            "use_similarity_diffusivity": false,
+            "use_steady_updrafts": false
+        },
+        "scheme": "EDMF_PrognosticTKE"
+    }
+}
