@@ -57,7 +57,7 @@ normalized = true # Variable normalization
 perform_PCA = true # PCA on config covariance
 cutoff_reg = true # Regularize above PCA cutoff
 beta = 10.0 # Regularization hyperparameter
-variance_loss = 1.0e-1 # PCA variance loss
+variance_loss = 1.0e-3 # PCA variance loss
 noisy_obs = true # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
@@ -119,7 +119,7 @@ end
 #########  Calibrate: Ensemble Kalman inversion
 #########
 
-algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion() # Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 )
+algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1, 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion() # Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 )
 N_ens = typeof(algo) == Unscented{Float64,Int64} ? 2*n_param + 1 : 50 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
 Δt = 1.0/C
@@ -138,7 +138,7 @@ prefix = typeof(algo) == Sampler{Float64} ? string(prefix, "eks_") : prefix
 prefix = typeof(algo) == Unscented{Float64,Int64} ? string(prefix, "uki_") : prefix
 prefix = noisy_obs ? prefix : string(prefix, "nfo_")
 prefix = Δt ≈ 1 ? prefix : string(prefix, "dt", Δt, "_")
-outdir_path = string(prefix, "p", n_param, "_e", N_ens, "_i", N_iter, "_d", d)
+outdir_path = string(prefix, "p", n_param, "_e", N_ens, "_i", N_iter, "_d", d_c_acc[end])
 println("Name of outdir path for this EKP, ", outdir_path)
 command = `mkdir $outdir_path`
 try
@@ -147,16 +147,19 @@ catch e
     println("Output directory already exists. Output may be overwritten.")
 end
 
+scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
        $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list)
 
 # EKP iterations
 norm_err_list = []
 g_big_list = []
-scm_dir = "/home/ilopezgo/SCAMPy/"
 for i in 1:N_iter
     yt = yt_list[i%C+1]
     Γy = yt_var_list[i%C+1]
+    if typeof(algo) == Unscented{Float64,Int64}
+        global algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 )
+    end
     g_ens = zeros(N_ens, d_c_list[i%C+1])
     # UKI does not require sampling from the prior
     ekobj = typeof(algo) == Unscented{Float64,Int64} ? 
@@ -173,7 +176,7 @@ for i in 1:N_iter
     println("LENGTH OF G_ENS_ARR_PCA", length(g_ens_arr_pca))
     println(string("\n\nEKP evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
-      g_ens[j, :] = i%C+1 == 1 ? g_ens_arr_pca[j][d_c_acc[i%C+1]] : g_ens_arr_pca[j][ d_c_acc[i%C]+1 : d_c_acc[i%C+1] ]
+      g_ens[j, :] = i%C+1 == 1 ? g_ens_arr_pca[j][1 : d_c_acc[i%C+1]] : g_ens_arr_pca[j][ d_c_acc[i%C]+1 : d_c_acc[i%C+1] ]
     end
     # Get normalized error
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
@@ -221,13 +224,4 @@ for i in 1:N_iter
       npzwrite(string(outdir_path,"/pool_var_",sim_names[l],".npy"), pool_var_list[l])
     end
 end
-
-# EKP results: Has the ensemble collapsed toward the truth?
-println("\nEKP ensemble mean at last stage (original space):")
-println(mean(transform_unconstrained_to_constrained(priors, get_u(ekobj)), dims=1))
-
-println("\nEnsemble covariance det. 1st iteration, transformed space.")
-println(det( cov((get_u(ekobj, 1)), dims=1) ))
-println("\nEnsemble covariance det. last iteration, transformed space.")
-println(det( cov(get_u_final(ekobj), dims=2) ))
 
