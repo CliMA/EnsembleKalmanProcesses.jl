@@ -37,6 +37,7 @@ prior_dist = [Parameterized(Normal(0.0, 0.5))
                 for x in range(1, n_param, length=n_param) ]
 priors = ParameterDistribution(prior_dist, constraints, param_names)
 
+
 #########
 #########  Retrieve true LES samples from PyCLES data and transform
 #########
@@ -52,11 +53,12 @@ push!(y_names, ["thetal_mean", "total_flux_h"]) #Nieuwstadt
 push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]) #Bomex
 
 # Define preconditioning and regularization of inverse problem
-normalized = true
-perform_PCA = true
-config_norm = true
-variance_loss = 2.0e-1
-# 1.0e-1 -> 22, 5.0e-2 -> 35, 2.0e-2 -> 50
+normalized = true # Variable normalization
+perform_PCA = true # PCA on config covariance
+cutoff_reg = true # Regularize above PCA cutoff
+beta = 10.0 # Regularization hyperparameter
+variance_loss = 1.0e-1 # PCA variance loss
+noisy_obs = true # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
 sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
@@ -68,11 +70,8 @@ yt_var_list_big = []
 P_pca_list = []
 pool_var_list = []
 for (i, sim_name) in enumerate(sim_names)
-    if occursin("Nieuwstadt", sim_name)
-        les_dir = string("/groups/esm/ilopezgo/Output.", "Soares", sim_suffix[i])
-    else
-        les_dir = string("/groups/esm/ilopezgo/Output.", sim_name, sim_suffix[i])
-    end
+    les_dir = occursin("Nieuwstadt", sim_name) ? 
+        string("/groups/esm/ilopezgo/Output.", "Soares", sim_suffix[i]) : string("/groups/esm/ilopezgo/Output.", sim_name, sim_suffix[i])
     # Get SCM vertical levels for interpolation
     z_scm = get_profile(string("Output.", sim_name, ".00000"), ["z_half"])
     # Get (interpolated and pool-normalized) observations, get pool variance vector
@@ -94,7 +93,7 @@ for (i, sim_name) in enumerate(sim_names)
 end
 
 d = length(yt) # Length of data array
-# Construct global observational covariance matrix, no TSVD
+# Construct global observational covariance matrix for error diagnostic, no TSVD
 yt_var_big = zeros(length(yt_big), length(yt_big))
 vars_num = 1
 for (k,config_cov) in enumerate(yt_var_list_big)
@@ -104,33 +103,32 @@ for (k,config_cov) in enumerate(yt_var_list_big)
     println("DETERMINANT OF Γy FOR ", sim_names[k], " ", det(config_cov))
 end
 
-# Construct global observational covariance matrix, TSVD
+# Construct global observational covariance matrix for EKP, TSVD
 yt_var = zeros(d, d)
 vars_num = 1
 for (k,config_cov) in enumerate(yt_var_list)
     vars = length(config_cov[1,:])
-    yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = config_norm ? config_cov .* vars : config_cov
+    yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = cutoff_reg ? 
+         (config_cov + (beta*minimum(diag(config_cov))) .* Matrix(1.0I, size(config_cov)) ) .* vars : config_cov .* vars
     global vars_num = vars_num+vars
     println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(config_cov))
 end
 println("NUMBER OF OUTPUTS CONSIDERED ", d, " CAPTURING FRACTION OF VARIANCE: ", 1.0-variance_loss)
 
-n_samples = 1
-samples = zeros(n_samples, length(yt))
+samples = zeros(1, length(yt))
 samples[1,:] = yt
-# Regularization nugget
-noise_level = 0.0
-Γy = noise_level * Matrix(1.0I, d, d) + yt_var
+Γy = yt_var
 println("DETERMINANT OF FULL Γy, ", det(Γy))
 
+
 #########
-#########  Calibrate: Ensemble Kalman Inversion
+#########  Calibrate: Ensemble Kalman inversion
 #########
-algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
-noisy_obs = true
-N_ens = 100 # number of ensemble members
+
+algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
+N_ens = typeof(algo) == Unscented{Float64,Int64} ? 2*n_param + 1 : 50 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
-Δt = config_norm ? 1.0/length(sim_names) : 1.0/d
+Δt = 1.0/length(sim_names)
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
 deterministic_forward_map = noisy_obs ? true : false
@@ -139,15 +137,17 @@ initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000)
 # Discard unstable parameter combinations, parallel
 #precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 
-ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, algo )
+# UKI does not require sampling from the prior
+ekobj = typeof(algo) == Unscented{Float64,Int64} ?  EnsembleKalmanProcess(yt, Γy, algo ) : EnsembleKalmanProcess(initial_params, yt, Γy, algo )
 scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
    $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list) 
 
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
-prefix = config_norm ? string(prefix, "cfnorm_") : prefix
+prefix = cutoff_reg ? string(prefix, "creg", beta, "_") : prefix
 prefix = typeof(algo) == Sampler{Float64} ? string(prefix, "eks_") : prefix
+prefix = typeof(algo) == Unscented{Float64,Int64} ? string(prefix, "uki_") : prefix
 prefix = noisy_obs ? prefix : string(prefix, "nfo_")
 prefix = Δt ≈ 1 ? prefix : string(prefix, "dt", Δt, "_")
 outdir_path = string(prefix, "p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", d)
@@ -180,7 +180,7 @@ for i in 1:N_iter
     # Get normalized error
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
     push!(g_big_list, g_ens_arr)
-    if typeof(algo) != Sampler{Float64}
+    if typeof(algo) == Inversion
         update_ensemble!(ekobj, Array(g_ens') , Δt_new=Δt, deterministic_forward_map = deterministic_forward_map)
     else
         update_ensemble!(ekobj, Array(g_ens') )
