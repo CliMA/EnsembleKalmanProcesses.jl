@@ -132,7 +132,7 @@ initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000)
 #precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 
 # Create output dir
-prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
+prefix = perform_PCA ? "results_pycles_PCA_mb1_" : "results_pycles_" # = true
 prefix = cutoff_reg ? string(prefix, "creg", beta, "_") : prefix
 prefix = typeof(algo) == Sampler{Float64} ? string(prefix, "eks_") : prefix
 prefix = typeof(algo) == Unscented{Float64,Int64} ? string(prefix, "uki_") : prefix
