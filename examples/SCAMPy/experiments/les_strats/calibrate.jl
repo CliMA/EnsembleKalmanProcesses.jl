@@ -150,7 +150,7 @@ prefix = typeof(algo) == Sampler{Float64} ? string(prefix, "eks_") : prefix
 prefix = typeof(algo) == Unscented{Float64,Int64} ? string(prefix, "uki_") : prefix
 prefix = noisy_obs ? prefix : string(prefix, "nfo_")
 prefix = Δt ≈ 1 ? prefix : string(prefix, "dt", Δt, "_")
-outdir_path = string(prefix, "p", n_param,"_n", noise_level,"_e", N_ens, "_i", N_iter, "_d", d)
+outdir_path = string(prefix, "p", n_param, "_e", N_ens, "_i", N_iter, "_d", d)
 println("Name of outdir path for this EKP, ", outdir_path)
 command = `mkdir $outdir_path`
 try
