@@ -3,8 +3,8 @@
 To build the top-level project, first clone the repository, then instantiate:
 
 ```
-cd CalibrateEmulateSample.jl
-julia --project -e 'using Pkg; Pkg.instantiate()
+cd EnsembleKalmanProcesses.jl
+julia --project -e 'using Pkg; Pkg.instantiate()'
 ```
 
 To test that the package is working:

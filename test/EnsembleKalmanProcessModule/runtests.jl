@@ -44,7 +44,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     prior_names = ["u1","u2"]
     prior = ParameterDistribution(prior_distns, constraints, prior_names)
     
-    prior_mean = reshape(get_mean(prior),:)
+    prior_mean = get_mean(prior)
 
     # Assuming independence of u1 and u2
     prior_cov = get_cov(prior)#convert(Array, Diagonal([sqrt(2.), sqrt(2.)]))
