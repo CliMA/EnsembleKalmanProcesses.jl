@@ -604,7 +604,8 @@ end
 """
 construct_mean x_mean from ensemble x
 """
-function construct_mean(uki::KalmanProcessObject{FT, IT,Unscented}, x::Array{FT,2}) where {FT<:AbstractFloat, IT<:Int}
+function construct_mean(uki::Union{EnsembleKalmanProcess{FT, IT,Unscented}, MiniBatchKalmanProcess{FT, IT,Unscented}},
+    x::Array{FT,2}) where {FT<:AbstractFloat, IT<:Int}
     N_x, N_ens = size(x)
     
     @assert(uki.N_ens == N_ens)
@@ -623,7 +624,8 @@ end
 """
 construct_cov xx_cov from ensemble x and mean x_mean
 """
-function construct_cov(uki::KalmanProcessObject{FT, IT,Unscented}, x::Array{FT,2}, x_mean::Array{FT}) where {FT<:AbstractFloat, IT<:Int}
+function construct_cov(uki::Union{EnsembleKalmanProcess{FT, IT,Unscented}, MiniBatchKalmanProcess{FT, IT,Unscented}},
+    x::Array{FT,2}, x_mean::Array{FT}) where {FT<:AbstractFloat, IT<:Int}
     N_ens, N_x = uki.N_ens, size(x_mean,1)
     
     cov_weights = uki.process.cov_weights
@@ -640,7 +642,7 @@ end
 """
 construct_cov xy_cov from ensemble x and mean x_mean, ensemble obs_mean and mean y_mean
 """
-function construct_cov(uki::KalmanProcessObject{FT, IT, Unscented}, x::Array{FT,2}, x_mean::Array{FT}, obs_mean::Array{FT,2}, y_mean::Array{FT}) where {FT<:AbstractFloat, IT<:Int, P<:Process}
+function construct_cov(uki::Union{EnsembleKalmanProcess{FT, IT,Unscented}, MiniBatchKalmanProcess{FT, IT,Unscented}}, x::Array{FT,2}, x_mean::Array{FT}, obs_mean::Array{FT,2}, y_mean::Array{FT}) where {FT<:AbstractFloat, IT<:Int, P<:Process}
     N_ens, N_x, N_y = uki.N_ens, size(x_mean,1), size(y_mean,1)
     
     cov_weights = uki.process.cov_weights
@@ -805,7 +807,7 @@ function update_observations!(ekp::MiniBatchKalmanProcess{FT, IT, P}, obs_mean_i
     return
 end
 
-function get_u_mean_final(uki::KalmanProcessObject{FT, IT,Unscented}) where {FT<:AbstractFloat, IT<:Int}
+function get_u_mean_final(uki::Union{EnsembleKalmanProcess{FT, IT,Unscented}, MiniBatchKalmanProcess{FT, IT,Unscented}}) where {FT<:AbstractFloat, IT<:Int}
     return uki.process.u_mean[end]
 end
 
