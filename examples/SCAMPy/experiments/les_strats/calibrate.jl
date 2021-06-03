@@ -125,7 +125,7 @@ println("DETERMINANT OF FULL Γy, ", det(Γy))
 #########  Calibrate: Ensemble Kalman inversion
 #########
 
-algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
+algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
 N_ens = typeof(algo) == Unscented{Float64,Int64} ? 2*n_param + 1 : 50 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
 Δt = 1.0/length(sim_names)

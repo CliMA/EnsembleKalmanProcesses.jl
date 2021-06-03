@@ -119,7 +119,7 @@ end
 #########  Calibrate: Ensemble Kalman inversion
 #########
 
-algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1, 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion() # Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 )
+algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion() # Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 )
 N_ens = typeof(algo) == Unscented{Float64,Int64} ? 2*n_param + 1 : 50 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
 Δt = 1.0/C
@@ -127,9 +127,19 @@ println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
 deterministic_forward_map = noisy_obs ? true : false
 
-initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
-# Discard unstable parameter combinations, parallel
-#precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
+if typeof(algo) != Unscented{Float64,Int64}
+    initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
+    # Discard unstable parameter combinations, parallel
+    #precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
+end
+
+g_ens = zeros(N_ens, d_c_list[i%C+1])
+# UKI does not require sampling from the prior
+ekobj = typeof(algo) == Unscented{Float64,Int64} ? 
+    MiniBatchKalmanProcess( algo ) : MiniBatchKalmanProcess(initial_params, algo )
+scm_dir = "/home/ilopezgo/SCAMPy/"
+@everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
+       $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list)
 
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_mb1_" : "results_pycles_" # = true
@@ -147,23 +157,12 @@ catch e
     println("Output directory already exists. Output may be overwritten.")
 end
 
-scm_dir = "/home/ilopezgo/SCAMPy/"
-@everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
-       $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list)
-
 # EKP iterations
 norm_err_list = []
 g_big_list = []
 for i in 1:N_iter
     yt = yt_list[i%C+1]
     Γy = yt_var_list[i%C+1]
-    if typeof(algo) == Unscented{Float64,Int64}
-        global algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 )
-    end
-    g_ens = zeros(N_ens, d_c_list[i%C+1])
-    # UKI does not require sampling from the prior
-    ekobj = typeof(algo) == Unscented{Float64,Int64} ? 
-        EnsembleKalmanProcess(yt, Γy, algo ) : EnsembleKalmanProcess(initial_params, yt, Γy, algo )
 
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
@@ -182,9 +181,9 @@ for i in 1:N_iter
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
     push!(g_big_list, g_ens_arr)
     if typeof(algo) == Inversion
-        update_ensemble!(ekobj, Array(g_ens') , Δt_new=Δt, deterministic_forward_map = deterministic_forward_map)
+        update_ensemble!(ekobj, Array(g_ens'), yt, Γy, Δt_new=Δt, deterministic_forward_map = deterministic_forward_map)
     else
-        update_ensemble!(ekobj, Array(g_ens') )
+        update_ensemble!(ekobj, Array(g_ens'), yt, Γy )
     end
     println("\nEnsemble updated. Saving results to file...\n")
     # Save EKP information to file
