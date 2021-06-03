@@ -239,8 +239,8 @@ function get_g_final(ekp::KalmanProcessObject; return_array=true)
 end
 
 
-function get_obs(ekp::MiniBatchKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
-    return return_array ? get_data(ekp.obs_mean[iteration]) : ekp.obs_mean[iteration]
+function get_obs(ekp::MiniBatchKalmanProcess, iteration::IT) where {IT <: Integer}
+    return ekp.obs_mean[iteration]
 end
 
 function get_obs(ekp::MiniBatchKalmanProcess; return_array=true) where {IT <: Integer}
