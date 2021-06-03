@@ -133,7 +133,6 @@ if typeof(algo) != Unscented{Float64,Int64}
     #precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
 end
 
-g_ens = zeros(N_ens, d_c_list[i%C+1])
 # UKI does not require sampling from the prior
 ekobj = typeof(algo) == Unscented{Float64,Int64} ? 
     MiniBatchKalmanProcess( algo ) : MiniBatchKalmanProcess(initial_params, algo )
@@ -163,7 +162,7 @@ g_big_list = []
 for i in 1:N_iter
     yt = yt_list[i%C+1]
     Γy = yt_var_list[i%C+1]
-
+    g_ens = zeros(N_ens, d_c_list[i%C+1])
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
         get_u_final(ekobj)) )

@@ -130,7 +130,7 @@ struct MiniBatchKalmanProcess{FT<:AbstractFloat, IT<:Int, P<:Process} <: KalmanP
     "Array of stores for parameters (u), each of size [N_par × N_ens]"
     u::Array{DataContainer{FT}}
     "Array of stores for observations, each of size [N_obs_i]"
-    obs_mean::Array{DataContainer{FT}}
+    obs_mean::Vector{Array{FT, 1}}
     "Array of stores for covariance matrix of the observational noise, each of size [N_obs_i × N_obs_i]"
     obs_noise_cov::Array{DataContainer{FT}}
     "ensemble size"
@@ -801,8 +801,8 @@ end
 
 function update_observations!(ekp::MiniBatchKalmanProcess{FT, IT, P}, obs_mean_in::Array{FT}, obs_cov_in::Array{FT, 2}) where {FT<:AbstractFloat, IT<:Int, P<:Process}
     
-    push!(ekp.obs_mean, DataContainer(obs_mean_in, data_are_columns=true))
-    push!(ekp.obs_mean, DataContainer(obs_cov_in, data_are_columns=true))
+    push!(ekp.obs_mean, obs_mean_in)
+    push!(ekp.obs_noise_cov, DataContainer(obs_cov_in, data_are_columns=true))
 
     return
 end
