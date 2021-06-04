@@ -728,7 +728,7 @@ end
 uki analysis step 
 g is the predicted observations  Ny  by N_ens matrix
 """
-function update_ensemble_analysis!(uki::MiniBatchKalmanProcess{FT, IT,Unscented}, u_p::Array{FT, 2}, g::Array{FT, 2}) where {FT<:AbstractFloat, IT<:Int}
+function update_ensemble_analysis!(uki::MiniBatchKalmanProcess{FT, IT,Unscented}, u_p::Array{FT, 2}, g::Array{FT, 2}; Δt_new = 1) where {FT<:AbstractFloat, IT<:Int}
     
     obs_mean = get_obs_final(uki)
     Σ_ν = uki.process.Σ_ν_scale * get_obs_cov_final(uki)
@@ -747,8 +747,8 @@ function update_ensemble_analysis!(uki::MiniBatchKalmanProcess{FT, IT,Unscented}
     
     tmp = ug_cov/gg_cov
     
-    u_mean =  u_p_mean + tmp*(obs_mean - g_mean)
-    uu_cov =  uu_p_cov - tmp*ug_cov' 
+    u_mean =  u_p_mean + Δt_new.*tmp*(obs_mean - g_mean)
+    uu_cov =  uu_p_cov - Δt_new.*tmp*ug_cov' 
     
     
     ########### Save resutls
@@ -757,6 +757,14 @@ function update_ensemble_analysis!(uki::MiniBatchKalmanProcess{FT, IT,Unscented}
     push!(uki.process.uu_cov, uu_cov) # N_ens x N_data
     
     push!(uki.g, DataContainer(g, data_are_columns=true))
+
+    if !isnothing(Δt_new)
+        push!(uki.Δt, Δt_new)
+    elseif isnothing(Δt_new) && isempty(uki.Δt)
+        push!(uki.Δt, FT(1))
+    else
+        push!(uki.Δt, ekp.Δt[end])
+    end
 
     compute_error!(uki)
 end
@@ -780,7 +788,8 @@ function update_ensemble!(uki::EnsembleKalmanProcess{FT, IT, Unscented}, g_in::A
 
 end
 
-function update_ensemble!(uki::MiniBatchKalmanProcess{FT, IT, Unscented}, g_in::Array{FT, 2}, obs_mean_in::Array{FT}, obs_cov_in::Array{FT, 2}) where {FT<:AbstractFloat, IT<:Int}
+function update_ensemble!(uki::MiniBatchKalmanProcess{FT, IT, Unscented}, g_in::Array{FT, 2},
+        obs_mean_in::Array{FT}, obs_cov_in::Array{FT, 2}; Δt_new = 1) where {FT<:AbstractFloat, IT<:Int}
     #catch works when g_in non-square
     if !(size(g_in)[2] == uki.N_ens) 
         throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g_in do not match, try transposing or check ensemble size"))
@@ -790,7 +799,7 @@ function update_ensemble!(uki::MiniBatchKalmanProcess{FT, IT, Unscented}, g_in::
 
     #perform analysis on the model runs
     update_observations!(uki, obs_mean_in, obs_cov_in)
-    update_ensemble_analysis!(uki, u_p_old, g_in)
+    update_ensemble_analysis!(uki, u_p_old, g_in, Δt_new=Δt_new)
     #perform new prediction output to model parameters u_p
     u_p = update_ensemble_prediction!(uki.process) 
 

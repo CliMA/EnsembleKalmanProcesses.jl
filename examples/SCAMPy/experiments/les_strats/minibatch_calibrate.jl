@@ -182,6 +182,8 @@ for i in 1:N_iter
     push!(g_big_list, g_ens_arr)
     if typeof(algo) == Inversion
         update_ensemble!(ekobj, Array(g_ens'), yt, Γy, Δt_new=Δt, deterministic_forward_map = deterministic_forward_map)
+    elseif typeof(algo) == Unscented{Float64,Int64}
+        update_ensemble!(ekobj, Array(g_ens'), yt, Γy, Δt_new=Δt )
     else
         update_ensemble!(ekobj, Array(g_ens'), yt, Γy )
     end
