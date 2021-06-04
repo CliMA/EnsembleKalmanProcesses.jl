@@ -57,7 +57,7 @@ normalized = true # Variable normalization
 perform_PCA = true # PCA on config covariance
 cutoff_reg = true # Regularize above PCA cutoff
 beta = 10.0 # Regularization hyperparameter
-variance_loss = 1.0e-3 # PCA variance loss
+variance_loss = 1.0e-4 # PCA variance loss
 noisy_obs = true # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
@@ -160,9 +160,10 @@ end
 norm_err_list = []
 g_big_list = []
 for i in 1:N_iter
-    yt = yt_list[i%C+1]
-    Γy = yt_var_list[i%C+1]
-    g_ens = zeros(N_ens, d_c_list[i%C+1])
+    conf_ind = 4 #i%C+1
+    yt = yt_list[conf_ind]
+    Γy = yt_var_list[conf_ind]
+    g_ens = zeros(N_ens, d_c_list[conf_ind])
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
         get_u_final(ekobj)) )
@@ -174,7 +175,7 @@ for i in 1:N_iter
     println("LENGTH OF G_ENS_ARR_PCA", length(g_ens_arr_pca))
     println(string("\n\nEKP evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
-      g_ens[j, :] = i%C+1 == 1 ? g_ens_arr_pca[j][1 : d_c_acc[i%C+1]] : g_ens_arr_pca[j][ d_c_acc[i%C]+1 : d_c_acc[i%C+1] ]
+      g_ens[j, :] = conf_ind == 1 ? g_ens_arr_pca[j][1 : d_c_acc[conf_ind]] : g_ens_arr_pca[j][ d_c_acc[conf_ind-1]+1 : d_c_acc[conf_ind] ]
     end
     # Get normalized error
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
