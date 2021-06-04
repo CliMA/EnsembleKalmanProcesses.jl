@@ -70,27 +70,30 @@ yt_big = zeros(0)
 yt_var_list_big = []
 P_pca_list = []
 pool_var_list = []
-for (i, sim_name) in enumerate(sim_names)
-    les_dir = occursin("Nieuwstadt", sim_name) ? 
-        string("/groups/esm/ilopezgo/Output.", "Soares", sim_suffix[i]) : string("/groups/esm/ilopezgo/Output.", sim_name, sim_suffix[i])
-    # Get SCM vertical levels for interpolation
-    z_scm = get_profile(string("Output.", sim_name, ".00000"), ["z_half"])
-    # Get (interpolated and pool-normalized) observations, get pool variance vector
-    yt_, yt_var_, pool_var = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
-    push!(pool_var_list, pool_var)
-    if perform_PCA
-        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, variance_loss)
-        push!(yt_list, yt_pca)
-        push!(yt_var_list, yt_var_pca)
-        push!(P_pca_list, P_pca)
-    else
-        push!(yt_list, yt_)
-        push!(yt_var_list, yt_var_)
-        global P_pca_list = nothing
+for (i, sim_name) in enumerate(sim_names) # Loop on simulations
+    for (j, ti_j) in enumerate(ti[i]) # Loop on time intervals
+        tf_j = tf[i][j]
+        les_dir = occursin("Nieuwstadt", sim_name) ? 
+            string("/groups/esm/ilopezgo/Output.", "Soares", sim_suffix[i]) : string("/groups/esm/ilopezgo/Output.", sim_name, sim_suffix[i])
+        # Get SCM vertical levels for interpolation
+        z_scm = get_profile(string("Output.", sim_name, ".00000"), ["z_half"])
+        # Get (interpolated and pool-normalized) observations, get pool variance vector
+        yt_, yt_var_, pool_var = obs_LES(y_names[i], les_dir, ti_j, tf_j, z_scm = z_scm, normalize=normalized)
+        push!(pool_var_list, pool_var)
+        if perform_PCA
+            yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, variance_loss)
+            push!(yt_list, yt_pca)
+            push!(yt_var_list, yt_var_pca)
+            push!(P_pca_list, P_pca)
+        else
+            push!(yt_list, yt_)
+            push!(yt_var_list, yt_var_)
+            global P_pca_list = nothing
+        end
+        # Save full dimensionality (normalized) output for error computation
+        append!(yt_big, yt_)
+        push!(yt_var_list_big, yt_var_)
     end
-    # Save full dimensionality (normalized) output for error computation
-    append!(yt_big, yt_)
-    push!(yt_var_list_big, yt_var_)
 end
 
 # Construct global observational covariance matrix for error diagnostic, no TSVD
