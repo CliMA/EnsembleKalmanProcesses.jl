@@ -163,7 +163,7 @@ end
 norm_err_list = []
 g_big_list = []
 for i in 1:N_iter
-    conf_ind = 4 #i%C+1
+    conf_ind = i%C+1
     yt = yt_list[conf_ind]
     Γy = yt_var_list[conf_ind]
     g_ens = zeros(N_ens, d_c_list[conf_ind])

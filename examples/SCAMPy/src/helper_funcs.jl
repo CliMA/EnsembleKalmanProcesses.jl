@@ -44,8 +44,7 @@ function run_SCAMPy(u::Array{FT, 1},
 
     # Check parameter dimensionality
     @assert length(u_names) == length(u)
-    # Check consistent time interval dims
-    @assert length(ti) == length(sim_dirs)
+
     # Run simulations
     exe_path = string(scm_dir, scampy_handler)
     sim_uuid  = u[1]
@@ -59,7 +58,9 @@ function run_SCAMPy(u::Array{FT, 1},
     sim_uuid = string(sim_uuid, ".txt")
     sim_dirs = readlines(sim_uuid)
     run(`rm $sim_uuid`)
-    
+    # Check consistent time interval dims
+    @assert length(ti) == length(sim_dirs)
+
     g_scm = zeros(0)
     g_scm_pca = zeros(0)
 
@@ -135,7 +136,7 @@ Outputs:
 function obs_LES(y_names::Array{String, 1},
                     sim_dir::String,
                     ti::FT,
-                    tf::FT,
+                    tf::FT;
                     z_scm::Union{Array{FT, 1}, Nothing} = nothing,
                     normalize = true,
                     ) where {FT<:AbstractFloat}
