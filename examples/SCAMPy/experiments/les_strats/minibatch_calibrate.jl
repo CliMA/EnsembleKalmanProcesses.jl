@@ -43,8 +43,15 @@ priors = ParameterDistribution(prior_dist, constraints, param_names)
 #########
 
 # Define observation window per flow configuration
+
+# Minibatch per sim
 ti = [7200.0, 25200.0, 7200.0, 14400.0]
 tf = [14400.0, 32400.0, 14400.0, 21600.0]
+
+# Minibatch per time interval
+#ti = [ [7200.0, 14400.0], [14400.0, 25200.0], [7200.0, 14400.0], [7200.0, 14400.0] ]
+#tf = [ [14400.0, 21600.0], [21600.0, 32400.0], [14400.0, 21600.0], [14400.0, 21600.0] ]
+
 # Define variables per flow configuration
 y_names = Array{String, 1}[]
 push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]) #DYCOMS_RF01
@@ -62,7 +69,9 @@ noisy_obs = true # Choice of covariance in evaluation of y_{j+1} in EKI. True ->
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
 sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
-C = length(sim_names)
+C = sum([length(ti_) for ti_ in ti])
+sim_num = length(sim_names)
+
 # Init arrays
 yt_list = []
 yt_var_list = []
@@ -97,17 +106,10 @@ for (i, sim_name) in enumerate(sim_names) # Loop on simulations
 end
 
 # Construct global observational covariance matrix for error diagnostic, no TSVD
-yt_var_big = zeros(length(yt_big), length(yt_big))
-vars_num = 1
-for (k,config_cov) in enumerate(yt_var_list_big)
-    vars = length(config_cov[1,:])
-    yt_var_big[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = config_cov
-    global vars_num = vars_num+vars
-    println("DETERMINANT OF Γy FOR ", sim_names[k], " ", det(config_cov))
-end
-
+yt_var_big =cov_from_cov_list(yt_var_list_big)
 d_c_list = [length(yt_) for yt_ in yt_list]
 d_c_acc = accumulate(+, d_c_list)
+
 # Regularize truncated config covariances
 for (k,config_cov) in enumerate(yt_var_list)
     d_c = d_c_list[k]
@@ -126,6 +128,7 @@ algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0 ) # Sampler(
 N_ens = typeof(algo) == Unscented{Float64,Int64} ? 2*n_param + 1 : 50 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
 Δt = 1.0/C
+
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
 deterministic_forward_map = noisy_obs ? true : false
@@ -143,8 +146,14 @@ scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
        $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list)
 
+# Mini-batch dispatch
+minibatch_on_sim(iter) = [iter%C+1]
+minibatch_on_time(iter) = [time_index for time_index in 1:C
+                                    if time_index%(C/sim_num) == iter%(C/sim_num)]
+
 # Create output dir
-prefix = perform_PCA ? "results_pycles_PCA_mb1_" : "results_pycles_" # = true
+prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
+prefix = typeof(ti) == Array{Float64, 1} ? string(prefix, "mbs_") : string(prefix, "mbt_")
 prefix = cutoff_reg ? string(prefix, "creg", beta, "_") : prefix
 prefix = typeof(algo) == Sampler{Float64} ? string(prefix, "eks_") : prefix
 prefix = typeof(algo) == Unscented{Float64,Int64} ? string(prefix, "uki_") : prefix
@@ -163,10 +172,10 @@ end
 norm_err_list = []
 g_big_list = []
 for i in 1:N_iter
-    conf_ind = i%C+1
-    yt = yt_list[conf_ind]
-    Γy = yt_var_list[conf_ind]
-    g_ens = zeros(N_ens, d_c_list[conf_ind])
+    conf_ind = typeof(ti) == Array{Float64, 1} ? minibatch_on_sim(i) : minibatch_on_time(i)
+    yt, indices_g = vec_from_vec_list(yt_list, indices=conf_ind, return_mapping=true)
+    Γy = cov_from_cov_list(yt_var_list, indices=conf_ind)
+    g_ens = zeros(N_ens, length(yt))
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
         get_u_final(ekobj)) )
@@ -178,7 +187,7 @@ for i in 1:N_iter
     println("LENGTH OF G_ENS_ARR_PCA", length(g_ens_arr_pca))
     println(string("\n\nEKP evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
-      g_ens[j, :] = conf_ind == 1 ? g_ens_arr_pca[j][1 : d_c_acc[conf_ind]] : g_ens_arr_pca[j][ d_c_acc[conf_ind-1]+1 : d_c_acc[conf_ind] ]
+      g_ens[j, :] = [g_ for (g_index, g_) in enumerate(g_ens_arr_pca[j]) if g_index in indices_g]
     end
     # Get normalized error
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
