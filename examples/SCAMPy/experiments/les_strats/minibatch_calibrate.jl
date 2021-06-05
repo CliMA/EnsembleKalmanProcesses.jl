@@ -43,8 +43,15 @@ priors = ParameterDistribution(prior_dist, constraints, param_names)
 #########
 
 # Define observation window per flow configuration
+
+# Minibatch per sim
 ti = [7200.0, 25200.0, 7200.0, 14400.0]
 tf = [14400.0, 32400.0, 14400.0, 21600.0]
+
+# Minibatch per time interval
+#ti = [ [7200.0, 14400.0], [14400.0, 25200.0], [7200.0, 14400.0], [7200.0, 14400.0] ]
+#tf = [ [14400.0, 21600.0], [21600.0, 32400.0], [14400.0, 21600.0], [14400.0, 21600.0] ]
+
 # Define variables per flow configuration
 y_names = Array{String, 1}[]
 push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]) #DYCOMS_RF01
@@ -57,100 +64,100 @@ normalized = true # Variable normalization
 perform_PCA = true # PCA on config covariance
 cutoff_reg = true # Regularize above PCA cutoff
 beta = 10.0 # Regularization hyperparameter
-variance_loss = 1.0e-1 # PCA variance loss
+variance_loss = 1.0e-4 # PCA variance loss
 noisy_obs = true # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
 sim_suffix = [".may20", ".iles128wCov", ".dry11", ".may18"]
+C = sum([length(ti_) for ti_ in ti])
+sim_num = length(sim_names)
+
 # Init arrays
-yt = zeros(0)
-yt_var_list = []
+yt_list = Array{Float64, 1}[]
+yt_var_list = Array{Float64, 2}[]
 yt_big = zeros(0)
-yt_var_list_big = []
-P_pca_list = []
+yt_var_list_big = Array{Float64, 2}[]
+P_pca_list = Array{Float64, 2}[]
 pool_var_list = []
-for (i, sim_name) in enumerate(sim_names)
-    les_dir = occursin("Nieuwstadt", sim_name) ? 
-        string("/groups/esm/ilopezgo/Output.", "Soares", sim_suffix[i]) : string("/groups/esm/ilopezgo/Output.", sim_name, sim_suffix[i])
-    # Get SCM vertical levels for interpolation
-    z_scm = get_profile(string("Output.", sim_name, ".00000"), ["z_half"])
-    # Get (interpolated and pool-normalized) observations, get pool variance vector
-    yt_, yt_var_, pool_var = obs_LES(y_names[i], les_dir, ti[i], tf[i], z_scm = z_scm, normalize=normalized)
-    push!(pool_var_list, pool_var)
-    if perform_PCA
-        yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, variance_loss)
-        append!(yt, yt_pca)
-        push!(yt_var_list, yt_var_pca)
-        push!(P_pca_list, P_pca)
-    else
-        append!(yt, yt_)
-        push!(yt_var_list, yt_var_)
-        global P_pca_list = nothing
+for (i, sim_name) in enumerate(sim_names) # Loop on simulations
+    for (j, ti_j) in enumerate(ti[i]) # Loop on time intervals
+        tf_j = tf[i][j]
+        les_dir = occursin("Nieuwstadt", sim_name) ? 
+            string("/groups/esm/ilopezgo/Output.", "Soares", sim_suffix[i]) : string("/groups/esm/ilopezgo/Output.", sim_name, sim_suffix[i])
+        # Get SCM vertical levels for interpolation
+        z_scm = get_profile(string("Output.", sim_name, ".00000"), ["z_half"])
+        # Get (interpolated and pool-normalized) observations, get pool variance vector
+        yt_, yt_var_, pool_var = obs_LES(y_names[i], les_dir, ti_j, tf_j, z_scm = z_scm, normalize=normalized)
+        push!(pool_var_list, pool_var)
+        if perform_PCA
+            yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_, variance_loss)
+            push!(yt_list, yt_pca)
+            push!(yt_var_list, yt_var_pca)
+            push!(P_pca_list, P_pca)
+        else
+            push!(yt_list, yt_)
+            push!(yt_var_list, yt_var_)
+            global P_pca_list = nothing
+        end
+        # Save full dimensionality (normalized) output for error computation
+        append!(yt_big, yt_)
+        push!(yt_var_list_big, yt_var_)
     end
-    # Save full dimensionality (normalized) output for error computation
-    append!(yt_big, yt_)
-    push!(yt_var_list_big, yt_var_)
 end
 
-d = length(yt) # Length of data array
 # Construct global observational covariance matrix for error diagnostic, no TSVD
-yt_var_big = zeros(length(yt_big), length(yt_big))
-vars_num = 1
-for (k,config_cov) in enumerate(yt_var_list_big)
-    vars = length(config_cov[1,:])
-    yt_var_big[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = config_cov
-    global vars_num = vars_num+vars
-    println("DETERMINANT OF Γy FOR ", sim_names[k], " ", det(config_cov))
-end
+yt_var_big =cov_from_cov_list(yt_var_list_big)
+d_c_list = [length(yt_) for yt_ in yt_list]
+d_c_acc = accumulate(+, d_c_list)
 
-# Construct global observational covariance matrix for EKP, TSVD
-yt_var = zeros(d, d)
-vars_num = 1
+# Regularize truncated config covariances
 for (k,config_cov) in enumerate(yt_var_list)
-    vars = length(config_cov[1,:])
-    yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = cutoff_reg ? 
-         (config_cov + (beta*minimum(diag(config_cov))) .* Matrix(1.0I, size(config_cov)) ) .* vars : config_cov .* vars
-    global vars_num = vars_num+vars
-    println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(config_cov))
+    d_c = d_c_list[k]
+    yt_var_list[k] = cutoff_reg ? 
+         (config_cov + (beta*minimum(diag(config_cov))) .* Matrix(1.0I, size(config_cov)) ) .* d_c : config_cov .* d_c
 end
-println("NUMBER OF OUTPUTS CONSIDERED ", d, " CAPTURING FRACTION OF VARIANCE: ", 1.0-variance_loss)
-
-samples = zeros(1, length(yt))
-samples[1,:] = yt
-Γy = yt_var
-println("DETERMINANT OF FULL Γy, ", det(Γy))
 
 
 #########
 #########  Calibrate: Ensemble Kalman inversion
 #########
 
-algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
+algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion() # Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 )
 N_ens = typeof(algo) == Unscented{Float64,Int64} ? 2*n_param + 1 : 50 # number of ensemble members
 N_iter = 10 # number of EKP iterations.
-Δt = 1.0/length(sim_names)
+Δt = 1.0/C
+
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
 deterministic_forward_map = noisy_obs ? true : false
 
-initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
-# Discard unstable parameter combinations, parallel
-#precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
+if typeof(algo) != Unscented{Float64,Int64}
+    initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
+    # Discard unstable parameter combinations, parallel
+    #precondition_ensemble!(initial_params, priors, param_names, y_names, ti, tf=tf)
+end
 
 # UKI does not require sampling from the prior
-ekobj = typeof(algo) == Unscented{Float64,Int64} ?  EnsembleKalmanProcess(yt, Γy, algo ) : EnsembleKalmanProcess(initial_params, yt, Γy, algo )
+ekobj = typeof(algo) == Unscented{Float64,Int64} ? 
+    MiniBatchKalmanProcess( algo ) : MiniBatchKalmanProcess(initial_params, algo )
 scm_dir = "/home/ilopezgo/SCAMPy/"
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(x, $param_names,
-   $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list) 
+       $y_names, $scm_dir, $ti, $tf, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list)
+
+# Mini-batch dispatch
+minibatch_on_sim(iter) = [iter%C+1]
+minibatch_on_time(iter) = [time_index for time_index in 1:C
+                                    if time_index%(C/sim_num) == iter%(C/sim_num)]
 
 # Create output dir
 prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
+prefix = typeof(ti) == Array{Float64, 1} ? string(prefix, "mbs_") : string(prefix, "mbt_")
 prefix = cutoff_reg ? string(prefix, "creg", beta, "_") : prefix
 prefix = typeof(algo) == Sampler{Float64} ? string(prefix, "eks_") : prefix
 prefix = typeof(algo) == Unscented{Float64,Int64} ? string(prefix, "uki_") : prefix
 prefix = noisy_obs ? prefix : string(prefix, "nfo_")
 prefix = Δt ≈ 1 ? prefix : string(prefix, "dt", Δt, "_")
-outdir_path = string(prefix, "p", n_param, "_e", N_ens, "_i", N_iter, "_d", d)
+outdir_path = string(prefix, "p", n_param, "_e", N_ens, "_i", N_iter, "_d", d_c_acc[end])
 println("Name of outdir path for this EKP, ", outdir_path)
 command = `mkdir $outdir_path`
 try
@@ -160,10 +167,13 @@ catch e
 end
 
 # EKP iterations
-g_ens = zeros(N_ens, d)
 norm_err_list = []
 g_big_list = []
 for i in 1:N_iter
+    conf_inds = typeof(ti) == Array{Float64, 1} ? minibatch_on_sim(i) : minibatch_on_time(i)
+    yt, indices_g = vec_from_vec_list(yt_list, indices=conf_inds, return_mapping=true)
+    Γy = cov_from_cov_list(yt_var_list, indices=conf_inds)
+    g_ens = zeros(N_ens, length(yt))
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
         get_u_final(ekobj)) )
@@ -175,23 +185,25 @@ for i in 1:N_iter
     println("LENGTH OF G_ENS_ARR_PCA", length(g_ens_arr_pca))
     println(string("\n\nEKP evaluation ",i," finished. Updating ensemble ...\n"))
     for j in 1:N_ens
-      g_ens[j, :] = g_ens_arr_pca[j]
+      g_ens[j, :] = [g_ for (g_index, g_) in enumerate(g_ens_arr_pca[j]) if g_index in indices_g]
     end
     # Get normalized error
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
     push!(g_big_list, g_ens_arr)
     if typeof(algo) == Inversion
-        update_ensemble!(ekobj, Array(g_ens') , Δt_new=Δt, deterministic_forward_map = deterministic_forward_map)
+        update_ensemble!(ekobj, Array(g_ens'), yt, Γy, Δt_new=Δt, deterministic_forward_map = deterministic_forward_map)
+    elseif typeof(algo) == Unscented{Float64,Int64}
+        update_ensemble!(ekobj, Array(g_ens'), yt, Γy, Δt_new=Δt )
     else
-        update_ensemble!(ekobj, Array(g_ens') )
+        update_ensemble!(ekobj, Array(g_ens'), yt, Γy )
     end
     println("\nEnsemble updated. Saving results to file...\n")
     # Save EKP information to file
     save(string(outdir_path,"/ekp.jld2"),
         "ekp_u", transform_unconstrained_to_constrained(priors, get_u(ekobj)),
         "ekp_g", get_g(ekobj),
-        "truth_mean", ekobj.obs_mean,
-        "truth_cov", ekobj.obs_noise_cov,
+        "truth_mean", get_obs(ekobj),
+        "truth_cov", get_obs_cov(ekobj),
         "ekp_err", ekobj.err,
         "norm_err", norm_err_list,
         "truth_mean_big", yt_big,
@@ -211,25 +223,19 @@ for i in 1:N_iter
       end
     end
     norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
-    npzwrite(string(outdir_path,"/y_mean.npy"), ekobj.obs_mean)
-    npzwrite(string(outdir_path,"/Gamma_y.npy"), ekobj.obs_noise_cov)
     npzwrite(string(outdir_path,"/y_mean_big.npy"), yt_big)
     npzwrite(string(outdir_path,"/Gamma_y_big.npy"), yt_var_big)
     npzwrite(string(outdir_path,"/phi_params.npy"), phi_params_arr)
     npzwrite(string(outdir_path,"/norm_err.npy"), norm_err_arr)
     npzwrite(string(outdir_path,"/g_big.npy"), g_big_arr)
     for (l, P_pca) in enumerate(P_pca_list)
-      npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
-      npzwrite(string(outdir_path,"/pool_var_",sim_names[l],".npy"), pool_var_list[l])
+      if C ≈ sim_num
+         npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
+         npzwrite(string(outdir_path,"/pool_var_",sim_names[l],".npy"), pool_var_list[l])
+      else
+         npzwrite(string(outdir_path,"/P_pca_",l,".npy"), P_pca)
+         npzwrite(string(outdir_path,"/pool_var_",l,".npy"), pool_var_list[l])
+      end
     end
 end
-
-# EKP results: Has the ensemble collapsed toward the truth?
-println("\nEKP ensemble mean at last stage (original space):")
-println(mean(transform_unconstrained_to_constrained(priors, get_u(ekobj)), dims=1))
-
-println("\nEnsemble covariance det. 1st iteration, transformed space.")
-println(det( cov((get_u(ekobj, 1)), dims=1) ))
-println("\nEnsemble covariance det. last iteration, transformed space.")
-println(det( cov(get_u_final(ekobj), dims=2) ))
 

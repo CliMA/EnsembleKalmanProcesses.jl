@@ -35,15 +35,17 @@ function run_SCAMPy(u::Array{FT, 1},
                     u_names::Array{String, 1},
                     y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
                     scm_dir::String,
-                    ti::Union{FT, Array{FT,1}},
-                    tf::Union{FT, Array{FT,1}, Nothing} = nothing;
+                    ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
+                    tf::Union{Array{FT,1}, Array{Array{FT,1},1}, Nothing} = nothing;
                     norm_var_list = nothing,
                     P_pca_list = nothing,
                     scampy_handler = "call_SCAMPy.sh",
                     ) where {FT<:AbstractFloat}
 
-    # Check dimensionality
+    # Check parameter dimensionality
     @assert length(u_names) == length(u)
+
+    # Run simulations
     exe_path = string(scm_dir, scampy_handler)
     sim_uuid  = u[1]
     for i in 2:length(u_names)
@@ -56,29 +58,13 @@ function run_SCAMPy(u::Array{FT, 1},
     sim_uuid = string(sim_uuid, ".txt")
     sim_dirs = readlines(sim_uuid)
     run(`rm $sim_uuid`)
-    
+    # Check consistent time interval dims
+    @assert length(ti) == length(sim_dirs)
+
     g_scm = zeros(0)
     g_scm_pca = zeros(0)
-    # For now it is assumed that if length(ti) != length(sim_dirs),
-    # there is only one simulation and multiple time intervals.
-    if length(ti) != length(sim_dirs)
-        @assert length(sim_dirs) == 1
-        sim_dir = sim_dirs[1]
-        for (i, ti_) in enumerate(ti)
-            tf_ = !isnothing(tf) ? tf[i] : nothing
-            y_names_ = typeof(y_names)==Array{Array{String,1},1} ? y_names[i] : y_names
 
-            g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
-            if !isnothing(norm_var_list)
-                g_scm_flow = normalize_profile(g_scm_flow, y_names_, norm_var_list[1])
-            end
-            if !isnothing(P_pca_list)
-                append!(g_scm_pca, P_pca_list[1]' * g_scm_flow)
-            end
-            append!(g_scm, g_scm_flow)
-        end
-        run(`rm -r $sim_dir`)
-    else
+    if typeof(ti) == Array{FT,1} # 1 interval per simulation
         for (i, sim_dir) in enumerate(sim_dirs)
             ti_ = ti[i]
             tf_ = !isnothing(tf) ? tf[i] : nothing
@@ -95,21 +81,34 @@ function run_SCAMPy(u::Array{FT, 1},
             
             run(`rm -r $sim_dir`)
         end
-    end
-
-    for i in eachindex(g_scm)
-        if isnan(g_scm[i])
-            g_scm[i] = 1.0e5
+    elseif typeof(ti) == Array{Array{FT,1},1} # mult intervals per simulation
+        config_num = 1
+        for (i, sim_dir) in enumerate(sim_dirs)
+            y_names_ = typeof(y_names)==Array{Array{String,1},1} ? y_names[i] : y_names
+            for (j, ti_j) in enumerate(ti[i]) # Loop on time intervals per sim
+                tf_j = !isnothing(tf) ? tf[i][j] : nothing
+                g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_j, tf = tf_j)
+                if !isnothing(norm_var_list)
+                    g_scm_flow = normalize_profile(g_scm_flow, y_names_, norm_var_list[config_num])
+                end
+                append!(g_scm, g_scm_flow)
+                if !isnothing(P_pca_list)
+                    append!(g_scm_pca, P_pca_list[config_num]' * g_scm_flow)
+                end
+                config_num += 1
+            end
+            run(`rm -r $sim_dir`)
         end
+    end
+    for i in eachindex(g_scm)
+        g_scm[i] = isnan(g_scm[i]) ? 1.0e5 : g_scm[i]
     end
     if !isnothing(P_pca_list)
         for i in eachindex(g_scm_pca)
-            if isnan(g_scm_pca[i])
-                g_scm_pca[i] = 1.0e5
-            end
+            g_scm_pca[i] = isnan(g_scm_pca[i]) ? 1.0e5 : g_scm_pca[i]
         end
-        println("LENGTH OF G_SCM_ARR", length(g_scm))
-        println("LENGTH OF G_SCM_ARR_PCA", length(g_scm_pca))
+        println("LENGTH OF G_SCM_ARR : ", length(g_scm))
+        println("LENGTH OF G_SCM_ARR_PCA : ", length(g_scm_pca))
         return g_scm, g_scm_pca
     else
         return g_scm
@@ -136,9 +135,9 @@ Outputs:
 """
 function obs_LES(y_names::Array{String, 1},
                     sim_dir::String,
-                    ti::Float64,
-                    tf::Float64;
-                    z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
+                    ti::FT,
+                    tf::FT;
+                    z_scm::Union{Array{FT, 1}, Nothing} = nothing,
                     normalize = true,
                     ) where {FT<:AbstractFloat}
     
@@ -480,6 +479,58 @@ function compute_errors(g_arr, y)
     diffs = [g - y for g in g_arr]
     errors = map(x->dot(x,x), diffs)
     return errors
+end
+
+"""
+    cov_from_cov_list(cov_list::Array{Array{FT,2},1}; indices=nothing)
+
+Returns a block-diagonal covariance matrix constructed from covariances
+within cov_list given by the indices. If isempty(indices), use all 
+covariances to construct block-diagonal matrix.
+"""
+function cov_from_cov_list(cov_list::Array{Array{FT,2},1};
+         indices=[]) where {FT<:AbstractFloat}
+    size_ = isempty(indices) ? sum([length(cov[1,:]) for cov in cov_list]) :
+        sum([length(cov[1,:]) for (i, cov) in enumerate(cov_list) if i in indices])
+
+    cov_ = zeros(size_, size_)
+    vars_num = 1
+    for (index, small_cov) in enumerate(cov_list)
+        if index in indices
+            vars = length(small_cov[1,:])
+            cov_[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = small_cov
+            vars_num = vars_num+vars
+        end
+    end
+    return cov_
+end
+
+"""
+    vec_from_vec_list(vec_list::Array{Array{FT,1},1}; indices=[], return_mapping=false)
+
+Returns a vector constructed from vectors within vec_list given by the
+indices. If isempty(indices), use all vectors to construct returned vector.
+If return_mapping, function returns the positions of all the elements used
+to construct the returned vector.
+"""
+function vec_from_vec_list(vec_list::Array{Array{FT,1},1};
+         indices=[], return_mapping=false) where {FT<:AbstractFloat}
+    vector_ = zeros(0)
+    elmt_num = []
+    chosen_elmt_num = []
+    for (index, small_vec) in enumerate(vec_list)
+        index < 2 ? append!(elmt_num, 1:length(small_vec)) :
+                    append!(elmt_num, elmt_num[end]+1:elmt_num[end]+length(small_vec))
+        if index in indices
+            append!(vector_, small_vec)
+            append!(chosen_elmt_num, elmt_num[end] - length(small_vec) + 1 : elmt_num[end])
+        end
+    end
+    if return_mapping
+        return vector_, chosen_elmt_num
+    else
+        return vector_
+    end
 end
 
 """
