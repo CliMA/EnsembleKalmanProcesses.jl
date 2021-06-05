@@ -150,7 +150,7 @@ minibatch_on_time(iter) = [time_index for time_index in 1:C
                                     if time_index%(C/sim_num) == iter%(C/sim_num)]
 
 # Create output dir
-prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_" # = true
+prefix = perform_PCA ? "results_pycles_PCA_" : "results_pycles_"
 prefix = typeof(ti) == Array{Float64, 1} ? string(prefix, "mbs_") : string(prefix, "mbt_")
 prefix = cutoff_reg ? string(prefix, "creg", beta, "_") : prefix
 prefix = typeof(algo) == Sampler{Float64} ? string(prefix, "eks_") : prefix
