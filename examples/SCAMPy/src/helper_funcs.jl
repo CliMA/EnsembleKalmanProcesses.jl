@@ -488,7 +488,8 @@ Returns a block-diagonal covariance matrix constructed from covariances
 within cov_list given by the indices. If isempty(indices), use all 
 covariances to construct block-diagonal matrix.
 """
-function cov_from_cov_list(cov_list::Array{Array{FT,2},1}; indices=[])
+function cov_from_cov_list(cov_list::Array{Array{FT,2},1};
+         indices=[]) where {FT<:AbstractFloat}
     size_ = isempty(indices) ? sum([length(cov[1,:]) for cov in cov_list]) :
         sum([length(cov[1,:]) for (i, cov) in enumerate(cov_list) if i in indices])
 
@@ -505,14 +506,15 @@ function cov_from_cov_list(cov_list::Array{Array{FT,2},1}; indices=[])
 end
 
 """
-    vec_from_vec_list(vec_list::Array{Array{FT,2},1}; indices=[], return_mapping=false)
+    vec_from_vec_list(vec_list::Array{Array{FT,1},1}; indices=[], return_mapping=false)
 
 Returns a vector constructed from vectors within vec_list given by the
 indices. If isempty(indices), use all vectors to construct returned vector.
 If return_mapping, function returns the positions of all the elements used
 to construct the returned vector.
 """
-function vec_from_vec_list(vec_list::Array{Array{FT,2},1}; indices=[], return_mapping=false)
+function vec_from_vec_list(vec_list::Array{Array{FT,1},1};
+         indices=[], return_mapping=false) where {FT<:AbstractFloat}
     vector_ = zeros(0)
     elmt_num = []
     chosen_elmt_num = []

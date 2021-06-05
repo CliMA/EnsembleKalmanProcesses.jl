@@ -73,11 +73,11 @@ C = sum([length(ti_) for ti_ in ti])
 sim_num = length(sim_names)
 
 # Init arrays
-yt_list = []
-yt_var_list = []
+yt_list = Array{Float64, 1}[]
+yt_var_list = Array{Float64, 2}[]
 yt_big = zeros(0)
-yt_var_list_big = []
-P_pca_list = []
+yt_var_list_big = Array{Float64, 2}[]
+P_pca_list = Array{Float64, 2}[]
 pool_var_list = []
 for (i, sim_name) in enumerate(sim_names) # Loop on simulations
     for (j, ti_j) in enumerate(ti[i]) # Loop on time intervals
@@ -115,8 +115,6 @@ for (k,config_cov) in enumerate(yt_var_list)
     d_c = d_c_list[k]
     yt_var_list[k] = cutoff_reg ? 
          (config_cov + (beta*minimum(diag(config_cov))) .* Matrix(1.0I, size(config_cov)) ) .* d_c : config_cov .* d_c
-    println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(config_cov))
-    println("NUMBER OF OUTPUTS CONSIDERED ", d_c, " CAPTURING FRACTION OF VARIANCE: ", 1.0-variance_loss)
 end
 
 
@@ -172,9 +170,9 @@ end
 norm_err_list = []
 g_big_list = []
 for i in 1:N_iter
-    conf_ind = typeof(ti) == Array{Float64, 1} ? minibatch_on_sim(i) : minibatch_on_time(i)
-    yt, indices_g = vec_from_vec_list(yt_list, indices=conf_ind, return_mapping=true)
-    Γy = cov_from_cov_list(yt_var_list, indices=conf_ind)
+    conf_inds = typeof(ti) == Array{Float64, 1} ? minibatch_on_sim(i) : minibatch_on_time(i)
+    yt, indices_g = vec_from_vec_list(yt_list, indices=conf_inds, return_mapping=true)
+    Γy = cov_from_cov_list(yt_var_list, indices=conf_inds)
     g_ens = zeros(N_ens, length(yt))
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
@@ -231,8 +229,13 @@ for i in 1:N_iter
     npzwrite(string(outdir_path,"/norm_err.npy"), norm_err_arr)
     npzwrite(string(outdir_path,"/g_big.npy"), g_big_arr)
     for (l, P_pca) in enumerate(P_pca_list)
-      npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
-      npzwrite(string(outdir_path,"/pool_var_",sim_names[l],".npy"), pool_var_list[l])
+      if C ≈ sim_num
+         npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
+         npzwrite(string(outdir_path,"/pool_var_",sim_names[l],".npy"), pool_var_list[l])
+      else
+         npzwrite(string(outdir_path,"/P_pca_",l,".npy"), P_pca)
+         npzwrite(string(outdir_path,"/pool_var_",l,".npy"), pool_var_list[l])
+      end
     end
 end
 
