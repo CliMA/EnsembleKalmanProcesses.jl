@@ -64,7 +64,7 @@ normalized = true # Variable normalization
 perform_PCA = true # PCA on config covariance
 cutoff_reg = true # Regularize above PCA cutoff
 beta = 10.0 # Regularization hyperparameter
-variance_loss = 1.0e-4 # PCA variance loss
+variance_loss = 1.0e-3 # PCA variance loss
 noisy_obs = true # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
@@ -124,8 +124,8 @@ end
 
 algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion() # Unscented(vcat(get_mean(priors)...), get_cov(priors), length(yt), 1.0, 0 )
 N_ens = typeof(algo) == Unscented{Float64,Int64} ? 2*n_param + 1 : 50 # number of ensemble members
-N_iter = 10 # number of EKP iterations.
-Δt = 1.0/C
+N_iter = 15 # number of EKP iterations.
+Δt = 1.0 # follows scaling by batch size
 
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
@@ -171,6 +171,7 @@ norm_err_list = []
 g_big_list = []
 for i in 1:N_iter
     conf_inds = typeof(ti) == Array{Float64, 1} ? minibatch_on_sim(i) : minibatch_on_time(i)
+    Δt_scaled = Δt / length(conf_inds) # Scale by batch size
     yt, indices_g = vec_from_vec_list(yt_list, indices=conf_inds, return_mapping=true)
     Γy = cov_from_cov_list(yt_var_list, indices=conf_inds)
     g_ens = zeros(N_ens, length(yt))
@@ -191,9 +192,9 @@ for i in 1:N_iter
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
     push!(g_big_list, g_ens_arr)
     if typeof(algo) == Inversion
-        update_ensemble!(ekobj, Array(g_ens'), yt, Γy, Δt_new=Δt, deterministic_forward_map = deterministic_forward_map)
+        update_ensemble!(ekobj, Array(g_ens'), yt, Γy, Δt_new=Δt_scaled, deterministic_forward_map = deterministic_forward_map)
     elseif typeof(algo) == Unscented{Float64,Int64}
-        update_ensemble!(ekobj, Array(g_ens'), yt, Γy, Δt_new=Δt )
+        update_ensemble!(ekobj, Array(g_ens'), yt, Γy, Δt_new=Δt_scaled )
     else
         update_ensemble!(ekobj, Array(g_ens'), yt, Γy )
     end

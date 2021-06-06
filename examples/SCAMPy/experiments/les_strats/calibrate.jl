@@ -61,7 +61,7 @@ normalized = true # Variable normalization
 perform_PCA = true # PCA on config covariance
 cutoff_reg = true # Regularize above PCA cutoff
 beta = 10.0 # Regularization hyperparameter
-variance_loss = 1.0e-1 # PCA variance loss
+variance_loss = 1.0e-3 # PCA variance loss
 noisy_obs = true # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
 
 sim_names = ["DYCOMS_RF01", "GABLS", "Nieuwstadt", "Bomex"]
@@ -113,7 +113,6 @@ for (k,config_cov) in enumerate(yt_var_list)
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = cutoff_reg ? 
          (config_cov + (beta*minimum(diag(config_cov))) .* Matrix(1.0I, size(config_cov)) ) .* vars : config_cov .* vars
     global vars_num = vars_num+vars
-    println("DETERMINANT OF PCA Γy FOR ", sim_names[k], " ", det(config_cov))
 end
 println("NUMBER OF OUTPUTS CONSIDERED ", d, " CAPTURING FRACTION OF VARIANCE: ", 1.0-variance_loss)
 
@@ -127,8 +126,8 @@ println("DETERMINANT OF FULL Γy, ", det(Γy))
 
 algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0 ) # Sampler(vcat(get_mean(priors)...), get_cov(priors)) # Inversion()
 N_ens = typeof(algo) == Unscented{Float64,Int64} ? 2*n_param + 1 : 50 # number of ensemble members
-N_iter = 10 # number of EKP iterations.
-Δt = 1.0/C
+N_iter = 15 # number of EKP iterations.
+Δt = 1.0 # follows scaling by batch size
 
 println("NUMBER OF ENSEMBLE MEMBERS: ", N_ens)
 println("NUMBER OF ITERATIONS: ", N_iter)
@@ -166,6 +165,7 @@ end
 g_ens = zeros(N_ens, d)
 norm_err_list = []
 g_big_list = []
+Δt_scaled = Δt / C # Scale artificial timestep by batch size
 for i in 1:N_iter
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
@@ -184,9 +184,9 @@ for i in 1:N_iter
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
     push!(g_big_list, g_ens_arr)
     if typeof(algo) == Inversion
-        update_ensemble!(ekobj, Array(g_ens'), Δt_new=Δt, deterministic_forward_map = deterministic_forward_map)
+        update_ensemble!(ekobj, Array(g_ens'), Δt_new=Δt_scaled, deterministic_forward_map = deterministic_forward_map)
     elseif typeof(algo) == Unscented{Float64,Int64}
-        update_ensemble!(ekobj, Array(g_ens'), Δt_new=Δt )
+        update_ensemble!(ekobj, Array(g_ens'), Δt_new=Δt_scaled )
     else
         update_ensemble!(ekobj, Array(g_ens') )
     end
@@ -224,8 +224,13 @@ for i in 1:N_iter
     npzwrite(string(outdir_path,"/norm_err.npy"), norm_err_arr)
     npzwrite(string(outdir_path,"/g_big.npy"), g_big_arr)
     for (l, P_pca) in enumerate(P_pca_list)
-      npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
-      npzwrite(string(outdir_path,"/pool_var_",sim_names[l],".npy"), pool_var_list[l])
+      if C ≈ sim_num
+         npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
+         npzwrite(string(outdir_path,"/pool_var_",sim_names[l],".npy"), pool_var_list[l])
+      else
+         npzwrite(string(outdir_path,"/P_pca_",l,".npy"), P_pca)
+         npzwrite(string(outdir_path,"/pool_var_",l,".npy"), pool_var_list[l])
+      end
     end
 end
 
