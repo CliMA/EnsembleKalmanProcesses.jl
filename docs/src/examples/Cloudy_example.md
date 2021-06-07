@@ -24,6 +24,20 @@ pkg > add Cloudy#master
 The file `Cloudy_example_eki.jl` sets up the inverse problem and solves it using [ensemble Kalman inversion](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/ensemble_kalman_inversion/), and the file `Cloudy_example_uki.jl` does the same using unscented Kalman inversion. The file `DynamicalModel.jl` provides the functionality to run the dynamical model ``\Psi``, which in this example is Cloudy.
 
 
+### Running the Example
+
+Once Cloudy is installed, the examples can be run from the julia REPL:
+```julia
+# Solve inverse problem using ensemble Kalman inversion
+include("Cloudy_example_eki.jl")
+```
+or
+```julia
+# Solve inverse problem using unscented Kalman inversion
+include("Cloudy_example_uki.jl")
+```
+
+
 ### What Does Cloudy Do?
 
 The mathematical starting point of [Cloudy](https://github.com/CliMA/Cloudy.jl.git) is the stochastic collection equation (SCE; sometimes also called [Smoluchowski equation](https://en.wikipedia.org/wiki/Smoluchowski_coagulation_equation#:~:text=In%20statistical%20physics%2C%20the%20Smoluchowski,size%20x%20at%20time%20t.) after Marian Smoluchowski), which describes the time rate of change of ``f = f(m, t)``, the mass distribution function of liquid water droplets, due to the process of collision and coalescence. The distribution function ``f`` depends on droplet mass ``m`` and time ``t`` and is defined such that ``f(m) \text{ d}m`` denotes the number of droplets with masses in the interval $[m, m + dm]$ per unit volume. 
@@ -117,19 +131,6 @@ end
 truth = Observations.Obs(y_t, Γy, data_names)
 ```
 
-
-### Running the Example
-
-Once Cloudy is installed, the examples can be run from the julia REPL:
-```julia
-# Solve inverse problem using ensemble Kalman inversion
-include("Cloudy_example_eki.jl")
-```
-or
-```julia
-# Solve inverse problem using unscented Kalman inversion
-include("Cloudy_example_uki.jl")
-```
 
 ### Solution and Output
 
