@@ -7,13 +7,17 @@ using Documenter
 
 #----------
 
-api = ["EnsembleKalmanProcessModule" => "API/EnsembleKalmanProcessModule.md",
-       "ParameterDistribution" => "API/ParameterDistribution.md",
-       "Observations" => "API/Observations.md",
-       "DataStorage" => "API/DataStorage.md",
+api = [
+    "EnsembleKalmanProcessModule" => "API/EnsembleKalmanProcessModule.md",
+    "ParameterDistribution"       => "API/ParameterDistribution.md",
+    "Observations"                => "API/Observations.md",
+    "DataStorage"                 => "API/DataStorage.md",
 ] 
 
-examples = ["Template example" => "examples/template_example.md"]
+examples = [
+    "Template Example"  => "examples/template_example.md",
+    "Cloudy Example"    => "examples/Cloudy_example.md"
+]
 
 pages = [
     "Home" => "index.md",
