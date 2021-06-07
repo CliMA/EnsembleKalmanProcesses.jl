@@ -52,7 +52,7 @@ f(m, t) = \frac{N_{0,t}}{\Gamma(k_t)\theta_t^k} m^{k_t-1} \exp{(-m/\theta_t)}
 ```
 The parameter vector ``\phi_t= [N_{0,t}, k_t, \theta_t]`` changes over time (as indicated by the subscript ``t``), as the shape of the distribution evolves. In fact, there is a priori no reason to assume that the distribution would retain its Gamma shape over time, but this is a common assumption that is made in order to solve the closure problem (without this assumption, one would have to keep track of infinitely many moments of the mass distribution in order to uniquely identify the distribution ``f`` at each time step, which is obviously not practicable).
 
-For Gamma mass distribution functions, specifying the first three moments (``M_0``, ``M_1``, and ``M_2``) is sufficient to uniquely determine the parameter vector ``\phi_t``, hence Cloudy solves equation (1) for ``k = 0, 1, 2``. This mapping of the parameters of the initial cloud droplet mass distribution to the (zeroth-, first-, and second-order) moments of the distribution at a specified end time is done by the file `DynamicalModel.jl`.
+For Gamma mass distribution functions, specifying the first three moments (``M_0``, ``M_1``, and ``M_2``) is sufficient to uniquely determine the parameter vector ``\phi_t``, hence Cloudy solves equation (1) for ``k = 0, 1, 2``. This mapping of the parameters of the initial cloud droplet mass distribution to the (zeroth-, first-, and second-order) moments of the distribution at a specified end time is done by `DynamicalModel.jl`.
 
 
 ### Setting up the Inverse Problem
