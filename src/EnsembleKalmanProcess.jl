@@ -721,7 +721,7 @@ end
 """
 uki prediction step : generate sigma points
 """
-function update_ensemble_prediction!(process::Unscented) where {FT<:AbstractFloat, IT<:Int}
+function update_ensemble_prediction!(process::Unscented; Δt_new=1.0) where {FT<:AbstractFloat, IT<:Int}
     
     process.iter += 1
     # update evolution covariance matrix
@@ -734,7 +734,7 @@ function update_ensemble_prediction!(process::Unscented) where {FT<:AbstractFloa
     
     α_reg = process.α_reg
     r = process.r
-    Σ_ω = process.Σ_ω
+    Σ_ω = process.Σ_ω * Δt_new
     
     N_u = length(process.u_mean[1])
     ############# Prediction step:
@@ -755,7 +755,7 @@ g is the predicted observations  Ny  by N_ens matrix
 function update_ensemble_analysis!(uki::EnsembleKalmanProcess{FT, IT,Unscented}, u_p::Array{FT, 2}, g::Array{FT, 2}; Δt_new = 1) where {FT<:AbstractFloat, IT<:Int}
     
     obs_mean = uki.obs_mean
-    Σ_ν = uki.process.Σ_ν_scale * uki.obs_noise_cov
+    Σ_ν = uki.process.Σ_ν_scale * uki.obs_noise_cov / Δt_new
     
     N_u, N_y, N_ens = length(uki.process.u_mean[1]), length(uki.obs_mean), uki.N_ens
     ############# Prediction step:
@@ -771,8 +771,8 @@ function update_ensemble_analysis!(uki::EnsembleKalmanProcess{FT, IT,Unscented},
     
     tmp = ug_cov/gg_cov
     
-    u_mean =  u_p_mean + Δt_new.*tmp*(obs_mean - g_mean)
-    uu_cov =  uu_p_cov - Δt_new.*tmp*ug_cov' 
+    u_mean =  u_p_mean + tmp*(obs_mean - g_mean)
+    uu_cov =  uu_p_cov - tmp*ug_cov' 
     
     
     ########### Save results
@@ -800,7 +800,7 @@ g is the predicted observations  Ny  by N_ens matrix
 function update_ensemble_analysis!(uki::MiniBatchKalmanProcess{FT, IT,Unscented}, u_p::Array{FT, 2}, g::Array{FT, 2}; Δt_new = 1) where {FT<:AbstractFloat, IT<:Int}
     
     obs_mean = get_obs_final(uki)
-    Σ_ν = uki.process.Σ_ν_scale * get_obs_cov_final(uki)
+    Σ_ν = uki.process.Σ_ν_scale * get_obs_cov_final(uki) / Δt_new
     
     N_u, N_y, N_ens = length(uki.process.u_mean[1]), length(obs_mean), uki.N_ens
     ############# Prediction step:
@@ -816,8 +816,8 @@ function update_ensemble_analysis!(uki::MiniBatchKalmanProcess{FT, IT,Unscented}
     
     tmp = ug_cov/gg_cov
     
-    u_mean =  u_p_mean + Δt_new.*tmp*(obs_mean - g_mean)
-    uu_cov =  uu_p_cov - Δt_new.*tmp*ug_cov' 
+    u_mean =  u_p_mean + tmp*(obs_mean - g_mean)
+    uu_cov =  uu_p_cov - tmp*ug_cov' 
     
     
     ########### Save results
@@ -849,7 +849,7 @@ function update_ensemble!(uki::EnsembleKalmanProcess{FT, IT, Unscented}, g_in::A
     #perform analysis on the model runs
     update_ensemble_analysis!(uki, u_p_old, g_in, Δt_new=Δt_new)
     #perform new prediction output to model parameters u_p
-    u_p = update_ensemble_prediction!(uki.process) 
+    u_p = update_ensemble_prediction!(uki.process, Δt_new=Δt_new) 
 
     push!(uki.u, DataContainer(u_p, data_are_columns=true))
 
@@ -870,7 +870,7 @@ function update_ensemble!(uki::MiniBatchKalmanProcess{FT, IT, Unscented}, g_in::
     update_observations!(uki, obs_mean_in, obs_cov_in)
     update_ensemble_analysis!(uki, u_p_old, g_in, Δt_new=Δt_new)
     #perform new prediction output to model parameters u_p
-    u_p = update_ensemble_prediction!(uki.process) 
+    u_p = update_ensemble_prediction!(uki.process, Δt_new=Δt_new) 
 
     push!(uki.u, DataContainer(u_p, data_are_columns=true))
 
