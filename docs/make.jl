@@ -13,7 +13,8 @@ api = ["EnsembleKalmanProcessModule" => "API/EnsembleKalmanProcessModule.md",
        "DataStorage" => "API/DataStorage.md",
 ] 
 
-examples = ["Template example" => "examples/template_example.md"]
+examples = ["Template example" => "examples/template_example.md",
+	   "Lorenz96 example" => "examples/lorenz_example.md"]
 
 pages = [
     "Home" => "index.md",
