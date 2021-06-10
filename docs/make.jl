@@ -17,7 +17,8 @@ api = [
 examples = [
     "Template Example"  => "examples/template_example.md",
     "Cloudy Example"    => "examples/Cloudy_example.md",
-    "Lorenz Example"    => "examples/lorenz_example.md"
+    "Lorenz Example"    => "examples/lorenz_example.md",
+    "HPC interfacing example: ClimateMachine"    => "examples/ClimateMachine_example.md"
 ]
 
 pages = [
