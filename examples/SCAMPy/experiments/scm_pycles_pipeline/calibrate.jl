@@ -59,6 +59,8 @@ sim_suffix = [".may18"]
 # Init arrays
 yt = zeros(0)
 yt_var_list = []
+yt_big = zeros(0)
+yt_var_list_big = Array{Float64, 2}[]
 P_pca_list = []
 pool_var_list = []
 for (i, sim_name) in enumerate(sim_names)
@@ -79,6 +81,8 @@ for (i, sim_name) in enumerate(sim_names)
         global P_pca_list = nothing
     end
     # Save full dimensionality (normalized) output for error computation
+    append!(yt_big, yt_)
+    push!(yt_var_list_big, yt_var_)
 end
 d = length(yt) # Length of data array
 
@@ -90,6 +94,8 @@ for (k,config_cov) in enumerate(yt_var_list)
     yt_var[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = config_cov
     global vars_num = vars_num+vars
 end
+
+yt_var_big =cov_from_cov_list(yt_var_list_big)
 
 n_samples = 1
 samples = zeros(n_samples, length(yt))
@@ -131,6 +137,8 @@ end
 
 # EKP iterations
 g_ens = zeros(N_ens, d)
+norm_err_list = []
+g_big_list = []
 for i in 1:N_iter
     # Note that the parameters are transformed when used as input to SCAMPy
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
@@ -143,6 +151,10 @@ for i in 1:N_iter
     for j in 1:N_ens
       g_ens[j, :] = g_ens_arr_pca[j]
     end
+    # Get normalized error for full dimensionality output
+    push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
+    # Store full dimensionality output
+    push!(g_big_list, g_ens_arr)
     # Get normalized error
     if typeof(algo) != Sampler{Float64}
         update_ensemble!(ekobj, Array(g_ens') , Δt_new=Δt)
@@ -164,16 +176,34 @@ for i in 1:N_iter
         "truth_mean", ekobj.obs_mean,
         "truth_cov", ekobj.obs_noise_cov,
         "ekp_err", ekobj.err,
+        "truth_mean_big", yt_big,
+        "truth_cov_big", yt_var_big,
+        "g_big", g_big_list,
+        "norm_err", norm_err_list,
         "P_pca", P_pca_list,
         "pool_var", pool_var_list,
         "phi_params", phi_params_arr,
         )
-
+    # Convert to arrays
+    phi_params = Array{Array{Float64,2},1}(transform_unconstrained_to_constrained(priors, get_u(ekobj)))
+    phi_params_arr = zeros(i+1, n_param, N_ens)
+    g_big_arr = zeros(i, N_ens, length(yt_big))
+    for (k,elem) in enumerate(phi_params)
+      phi_params_arr[k,:,:] = elem
+      if k < i + 1
+        g_big_arr[k,:,:] = hcat(g_big_list[k]...)'
+      end
+    end
+    norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
     # Or you can also save information to numpy files with NPZ
     npzwrite(string(outdir_path,"/y_mean.npy"), ekobj.obs_mean)
     npzwrite(string(outdir_path,"/Gamma_y.npy"), ekobj.obs_noise_cov)
     npzwrite(string(outdir_path,"/ekp_err.npy"), ekobj.err)
     npzwrite(string(outdir_path,"/phi_params.npy"), phi_params_arr)
+    npzwrite(string(outdir_path,"/y_mean_big.npy"), yt_big)
+    npzwrite(string(outdir_path,"/Gamma_y_big.npy"), yt_var_big)
+    npzwrite(string(outdir_path,"/norm_err.npy"), norm_err_arr)
+    npzwrite(string(outdir_path,"/g_big.npy"), g_big_arr)
     for (l, P_pca) in enumerate(P_pca_list)
       npzwrite(string(outdir_path,"/P_pca_",sim_names[l],".npy"), P_pca)
       npzwrite(string(outdir_path,"/pool_var_",sim_names[l],".npy"), pool_var_list[l])
