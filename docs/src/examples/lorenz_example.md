@@ -8,17 +8,17 @@ The standard L96 equations are implemented with an additional forcing term with 
 ## Lorenz 96 equations
 
 The standard single-scale L96 equations are implemented.
-The Lorenz 96 system \cite{lorenz1996predictability} is given by 
+The Lorenz 96 system ([Lorenz, 1996](http://www.raidl.cz/file/18/lorenz-1996-_predictability_partly_solved.pdf)) is given by 
 ```math
 \frac{d x_i}{d t} = (x_{i+1} - x_{i-2}) x_{i-1} - x_i + F,
 ```
-with ```i``` indicating the index of the given longitude. The number of longitudes is given by ```N```.
+with $i$ indicating the index of the given longitude. The number of longitudes is given by $N$.
 The boundary conditions are given by
 ```math
-x_{-1} = x_{N-1}, x_0 = x_N, x_{N+1} = x_1.
+x_{-1} = x_{N-1}, \ x_0 = x_N, \ x_{N+1} = x_1.
 ```
 The time scaling is such that the characteristic time is 5 days. 
-For very small values of ``F``, the solutions $X_i$ decay to $F$ after the initial transient feature.
+For very small values of ``F``, the solutions $x_i$ decay to $F$ after the initial transient feature.
 For moderate values of ``F``, the solutions are periodic, and for larger values of ``F``, the system is chaotic.
 The solution variance is a function of the forcing magnitude.
 Variations in the base state as a function of time can be imposed through a time-dependent forcing term ``F(t)``.
@@ -30,7 +30,6 @@ F = F_s + A \sin(\omega t),
 with steady-state forcing ``F_s``, transient forcing amplitude ``A``, and transient forcing frequency ``\omega``.
 
 The L96 dynamics are solved with RK4 integration.
-The system is solved over time horizon ```0``` to `tend` at fixed time step `dt`.
 
 
 ## Structure
@@ -44,12 +43,14 @@ The types of statistics to be collected are detailed in `GModel.jl`.
 ## Lorenz dynamics inputs
 
 ### Dynamics settings
-The use of the transient forcing term is with the flag, `dynamics`. Stationary forcing is `dynamics=1` and transient forcing is used with `dynamics=2`.
+The use of the transient forcing term is with the flag, `dynamics`. Stationary forcing is `dynamics=1` ($A=0$) and transient forcing is used with `dynamics=2` ($A\neq0$).
 The default parameters are specified in `Lorenz_example.jl` and can be modified as necessary.
+The system is solved over time horizon $0$ to `tend` at fixed time step `dt`.
 
 ### Inverse problem settings
 The states are integrated over time `Ts_days` to construct the time averaged statistics for use by the optimization.
 The specification of the statistics to be gathered from the states are provided by `stats_type`.
+The Ensemble Kalman Process (EKP) settings are
 ```julia
 N_ens = 20 # number of ensemble members
 N_iter = 5 # number of EKI iterations
@@ -86,11 +87,11 @@ priors = ParameterDistribution(prior_distns, constraints, prior_names)
 ### Observational Noise
 The observational noise can be generated using the L96 system or prescribed, as specified by `var_prescribe`. 
 
-`var_prescribe==true`
+`var_prescribe==false`
 The observational noise is constructed by generating independent instantiations of the L96 statistics of interest at the true parameters for different initial conditions.
 The empirical covariance matrix is constructed.
 
-`var_prescribe==false`
+`var_prescribe==true`
 The observational noise is prescribed as a Gaussian distribution with prescribed mean and variance.
 
 ## Running the Example
@@ -98,9 +99,9 @@ The L96 parameter estimation can be run using `julia --project Lorenz_example.jl
 
 
 ## Solution and Output
-The output will provide the estimated parameters 
+The output will provide the estimated parameters.
 
-## Printed output
+### Printed output
 ```julia
 # EKI results: Has the ensemble collapsed toward the truth?
 println("True parameters: ")
@@ -109,8 +110,9 @@ println("\nEKI results:")
 println(mean(get_u_final(ekiobj), dims=2))
 ```
 
-## Saved output
+### Saved output
 The parameters and forward model outputs will be saved in `parameter_storage.jld2` and `data_storage.jld2`, respectively.
+The data will be saved in the directory `output`.
 
-## Plots
+### Plots
 A scatter plot of the parameter estimates compared to the true parameters will be provided in the directory `output`.
