@@ -215,7 +215,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         block_cov = cat([get_cov(d1),get_var(d2),get_var(d3),get_cov(d4)]..., dims=(1,2)) 
         @test isapprox(get_cov(v) - block_cov, zeros(get_total_dimension(v),get_total_dimension(v)); atol=1e-6)
         #Test for get_mean
-        means = reshape(cat([get_mean(d1), get_mean(d2), get_mean(d3), get_mean(d4)]...,dims=1),:,1)
+        means = cat([get_mean(d1), get_mean(d2), get_mean(d3), get_mean(d4)]...,dims=1)
         @test isapprox(get_mean(v) - means, zeros(get_total_dimension(v)); atol=1e-6)
         
     end

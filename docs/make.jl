@@ -16,7 +16,7 @@ api = [
 
 examples = [
     "Template Example"  => "examples/template_example.md",
-    "Cloudy Example"    => "examples/Cloudy_example.md"
+    "Cloudy Example"    => "examples/Cloudy_example.md",
     "Lorenz Example"    => "examples/lorenz_example.md"
 ]
 
