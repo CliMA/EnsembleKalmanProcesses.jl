@@ -17,3 +17,4 @@ docs/site/
 deps/deps.jl
 Manifest.toml
 *.vscode*
+examples/Lorenz/output
