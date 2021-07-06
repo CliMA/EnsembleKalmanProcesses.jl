@@ -100,7 +100,8 @@ end
 """
 agg_clima_ekp(n_params::Integer, output_name::String="ekp_clima")
 
-Aggregate all iterations of the parameter ensembles and write to file.
+Aggregate all iterations of the parameter ensembles and write to file, given the
+number of parameters in each parameter vector (p).
 """
 function agg_clima_ekp(n_params::Integer, output_name::String="ekp_clima")
     # Get versions
