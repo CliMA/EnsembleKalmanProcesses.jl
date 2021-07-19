@@ -17,3 +17,5 @@ docs/site/
 deps/deps.jl
 Manifest.toml
 *.vscode*
+# Ignore output folders
+**/results_*

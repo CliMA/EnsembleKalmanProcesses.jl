@@ -4,14 +4,24 @@ using Interpolations
 using LinearAlgebra
 using Glob
 using JLD
+using JSON
+using Random
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
 """
-    run_SCAMPy(u, u_names, y_names, scm_dir,
-                    ti, tf = nothing;
-                    norm_var_list = nothing,
-                    P_pca_list = nothing)
+    run_SCAMPy(
+        u::Array{FT, 1},
+        u_names::Array{String, 1},
+        y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
+        scampy_dir::String,
+        scm_data_root::String,
+        scm_names::Array{String, 1},
+        ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
+        tf::Union{Array{FT,1}, Array{Array{FT,1},1}, Nothing} = nothing;
+        norm_var_list = nothing,
+        P_pca_list = nothing,
+    ) where {FT<:AbstractFloat}
 
 Run call_SCAMPy.sh using a set of parameters u and return
 the value of outputs defined in y_names, possibly after
@@ -19,45 +29,41 @@ normalization and projection onto lower dimensional space
 using PCA.
 
 Inputs:
- - u :: Values of parameters to be used in simulations.
- - u_names :: SCAMPy names for parameters u.
- - y_names :: Name of outputs requested for each flow configuration.
- - ti :: Vector of starting times for observation intervals. If tf=nothing,
-         snapshots at ti are returned.
- - tf :: Vector of ending times for observation intervals.
- - norm_var_list :: Pooled variance vectors. If given, use to normalize output.
- - P_pca_list :: Vector of projection matrices P_pca for each flow configuration.
+ - u                :: Values of parameters to be used in simulations.
+ - u_names          :: SCAMPy names for parameters `u`.
+ - y_names          :: Name of outputs requested for each flow configuration.
+ - scampy_dir       :: Path to SCAMPy directory
+ - scm_data_root    :: Path to input data for the SCM model.
+ - scm_names        :: Names of SCAMPy cases
+ - ti               :: Vector of starting times for observation intervals. 
+                        If `tf=nothing`, snapshots at `ti` are returned.
+ - tf               :: Vector of ending times for observation intervals.
+ - norm_var_list    :: Pooled variance vectors. If given, use to normalize output.
+ - P_pca_list       :: Vector of projection matrices `P_pca` for each flow configuration.
 Outputs:
- - g_scm :: Vector of model evaluations concatenated for all flow configurations.
- - g_scm_pca :: Projection of g_scm onto principal subspace spanned by eigenvectors.
+ - sim_dirs         :: Vector of simulation output directories
+ - g_scm            :: Vector of model evaluations concatenated for all flow configurations.
+ - g_scm_pca        :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
 """
-function run_SCAMPy(u::Array{FT, 1},
-                    u_names::Array{String, 1},
-                    y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-                    scm_dir::String,
-                    ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
-                    tf::Union{Array{FT,1}, Array{Array{FT,1},1}, Nothing} = nothing;
-                    norm_var_list = nothing,
-                    P_pca_list = nothing,
-                    scampy_handler = "call_SCAMPy.sh",
-                    ) where {FT<:AbstractFloat}
+function run_SCAMPy(
+        u::Array{FT, 1},
+        u_names::Array{String, 1},
+        y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
+        scampy_dir::String,
+        scm_data_root::String,
+        scm_names::Array{String, 1},
+        ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
+        tf::Union{Array{FT,1}, Array{Array{FT,1},1}, Nothing} = nothing;
+        norm_var_list = nothing,
+        P_pca_list = nothing,
+    ) where {FT<:AbstractFloat}
 
     # Check parameter dimensionality
     @assert length(u_names) == length(u)
 
-    # Run simulations
-    exe_path = string(scm_dir, scampy_handler)
-    sim_uuid  = u[1]
-    for i in 2:length(u_names)
-        sim_uuid = string(sim_uuid,u[i])
-    end
-    command = `bash $exe_path $u $u_names`
-    run(command)
+    # run SCAMPy and get simulation dirs
+    sim_dirs = run_SCAMPy_handler(u, u_names, scampy_dir, scm_names, scm_data_root)
 
-    # SCAMPy file descriptor
-    sim_uuid = string(sim_uuid, ".txt")
-    sim_dirs = readlines(sim_uuid)
-    run(`rm $sim_uuid`)
     # Check consistent time interval dims
     @assert length(ti) == length(sim_dirs)
 
@@ -78,10 +84,8 @@ function run_SCAMPy(u::Array{FT, 1},
             if !isnothing(P_pca_list)
                 append!(g_scm_pca, P_pca_list[i]' * g_scm_flow)
             end
-            
-            run(`rm -r $sim_dir`)
         end
-    elseif typeof(ti) == Array{Array{FT,1},1} # mult intervals per simulation
+    elseif typeof(ti) == Array{Array{FT,1},1} # multiple intervals per simulation
         config_num = 1
         for (i, sim_dir) in enumerate(sim_dirs)
             y_names_ = typeof(y_names)==Array{Array{String,1},1} ? y_names[i] : y_names
@@ -97,9 +101,9 @@ function run_SCAMPy(u::Array{FT, 1},
                 end
                 config_num += 1
             end
-            run(`rm -r $sim_dir`)
         end
     end
+    # penalize nan-values in output
     for i in eachindex(g_scm)
         g_scm[i] = isnan(g_scm[i]) ? 1.0e5 : g_scm[i]
     end
@@ -109,10 +113,83 @@ function run_SCAMPy(u::Array{FT, 1},
         end
         println("LENGTH OF G_SCM_ARR : ", length(g_scm))
         println("LENGTH OF G_SCM_ARR_PCA : ", length(g_scm_pca))
-        return g_scm, g_scm_pca
+        return sim_dirs, g_scm, g_scm_pca
     else
-        return g_scm
+        return sim_dirs, g_scm
     end
+end
+
+
+"""
+    function run_SCAMPy_handler(
+        u::Array{FT, 1},  
+        u_names::Array{String, 1},
+        scampy_dir::String,
+        scm_names::String,
+        scm_data_root::String,
+    ) where {FT<:AbstractFloat}
+
+Run a list of cases using a set of parameters `u_names` with values `u`,
+and return a list of directories pointing to where data is stored for 
+each simulation run.
+
+Inputs:
+ - u :: Values of parameters to be used in simulations.
+ - u_names :: SCAMPy names for parameters `u`.
+ - scampy_dir :: Path to SCAMPy directory
+ - scm_names :: Names of SCAMPy cases to run
+ - scm_data_root :: Path to SCAMPy case data (<scm_data_root>/Output.<scm_name>.00000)
+Outputs:
+ - output_dirs :: list of directories containing output data from the SCAMPy runs.
+"""
+function run_SCAMPy_handler(
+        u::Array{FT, 1},
+        u_names::Array{String, 1},
+        scampy_dir::String,
+        scm_names::Array{String, 1},
+        scm_data_root::String,
+    ) where {FT<:AbstractFloat}
+    # create temporary directory to store SCAMPy data in
+    tmpdir = mktempdir(pwd())
+
+    # output directories
+    output_dirs = String[]
+
+    for simname in scm_names
+        # For each scm case, fetch namelist and paramlist
+        inputdir = joinpath(scm_data_root, "Output.$simname.00000")
+        namelist = JSON.parsefile(joinpath(inputdir, "$simname.in"))
+        paramlist = JSON.parsefile(joinpath(inputdir, "paramlist_$simname.in"))
+
+        # update parameter values
+        for (pName, pVal) in zip(u_names, u)
+            paramlist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
+        end
+        # write updated paramlist to `tmpdir`
+        paramlist_path = joinpath(tmpdir, "paramlist_$simname.in")
+        open(paramlist_path, "w") do io
+            JSON.print(io, paramlist, 4)
+        end
+
+        # generate random uuid
+        uuid_end = randstring(5)
+        uuid_start = namelist["meta"]["uuid"][1:end-5]
+        namelist["meta"]["uuid"] = "$uuid_start$uuid_end"
+        # set output dir to `tmpdir`
+        namelist["output"]["output_root"] = tmpdir
+        # write updated namelist to `tmpdir`
+        namelist_path = joinpath(tmpdir, "$simname.in")
+        open(namelist_path, "w") do io
+            JSON.print(io, namelist, 4)
+        end
+
+        # run SCAMPy with modified parameters
+        main_path = joinpath(scampy_dir, "main.py")
+        run(`python $main_path $namelist_path $paramlist_path`)
+
+        push!(output_dirs, joinpath(tmpdir, "Output.$simname.$uuid_end"))
+    end  # end `simnames` loop
+    return output_dirs
 end
 
 """
@@ -318,10 +395,9 @@ function get_time_covariance(sim_dir::String,
                      normalize=false)
 
     t = nc_fetch(sim_dir, "timeseries", "t")
-    dt = t[2]-t[1]
     # Find closest interval in data
-    ti_diff, ti_index = findmin( broadcast(abs, t.-ti) )
-    tf_diff, tf_index = findmin( broadcast(abs, t.-tf) )
+    ti_index = argmin( broadcast(abs, t.-ti) )
+    tf_index = argmin( broadcast(abs, t.-tf) )
     ts_vec = zeros(0, length(ti_index:tf_index))
     num_outputs = length(var_name)
     poolvar_vec = zeros(num_outputs)
@@ -334,20 +410,23 @@ function get_time_covariance(sim_dir::String,
             var_ = var_.*rho_half
         end
         # Store pooled variance
-        poolvar_vec[i] = mean(var(var_[:, ti_index:tf_index], dims=2))
+        poolvar_vec[i] = mean(var(var_[:, ti_index:tf_index], dims=2))  # vertically averaged time-variance of variable
         ts_var_i = normalize ? var_[:, ti_index:tf_index]./ sqrt(poolvar_vec[i]) : var_[:, ti_index:tf_index]
         # Interpolate in space
         if !isnothing(z_scm)
             z_les = getFullHeights ? get_profile(sim_dir, ["z"]) : get_profile(sim_dir, ["z_half"])
             # Create interpolant
-            ts_var_i_itp = interpolate( (z_les, 1:tf_index-ti_index+1),
-                                        ts_var_i, ( Gridded(Linear()), NoInterp() ))
+            ts_var_i_itp = interpolate(
+                (z_les, 1:tf_index-ti_index+1),
+                ts_var_i,
+                ( Gridded(Linear()), NoInterp() )
+            )
             # Interpolate
             ts_var_i = ts_var_i_itp(z_scm, 1:tf_index-ti_index+1)
         end
-        ts_vec = cat(ts_vec, ts_var_i, dims=1)
+        ts_vec = cat(ts_vec, ts_var_i, dims=1)  # dims: (Nz*num_outputs, Nt)
     end
-    cov_mat = cov(ts_vec, dims=2)
+    cov_mat = cov(ts_vec, dims=2)  # covariance, w/ samples across time dimension (t_inds).
     return cov_mat, poolvar_vec
 end
 
@@ -434,15 +513,17 @@ the same prior.
 """
 function precondition_ensemble!(params::Array{FT, 2}, priors,
     param_names::Vector{String}, y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
+    scampy_dir::String, scm_data_root::String, scm_names::Array{String, 1},
     ti::Union{FT, Array{FT,1}};
     tf::Union{FT, Array{FT,1}, Nothing}=nothing, lim::FT=1.0e4,) where {IT<:Int, FT}
 
     # Check dimensionality
     @assert length(param_names) == size(params, 1)
     # Wrapper around SCAMPy in original output coordinates
-    g_(x::Array{Float64,1}) = run_SCAMPy(x, param_names, y_names, scm_dir, ti, tf)
+    g_(x::Array{Float64,1}) = run_SCAMPy(
+        x, param_names, y_names, scampy_dir, scm_data_root, scm_names, ti, tf,
+    )
 
-    scm_dir = "/home/ilopezgo/SCAMPy/"
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, params))    
     params_cons_i = [row[:] for row in eachrow(params_cons_i')]
     N_ens = size(params_cons_i, 1)
@@ -456,13 +537,13 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
     # Recursively eliminate all unstable parameters
     if !isempty(unstable_point_inds)
         println(length(unstable_point_inds), " unstable parameters found:" )
-        for j in length(unstable_point_inds)
+        for j in 1:length(unstable_point_inds)
             println(params[:, unstable_point_inds[j]])
         end
         println("Sampling new parameters from prior...")
         new_params = construct_initial_ensemble(priors, length(unstable_point_inds))
         precondition_ensemble!(new_params, priors, param_names,
-            y_names, ti, tf=tf, lim=lim)
+            y_names, scampy_dir, scm_data_root, scm_names, ti, tf=tf, lim=lim)
         params[:, unstable_point_inds] = new_params
     end
     println("\nPreconditioning finished.")

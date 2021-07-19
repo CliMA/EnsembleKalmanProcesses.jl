@@ -1,11 +1,10 @@
 #!/bin/bash
 
-#Submit this script with: sbatch -A oceanphysics job_script_name
+#Submit this script with: sbatch calibrate_script
 
-#SBATCH --time=12:00:00   # walltime
+#SBATCH --time=06:00:00   # walltime
 #SBATCH --ntasks=20  # number of processor cores (i.e. tasks)
-#SBATCH --nodes=2   # number of nodes
-#SBATCH --mem-per-cpu=6G   # memory per CPU core
+#SBATCH --nodes=1   # number of nodes
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
