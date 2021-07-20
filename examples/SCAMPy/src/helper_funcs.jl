@@ -8,13 +8,15 @@ using JSON
 using Random
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
+# TurbulenceConvection.jl
+using TurbulenceConvection
+include(normpath(joinpath(pathof(TurbulenceConvection), "../..", "integration_tests/utils/main.jl")))
 
 """
     run_SCAMPy(
         u::Array{FT, 1},
         u_names::Array{String, 1},
         y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-        scampy_dir::String,
         scm_data_root::String,
         scm_names::Array{String, 1},
         ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
@@ -32,7 +34,6 @@ Inputs:
  - u                :: Values of parameters to be used in simulations.
  - u_names          :: SCAMPy names for parameters `u`.
  - y_names          :: Name of outputs requested for each flow configuration.
- - scampy_dir       :: Path to SCAMPy directory
  - scm_data_root    :: Path to input data for the SCM model.
  - scm_names        :: Names of SCAMPy cases
  - ti               :: Vector of starting times for observation intervals. 
@@ -49,7 +50,6 @@ function run_SCAMPy(
         u::Array{FT, 1},
         u_names::Array{String, 1},
         y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-        scampy_dir::String,
         scm_data_root::String,
         scm_names::Array{String, 1},
         ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
@@ -62,7 +62,7 @@ function run_SCAMPy(
     @assert length(u_names) == length(u)
 
     # run SCAMPy and get simulation dirs
-    sim_dirs = run_SCAMPy_handler(u, u_names, scampy_dir, scm_names, scm_data_root)
+    sim_dirs = run_SCAMPy_handler(u, u_names, scm_names, scm_data_root)
 
     # Check consistent time interval dims
     @assert length(ti) == length(sim_dirs)
@@ -124,7 +124,6 @@ end
     function run_SCAMPy_handler(
         u::Array{FT, 1},  
         u_names::Array{String, 1},
-        scampy_dir::String,
         scm_names::String,
         scm_data_root::String,
     ) where {FT<:AbstractFloat}
@@ -136,7 +135,6 @@ each simulation run.
 Inputs:
  - u :: Values of parameters to be used in simulations.
  - u_names :: SCAMPy names for parameters `u`.
- - scampy_dir :: Path to SCAMPy directory
  - scm_names :: Names of SCAMPy cases to run
  - scm_data_root :: Path to SCAMPy case data (<scm_data_root>/Output.<scm_name>.00000)
 Outputs:
@@ -145,7 +143,6 @@ Outputs:
 function run_SCAMPy_handler(
         u::Array{FT, 1},
         u_names::Array{String, 1},
-        scampy_dir::String,
         scm_names::Array{String, 1},
         scm_data_root::String,
     ) where {FT<:AbstractFloat}
@@ -171,10 +168,9 @@ function run_SCAMPy_handler(
             JSON.print(io, paramlist, 4)
         end
 
-        # generate random uuid
-        uuid_end = randstring(5)
-        uuid_start = namelist["meta"]["uuid"][1:end-5]
-        namelist["meta"]["uuid"] = "$uuid_start$uuid_end"
+        # set random uuid
+        uuid = basename(tmpdir)
+        namelist["meta"]["uuid"] = uuid
         # set output dir to `tmpdir`
         namelist["output"]["output_root"] = tmpdir
         # write updated namelist to `tmpdir`
@@ -183,11 +179,10 @@ function run_SCAMPy_handler(
             JSON.print(io, namelist, 4)
         end
 
-        # run SCAMPy with modified parameters
-        main_path = joinpath(scampy_dir, "main.py")
-        run(`python $main_path $namelist_path $paramlist_path`)
+        # run TurbulenceConvection.jl with modified parameters
+        main(namelist, paramlist)
 
-        push!(output_dirs, joinpath(tmpdir, "Output.$simname.$uuid_end"))
+        push!(output_dirs, joinpath(tmpdir, "Output.$simname.$uuid"))
     end  # end `simnames` loop
     return output_dirs
 end
@@ -513,7 +508,7 @@ the same prior.
 """
 function precondition_ensemble!(params::Array{FT, 2}, priors,
     param_names::Vector{String}, y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-    scampy_dir::String, scm_data_root::String, scm_names::Array{String, 1},
+    scm_data_root::String, scm_names::Array{String, 1},
     ti::Union{FT, Array{FT,1}};
     tf::Union{FT, Array{FT,1}, Nothing}=nothing, lim::FT=1.0e4,) where {IT<:Int, FT}
 
@@ -521,7 +516,7 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
     @assert length(param_names) == size(params, 1)
     # Wrapper around SCAMPy in original output coordinates
     g_(x::Array{Float64,1}) = run_SCAMPy(
-        x, param_names, y_names, scampy_dir, scm_data_root, scm_names, ti, tf,
+        x, param_names, y_names, scm_data_root, scm_names, ti, tf,
     )
 
     params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, params))    
@@ -543,7 +538,7 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
         println("Sampling new parameters from prior...")
         new_params = construct_initial_ensemble(priors, length(unstable_point_inds))
         precondition_ensemble!(new_params, priors, param_names,
-            y_names, scampy_dir, scm_data_root, scm_names, ti, tf=tf, lim=lim)
+            y_names, scm_data_root, scm_names, ti, tf=tf, lim=lim)
         params[:, unstable_point_inds] = new_params
     end
     println("\nPreconditioning finished.")

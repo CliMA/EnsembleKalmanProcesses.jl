@@ -59,11 +59,10 @@ les_suffixes = ["may18"]
 les_root = "/groups/esm/ilopezgo"
 scm_names = ["Bomex"]  # same as `les_names` in perfect model setting
 scm_data_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
-scampy_dir = joinpath(pwd(), "SCAMPy")  # path to SCAMPy
 save_full_EDMF_data = false  # if true, save each ensemble output file
 outdir_root = pwd()
 
-@assert isdir(les_root) & isdir(scm_data_root) & isdir(scampy_dir) 
+@assert isdir(les_root) & isdir(scm_data_root)
 
 #########
 #########  Retrieve true LES samples from PyCLES data and transform
@@ -130,7 +129,7 @@ ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, algo )
 
 # Define caller function
 @everywhere g_(x::Array{Float64,1}) = run_SCAMPy(
-    x, $param_names, $y_names, $scampy_dir, 
+    x, $param_names, $y_names, 
     $scm_data_root, $scm_names, $t_starts, $t_ends,
     P_pca_list = $P_pca_list, norm_var_list = $pool_var_list,
 )
@@ -230,14 +229,14 @@ for i in 1:N_iter
                 # Stats file
                 tmp_data_path = joinpath(sim_dir, "stats/Stats.$scm_name.nc")
                 save_data_path = joinpath(ens_i_path, "Stats.$scm_name.$ens_i.nc")
-                run(`cp $tmp_data_path $save_data_path`)
+                cp(tmp_data_path, save_data_path)
                 # namefile and paramfile
                 tmp_namefile_path = joinpath(sim_dir, "$scm_name.in")
                 save_namefile_path = joinpath(ens_i_path, "$scm_name.in")
-                run(`cp $tmp_namefile_path $save_namefile_path`)
+                cp(tmp_namefile_path, save_namefile_path)
                 tmp_paramfile_path = joinpath(sim_dir, "paramlist_$scm_name.in")
                 save_paramfile_path = joinpath(ens_i_path, "paramlist_$scm_name.in")
-                run(`cp $tmp_paramfile_path $save_paramfile_path`)
+                cp(tmp_paramfile_path, save_paramfile_path)
             end
         end
     end
