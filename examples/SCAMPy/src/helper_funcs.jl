@@ -10,7 +10,8 @@ using Random
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 # TurbulenceConvection.jl
 using TurbulenceConvection
-include(normpath(joinpath(pathof(TurbulenceConvection), "../..", "integration_tests/utils/main.jl")))
+tc_dir = dirname(dirname(pathof(TurbulenceConvection)));
+include(joinpath(tc_dir, "integration_tests", "utils", "main.jl"))
 
 """
     run_SCM(
@@ -152,20 +153,14 @@ function run_SCM_handler(
     # output directories
     output_dirs = String[]
 
-    for simname in scm_names
-        # For each scm case, fetch namelist and paramlist
-        inputdir = joinpath(scm_data_root, "Output.$simname.00000")
-        namelist = JSON.parsefile(joinpath(inputdir, "$simname.in"))
-        paramlist = JSON.parsefile(joinpath(inputdir, "paramlist_$simname.in"))
+    for casename in scm_names
+        # For each scm case, fetch namelist
+        inputdir = joinpath(scm_data_root, "Output.$casename.00000")
+        namelist = JSON.parsefile(joinpath(inputdir, "namelist_$casename.in"))
 
         # update parameter values
         for (pName, pVal) in zip(u_names, u)
-            paramlist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
-        end
-        # write updated paramlist to `tmpdir`
-        paramlist_path = joinpath(tmpdir, "paramlist_$simname.in")
-        open(paramlist_path, "w") do io
-            JSON.print(io, paramlist, 4)
+            namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
         end
 
         # set random uuid
@@ -174,16 +169,16 @@ function run_SCM_handler(
         # set output dir to `tmpdir`
         namelist["output"]["output_root"] = tmpdir
         # write updated namelist to `tmpdir`
-        namelist_path = joinpath(tmpdir, "$simname.in")
+        namelist_path = joinpath(tmpdir, "namelist_$casename.in")
         open(namelist_path, "w") do io
             JSON.print(io, namelist, 4)
         end
 
         # run TurbulenceConvection.jl with modified parameters
-        main(namelist, paramlist)
+        main(namelist)
 
-        push!(output_dirs, joinpath(tmpdir, "Output.$simname.$uuid"))
-    end  # end `simnames` loop
+        push!(output_dirs, joinpath(tmpdir, "Output.$casename.$uuid"))
+    end  # end `scm_names` loop
     return output_dirs
 end
 

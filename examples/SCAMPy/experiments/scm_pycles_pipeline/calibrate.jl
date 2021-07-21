@@ -230,13 +230,10 @@ for i in 1:N_iter
                 tmp_data_path = joinpath(sim_dir, "stats/Stats.$scm_name.nc")
                 save_data_path = joinpath(ens_i_path, "Stats.$scm_name.$ens_i.nc")
                 cp(tmp_data_path, save_data_path)
-                # namefile and paramfile
-                tmp_namefile_path = joinpath(sim_dir, "$scm_name.in")
-                save_namefile_path = joinpath(ens_i_path, "$scm_name.in")
+                # namefile
+                tmp_namefile_path = joinpath(sim_dir, "namelist_$scm_name.in")
+                save_namefile_path = joinpath(ens_i_path, "namelist_$scm_name.in")
                 cp(tmp_namefile_path, save_namefile_path)
-                tmp_paramfile_path = joinpath(sim_dir, "paramlist_$scm_name.in")
-                save_paramfile_path = joinpath(ens_i_path, "paramlist_$scm_name.in")
-                cp(tmp_paramfile_path, save_paramfile_path)
             end
         end
     end
