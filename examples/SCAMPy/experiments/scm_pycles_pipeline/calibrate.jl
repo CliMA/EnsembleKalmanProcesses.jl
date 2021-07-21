@@ -128,7 +128,7 @@ initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000)
 ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, algo )
 
 # Define caller function
-@everywhere g_(x::Array{Float64,1}) = run_SCAMPy(
+@everywhere g_(x::Array{Float64,1}) = run_SCM(
     x, $param_names, $y_names, 
     $scm_data_root, $scm_names, $t_starts, $t_ends,
     P_pca_list = $P_pca_list, norm_var_list = $pool_var_list,

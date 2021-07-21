@@ -13,7 +13,7 @@ using TurbulenceConvection
 include(normpath(joinpath(pathof(TurbulenceConvection), "../..", "integration_tests/utils/main.jl")))
 
 """
-    run_SCAMPy(
+    run_SCM(
         u::Array{FT, 1},
         u_names::Array{String, 1},
         y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
@@ -25,10 +25,10 @@ include(normpath(joinpath(pathof(TurbulenceConvection), "../..", "integration_te
         P_pca_list = nothing,
     ) where {FT<:AbstractFloat}
 
-Run call_SCAMPy.sh using a set of parameters u and return
-the value of outputs defined in y_names, possibly after
-normalization and projection onto lower dimensional space
-using PCA.
+Run the single-column model (SCM) using a set of parameters u 
+and return the value of outputs defined in y_names, possibly 
+after normalization and projection onto lower dimensional 
+space using PCA.
 
 Inputs:
  - u                :: Values of parameters to be used in simulations.
@@ -46,7 +46,7 @@ Outputs:
  - g_scm            :: Vector of model evaluations concatenated for all flow configurations.
  - g_scm_pca        :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
 """
-function run_SCAMPy(
+function run_SCM(
         u::Array{FT, 1},
         u_names::Array{String, 1},
         y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
@@ -62,7 +62,7 @@ function run_SCAMPy(
     @assert length(u_names) == length(u)
 
     # run SCAMPy and get simulation dirs
-    sim_dirs = run_SCAMPy_handler(u, u_names, scm_names, scm_data_root)
+    sim_dirs = run_SCM_handler(u, u_names, scm_names, scm_data_root)
 
     # Check consistent time interval dims
     @assert length(ti) == length(sim_dirs)
@@ -121,7 +121,7 @@ end
 
 
 """
-    function run_SCAMPy_handler(
+    function run_SCM_handler(
         u::Array{FT, 1},  
         u_names::Array{String, 1},
         scm_names::String,
@@ -140,7 +140,7 @@ Inputs:
 Outputs:
  - output_dirs :: list of directories containing output data from the SCAMPy runs.
 """
-function run_SCAMPy_handler(
+function run_SCM_handler(
         u::Array{FT, 1},
         u_names::Array{String, 1},
         scm_names::Array{String, 1},
@@ -515,7 +515,7 @@ function precondition_ensemble!(params::Array{FT, 2}, priors,
     # Check dimensionality
     @assert length(param_names) == size(params, 1)
     # Wrapper around SCAMPy in original output coordinates
-    g_(x::Array{Float64,1}) = run_SCAMPy(
+    g_(x::Array{Float64,1}) = run_SCM(
         x, param_names, y_names, scm_data_root, scm_names, ti, tf,
     )
 
