@@ -3,12 +3,13 @@ using PyPlot
 using Statistics
 
 # Parameters
+inpath = pwd()
 outpath = pwd()
 ekp_path = "ekp.jld2"
 param_names = ["entrainment", "detrainment"]
 
 # Load data
-data = load(ekp_path)
+data = load(joinpath(inpath, ekp_path))
 
 # Mean
 phi_m = mean(data["phi_params"], dims=3)[:,:,1]
