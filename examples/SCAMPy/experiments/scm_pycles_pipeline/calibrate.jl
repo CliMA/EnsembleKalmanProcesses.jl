@@ -158,6 +158,7 @@ for i in 1:N_iter
     end
     # Get normalized error for full dimensionality output
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
+    norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
     # Store full dimensionality output
     push!(g_big_list, g_ens_arr)
     # Get normalized error
@@ -170,8 +171,12 @@ for i in 1:N_iter
     # Convert to arrays
     phi_params = Array{Array{Float64,2},1}(transform_unconstrained_to_constrained(priors, get_u(ekobj)))
     phi_params_arr = zeros(i+1, n_param, N_ens)
+    g_big_arr = zeros(i, N_ens, length(yt_big))
     for (k,elem) in enumerate(phi_params)
         phi_params_arr[k,:,:] = elem
+        if k < i + 1
+            g_big_arr[k,:,:] = hcat(g_big_list[k]...)'
+        end
     end
 
     # Save EKP information to JLD2 file
@@ -184,35 +189,13 @@ for i in 1:N_iter
         "truth_mean_big", yt_big,
         "truth_cov_big", yt_var_big,
         "g_big", g_big_list,
+        "g_big_arr", g_big_arr,
         "norm_err", norm_err_list,
+        "norm_err_arr", norm_err_arr,
         "P_pca", P_pca_list,
         "pool_var", pool_var_list,
         "phi_params", phi_params_arr,
     )
-    # Convert to arrays
-    phi_params = Array{Array{Float64,2},1}(transform_unconstrained_to_constrained(priors, get_u(ekobj)))
-    phi_params_arr = zeros(i+1, n_param, N_ens)
-    g_big_arr = zeros(i, N_ens, length(yt_big))
-    for (k,elem) in enumerate(phi_params)
-        phi_params_arr[k,:,:] = elem
-        if k < i + 1
-            g_big_arr[k,:,:] = hcat(g_big_list[k]...)'
-        end
-    end
-    norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
-    # Or you can also save information to numpy files with NPZ
-    npzwrite(joinpath(outdir_path,"y_mean.npy"), ekobj.obs_mean)
-    npzwrite(joinpath(outdir_path,"Gamma_y.npy"), ekobj.obs_noise_cov)
-    npzwrite(joinpath(outdir_path,"ekp_err.npy"), ekobj.err)
-    npzwrite(joinpath(outdir_path,"phi_params.npy"), phi_params_arr)
-    npzwrite(joinpath(outdir_path,"y_mean_big.npy"), yt_big)
-    npzwrite(joinpath(outdir_path,"Gamma_y_big.npy"), yt_var_big)
-    npzwrite(joinpath(outdir_path,"norm_err.npy"), norm_err_arr)
-    npzwrite(joinpath(outdir_path,"g_big.npy"), g_big_arr)
-    for (l, P_pca) in enumerate(P_pca_list)
-        npzwrite(joinpath(outdir_path,"P_pca_$(scm_names[l]).npy"), P_pca)
-        npzwrite(joinpath(outdir_path,"pool_var_$(scm_names[l]).npy"), pool_var_list[l])
-    end
 
     if save_full_EDMF_data
         # Save full EDMF data from every ensemble
