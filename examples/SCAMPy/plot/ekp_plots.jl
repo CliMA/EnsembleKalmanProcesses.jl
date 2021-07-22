@@ -3,6 +3,7 @@ using PyPlot
 using Statistics
 
 # Parameters
+outpath = pwd()
 ekp_path = "ekp.jld2"
 param_names = ["entrainment", "detrainment"]
 
@@ -33,7 +34,7 @@ end
 axs[1].set_xlim(0,n_iter-1)
 axs[1].set_title("Parameter evolution")
 axs[end].set_xlabel("iteration")
-savefig("param_evol.png")
+savefig(joinpath(outpath, "param_evol.png"))
 
 # Error plot
 x = 1:n_iter-1
@@ -44,5 +45,5 @@ ax.set_xlim(1,n_iter-1)
 ax.set_ylabel("Error")
 ax.set_xlabel("iteration")
 ax.set_title("Error evolution")
-savefig("error_evol.png")
+savefig(joinpath(outpath, "error_evol.png"))
 
