@@ -3,8 +3,8 @@ using PyPlot
 using Statistics
 
 # Parameters
-inpath = "/Users/haakon/Documents/CliMA/SEDMF/EnsembleKalmanProcesses.jl/examples/SCAMPy/experiments/scm_pycles_pipeline/results_eki_dt1.0_p2_e20_i10_d7"
-outpath = inpath
+inpath = pwd()
+outpath = pwd()
 ekp_path = "ekp.jld2"
 param_names = ["entrainment", "detrainment"]
 
