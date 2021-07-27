@@ -206,9 +206,14 @@ function obs_LES(y_names::Array{String, 1},
                     tf::FT;
                     z_scm::Union{Array{FT, 1}, Nothing} = nothing,
                     normalize = true,
+                    perfect_model = false,
                     ) where {FT<:AbstractFloat}
     
-    y_names_les = get_les_names(y_names, sim_dir)
+    if perfect_model
+        y_names_les = deepcopy(y_names)
+    else
+        y_names_les = get_les_names(y_names, sim_dir)
+    end
     y_tvar, poolvar_vec = get_time_covariance(sim_dir, y_names_les,
         ti = ti, tf = tf, z_scm=z_scm, normalize=normalize)
     y_highres = get_profile(sim_dir, y_names_les, ti = ti, tf = tf)
