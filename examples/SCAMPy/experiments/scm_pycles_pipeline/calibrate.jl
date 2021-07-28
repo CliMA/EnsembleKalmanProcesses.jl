@@ -86,7 +86,7 @@ for (les_name, les_suffix, scm_name, y_name, tstart, tend) in zip(
     z_scm = get_profile(joinpath(scm_data_root, "Output.$scm_name.00000"), ["z_half"])
     # Get (interpolated and pool-normalized) observations, get pool variance vector
     les_dir = joinpath(les_root, "Output.$les_name.$les_suffix")
-    yt_, yt_var_, pool_var = obs_LES(y_name, les_dir, tstart, tend, z_scm = z_scm)
+    yt_, yt_var_, pool_var = get_obs(y_name, les_dir, tstart, tend, z_scm = z_scm)
     push!(pool_var_list, pool_var)
     if perform_PCA
         yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_)

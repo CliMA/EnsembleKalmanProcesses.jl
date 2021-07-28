@@ -183,10 +183,10 @@ function run_SCM_handler(
 end
 
 """
-    obs_LES(y_names, sim_dir, ti, tf;
+    get_obs(y_names, sim_dir, ti, tf;
             z_scm = nothing, normalize = false)
 
-Get LES output for observed variables y_names, interpolated to
+Get observations for variables y_names, interpolated to
 z_scm (if given), and possibly normalized with respect to the pooled variance.
 
 Inputs:
@@ -196,11 +196,13 @@ Inputs:
  - tf :: Vector of ending times for observation intervals.
  - z_scm :: If given, interpolate LES observations to given levels.
  - normalize :: If true, normalize observations and cov matrix by pooled variances.
+ - perfect_model :: If true, the variable names are the same for the observation
+                    and the single column model.
 Outputs:
  - y_ :: Mean of observations, possibly interpolated to z_scm levels.
  - y_tvar :: Observational covariance matrix, possibly pool-normalized.
 """
-function obs_LES(y_names::Array{String, 1},
+function get_obs(y_names::Array{String, 1},
                     sim_dir::String,
                     ti::FT,
                     tf::FT;
