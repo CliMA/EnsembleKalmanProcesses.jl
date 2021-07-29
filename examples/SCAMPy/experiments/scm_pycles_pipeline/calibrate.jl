@@ -156,7 +156,11 @@ for i in 1:N_iter
     (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),3) # Outer dim is G̃, G 
     println(string("\n\nEKP evaluation $i finished. Updating ensemble ...\n"))
     for j in 1:N_ens
-        g_ens[j, :] = g_ens_arr_pca[j]
+        if perform_PCA
+            g_ens[j, :] = g_ens_arr_pca[j]
+        else
+            g_ens[j, :] = g_ens_arr[j]
+        end
     end
     # Get normalized error for full dimensionality output
     push!(norm_err_list, compute_errors(g_ens_arr, yt_big))

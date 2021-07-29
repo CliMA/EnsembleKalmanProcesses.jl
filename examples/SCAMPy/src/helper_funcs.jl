@@ -116,7 +116,7 @@ function run_SCM(
         println("LENGTH OF G_SCM_ARR_PCA : ", length(g_scm_pca))
         return sim_dirs, g_scm, g_scm_pca
     else
-        return sim_dirs, g_scm
+        return sim_dirs, g_scm, nothing
     end
 end
 
