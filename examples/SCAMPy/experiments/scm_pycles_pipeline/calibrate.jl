@@ -56,7 +56,7 @@ perform_PCA = true # Performs PCA on data
 # Define directories to fetch data from and store results to
 les_names = ["Bomex"]
 les_suffixes = ["may18"]
-les_root = "/groups/esm/ilopezgo"
+perfect_model = false  # flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
 scm_names = ["Bomex"]  # same as `les_names` in perfect model setting
 scm_data_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
 save_full_EDMF_data = false  # if true, save each ensemble output file
@@ -86,7 +86,9 @@ for (les_name, les_suffix, scm_name, y_name, tstart, tend) in zip(
     z_scm = get_profile(joinpath(scm_data_root, "Output.$scm_name.00000"), ["z_half"])
     # Get (interpolated and pool-normalized) observations, get pool variance vector
     les_dir = joinpath(les_root, "Output.$les_name.$les_suffix")
-    yt_, yt_var_, pool_var = get_obs(y_name, les_dir, tstart, tend, z_scm = z_scm)
+    yt_, yt_var_, pool_var = get_obs(
+        y_name, les_dir, tstart, tend, z_scm = z_scm, perfect_model = perfect_model
+    )
     push!(pool_var_list, pool_var)
     if perform_PCA
         yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_)
