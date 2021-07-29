@@ -2,11 +2,11 @@ using JLD2
 using PyPlot
 using Statistics
 
-# Parameters
-inpath = pwd()
-outpath = pwd()
-ekp_path = "ekp.jld2"
-param_names = ["entrainment", "detrainment"]
+# Parameters (edit these lines to plot your own data)
+inpath = pwd()          # path to directory of jld2 ekp file
+outpath = pwd()         # path to directory where output plots should be stored
+ekp_path = "ekp.jld2"   # name of ekp data file
+param_names = ["entrainment", "detrainment"]  # name of parameters that were calibrated
 
 # Load data
 data = load(joinpath(inpath, ekp_path))
