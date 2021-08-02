@@ -55,115 +55,115 @@ k_true = 0.0817  # shape parameter of Gamma distribution
 dist_true = ParticleDistributions.GammaPrimitiveParticleDistribution(ϕ_true...)
 
 
-# ###
-# ###  Define priors for the parameters we want to learn
-# ###
+###
+###  Define priors for the parameters we want to learn
+###
 
-# # Define constraints
-# lbound_N0 = 0.4 * N0_true
-# lbound_θ = 1.0e-1
-# lbound_k = 1.0e-4
-# c1 = bounded_below(lbound_N0)
-# c2 = bounded_below(lbound_θ)
-# c3 = bounded_below(lbound_k)
-# constraints = [[c1], [c2], [c3]]
+# Define constraints
+lbound_N0 = 0.4 * N0_true
+lbound_θ = 1.0e-1
+lbound_k = 1.0e-4
+c1 = bounded_below(lbound_N0)
+c2 = bounded_below(lbound_θ)
+c3 = bounded_below(lbound_k)
+constraints = [[c1], [c2], [c3]]
 
-# # We choose to use normal distributions to represent the prior distributions of
-# # the parameters in the transformed (unconstrained) space. i.e log coordinates
-# d1 = Parameterized(Normal(4.5, 1.0))  #truth is 5.19
-# d2 = Parameterized(Normal(0.0, 2.0))  #truth is 0.378
-# d3 = Parameterized(Normal(-1.0, 1.0)) #truth is -2.51
-# distributions = [d1, d2, d3]
+# We choose to use normal distributions to represent the prior distributions of
+# the parameters in the transformed (unconstrained) space. i.e log coordinates
+d1 = Parameterized(Normal(4.5, 1.0))  #truth is 5.19
+d2 = Parameterized(Normal(0.0, 2.0))  #truth is 0.378
+d3 = Parameterized(Normal(-1.0, 1.0)) #truth is -2.51
+distributions = [d1, d2, d3]
 
-# priors = ParameterDistribution(distributions, constraints, par_names)
-
-
-# ###
-# ###  Define the data from which we want to learn the parameters
-# ###
-
-# data_names = ["M0", "M1", "M2"]
-# moments = [0.0, 1.0, 2.0]
-# n_moments = length(moments)
+priors = ParameterDistribution(distributions, constraints, par_names)
 
 
-# ###
-# ###  Model settings
-# ###
+###
+###  Define the data from which we want to learn the parameters
+###
 
-# # Collision-coalescence kernel to be used in Cloudy
-# coalescence_coeff = 1/3.14/4/100
-# kernel_func = x -> coalescence_coeff
-# kernel = CoalescenceTensor(kernel_func, 0, 100.0)
-
-# # Time period over which to run Cloudy
-# tspan = (0., 1.0)
+data_names = ["M0", "M1", "M2"]
+moments = [0.0, 1.0, 2.0]
+n_moments = length(moments)
 
 
-# ###
-# ###  Generate (artificial) truth samples
-# ###
+###
+###  Model settings
+###
 
-# model_settings_true = ModelSettings(kernel, dist_true, moments, tspan)
-# G_t = run_dyn_model(ϕ_true, model_settings_true)
-# n_samples = 100
-# y_t = zeros(length(G_t), n_samples)
-# # In a perfect model setting, the "observational noise" represents the 
-# # internal model variability. Since Cloudy is a purely deterministic model, 
-# # there is no straightforward way of coming up with a covariance structure 
-# # for this internal model variability. We decide to use a diagonal 
-# # covariance, with entries (variances) largely proportional to their 
-# # corresponding data values, G_t
-# Γy = convert(Array, Diagonal([100.0, 5.0, 30.0]))
-# μ = zeros(length(G_t))
+# Collision-coalescence kernel to be used in Cloudy
+coalescence_coeff = 1/3.14/4/100
+kernel_func = x -> coalescence_coeff
+kernel = CoalescenceTensor(kernel_func, 0, 100.0)
 
-# # Add noise
-# for i in 1:n_samples
-#     y_t[:, i] = G_t .+ rand(MvNormal(μ, Γy))
-# end
-
-# truth = Observations.Obs(y_t, Γy, data_names)
-# truth_sample = truth.mean
+# Time period over which to run Cloudy
+tspan = (0., 1.0)
 
 
-# ###
-# ###  Calibrate: Ensemble Kalman Inversion
-# ###
+###
+###  Generate (artificial) truth samples
+###
 
-# N_ens = 50 # number of ensemble members
-# N_iter = 8 # number of EKI iterations
-# # initial parameters: N_par x N_ens
-# initial_par = construct_initial_ensemble(priors, N_ens; rng_seed)
-# ekiobj = EnsembleKalmanProcess(initial_par, truth_sample, truth.obs_noise_cov,
-#                                Inversion(), Δt=0.1)
+model_settings_true = ModelSettings(kernel, dist_true, moments, tspan)
+G_t = run_dyn_model(ϕ_true, model_settings_true)
+n_samples = 100
+y_t = zeros(length(G_t), n_samples)
+# In a perfect model setting, the "observational noise" represents the 
+# internal model variability. Since Cloudy is a purely deterministic model, 
+# there is no straightforward way of coming up with a covariance structure 
+# for this internal model variability. We decide to use a diagonal 
+# covariance, with entries (variances) largely proportional to their 
+# corresponding data values, G_t
+Γy = convert(Array, Diagonal([100.0, 5.0, 30.0]))
+μ = zeros(length(G_t))
 
-# # Initialize a ParticleDistribution with dummy parameters. The parameters 
-# # will then be set within `run_dyn_model`
-# dummy = ones(n_par)
-# dist_type = ParticleDistributions.GammaPrimitiveParticleDistribution(dummy...)
-# model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, 
-#                                               tspan)
-# # EKI iterations
-# for n in 1:N_iter
-#     θ_n = get_u_final(ekiobj)
-#     # Transform parameters to physical/constrained space
-#     ϕ_n = mapslices(x -> transform_unconstrained_to_constrained(priors, x), θ_n; dims=1)
-#     # Evaluate forward map
-#     G_n = [run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:N_ens]
-#     G_ens = hcat(G_n...)  # reformat
-#     EnsembleKalmanProcessModule.update_ensemble!(ekiobj, G_ens)
-# end
+# Add noise
+for i in 1:n_samples
+    y_t[:, i] = G_t .+ rand(MvNormal(μ, Γy))
+end
 
-# # EKI results: Has the ensemble collapsed toward the truth?
-# θ_true = transform_constrained_to_unconstrained(priors, ϕ_true)
-# println("True parameters (unconstrained): ")
-# println(θ_true)
+truth = Observations.Obs(y_t, Γy, data_names)
+truth_sample = truth.mean
 
-# println("\nEKI results:")
-# println(mean(get_u_final(ekiobj), dims=2))
 
-# u_stored= get_u(ekiobj, return_array=false)
-# g_stored= get_g(ekiobj, return_array=false)
+###
+###  Calibrate: Ensemble Kalman Inversion
+###
+
+N_ens = 50 # number of ensemble members
+N_iter = 8 # number of EKI iterations
+# initial parameters: N_par x N_ens
+initial_par = construct_initial_ensemble(priors, N_ens; rng_seed)
+ekiobj = EnsembleKalmanProcess(initial_par, truth_sample, truth.obs_noise_cov,
+                               Inversion(), Δt=0.1)
+
+# Initialize a ParticleDistribution with dummy parameters. The parameters 
+# will then be set within `run_dyn_model`
+dummy = ones(n_par)
+dist_type = ParticleDistributions.GammaPrimitiveParticleDistribution(dummy...)
+model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, 
+                                              tspan)
+# EKI iterations
+for n in 1:N_iter
+    θ_n = get_u_final(ekiobj)
+    # Transform parameters to physical/constrained space
+    ϕ_n = mapslices(x -> transform_unconstrained_to_constrained(priors, x), θ_n; dims=1)
+    # Evaluate forward map
+    G_n = [run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:N_ens]
+    G_ens = hcat(G_n...)  # reformat
+    EnsembleKalmanProcessModule.update_ensemble!(ekiobj, G_ens)
+end
+
+# EKI results: Has the ensemble collapsed toward the truth?
+θ_true = transform_constrained_to_unconstrained(priors, ϕ_true)
+println("True parameters (unconstrained): ")
+println(θ_true)
+
+println("\nEKI results:")
+println(mean(get_u_final(ekiobj), dims=2))
+
+u_stored= get_u(ekiobj, return_array=false)
+g_stored= get_g(ekiobj, return_array=false)
 # @save data_save_directory*"parameter_storage_eki.jld2" u_stored
 # @save data_save_directory*"data_storage_eki.jld2" g_stored
 

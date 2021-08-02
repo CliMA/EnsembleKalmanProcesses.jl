@@ -403,6 +403,9 @@ end
 Apply the transformation to map (possibly constrained) parameters `xarray` into the unconstrained space
 """
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{FT}) where {FT <: Real}
+    for (i,c) in enumerate(pd.constraints)]
+        println([c.constrained_to_unconstrained(xarray[i]))
+    end
     return cat([c.constrained_to_unconstrained(xarray[i]) for (i,c) in enumerate(pd.constraints)]...,dims=1)
 end
 
