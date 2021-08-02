@@ -54,6 +54,7 @@ push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux
 perform_PCA = true # Performs PCA on data
 
 # Define directories to fetch data from and store results to
+les_root = "/groups/esm/ilopezgo"
 les_names = ["Bomex"]
 les_suffixes = ["may18"]
 perfect_model = false  # flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
