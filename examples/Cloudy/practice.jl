@@ -63,7 +63,7 @@ dist_true = ParticleDistributions.GammaPrimitiveParticleDistribution(ϕ_true...)
 
 # # Define constraints
 lbound_molar_mass = 0.02
-lbound_osmo_coeff = 0.004
+lbound_osmo_coeff = 0.0004
 lbound_density = 1000.0
 c1 = bounded_below(lbound_molar_mass)
 c2 = bounded_below(lbound_osmo_coeff)
