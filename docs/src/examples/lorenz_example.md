@@ -3,7 +3,9 @@
 ## Overview
 
 The Lorenz 96 (hereafter L96) example is a toy-problem for the application of the EnsembleKalmanProcesses.jl optimization and approximate uncertainty quantification methodologies.
+Here is L96 with additional periodic-in-time forcing, we try to determine parameters (sinusoidal amplitude and stationary component of the forcing) from some output statistics.
 The standard L96 equations are implemented with an additional forcing term with time dependence.
+The output statistics which are used for learning are the finite time-averaged variances.
 
 ## Lorenz 96 equations
 
@@ -17,7 +19,7 @@ The boundary conditions are given by
 ```math
 x_{-1} = x_{N-1}, \ x_0 = x_N, \ x_{N+1} = x_1.
 ```
-The time scaling is such that the characteristic time is 5 days. 
+The time scaling is such that the characteristic time is 5 days ([Lorenz, 1996](http://www.raidl.cz/file/18/lorenz-1996-_predictability_partly_solved.pdf)). 
 For very small values of ``F``, the solutions $x_i$ decay to $F$ after the initial transient feature.
 For moderate values of ``F``, the solutions are periodic, and for larger values of ``F``, the system is chaotic.
 The solution variance is a function of the forcing magnitude.
@@ -28,6 +30,7 @@ A temporal forcing term is defined
 F = F_s + A \sin(\omega t),
 ```
 with steady-state forcing ``F_s``, transient forcing amplitude ``A``, and transient forcing frequency ``\omega``.
+The total forcing ``F`` must be within the chaotic regime of L96 for all time given the prescribed $N$.
 
 The L96 dynamics are solved with RK4 integration.
 
@@ -46,6 +49,11 @@ The types of statistics to be collected are detailed in `GModel.jl`.
 The use of the transient forcing term is with the flag, `dynamics`. Stationary forcing is `dynamics=1` ($A=0$) and transient forcing is used with `dynamics=2` ($A\neq0$).
 The default parameters are specified in `Lorenz_example.jl` and can be modified as necessary.
 The system is solved over time horizon $0$ to `tend` at fixed time step `dt`.
+```julia
+N = 36
+dt = 1/64
+t_start = 800
+```
 
 ### Inverse problem settings
 The states are integrated over time `Ts_days` to construct the time averaged statistics for use by the optimization.
@@ -69,7 +77,7 @@ param_names = ["F", "A"]
 ```
 
 ### Priors
-We use wide, normal priors without constraints
+We use normal priors without constraints
 
 ```julia
 prior_means = [F_true+1.0, A_true+0.5]
