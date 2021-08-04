@@ -101,6 +101,7 @@ function Obs(samples::Vector{Vector{FT}},
         temp1 = convert(Array, reshape(hcat(samples...)', N_samples, :))
         temp = dropdims(temp1, dims=1)
         samplemean = vec(mean(temp, dims=2))
+        obsnoisecov=obs_noise_cov
     else
         if sample_dim == 1
             # We have 1D samples, so the sample mean and covariance (which in
@@ -108,18 +109,20 @@ function Obs(samples::Vector{Vector{FT}},
             samplemean = mean(temp)
             err = ("When sample_dim is 1, obs_cov_noise must be a scalar.
                    \tsample_dim: number of elements per observation sample")
-            @assert(ndims(obs_noise_cov) == 0, err)
+            @assert(size(obs_noise_cov) == (1,1), err)
+            obsnoisecov=obs_noise_cov[1]
         else
             temp = convert(Array, reshape(hcat(samples...)', N_samples, :))
             samplemean = vec(mean(temp, dims=1))
             err = ("obs_cov_noise must be of size sample_dim x sample_dim.
                    \tsample_dim: number of elements per observation sample")
             @assert(size(obs_noise_cov) == (sample_dim, sample_dim), err)
+            obsnoisecov=obs_noise_cov
         end
     end
 
 
-    Obs(samples, obs_noise_cov, samplemean, data_names)
+    Obs(samples, obsnoisecov, samplemean, data_names)
 end
 
 function Obs(samples::Array{FT, 2},
@@ -131,7 +134,7 @@ function Obs(samples::Array{FT, 2},
     if N_samples == 1
         # Only one sample, so there is no covariance to be computed and the 
         # sample mean equals the sample itself
-        obs_noise_cov = nothing
+        obsnoisecov = nothing
         samplemean = vec(samples)
         samples_vec = vec([vec(samples)])
     else
@@ -141,18 +144,21 @@ function Obs(samples::Array{FT, 2},
             # We have 1D samples, so the sample mean and covariance (which in 
             # this case is actually the variance) are scalars
             samplemean = mean(samples)
+            obsnoisecov=obs_noise_cov[1]
             err = ("When sample_dim is 1, obs_cov_noise must be a scalar.
                    \tsample_dim: number of elements per observation sample")
-            @assert(ndims(obs_noise_cov) == 0, err)
+            @assert(size(obs_noise_cov) == (1,1), err)
+            obsnoisecov=obs_noise_cov[1]
         else
             samplemean = vec(mean(samples, dims=2))
             err = ("obs_cov_noise must be of size sample_dim x sample_dim.
                    \tsample_dim: number of elements per observation sample")
             @assert(size(obs_noise_cov) == (sample_dim, sample_dim), err)
+            obsnoisecov=obs_noise_cov
         end
     end
 
-    Obs(samples_vec, obs_noise_cov, samplemean, data_names)
+    Obs(samples_vec, obsnoisecov, samplemean, data_names)
 end
 
 end # module Observations
