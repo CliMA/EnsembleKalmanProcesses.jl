@@ -103,6 +103,7 @@ function Obs(samples::Vector{Vector{FT}},
         samplemean = vec(mean(temp, dims=2))
         obsnoisecov=obs_noise_cov
     else
+        temp = convert(Array, reshape(hcat(samples...)', N_samples, :))
         if sample_dim == 1
             # We have 1D samples, so the sample mean and covariance (which in
             # this case is actually the covariance) are scalars
@@ -112,7 +113,6 @@ function Obs(samples::Vector{Vector{FT}},
             @assert(size(obs_noise_cov) == (1,1), err)
             obsnoisecov=obs_noise_cov[1]
         else
-            temp = convert(Array, reshape(hcat(samples...)', N_samples, :))
             samplemean = vec(mean(temp, dims=1))
             err = ("obs_cov_noise must be of size sample_dim x sample_dim.
                    \tsample_dim: number of elements per observation sample")
@@ -132,9 +132,8 @@ function Obs(samples::Array{FT, 2},
     # samples is of size N_samples x sample_dim
     sample_dim, N_samples = size(samples)
     if N_samples == 1
-        # Only one sample, so there is no covariance to be computed and the 
         # sample mean equals the sample itself
-        obsnoisecov = nothing
+        obsnoisecov = obs_noise_cov
         samplemean = vec(samples)
         samples_vec = vec([vec(samples)])
     else
