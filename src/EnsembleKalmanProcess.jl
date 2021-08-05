@@ -18,7 +18,7 @@ export update_ensemble!
 
 
 abstract type Process end
-#specific types defined at EOF
+#specific Processes and their exports are included after the general definitions
 
 ## begin general constructor and function definitions
 
@@ -179,6 +179,7 @@ end
 
 
 ## include the different types of Processes and their exports:
+
 # struct Inversion
 export Inversion
 export find_ekp_stepsize
