@@ -3,59 +3,50 @@ using LinearAlgebra
 using Random
 using Plots
 
-struct EnsembleKalmanInversion{FT}
+struct EnsembleKalmanSampler{FT}
     obs_mean::Vector{FT} #vector of the observed vector size [N_obs]
     obs_noise_cov::Array{FT,2} #covariance matrix of the observational noise, of size [N_obs × N_obs]
+    prior_mean::Vector{FT}
+    prior_cov::Array{FT, 2}
 end
 
-# Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
 function update_ensemble(
-    ekp::EnsembleKalmanInversion,
+    ekp::EnsembleKalmanSampler,
     u::AbstractArray,
     g::AbstractArray;
-    cov_threshold = 0.01,
-    Δt = 1.0,
-    deterministic_forward_map=true
 )
-    #catch works when g non-square
-    # if !(size(g)[2] == ekp.N_ens) 
-    #      throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g do not match, try transposing g or check ensemble size"))
+    # #catch works when g_in non-square 
+    # if !(size(g_in)[2] == ekp.N_ens) 
+    #      throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g_in do not match, try transposing or check ensemble size"))
     # end
 
     # u: N_par × N_ens, g: N_obs × N_ens
-    N_ens = size(u, 2)
+    N_par, N_ens = size(u)
     N_obs = size(g, 1)
+   
+    u_mean = mean(u, dims=2) # u_mean: N_par × 1
+    g_mean = mean(g, dims=2) # g_mean: N_obs × 1
+    g_cov = cov(g, g, dims = 2, corrected=false) # g_cov: N_obs × N_obs
+    u_cov = cov(u, u, dims = 2, corrected=false) # u_cov: N_par × N_par
 
-    cov_init = cov(u, dims=2)
-    cov_ug = cov(u, g, dims = 2, corrected=false) # [N_par × N_obs]
-    cov_gg = cov(g, g, dims=2, corrected=false) # [N_obs × N_obs]
+    # Building tmp matrices for EKS update
+    E = g .- g_mean # N_obs × N_ens
+    R = g .- ekp.obs_mean # N_obs × N_ens
+    D = (1/N_ens) * (E' * (ekp.obs_noise_cov \ R)) # D: N_ens × N_ens
+    Δt = 1/(norm(D) + 1e-8)
+    noise = MvNormal(u_cov)
 
-    # Scale noise using Δt
-    scaled_obs_noise_cov = ekp.obs_noise_cov / Δt # [N_obs × N_obs]
-    noise = rand(MvNormal(zeros(N_obs), scaled_obs_noise_cov), N_ens)
-
-    # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
-    # G is deterministic
-    y = deterministic_forward_map ? (ekp.obs_mean .+ noise) : (ekp.obs_mean .+ zero(noise))
-
-    # N_obs × N_obs \ [N_obs × N_ens]
-    # --> tmp is [N_obs × N_ens]
-    tmp = (cov_gg + scaled_obs_noise_cov) \ (y - g)
-    u_updated = u + cov_ug * tmp # [N_par × N_ens]
+    implicit = (1 * Matrix(I, N_par, N_par) + Δt * (ekp.prior_cov \ u_cov)') \
+                  (u
+                    .- Δt * (u .- u_mean) * D
+                    .+ Δt * u_cov * (ekp.prior_cov \ ekp.prior_mean)
+                  )
+    u_updated = implicit + sqrt(2*Δt) * rand(noise, N_ens)
 
     # Calculate error
     mean_g = dropdims(mean(g, dims=2), dims=2)
     diff = ekp.obs_mean - mean_g
     err = dot(diff, ekp.obs_noise_cov \ diff)
-
-    # Check convergence
-    # cov_new = cov(get_u_final(ekp), dims=2)
-    # cov_ratio = det(cov_new) / det(cov_init)
-    # if cov_ratio < cov_threshold
-    #     @warn string("New ensemble covariance determinant is less than ",
-    #                  cov_threshold, " times its previous value.",
-    #                  "\nConsider reducing the EK time step.")
-    # end
 
     return u_updated, err
 end
@@ -67,7 +58,7 @@ let
 
     # Set up observational noise 
     n_obs = 1 # Number of synthetic observations from G(u)
-    noise_level = 1e-8 # Defining the observation noise level
+    noise_level = 1e-6 # Defining the observation noise level
     Γy = noise_level * Matrix(I, n_obs, n_obs) # Independent noise for synthetic observations       
     noise = MvNormal(zeros(n_obs), Γy)
 
@@ -76,19 +67,19 @@ let
         return [sqrt((u[1]-1)^2 + (u[2]+1)^2)]
     end
     u_star = [1.0, -1.0] # Loss Function Minimum
-    y_obs  = G(u_star) .+ rand(noise) 
+    y_obs  = G(u_star) + 0 * rand(noise) 
 
     # Set up prior
-    prior_mean = zeros(2)
-    prior_cov = Matrix(I, length(prior_mean), length(prior_mean))
+    prior_mean = [10.0, 10.0]
+    prior_cov = 1 * Matrix(I, length(prior_mean), length(prior_mean))
     prior = MvNormal(prior_mean, prior_cov)
 
     # Set up optimizer
-    ekiobj = EnsembleKalmanInversion{Float64}(y_obs, Γy)
+    ekiobj = EnsembleKalmanSampler{Float64}(y_obs, Γy, prior_mean, prior_cov)
 
     # Do optimization loop
     N_ens = 50  # number of ensemble members
-    N_iter = 20 # number of EKI iterations
+    N_iter = 100 # number of EKI iterations
     ensemble = rand(prior, N_ens)
     storage_g = []
     storage_u = [copy(ensemble)]

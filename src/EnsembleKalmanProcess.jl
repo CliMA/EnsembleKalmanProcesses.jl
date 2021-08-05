@@ -347,6 +347,7 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}}, g_in:
     # Building tmp matrices for EKS update:
     E = g' .- g_mean
     R = g' .- ekp.obs_mean
+    
     # D: N_ens × N_ens
     D = (1/ekp.N_ens) * (E' * (ekp.obs_noise_cov \ R))
 
