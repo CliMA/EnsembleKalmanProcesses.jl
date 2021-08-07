@@ -19,3 +19,4 @@ Manifest.toml
 *.vscode*
 # Ignore output folders
 **/results_*
+**/jl_*

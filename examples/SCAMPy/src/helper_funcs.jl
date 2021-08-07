@@ -13,6 +13,10 @@ using TurbulenceConvection
 tc_dir = dirname(dirname(pathof(TurbulenceConvection)));
 include(joinpath(tc_dir, "integration_tests", "utils", "main.jl"))
 
+
+data_directory(root::S, name::S, suffix::S="00000") where S<:AbstractString = joinpath(root, "Output.$name.$suffix")
+namelist_directory(root::S, casename::S) where S<:AbstractString = joinpath(root, "namelist_$casename.in")
+
 """
     run_SCM(
         u::Array{FT, 1},
@@ -48,16 +52,16 @@ Outputs:
  - g_scm_pca        :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
 """
 function run_SCM(
-        u::Array{FT, 1},
-        u_names::Array{String, 1},
-        y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-        scm_data_root::String,
-        scm_names::Array{String, 1},
-        ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
-        tf::Union{Array{FT,1}, Array{Array{FT,1},1}, Nothing} = nothing;
-        norm_var_list = nothing,
-        P_pca_list = nothing,
-    ) where {FT<:AbstractFloat}
+    u::Array{FT, 1},
+    u_names::Array{String, 1},
+    y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
+    scm_data_root::String,
+    scm_names::Array{String, 1},
+    ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
+    tf::Union{Array{FT,1}, Array{Array{FT,1},1}, Nothing} = nothing;
+    norm_var_list = nothing,
+    P_pca_list = nothing,
+) where {FT<:AbstractFloat}
 
     # Check parameter dimensionality
     @assert length(u_names) == length(u)
@@ -142,11 +146,11 @@ Outputs:
  - output_dirs :: list of directories containing output data from the SCAMPy runs.
 """
 function run_SCM_handler(
-        u::Array{FT, 1},
-        u_names::Array{String, 1},
-        scm_names::Array{String, 1},
-        scm_data_root::String,
-    ) where {FT<:AbstractFloat}
+    u::Array{FT, 1},
+    u_names::Array{String, 1},
+    scm_names::Array{String, 1},
+    scm_data_root::String,
+) where {FT<:AbstractFloat}
     # create temporary directory to store SCAMPy data in
     tmpdir = mktempdir(pwd())
 
@@ -155,8 +159,8 @@ function run_SCM_handler(
 
     for casename in scm_names
         # For each scm case, fetch namelist
-        inputdir = joinpath(scm_data_root, "Output.$casename.00000")
-        namelist = JSON.parsefile(joinpath(inputdir, "namelist_$casename.in"))
+        inputdir = data_directory(scm_data_root, casename)
+        namelist = JSON.parsefile(namelist_directory(inputdir, casename))
 
         # update parameter values
         for (pName, pVal) in zip(u_names, u)
@@ -169,15 +173,15 @@ function run_SCM_handler(
         # set output dir to `tmpdir`
         namelist["output"]["output_root"] = tmpdir
         # write updated namelist to `tmpdir`
-        namelist_path = joinpath(tmpdir, "namelist_$casename.in")
+        namelist_path = namelist_directory(tmpdir, casename)
         open(namelist_path, "w") do io
             JSON.print(io, namelist, 4)
         end
 
         # run TurbulenceConvection.jl with modified parameters
         main(namelist)
-
-        push!(output_dirs, joinpath(tmpdir, "Output.$casename.$uuid"))
+        
+        push!(output_dirs, data_directory(tmpdir, casename, uuid))
     end  # end `scm_names` loop
     return output_dirs
 end
@@ -202,14 +206,15 @@ Outputs:
  - y_ :: Mean of observations, possibly interpolated to z_scm levels.
  - y_tvar :: Observational covariance matrix, possibly pool-normalized.
 """
-function get_obs(y_names::Array{String, 1},
-                    sim_dir::String,
-                    ti::FT,
-                    tf::FT;
-                    z_scm::Union{Array{FT, 1}, Nothing} = nothing,
-                    normalize = true,
-                    perfect_model = false,
-                    ) where {FT<:AbstractFloat}
+function get_obs(
+    y_names::Array{String, 1},
+    sim_dir::String,
+    ti::FT,
+    tf::FT;
+    z_scm::Union{Array{FT, 1}, Nothing} = nothing,
+    normalize = true,
+    perfect_model = false,
+) where {FT<:AbstractFloat}
     
     if perfect_model
         y_names_les = deepcopy(y_names)
