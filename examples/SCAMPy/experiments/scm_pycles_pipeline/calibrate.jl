@@ -21,7 +21,6 @@
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
 @everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
 using JLD2
-using NPZ
 
 function run_calibrate()
     #########
