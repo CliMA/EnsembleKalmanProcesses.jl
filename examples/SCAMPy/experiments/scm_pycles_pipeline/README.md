@@ -8,8 +8,6 @@ This example script details the calibration of parameters for a single-column ED
 
 To perform simulations, first we need to clone this repo and the `TurbulenceConvection.jl` repo from GitHub.
 
-To perform simulations, first we need to clone the TurbulenceConvection.jl repo from GitHub.
-
   >> git clone https://github.com/ilopezgp/EnsembleKalmanProcesses.jl
 
   >> git clone https://github.com/CliMA/TurbulenceConvection.jl 
