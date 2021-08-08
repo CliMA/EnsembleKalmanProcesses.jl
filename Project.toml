@@ -4,7 +4,6 @@ authors = ["CLIMA contributors <clima-software@caltech.edu>"]
 version = "0.1.0"
 
 [deps]
-BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
