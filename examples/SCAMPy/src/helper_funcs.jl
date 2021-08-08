@@ -14,7 +14,36 @@ tc_dir = dirname(dirname(pathof(TurbulenceConvection)));
 include(joinpath(tc_dir, "integration_tests", "utils", "main.jl"))
 
 
-data_directory(root::S, name::S, suffix::S="00000") where S<:AbstractString = joinpath(root, "Output.$name.$suffix")
+Base.@kwdef struct ReferenceModel
+    "Vector of reference variable names"
+    y_names::Vector{String}
+
+    "Root directory for reference LES data"
+    les_root::String
+    "Name of LES reference simulation file"
+    les_name::String
+    "Suffix of LES reference simulation file"
+    les_suffix::String
+
+    "Root directory for SCM data (used for interpolation)"
+    scm_root::String
+    "Name of SCM reference simulation file"
+    scm_name::String
+    "Suffix of SCM reference simulation file"
+    scm_suffix::String = "00000"
+
+    # TODO: Make t_start and t_end vectors for multiple time intervals per reference model.
+    "Start time for computing statistics over"
+    t_start::Real
+    "End time for computing statistics over"
+    t_end::Real
+end
+
+les_dir(m::ReferenceModel) = data_directory(m.les_root, m.les_name, m.les_suffix)
+scm_dir(m::ReferenceModel) = data_directory(m.scm_root, m.scm_name, m.scm_suffix)
+data_directory(root::S, name::S, suffix::S) where S<:AbstractString = joinpath(root, "Output.$name.$suffix")
+
+namelist_directory(root::String, m::ReferenceModel) = namelist_directory(root, m.scm_name)
 namelist_directory(root::S, casename::S) where S<:AbstractString = joinpath(root, "namelist_$casename.in")
 
 """
@@ -52,70 +81,43 @@ Outputs:
  - g_scm_pca        :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
 """
 function run_SCM(
-    u::Array{FT, 1},
-    u_names::Array{String, 1},
-    y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-    scm_data_root::String,
-    scm_names::Array{String, 1},
-    ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
-    tf::Union{Array{FT,1}, Array{Array{FT,1},1}, Nothing} = nothing;
+    u::Vector{FT},
+    u_names::Vector{String},
+    RM::Vector{ReferenceModel};
     norm_var_list = nothing,
     P_pca_list = nothing,
-) where {FT<:AbstractFloat}
-
-    # Check parameter dimensionality
-    @assert length(u_names) == length(u)
-
-    # run SCAMPy and get simulation dirs
-    sim_dirs = run_SCM_handler(u, u_names, scm_names, scm_data_root)
-
-    # Check consistent time interval dims
-    @assert length(ti) == length(sim_dirs)
+) where FT<:Real
 
     g_scm = zeros(0)
     g_scm_pca = zeros(0)
+    sim_dirs = String[]
 
-    if typeof(ti) == Array{FT,1} # 1 interval per simulation
-        for (i, sim_dir) in enumerate(sim_dirs)
-            ti_ = ti[i]
-            tf_ = !isnothing(tf) ? tf[i] : nothing
-            y_names_ = typeof(y_names)==Array{Array{String,1},1} ? y_names[i] : y_names
+    for (i, m) in enumerate(RM)
+        # create temporary directory to store SCAMPy data in
+        tmpdir = mktempdir(pwd())
 
-            g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
-            if !isnothing(norm_var_list)
-                g_scm_flow = normalize_profile(g_scm_flow, y_names_, norm_var_list[i])
-            end
-            append!(g_scm, g_scm_flow)
-            if !isnothing(P_pca_list)
-                append!(g_scm_pca, P_pca_list[i]' * g_scm_flow)
-            end
+        # run TurbulenceConvection.jl. Get output directory for simulation data
+        sim_dir = run_SCM_handler(m, tmpdir, u, u_names)
+        push!(sim_dirs, sim_dir)
+
+        g_scm_flow = get_profile(m, sim_dir)
+        if !isnothing(norm_var_list)
+            g_scm_flow = normalize_profile(g_scm_flow, length(m.y_names), norm_var_list[i])
         end
-    elseif typeof(ti) == Array{Array{FT,1},1} # multiple intervals per simulation
-        config_num = 1
-        for (i, sim_dir) in enumerate(sim_dirs)
-            y_names_ = typeof(y_names)==Array{Array{String,1},1} ? y_names[i] : y_names
-            for (j, ti_j) in enumerate(ti[i]) # Loop on time intervals per sim
-                tf_j = !isnothing(tf) ? tf[i][j] : nothing
-                g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_j, tf = tf_j)
-                if !isnothing(norm_var_list)
-                    g_scm_flow = normalize_profile(g_scm_flow, y_names_, norm_var_list[config_num])
-                end
-                append!(g_scm, g_scm_flow)
-                if !isnothing(P_pca_list)
-                    append!(g_scm_pca, P_pca_list[config_num]' * g_scm_flow)
-                end
-                config_num += 1
-            end
+        append!(g_scm, g_scm_flow)
+
+        # perform PCA reduction
+        if !isnothing(P_pca_list)
+            append!(g_scm_pca, P_pca_list[i]' * g_scm_flow)
         end
     end
+
     # penalize nan-values in output
-    for i in eachindex(g_scm)
-        g_scm[i] = isnan(g_scm[i]) ? 1.0e5 : g_scm[i]
-    end
+    any(isnan.(g_scm)) && warn("NaN-values in output data")
+    g_scm[isnan.(g_scm)] .= 1e5
+
     if !isnothing(P_pca_list)
-        for i in eachindex(g_scm_pca)
-            g_scm_pca[i] = isnan(g_scm_pca[i]) ? 1.0e5 : g_scm_pca[i]
-        end
+        g_scm_pca[isnan.(g_scm_pca)] .= 1e5
         println("LENGTH OF G_SCM_ARR : ", length(g_scm))
         println("LENGTH OF G_SCM_ARR_PCA : ", length(g_scm_pca))
         return sim_dirs, g_scm, g_scm_pca
@@ -146,44 +148,36 @@ Outputs:
  - output_dirs :: list of directories containing output data from the SCAMPy runs.
 """
 function run_SCM_handler(
+    m::ReferenceModel,
+    tmpdir::String,
     u::Array{FT, 1},
     u_names::Array{String, 1},
-    scm_names::Array{String, 1},
-    scm_data_root::String,
 ) where {FT<:AbstractFloat}
-    # create temporary directory to store SCAMPy data in
-    tmpdir = mktempdir(pwd())
 
-    # output directories
-    output_dirs = String[]
+    # fetch default namelist
+    inputdir = scm_dir(m)
+    namelist = JSON.parsefile(namelist_directory(inputdir, m))
 
-    for casename in scm_names
-        # For each scm case, fetch namelist
-        inputdir = data_directory(scm_data_root, casename)
-        namelist = JSON.parsefile(namelist_directory(inputdir, casename))
+    # update parameter values
+    for (pName, pVal) in zip(u_names, u)
+        namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
+    end
 
-        # update parameter values
-        for (pName, pVal) in zip(u_names, u)
-            namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
-        end
+    # set random uuid
+    uuid = basename(tmpdir)
+    namelist["meta"]["uuid"] = uuid
+    # set output dir to `tmpdir`
+    namelist["output"]["output_root"] = tmpdir
+    # write updated namelist to `tmpdir`
+    namelist_path = namelist_directory(tmpdir, m)
+    open(namelist_path, "w") do io
+        JSON.print(io, namelist, 4)
+    end
 
-        # set random uuid
-        uuid = basename(tmpdir)
-        namelist["meta"]["uuid"] = uuid
-        # set output dir to `tmpdir`
-        namelist["output"]["output_root"] = tmpdir
-        # write updated namelist to `tmpdir`
-        namelist_path = namelist_directory(tmpdir, casename)
-        open(namelist_path, "w") do io
-            JSON.print(io, namelist, 4)
-        end
-
-        # run TurbulenceConvection.jl with modified parameters
-        main(namelist)
-        
-        push!(output_dirs, data_directory(tmpdir, casename, uuid))
-    end  # end `scm_names` loop
-    return output_dirs
+    # run TurbulenceConvection.jl with modified parameters
+    main(namelist)
+    
+    return data_directory(tmpdir, m.scm_name, uuid)
 end
 
 """
@@ -207,26 +201,35 @@ Outputs:
  - y_tvar :: Observational covariance matrix, possibly pool-normalized.
 """
 function get_obs(
-    y_names::Array{String, 1},
-    sim_dir::String,
-    ti::FT,
-    tf::FT;
-    z_scm::Union{Array{FT, 1}, Nothing} = nothing,
+    obs_type::Symbol,
+    m::ReferenceModel;
+    z_scm::Union{Vector{FT}, Nothing} = nothing,
     normalize = true,
     perfect_model = false,
-) where {FT<:AbstractFloat}
-    
-    if perfect_model
-        y_names_les = deepcopy(y_names)
+) where FT<:Real
+    sim_dir = if obs_type == :scm
+        scm_dir(m)
+    elseif obs_type == :les
+        les_dir(m)
     else
-        y_names_les = get_les_names(y_names, sim_dir)
+        error("Unknown observation type $obs_type")
     end
-    y_tvar, poolvar_vec = get_time_covariance(sim_dir, y_names_les,
-        ti = ti, tf = tf, z_scm=z_scm, normalize=normalize)
-    y_highres = get_profile(sim_dir, y_names_les, ti = ti, tf = tf)
+    
+    y_names_les = if perfect_model 
+        m.y_names
+    else
+        get_les_names(m.y_names, sim_dir)
+    end
+
+    y_tvar, poolvar_vec = get_time_covariance(
+        m, sim_dir, y_names_les, z_scm=z_scm, normalize=normalize
+    )
+
+    y_highres = get_profile(sim_dir, y_names_les, ti = m.t_start, tf = m.t_end)
     if normalize
-        y_highres = normalize_profile(y_highres, y_names, poolvar_vec)
+        y_highres = normalize_profile(y_highres, length(m.y_names), poolvar_vec)
     end
+
     if !isnothing(z_scm)
         y_ = zeros(0)
         z_les = get_profile(sim_dir, ["z_half"])
@@ -302,12 +305,16 @@ function padeops_m_σ2(padeops_data,
     return padeops_snapshot, padeops_var
 end
 
-function get_profile(sim_dir::String,
-                     var_name::Array{String,1};
-                     ti::Float64=0.0,
-                     tf=nothing,
-                     getFullHeights=false)
+function get_profile(m::ReferenceModel, sim_dir::String) 
+    get_profile(sim_dir, m.y_names, ti=m.t_start, tf=m.t_end)
+end
 
+function get_profile(
+    sim_dir::String,
+    var_name::Vector{String};
+    ti::Real = 0.0,
+    tf = nothing
+)
     if length(var_name) == 1 && occursin("z_half", var_name[1])
         prof_vec = nc_fetch(sim_dir, "profiles", var_name[1])
     else
@@ -360,10 +367,10 @@ using the standard deviation associated with each variable in
 var_name. Variances for each variable are contained
 in var_vec.
 """
-function normalize_profile(profile_vec, var_name, var_vec)
+function normalize_profile(profile_vec, n_vars, var_vec)
     prof_vec = deepcopy(profile_vec)
-    dim_variable = Integer(length(profile_vec)/length(var_name))
-    for i in 1:length(var_name)
+    dim_variable = Integer(length(profile_vec)/n_vars)
+    for i in 1:n_vars
         prof_vec[dim_variable*(i-1)+1:dim_variable*i] =
             prof_vec[dim_variable*(i-1)+1:dim_variable*i] ./ sqrt(var_vec[i])
     end
@@ -388,26 +395,27 @@ Inputs:
  - z_scm :: If given, interpolates covariance matrix to this locations.
  - normalize :: Boolean specifying variable normalization.
 """
-function get_time_covariance(sim_dir::String,
-                     var_name::Array{String,1};
-                     ti::Float64=0.0,
-                     tf=0.0,
-                     getFullHeights=false,
-                     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
-                     normalize=false)
+function get_time_covariance(
+    m::ReferenceModel,
+    sim_dir::String,
+    var_names::Vector{String};
+    getFullHeights=false,
+    z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
+    normalize=false,
+)
 
     t = nc_fetch(sim_dir, "timeseries", "t")
     # Find closest interval in data
-    ti_index = argmin( broadcast(abs, t.-ti) )
-    tf_index = argmin( broadcast(abs, t.-tf) )
+    ti_index = argmin( broadcast(abs, t.-m.t_start) )
+    tf_index = argmin( broadcast(abs, t.-m.t_end) )
     ts_vec = zeros(0, length(ti_index:tf_index))
-    num_outputs = length(var_name)
+    num_outputs = length(var_names)
     poolvar_vec = zeros(num_outputs)
 
     for i in 1:num_outputs
-        var_ = nc_fetch(sim_dir, "profiles", var_name[i])
+        var_ = nc_fetch(sim_dir, "profiles", var_names[i])
         # LES vertical fluxes are per volume, not mass
-        if occursin("resolved_z_flux", var_name[i])
+        if occursin("resolved_z_flux", var_names[i])
             rho_half=nc_fetch(sim_dir, "reference", "rho0_half")
             var_ = var_.*rho_half
         end

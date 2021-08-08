@@ -42,33 +42,35 @@ function run_calibrate()
     #########
     #########  Define simulation parameters and data directories
     #########
+    les_root = "/groups/esm/ilopezgo"
+    scm_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
 
-    # Define observation window (s)
-    t_starts = [4.0] * 3600  # 4hrs
-    t_ends = [6.0] * 3600  # 6hrs
-    # Define variables considered in the loss function
-    y_names = Array{String, 1}[]
-    push!(y_names, ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"])
+    # Calibrate using reference data and options described by the ReferenceModel struct.
+    ref_bomex = ReferenceModel(
+        # Define variables considered in the loss function
+        y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        # Reference data specification
+        les_root = les_root,
+        les_name = "Bomex",
+        les_suffix = "may18",
+        # Simulation case specification
+        scm_root = scm_root,
+        scm_name = "Bomex",
+        # Define observation window (s)
+        t_start = 4.0 * 3600,  # 4hrs
+        t_end = 6.0 * 3600,  # 6hrs
+    )
+    # Make vector of reference models
+    ref_models::Vector{ReferenceModel} = [ref_bomex]
+    @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
 
+    outdir_root = pwd()
     # Define preconditioning and regularization of inverse problem
     perform_PCA = true # Performs PCA on data
-
-    # Define directories to fetch data from and store results to
-    les_root = "/groups/esm/ilopezgo"
-    les_names = ["Bomex"]
-    les_suffixes = ["may18"]
-    les_dirs = data_directory.(les_root, les_names, les_suffixes)
-    @assert all(isdir.(les_dirs))
-
-    perfect_model = false  # flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    scm_data_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
-    scm_names = ["Bomex"]  # same as `les_names` in perfect model setting
-    scm_dirs = data_directory.(scm_data_root, scm_names)
-    @assert all(isdir.(scm_dirs))
-
-    save_full_EDMF_data = false  # if true, save each ensemble output file
-    outdir_root = pwd()
-
+    # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
+    perfect_model = false  
+    # Whether to save full data from each ensemble member simulation
+    save_full_EDMF_data = false
 
     #########
     #########  Retrieve true LES samples from PyCLES data and transform
@@ -76,8 +78,7 @@ function run_calibrate()
     
     # Compute data covariance
     Γy, pool_var_list, yt, yt_big, P_pca_list, yt_var_big = compute_data_covariance(
-        les_dirs, scm_dirs, y_names, t_starts, t_ends, 
-        perform_PCA=perform_PCA, perfect_model=perfect_model,
+        ref_models, perform_PCA=perform_PCA, perfect_model=perfect_model,
     )
     d = length(yt) # Length of data array
 
@@ -90,8 +91,8 @@ function run_calibrate()
     #########
 
     algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors))
-    N_ens = 20 # number of ensemble members
-    N_iter = 10 # number of EKP iterations.
+    N_ens = 1 # number of ensemble members
+    N_iter = 1 # number of EKP iterations.
     Δt = 1.0 # Artificial time stepper of the EKI.
     println("NUMBER OF ENSEMBLE MEMBERS: $N_ens")
     println("NUMBER OF ITERATIONS: $N_iter")
@@ -100,10 +101,8 @@ function run_calibrate()
     ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, algo )
 
     # Define caller function
-    @everywhere g_(x::Array{Float64,1}) = run_SCM(
-        x, $param_names, $y_names, 
-        $scm_data_root, $scm_names, $t_starts, $t_ends,
-        P_pca_list = $P_pca_list, norm_var_list = $pool_var_list,
+    @everywhere g_(x::Vector{FT}) where FT<:Real = run_SCM(
+        x, $param_names, $ref_models, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list
     )
 
     # Create output dir
@@ -189,12 +188,8 @@ function run_calibrate()
 end
 
 function compute_data_covariance(
-    les_dirs, scm_dirs, y_names, t_starts, t_ends; perform_PCA, perfect_model=false,
+    RM::Vector{ReferenceModel}; perform_PCA, perfect_model=false,
 )
-    @assert (  # Each entry in these lists correspond to one simulation case
-        length(scm_dirs) == length(les_dirs) == length(y_names) == length(t_starts) == length(t_ends)
-    )
-
     # Init arrays
     yt = zeros(0)
     yt_var_list = Array{Float64, 2}[]
@@ -203,14 +198,12 @@ function compute_data_covariance(
     P_pca_list = Matrix[]
     pool_var_list = []
 
-    for (les_dir, scm_dir, y_name, tstart, tend) in zip(
-            les_dirs, scm_dirs, y_names, t_starts, t_ends
-        )
+    for m in RM
         # Get SCM vertical levels for interpolation
-        z_scm = get_profile(scm_dir, ["z_half"])
+        z_scm = get_profile(scm_dir(m), ["z_half"])
         # Get (interpolated and pool-normalized) observations, get pool variance vector
-        yt_, yt_var_, pool_var = get_obs(
-            y_name, les_dir, tstart, tend, z_scm = z_scm, perfect_model = perfect_model
+        yt_, yt_var_, pool_var = get_obs(:les,
+            m, z_scm = z_scm, perfect_model = perfect_model
         )
         push!(pool_var_list, pool_var)
         if perform_PCA
