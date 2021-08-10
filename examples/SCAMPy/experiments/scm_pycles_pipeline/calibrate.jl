@@ -22,11 +22,9 @@
 @everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
 using JLD2
 
-function run_calibrate()
-    #########
-    #########  Define the parameters and their priors
-    #########
 
+""" Define parameters and their priors"""
+function construct_priors()
     # Define the parameters that we want to learn
     param_names = ["entrainment_factor", "detrainment_factor"]
     n_param = length(param_names)
@@ -38,11 +36,12 @@ function run_calibrate()
     prior_dist = [Parameterized(Normal(0.0, 1.0))
                     for _ in range(1, n_param, length=n_param) ]
     priors = ParameterDistribution(prior_dist, constraints, param_names)
+    return priors
+end
 
-    #########
-    #########  Define simulation parameters and data directories
-    #########
-    les_root = "/groups/esm/ilopezgo"
+""" Define reference simulations for loss function"""
+function construct_reference_models()::Vector{ReferenceModel}
+    les_root = "/Users/haakon/Documents/CliMA/SEDMF/LES_data"  # "/groups/esm/ilopezgo"
     scm_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
 
     # Calibrate using reference data and options described by the ReferenceModel struct.
@@ -64,27 +63,37 @@ function run_calibrate()
     ref_models::Vector{ReferenceModel} = [ref_bomex]
     @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
 
+    return ref_models
+end
+
+function run_calibrate()
+    #########
+    #########  Define the parameters and their priors
+    #########
+    priors = construct_priors()
+    
+
+    #########
+    #########  Define simulation parameters and data directories
+    #########
+    ref_models = construct_reference_models()
+
     outdir_root = pwd()
     # Define preconditioning and regularization of inverse problem
     perform_PCA = true # Performs PCA on data
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    perfect_model = false  
-    # Whether to save full data from each ensemble member simulation
-    save_full_EDMF_data = false
+    model_type::Symbol = :scm  # :les or :scm
+    # Flags for saving output data
+    save_eki_data = true  # eki output
+    save_ensemble_data = false  # .nc-files from each ensemble run
 
     #########
     #########  Retrieve true LES samples from PyCLES data and transform
     #########
     
     # Compute data covariance
-    Γy, pool_var_list, yt, yt_big, P_pca_list, yt_var_big = compute_data_covariance(
-        ref_models, perform_PCA=perform_PCA, perfect_model=perfect_model,
-    )
-    d = length(yt) # Length of data array
-
-    n_samples = 1
-    samples = zeros(n_samples, length(yt))
-    samples[1,:] = yt
+    ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA)
+    d = length(ref_stats.y) # Length of data array
 
     #########
     #########  Calibrate: Ensemble Kalman Inversion
@@ -98,15 +107,16 @@ function run_calibrate()
     println("NUMBER OF ITERATIONS: $N_iter")
 
     initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
-    ekobj = EnsembleKalmanProcess(initial_params, yt, Γy, algo )
+    ekobj = EnsembleKalmanProcess(initial_params, ref_stats.y, ref_stats.Γ, algo )
 
     # Define caller function
     @everywhere g_(x::Vector{FT}) where FT<:Real = run_SCM(
-        x, $param_names, $ref_models, P_pca_list = $P_pca_list, norm_var_list = $pool_var_list
+        x, $priors.names, $ref_models, $ref_stats,
     )
 
     # Create output dir
     algo_type = typeof(algo) == Sampler{Float64} ? "eks" : "eki"
+    n_param = length(priors.names)
     outdir_path = joinpath(outdir_root, "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$d")
     println("Name of outdir path for this EKP is: $outdir_path")
     mkpath(outdir_path)
@@ -141,7 +151,7 @@ function run_calibrate()
         println("\nEnsemble updated. Saving results to file...\n")
 
         # Get normalized error for full dimensionality output
-        push!(norm_err_list, compute_errors(g_ens_arr, yt_big))
+        push!(norm_err_list, compute_errors(g_ens_arr, ref_stats.y_full))
         norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
         # Store full dimensionality output
         push!(g_big_list, g_ens_arr)
@@ -149,7 +159,7 @@ function run_calibrate()
         # Convert to arrays
         phi_params = Array{Array{Float64,2},1}(transform_unconstrained_to_constrained(priors, get_u(ekobj)))
         phi_params_arr = zeros(i+1, n_param, N_ens)
-        g_big_arr = zeros(i, N_ens, length(yt_big))
+        g_big_arr = zeros(i, N_ens, full_length(ref_stats))
         for (k,elem) in enumerate(phi_params)
             phi_params_arr[k,:,:] = elem
             if k < i + 1
@@ -157,26 +167,28 @@ function run_calibrate()
             end
         end
 
-        # Save EKP information to JLD2 file
-        save(joinpath(outdir_path, "ekp.jld2"),
-            "ekp_u", transform_unconstrained_to_constrained(priors, get_u(ekobj)),
-            "ekp_g", get_g(ekobj),
-            "truth_mean", ekobj.obs_mean,
-            "truth_cov", ekobj.obs_noise_cov,
-            "ekp_err", ekobj.err,
-            "truth_mean_big", yt_big,
-            "truth_cov_big", yt_var_big,
-            "g_big", g_big_list,
-            "g_big_arr", g_big_arr,
-            "norm_err", norm_err_list,
-            "norm_err_arr", norm_err_arr,
-            "P_pca", P_pca_list,
-            "pool_var", pool_var_list,
-            "phi_params", phi_params_arr,
-        )
+        if save_eki_data
+            # Save EKP information to JLD2 file
+            save(joinpath(outdir_path, "ekp.jld2"),
+                "ekp_u", transform_unconstrained_to_constrained(priors, get_u(ekobj)),
+                "ekp_g", get_g(ekobj),
+                "truth_mean", ekobj.obs_mean,
+                "truth_cov", ekobj.obs_noise_cov,
+                "ekp_err", ekobj.err,
+                "truth_mean_big", ref_stats.y_full,
+                "truth_cov_big", ref_stats.Γ_full,
+                "P_pca", ref_stats.pca_vec,
+                "pool_var", ref_stats.norm_vec,
+                "g_big", g_big_list,
+                "g_big_arr", g_big_arr,
+                "norm_err", norm_err_list,
+                "norm_err_arr", norm_err_arr,
+                "phi_params", phi_params_arr,
+            )
+        end
 
         
-        if save_full_EDMF_data
+        if save_ensemble_data
             eki_iter_path = joinpath(outdir_path, "EKI_iter_$i")
             mkpath(eki_iter_path)
             save_full_ensemble_data(eki_iter_path, sim_dirs_arr, scm_names)
@@ -187,49 +199,6 @@ function run_calibrate()
     println( mean( transform_unconstrained_to_constrained(priors, get_u_final(ekobj)), dims=2) ) # Parameters are stored as columns
 end
 
-function compute_data_covariance(
-    RM::Vector{ReferenceModel}; perform_PCA, perfect_model=false,
-)
-    # Init arrays
-    yt = zeros(0)
-    yt_var_list = Array{Float64, 2}[]
-    yt_big = zeros(0)
-    yt_var_list_big = Array{Float64, 2}[]
-    P_pca_list = Matrix[]
-    pool_var_list = []
-
-    for m in RM
-        # Get SCM vertical levels for interpolation
-        z_scm = get_profile(scm_dir(m), ["z_half"])
-        # Get (interpolated and pool-normalized) observations, get pool variance vector
-        yt_, yt_var_, pool_var = get_obs(:les,
-            m, z_scm = z_scm, perfect_model = perfect_model
-        )
-        push!(pool_var_list, pool_var)
-        if perform_PCA
-            yt_pca, yt_var_pca, P_pca = obs_PCA(yt_, yt_var_)
-            append!(yt, yt_pca)
-            push!(yt_var_list, yt_var_pca)
-            push!(P_pca_list, P_pca)
-        else
-            append!(yt, yt_)
-            push!(yt_var_list, yt_var_)
-        end
-        # Save full dimensionality (normalized) output for error computation
-        append!(yt_big, yt_)
-        push!(yt_var_list_big, yt_var_)
-    end
-    # Construct global observational covariance matrix, TSVD
-    Γy = Matrix(BlockDiagonal(yt_var_list)) + 1e-3I
-    @assert isposdef(Γy)
-
-    yt_var_big = Matrix(BlockDiagonal(yt_var_list_big))
-    if perform_PCA
-        return Γy, pool_var_list, yt, yt_big, P_pca_list, yt_var_big
-    else
-        return Γy, pool_var_list, yt, yt_big, nothing, yt_var_big
-    end
-end
 
 """ Save full EDMF data from every ensemble"""
 function save_full_ensemble_data(save_path, sim_dirs_arr, scm_names)

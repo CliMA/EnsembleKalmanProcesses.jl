@@ -46,18 +46,74 @@ data_directory(root::S, name::S, suffix::S) where S<:AbstractString = joinpath(r
 namelist_directory(root::String, m::ReferenceModel) = namelist_directory(root, m.scm_name)
 namelist_directory(root::S, casename::S) where S<:AbstractString = joinpath(root, "namelist_$casename.in")
 
+num_vars(m::ReferenceModel) = length(m.y_names)
+
+
+Base.@kwdef struct ReferenceStatistics{FT <: Real}
+    "Reference data, length: nSim * n_vars * n_zLevels(possibly reduced by PCA)"
+    y::Vector{FT} # yt
+    "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"
+    Γ::Array{FT, 2}  # Γy
+    "Vector (length: nSim) of normalizing factors (length: n_vars)"
+    norm_vec::Vector{Array{FT, 1}}  # pool_var_list
+
+    "Vector (length: nSim) of PCA projection matrices with leading eigenvectors as columns"
+    pca_vec::Vector{Union{Array{FT, 2}, UniformScaling}}  # P_pca_list
+
+    "Full reference data vector, length: nSim * n_vars * n_zLevels"
+    y_full::Vector{FT}  # yt_big
+    "Full covariance matrix, dims: (y,y)"
+    Γ_full::Array{FT, 2}  # yt_var_big
+
+    function ReferenceStatistics(RM::Vector{ReferenceModel}, model_type::Symbol, perform_PCA::Bool, FT=Float64)
+        # Init arrays
+        y = FT[]  # yt
+        Γ_vec = Array{FT, 2}[]  # yt_var_list
+        y_full = FT[]  # yt_big
+        Γ_full_vec = Array{FT, 2}[]  # yt_var_list_big
+        pca_vec = []  # P_pca_list
+        norm_vec = Vector[]  # pool_var_list
+
+        for m in RM
+            # Get (interpolated and pool-normalized) observations, get pool variance vector
+            y_, y_var_, pool_var = get_obs(model_type,
+                m, z_scm = get_profile(scm_dir(m), ["z_half"]),
+            )
+            push!(norm_vec, pool_var)
+            if perform_PCA
+                y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_)
+                append!(y, y_pca)
+                push!(Γ_vec, y_var_pca)
+                push!(pca_vec, P_pca)
+            else
+                append!(y, y_)
+                push!(Γ_vec, y_var_)
+                push!(pca_vec, 1.0I)
+            end
+            # Save full dimensionality (normalized) output for error computation
+            append!(y_full, y_)
+            push!(Γ_full_vec, y_var_)
+        end
+        # Construct global observational covariance matrix, TSVD
+        Γ = Matrix(BlockDiagonal(Γ_vec)) + 1e-3I
+        @assert isposdef(Γ)
+    
+        Γ_full = Matrix(BlockDiagonal(Γ_full_vec))
+        return new{FT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
+    end
+end
+
+pca_length(RS::ReferenceStatistics) = length(RS.y)
+full_length(RS::ReferenceStatistics) = length(RS.y_full)
+
+
 """
     run_SCM(
-        u::Array{FT, 1},
-        u_names::Array{String, 1},
-        y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-        scm_data_root::String,
-        scm_names::Array{String, 1},
-        ti::Union{Array{FT,1}, Array{Array{FT,1},1}},
-        tf::Union{Array{FT,1}, Array{Array{FT,1},1}, Nothing} = nothing;
-        norm_var_list = nothing,
-        P_pca_list = nothing,
-    ) where {FT<:AbstractFloat}
+        u::Vector{FT},
+        u_names::Vector{String},
+        RM::Vector{ReferenceModel},
+        RS::ReferenceStatistics,
+    ) where FT<:Real
 
 Run the single-column model (SCM) using a set of parameters u 
 and return the value of outputs defined in y_names, possibly 
@@ -67,14 +123,8 @@ space using PCA.
 Inputs:
  - u                :: Values of parameters to be used in simulations.
  - u_names          :: SCAMPy names for parameters `u`.
- - y_names          :: Name of outputs requested for each flow configuration.
- - scm_data_root    :: Path to input data for the SCM model.
- - scm_names        :: Names of SCAMPy cases
- - ti               :: Vector of starting times for observation intervals. 
-                        If `tf=nothing`, snapshots at `ti` are returned.
- - tf               :: Vector of ending times for observation intervals.
- - norm_var_list    :: Pooled variance vectors. If given, use to normalize output.
- - P_pca_list       :: Vector of projection matrices `P_pca` for each flow configuration.
+ - RM               :: Vector of `ReferenceModel`s
+ - RS               :: reference statistics for simulation
 Outputs:
  - sim_dirs         :: Vector of simulation output directories
  - g_scm            :: Vector of model evaluations concatenated for all flow configurations.
@@ -83,9 +133,8 @@ Outputs:
 function run_SCM(
     u::Vector{FT},
     u_names::Vector{String},
-    RM::Vector{ReferenceModel};
-    norm_var_list = nothing,
-    P_pca_list = nothing,
+    RM::Vector{ReferenceModel},
+    RS::ReferenceStatistics,
 ) where FT<:Real
 
     g_scm = zeros(0)
@@ -101,38 +150,31 @@ function run_SCM(
         push!(sim_dirs, sim_dir)
 
         g_scm_flow = get_profile(m, sim_dir)
-        if !isnothing(norm_var_list)
-            g_scm_flow = normalize_profile(g_scm_flow, length(m.y_names), norm_var_list[i])
-        end
+        # normalize
+        g_scm_flow = normalize_profile(g_scm_flow, length(m.y_names), RS.norm_vec[i])
         append!(g_scm, g_scm_flow)
 
         # perform PCA reduction
-        if !isnothing(P_pca_list)
-            append!(g_scm_pca, P_pca_list[i]' * g_scm_flow)
-        end
+        append!(g_scm_pca, RS.pca_vec[i]' * g_scm_flow)
     end
 
     # penalize nan-values in output
     any(isnan.(g_scm)) && warn("NaN-values in output data")
     g_scm[isnan.(g_scm)] .= 1e5
 
-    if !isnothing(P_pca_list)
-        g_scm_pca[isnan.(g_scm_pca)] .= 1e5
-        println("LENGTH OF G_SCM_ARR : ", length(g_scm))
-        println("LENGTH OF G_SCM_ARR_PCA : ", length(g_scm_pca))
-        return sim_dirs, g_scm, g_scm_pca
-    else
-        return sim_dirs, g_scm, nothing
-    end
+    g_scm_pca[isnan.(g_scm_pca)] .= 1e5
+    println("LENGTH OF G_SCM_ARR : ", length(g_scm))
+    println("LENGTH OF G_SCM_ARR_PCA : ", length(g_scm_pca))
+    return sim_dirs, g_scm, g_scm_pca
 end
 
 
 """
-    function run_SCM_handler(
-        u::Array{FT, 1},  
+    run_SCM_handler(
+        m::ReferenceModel,
+        tmpdir::String,
+        u::Array{FT, 1},
         u_names::Array{String, 1},
-        scm_names::String,
-        scm_data_root::String,
     ) where {FT<:AbstractFloat}
 
 Run a list of cases using a set of parameters `u_names` with values `u`,
@@ -140,12 +182,12 @@ and return a list of directories pointing to where data is stored for
 each simulation run.
 
 Inputs:
- - u :: Values of parameters to be used in simulations.
- - u_names :: SCAMPy names for parameters `u`.
- - scm_names :: Names of SCAMPy cases to run
- - scm_data_root :: Path to SCAMPy case data (<scm_data_root>/Output.<scm_name>.00000)
+ - m            :: Reference model
+ - tmpdir       :: Directory to store simulation results in
+ - u            :: Values of parameters to be used in simulations.
+ - u_names      :: SCAMPy names for parameters `u`.
 Outputs:
- - output_dirs :: list of directories containing output data from the SCAMPy runs.
+ - output_dirs  :: list of directories containing output data from the SCAMPy runs.
 """
 function run_SCM_handler(
     m::ReferenceModel,
@@ -180,55 +222,51 @@ function run_SCM_handler(
     return data_directory(tmpdir, m.scm_name, uuid)
 end
 
+
 """
-    get_obs(y_names, sim_dir, ti, tf;
-            z_scm = nothing, normalize = false)
+    get_obs(
+        obs_type::Symbol,
+        m::ReferenceModel;
+        z_scm::Union{Vector{FT}, Nothing} = nothing,
+    ) where FT<:Real
 
 Get observations for variables y_names, interpolated to
 z_scm (if given), and possibly normalized with respect to the pooled variance.
 
 Inputs:
- - y_names :: Name of outputs requested for each flow configuration.
- - ti :: Vector of starting times for observation intervals. If tf=nothing,
-         snapshots at ti are returned.
- - tf :: Vector of ending times for observation intervals.
+ - obs_type     :: Either :les or :scm
+ - m            :: Reference model
  - z_scm :: If given, interpolate LES observations to given levels.
- - normalize :: If true, normalize observations and cov matrix by pooled variances.
- - perfect_model :: If true, the variable names are the same for the observation
-                    and the single column model.
 Outputs:
  - y_ :: Mean of observations, possibly interpolated to z_scm levels.
  - y_tvar :: Observational covariance matrix, possibly pool-normalized.
+ - pool_var :: Vector of vertically averaged time-variance, one entry for each variable
 """
 function get_obs(
     obs_type::Symbol,
     m::ReferenceModel;
     z_scm::Union{Vector{FT}, Nothing} = nothing,
-    normalize = true,
-    perfect_model = false,
 ) where FT<:Real
-    sim_dir = if obs_type == :scm
-        scm_dir(m)
+    les_names = get_les_names(m.y_names, les_dir(m))
+    
+    # True observables from SCM or LES depending on `obs_type` flag
+    y_names, sim_dir = if obs_type == :scm
+        m.y_names, scm_dir(m)
     elseif obs_type == :les
-        les_dir(m)
+        les_names, les_dir(m)
     else
         error("Unknown observation type $obs_type")
     end
-    
-    y_names_les = if perfect_model 
-        m.y_names
-    else
-        get_les_names(m.y_names, sim_dir)
-    end
 
-    y_tvar, poolvar_vec = get_time_covariance(
-        m, sim_dir, y_names_les, z_scm=z_scm, normalize=normalize
+    # For now, we always use LES to construct covariance matrix
+    y_tvar, pool_var = get_time_covariance(
+        m, les_dir(m), les_names, z_scm=z_scm,
     )
 
-    y_highres = get_profile(sim_dir, y_names_les, ti = m.t_start, tf = m.t_end)
-    if normalize
-        y_highres = normalize_profile(y_highres, length(m.y_names), poolvar_vec)
-    end
+    # Get true observables
+    y_highres = get_profile(m, sim_dir, y_names)
+    # normalize
+    y_highres = normalize_profile(y_highres, num_vars(m), pool_var)
 
     if !isnothing(z_scm)
         y_ = zeros(0)
@@ -243,8 +281,9 @@ function get_obs(
     else
         y_ = y_highres
     end
-    return y_, y_tvar, poolvar_vec
+    return y_, y_tvar, pool_var
 end
+
 
 """
     obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
@@ -277,37 +316,16 @@ function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
     return y_pca, y_var_pca, P_pca
 end
 
-function interp_padeops(padeops_data,
-                    padeops_z,
-                    padeops_t,
-                    z_scm,
-                    t_scm
-                    )
-    # Weak verification of limits for independent vars 
-    @assert abs(padeops_z[end] - z_scm[end])/padeops_z[end] <= 0.1
-    @assert abs(padeops_z[end] - z_scm[end])/z_scm[end] <= 0.1
-
-    # Create interpolating function
-    padeops_itp = interpolate( (padeops_t, padeops_z), padeops_data,
-                ( Gridded(Linear()), Gridded(Linear()) ) )
-    return padeops_itp(t_scm, z_scm)
-end
-
-function padeops_m_σ2(padeops_data,
-                    padeops_z,
-                    padeops_t,
-                    z_scm,
-                    t_scm,
-                    dims_ = 1)
-    padeops_snapshot = interp_padeops(padeops_data,padeops_z,padeops_t,z_scm, t_scm)
-    # Compute variance along axis dims_
-    padeops_var = cov(padeops_data, dims=dims_)
-    return padeops_snapshot, padeops_var
-end
 
 function get_profile(m::ReferenceModel, sim_dir::String) 
-    get_profile(sim_dir, m.y_names, ti=m.t_start, tf=m.t_end)
+    get_profile(m, sim_dir, m.y_names)
 end
+
+
+function get_profile(m::ReferenceModel, sim_dir::String, y_names::Vector{String})
+    get_profile(sim_dir, y_names, ti=m.t_start, tf=m.t_end)
+end
+
 
 function get_profile(
     sim_dir::String,
@@ -359,6 +377,7 @@ function get_profile(
     return prof_vec 
 end
 
+
 """
     normalize_profile(profile_vec, var_name, var_vec)
 
@@ -376,6 +395,7 @@ function normalize_profile(profile_vec, n_vars, var_vec)
     end
     return prof_vec
 end
+
 
 """
     get_time_covariance(sim_dir::String,
@@ -401,7 +421,6 @@ function get_time_covariance(
     var_names::Vector{String};
     getFullHeights=false,
     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
-    normalize=false,
 )
 
     t = nc_fetch(sim_dir, "timeseries", "t")
@@ -410,7 +429,7 @@ function get_time_covariance(
     tf_index = argmin( broadcast(abs, t.-m.t_end) )
     ts_vec = zeros(0, length(ti_index:tf_index))
     num_outputs = length(var_names)
-    poolvar_vec = zeros(num_outputs)
+    pool_var = zeros(num_outputs)
 
     for i in 1:num_outputs
         var_ = nc_fetch(sim_dir, "profiles", var_names[i])
@@ -420,8 +439,9 @@ function get_time_covariance(
             var_ = var_.*rho_half
         end
         # Store pooled variance
-        poolvar_vec[i] = mean(var(var_[:, ti_index:tf_index], dims=2))  # vertically averaged time-variance of variable
-        ts_var_i = normalize ? var_[:, ti_index:tf_index]./ sqrt(poolvar_vec[i]) : var_[:, ti_index:tf_index]
+        pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims=2))  # vertically averaged time-variance of variable
+        # normalize timeseries
+        ts_var_i = var_[:, ti_index:tf_index]./ sqrt(pool_var[i])
         # Interpolate in space
         if !isnothing(z_scm)
             z_les = getFullHeights ? get_profile(sim_dir, ["z"]) : get_profile(sim_dir, ["z_half"])
@@ -437,8 +457,9 @@ function get_time_covariance(
         ts_vec = cat(ts_vec, ts_var_i, dims=1)  # dims: (Nz*num_outputs, Nt)
     end
     cov_mat = cov(ts_vec, dims=2)  # covariance, w/ samples across time dimension (t_inds).
-    return cov_mat, poolvar_vec
+    return cov_mat, pool_var
 end
+
 
 function get_les_names(scm_y_names::Array{String,1}, sim_dir::String)
     y_names = deepcopy(scm_y_names)
@@ -469,6 +490,7 @@ function get_les_names(scm_y_names::Array{String,1}, sim_dir::String)
     return y_names
 end
 
+
 function nc_fetch(dir, nc_group, var_name)
     find_prev_to_name(x) = occursin("Output", x)
     split_dir = split(dir, ".")
@@ -480,85 +502,6 @@ function nc_fetch(dir, nc_group, var_name)
     return Array(ds_var)
 end
 
-"""
-agg_clima_ekp(n_params::Integer, output_name::String="ekp_clima")
-
-Aggregate all iterations of the parameter ensembles and write to file.
-"""
-function agg_clima_ekp(n_params::Integer, output_name::String="ekp_clima")
-    # Get versions
-    version_files = glob("versions_*.txt")
-    # Recover parameters of last iteration
-    last_up_versions = readlines(version_files[end])
-    
-    ens_all = Array{Float64, 2}[]
-    for (it_num, file) in enumerate(version_files)
-        versions = readlines(file)
-        u = zeros(length(versions), n_params)
-        for (ens_index, version_) in enumerate(versions)
-            if it_num == length(version_files)
-                open("../../../ClimateMachine.jl/test/Atmos/EDMF/$(version_)", "r") do io
-                    u[ens_index, :] = [parse(Float64, line) for (index, line) in enumerate(eachline(io)) if index%3 == 0]
-                end
-            else
-                open("$(version_).output/$(version_)", "r") do io
-                    u[ens_index, :] = [parse(Float64, line) for (index, line) in enumerate(eachline(io)) if index%3 == 0]
-                end
-            end
-        end
-        push!(ens_all, u)
-    end
-    save( string(output_name,".jld"), "ekp_u", ens_all)
-    return
-end
-
-"""
-    precondition_ensemble!(params::Array{FT, 2}, priors, 
-        param_names::Vector{String}, ::Union{Array{String, 1}, Array{Array{String,1},1}}, 
-        ti::Union{FT, Array{FT,1}}, tf::Union{FT, Array{FT,1}};
-        lim::FT=1.0e3,) where {IT<:Int, FT}
-
-Substitute all unstable parameters by stable parameters drawn from 
-the same prior.
-"""
-function precondition_ensemble!(params::Array{FT, 2}, priors,
-    param_names::Vector{String}, y_names::Union{Array{String, 1}, Array{Array{String,1},1}},
-    scm_data_root::String, scm_names::Array{String, 1},
-    ti::Union{FT, Array{FT,1}};
-    tf::Union{FT, Array{FT,1}, Nothing}=nothing, lim::FT=1.0e4,) where {IT<:Int, FT}
-
-    # Check dimensionality
-    @assert length(param_names) == size(params, 1)
-    # Wrapper around SCAMPy in original output coordinates
-    g_(x::Array{Float64,1}) = run_SCM(
-        x, param_names, y_names, scm_data_root, scm_names, ti, tf,
-    )
-
-    params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, params))    
-    params_cons_i = [row[:] for row in eachrow(params_cons_i')]
-    N_ens = size(params_cons_i, 1)
-    g_ens_arr = pmap(g_, params_cons_i) # [N_ens N_output]
-    @assert size(g_ens_arr, 1) == N_ens
-    N_out = size(g_ens_arr, 2)
-    # If more than 1/4 of outputs are over limit lim, deemed as unstable simulation
-    uns_vals_frac = sum(count.(x->x>lim, g_ens_arr), dims=2)./N_out
-    unstable_point_inds = findall(x->x>0.25, uns_vals_frac)
-    println(string("Unstable parameter indices: ", unstable_point_inds))
-    # Recursively eliminate all unstable parameters
-    if !isempty(unstable_point_inds)
-        println(length(unstable_point_inds), " unstable parameters found:" )
-        for j in 1:length(unstable_point_inds)
-            println(params[:, unstable_point_inds[j]])
-        end
-        println("Sampling new parameters from prior...")
-        new_params = construct_initial_ensemble(priors, length(unstable_point_inds))
-        precondition_ensemble!(new_params, priors, param_names,
-            y_names, scm_data_root, scm_names, ti, tf=tf, lim=lim)
-        params[:, unstable_point_inds] = new_params
-    end
-    println("\nPreconditioning finished.")
-    return
-end
 
 """
     compute_errors(g_arr, y)
@@ -571,94 +514,3 @@ function compute_errors(g_arr, y)
     errors = map(x->dot(x,x), diffs)
     return errors
 end
-
-"""
-    cov_from_cov_list(cov_list::Array{Array{FT,2},1}; indices=nothing)
-
-Returns a block-diagonal covariance matrix constructed from covariances
-within cov_list given by the indices. If isempty(indices), use all 
-covariances to construct block-diagonal matrix.
-"""
-function cov_from_cov_list(cov_list::Array{Array{FT,2},1};
-         indices=[]) where {FT<:AbstractFloat}
-    size_ = isempty(indices) ? sum([length(cov[1,:]) for cov in cov_list]) :
-        sum([length(cov[1,:]) for (i, cov) in enumerate(cov_list) if i in indices])
-
-    cov_ = zeros(size_, size_)
-    vars_num = 1
-    for (index, small_cov) in enumerate(cov_list)
-        if index in indices
-            vars = length(small_cov[1,:])
-            cov_[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = small_cov
-            vars_num = vars_num+vars
-        end
-    end
-    return cov_
-end
-
-"""
-    vec_from_vec_list(vec_list::Array{Array{FT,1},1}; indices=[], return_mapping=false)
-
-Returns a vector constructed from vectors within vec_list given by the
-indices. If isempty(indices), use all vectors to construct returned vector.
-If return_mapping, function returns the positions of all the elements used
-to construct the returned vector.
-"""
-function vec_from_vec_list(vec_list::Array{Array{FT,1},1};
-         indices=[], return_mapping=false) where {FT<:AbstractFloat}
-    vector_ = zeros(0)
-    elmt_num = []
-    chosen_elmt_num = []
-    for (index, small_vec) in enumerate(vec_list)
-        index < 2 ? append!(elmt_num, 1:length(small_vec)) :
-                    append!(elmt_num, elmt_num[end]+1:elmt_num[end]+length(small_vec))
-        if index in indices
-            append!(vector_, small_vec)
-            append!(chosen_elmt_num, elmt_num[end] - length(small_vec) + 1 : elmt_num[end])
-        end
-    end
-    if return_mapping
-        return vector_, chosen_elmt_num
-    else
-        return vector_
-    end
-end
-
-"""
-    logmean_and_logstd(μ, σ)
-
-Returns the lognormal parameters μ and σ from the mean μ and std σ of the 
-lognormal distribution.
-"""
-function logmean_and_logstd(μ, σ)
-    σ_log = sqrt(log(1.0 + σ^2/μ^2))
-    μ_log = log(μ / (sqrt(1.0 + σ^2/μ^2)))
-    return μ_log, σ_log
-end
-
-"""
-    logmean_and_logstd_from_mode_std(μ, σ)
-
-Returns the lognormal parameters μ and σ from the mode and the std σ of the 
-lognormal distribution.
-"""
-function logmean_and_logstd_from_mode_std(mode, σ)
-    σ_log = sqrt( log(mode)*(log(σ^2)-1.0)/(2.0-log(σ^2)*3.0/2.0) )
-    μ_log = log(mode) * (1.0-log(σ^2)/2.0)/(2.0-log(σ^2)*3.0/2.0)
-    return μ_log, σ_log
-end
-
-"""
-    mean_and_std_from_ln(μ, σ)
-
-Returns the mean and variance of the lognormal distribution
-from the lognormal parameters μ and σ.
-"""
-function mean_and_std_from_ln(μ_log, σ_log)
-    μ = exp(μ_log + σ_log^2/2)
-    σ = sqrt( (exp(σ_log^2) - 1)* exp(2*μ_log + σ_log^2) )
-    return μ, σ
-end
-
-log_transform(a::AbstractArray) = log.(a)
-exp_transform(a::AbstractArray) = exp.(a)
