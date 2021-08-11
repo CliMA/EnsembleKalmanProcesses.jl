@@ -18,9 +18,9 @@ Before calibration, we need to compile the project. Note that each example in En
 
 >> julia> ]
 
->> pkg> dev path/to/EnsembleKalmanProcesses.jl
-
 >> pkg> dev path/to/TurbulenceConvection.jl
+
+>> pkg> dev path/to/EnsembleKalmanProcesses.jl
 
 >> pkg> instantiate
 
