@@ -95,7 +95,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
             push!(Γ_full_vec, y_var_)
         end
         # Construct global observational covariance matrix, TSVD
-        Γ = Matrix(BlockDiagonal(Γ_vec)) + 1e-3I
+        Γ = Matrix(BlockDiagonal(Γ_vec)) #+ 1e-3I
         @assert isposdef(Γ)
     
         Γ_full = Matrix(BlockDiagonal(Γ_full_vec))

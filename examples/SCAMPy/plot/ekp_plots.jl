@@ -6,7 +6,7 @@ using Statistics
 inpath = pwd()          # path to directory of jld2 ekp file
 outpath = pwd()         # path to directory where output plots should be stored
 ekp_path = "ekp.jld2"   # name of ekp data file
-param_names = ["entrainment", "detrainment"]  # name of parameters that were calibrated
+n_param = length(param_names)
 
 # Load data
 data = load(joinpath(inpath, ekp_path))
@@ -14,26 +14,26 @@ data = load(joinpath(inpath, ekp_path))
 # Mean
 phi_m = mean(data["phi_params"], dims=3)[:,:,1]
 # Variance
-_uvar = var.(data["ekp_u"], dims=2)
-n_iter = length(_uvar); n_param = length(_uvar[1])
-uvar = zeros((n_iter, n_param))
-for i in 1:n_iter uvar[i,:] = _uvar[i] end
+_ustd = std.(data["ekp_u"], dims=2)
+n_iter = length(_ustd); n_param = length(_ustd[1])
+ustd = zeros((n_iter, n_param))
+for i in 1:n_iter ustd[i,:] = _ustd[i] end
 
 # plot parameter evolution
-fig, axs = subplots(nrows=n_param, sharex=true)
+fig, axs = subplots(nrows=n_param, sharex=true, figsize=(15, 4*n_param))
 x = 0:n_iter-1
 for (i, ax) in enumerate(axs)
     ax.plot(x, phi_m[:,i])
     ax.fill_between(x, 
-        phi_m[:,i].-uvar[:,i], 
-        phi_m[:,i].+uvar[:,i], 
+        phi_m[:,i].-2ustd[:,i], 
+        phi_m[:,i].+2ustd[:,i], 
         alpha=0.5,
     )
     ax.set_ylabel(param_names[i])
 end
 
 axs[1].set_xlim(0,n_iter-1)
-axs[1].set_title("Parameter evolution")
+axs[1].set_title("Parameter evolution (mean ±2 std)")
 axs[end].set_xlabel("iteration")
 savefig(joinpath(outpath, "param_evol.png"))
 

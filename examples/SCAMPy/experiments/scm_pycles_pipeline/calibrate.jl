@@ -41,8 +41,7 @@ end
 
 """ Define reference simulations for loss function"""
 function construct_reference_models()::Vector{ReferenceModel}
-    les_root = "/Users/haakon/Documents/CliMA/SEDMF/LES_data"  # "/groups/esm/ilopezgo"
-    scm_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
+    les_root = "/groups/esm/zhaoyi/pycles_clima"
 
     # Calibrate using reference data and options described by the ReferenceModel struct.
     ref_bomex = ReferenceModel(
@@ -51,13 +50,13 @@ function construct_reference_models()::Vector{ReferenceModel}
         # Reference data specification
         les_root = les_root,
         les_name = "Bomex",
-        les_suffix = "may18",
+        les_suffix = "aug09",
         # Simulation case specification
         scm_root = scm_root,
         scm_name = "Bomex",
         # Define observation window (s)
         t_start = 4.0 * 3600,  # 4hrs
-        t_end = 6.0 * 3600,  # 6hrs
+        t_end = 24.0 * 3600,  # 6hrs
     )
     # Make vector of reference models
     ref_models::Vector{ReferenceModel} = [ref_bomex]
@@ -82,7 +81,7 @@ function run_calibrate()
     # Define preconditioning and regularization of inverse problem
     perform_PCA = true # Performs PCA on data
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    model_type::Symbol = :scm  # :les or :scm
+    model_type::Symbol = :les  # :les or :scm
     # Flags for saving output data
     save_eki_data = true  # eki output
     save_ensemble_data = false  # .nc-files from each ensemble run
@@ -100,8 +99,8 @@ function run_calibrate()
     #########
 
     algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors))
-    N_ens = 1 # number of ensemble members
-    N_iter = 1 # number of EKP iterations.
+    N_ens = 20 # number of ensemble members
+    N_iter = 10 # number of EKP iterations.
     Δt = 1.0 # Artificial time stepper of the EKI.
     println("NUMBER OF ENSEMBLE MEMBERS: $N_ens")
     println("NUMBER OF ITERATIONS: $N_iter")
