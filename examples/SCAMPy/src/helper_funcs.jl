@@ -65,7 +65,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
     "Full covariance matrix, dims: (y,y)"
     Γ_full::Array{FT, 2}  # yt_var_big
 
-    function ReferenceStatistics(RM::Vector{ReferenceModel}, model_type::Symbol, perform_PCA::Bool, FT=Float64)
+    function ReferenceStatistics(RM::Vector{ReferenceModel}, model_type::Symbol, perform_PCA::Bool, normalize::Bool, FT=Float64)
         # Init arrays
         y = FT[]  # yt
         Γ_vec = Array{FT, 2}[]  # yt_var_list
@@ -77,8 +77,9 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         for m in RM
             # Get (interpolated and pool-normalized) observations, get pool variance vector
             y_, y_var_, pool_var = get_obs(model_type,
-                m, z_scm = get_profile(scm_dir(m), ["z_half"]),
+                m, z_scm = get_profile(scm_dir(m), ["z_half"]), normalize,
             )
+
             push!(norm_vec, pool_var)
             if perform_PCA
                 y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_)
@@ -244,7 +245,8 @@ Outputs:
 """
 function get_obs(
     obs_type::Symbol,
-    m::ReferenceModel;
+    m::ReferenceModel,
+    normalize::Bool;
     z_scm::Union{Vector{FT}, Nothing} = nothing,
 ) where FT<:Real
     les_names = get_les_names(m.y_names, les_dir(m))
@@ -263,10 +265,16 @@ function get_obs(
         m, les_dir(m), les_names, z_scm=z_scm,
     )
 
+    norm_vec = if normalize
+        pool_var
+    else
+        ones(size(pool_var))
+    end
+
     # Get true observables
     y_highres = get_profile(m, sim_dir, y_names)
     # normalize
-    y_highres = normalize_profile(y_highres, num_vars(m), pool_var)
+    y_highres = normalize_profile(y_highres, num_vars(m), norm_vec)
 
     if !isnothing(z_scm)
         y_ = zeros(0)
@@ -281,7 +289,7 @@ function get_obs(
     else
         y_ = y_highres
     end
-    return y_, y_tvar, pool_var
+    return y_, y_tvar, norm_vec
 end
 
 

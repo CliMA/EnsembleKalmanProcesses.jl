@@ -80,6 +80,7 @@ function run_calibrate()
     outdir_root = pwd()
     # Define preconditioning and regularization of inverse problem
     perform_PCA = true # Performs PCA on data
+    normalize = true  # whether to normalize data by pooled variance
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     model_type::Symbol = :les  # :les or :scm
     # Flags for saving output data
@@ -91,7 +92,7 @@ function run_calibrate()
     #########
     
     # Compute data covariance
-    ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA)
+    ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA, normalize)
     d = length(ref_stats.y) # Length of data array
 
     #########
