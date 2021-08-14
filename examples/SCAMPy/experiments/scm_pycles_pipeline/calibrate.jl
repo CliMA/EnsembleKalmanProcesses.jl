@@ -20,6 +20,7 @@
 @everywhere using EnsembleKalmanProcesses.Observations
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
 @everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
+include(joinpath(@__DIR__, "../../src/ekp_plots.jl"))
 using JLD2
 
 
@@ -185,6 +186,9 @@ function run_calibrate()
                 "norm_err_arr", norm_err_arr,
                 "phi_params", phi_params_arr,
             )
+
+            # make ekp plots
+            make_ekp_plots(outdir_path, priors.names)
         end
 
         
