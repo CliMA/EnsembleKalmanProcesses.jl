@@ -3,7 +3,6 @@ using Statistics
 using Interpolations
 using LinearAlgebra
 using Glob
-using JLD
 using JSON
 using Random
 # EKP modules
