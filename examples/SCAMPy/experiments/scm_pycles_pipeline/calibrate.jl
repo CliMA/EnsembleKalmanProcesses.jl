@@ -66,7 +66,7 @@ function construct_reference_models()::Vector{ReferenceModel}
     return ref_models
 end
 
-function run_calibrate()
+function run_calibrate(return_ekobj=false)
     #########
     #########  Define the parameters and their priors
     #########
@@ -201,6 +201,10 @@ function run_calibrate()
     # EKP results: Has the ensemble collapsed toward the truth?
     println("\nEKP ensemble mean at last stage (original space):")
     println( mean( transform_unconstrained_to_constrained(priors, get_u_final(ekobj)), dims=2) ) # Parameters are stored as columns
+
+    if return_ekobj
+        return ekobj, outdir_path
+    end
 end
 
 
