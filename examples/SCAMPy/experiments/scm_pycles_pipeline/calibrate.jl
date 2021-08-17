@@ -107,6 +107,7 @@ function run_calibrate(return_ekobj=false)
     println("NUMBER OF ENSEMBLE MEMBERS: $N_ens")
     println("NUMBER OF ITERATIONS: $N_iter")
 
+    # parameters are sampled in unconstrained space
     initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
     ekobj = EnsembleKalmanProcess(initial_params, ref_stats.y, ref_stats.Γ, algo )
 
@@ -127,10 +128,9 @@ function run_calibrate(return_ekobj=false)
     norm_err_list = []
     g_big_list = []
     for i in 1:N_iter
-        # Note that the parameters are transformed when used as input to TurbulenceConvection.jl
-        params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
-            get_u_final(ekobj)) )
-        params = [row[:] for row in eachrow(params_cons_i')]
+        # Parameters are transformed to constrained space when used as input to TurbulenceConvection.jl
+        params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
+        params = [c[:] for c in eachcol(params_cons_i)]
         @everywhere params = $params
         array_of_tuples = pmap(g_, params) # Outer dim is params iterator
         (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),3) # Outer dim is G̃, G 
