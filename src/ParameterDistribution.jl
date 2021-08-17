@@ -179,7 +179,7 @@ struct ParameterDistribution{PDType <: ParameterDistributionType, CType <: Const
         n_dists = length(parameter_distributions)
         n_names = length(names)
         if !(n_parameters_per_dist == n_constraints_per_dist)
-            throw(DimensionMismatch("There must be one constraint per parameter in a distribution, use NoConstraint() type if no constraint is required"))
+            throw(DimensionMismatch("There must be one constraint per parameter in a distribution, use no_constraint() type if no constraint is required"))
         elseif !(n_dists == n_names)
             throw(DimensionMismatch("There must be one name per parameter distribution"))
         else            

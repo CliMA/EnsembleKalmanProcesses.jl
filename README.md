@@ -24,6 +24,10 @@ Implements Optimization and approximate uncertainty quantification algorithms, E
 [codecov-img]: https://codecov.io/gh/CliMA/EnsembleKalmanProcesses.jl/branch/main/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/CliMA/EnsembleKalmanProcesses.jl
 
+### Requirements
+Julia version 1.5+ 
+
+
 ### Project Mind map
 The latest code structure is found at:
 https://miro.com/app/board/o9J_kkm8OGU=/

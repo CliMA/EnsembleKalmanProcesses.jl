@@ -17,7 +17,6 @@ using EnsembleKalmanProcesses.Observations
     @test obs.obs_noise_cov == 2.5 * ones(3, 3)
 
     # Generate samples as vector of vectors, pass a covariance to Obs
-
     covar = ones(sample_dim, sample_dim)
     obs = Obs(samples, covar, data_names)
     @test obs.obs_noise_cov == covar
@@ -38,20 +37,69 @@ using EnsembleKalmanProcesses.Observations
     @test_throws AssertionError Obs(samples, covar_wrong_dims, data_names)
     @test_throws AssertionError Obs(samples_t, covar, data_names) #as default is data are columns
 
-
-    # Generate a single sample (a column vector)
+    ## Edge cases:
+    # Generating a single sample (a column vector)
     sample = reshape([1.0, 2.0, 3.0], 3, 1)
     data_name = "d1"
     obs = Obs(sample, data_name)
     @test obs.mean == vec(sample)
     @test obs.obs_noise_cov == nothing
 
-    # Generate 1D-samples (data are columns of the row vector) -- this should result in scalar
-    # values for the mean and obs_nosie_cov
+    #Generating a single sample (vector of vector)
+    sample = [[1.0, 2.0, 3.0]]
+    data_name = "d1"
+    obs = Obs(sample, data_name)
+    @test obs.mean == sample[1]
+    @test obs.obs_noise_cov == nothing
+
+    # Generating a single sample with cov (a column vector)
+    sample = reshape([1.0, 2.0, 3.0], 3, 1)
+    obs_noise_cov = ones(3,3)
+    data_name = "d1"
+    obs = Obs(sample, obs_noise_cov, data_name)
+    @test obs.mean == vec(sample)
+    @test obs.obs_noise_cov == obs_noise_cov
+
+    #Generating a single sample with cov (vector of vector)
+    sample = [[1.0, 2.0, 3.0]]
+    obs_noise_cov = ones(3,3)
+    data_name = "d1"
+    obs = Obs(sample, obs_noise_cov, data_name)
+    @test obs.mean == sample[1]
+    @test obs.obs_noise_cov == obs_noise_cov
+
+    # Generate 1D-samples (data are columns of the row vector) -- this should result in scalar values for the mean and obs_noise_cov
     sample = reshape([1.0, 2.0, 3.0], 1, 3)
     data_name = "d1"
     obs = Obs(sample, data_name)
     @test obs.mean == 2.0
     @test obs.obs_noise_cov == 1.0
+
+    # Generate 1D-samples (Vector of vector)
+    sample = [[1.0], [2.0], [3.0]]
+    data_name = "d1"
+    obs = Obs(sample, data_name)
+    @test obs.mean == 2.0
+    @test obs.obs_noise_cov == 1.0
+    
+    # Generate 1D-samples, but also passing a known "1x1 covarince matrix" (stored as a variance)
+    # (data are columns of the row vector)
+    # this should result in scalar values for the mean and obs_noise_cov
+    sample = reshape([1.0, 2.0, 3.0], 1, 3)
+    obs_noise_cov = reshape([3.0],1,1) #needs to be of type Array{,2}
+    data_name = "d1"
+    obs = Obs(sample, obs_noise_cov, data_name)
+    @test obs.mean == 2.0
+    @test obs.obs_noise_cov == 3.0
+
+    # Generate 1D-samples, but also passing a known "1x1 covarince matrix"
+    # (data are vector of vectors)
+    sample = [[1.0], [2.0], [3.0]]
+    obs_noise_cov = reshape([3.0],1,1) #needs to be of type Array{,2}
+    data_name = "d1"
+    obs = Obs(sample, obs_noise_cov, data_name)
+    @test obs.mean == 2.0
+    @test obs.obs_noise_cov == 3.0
+    
 end
 

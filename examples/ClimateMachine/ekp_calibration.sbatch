@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1       # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1         # number of nodes
 #SBATCH --mem-per-cpu=6G   # memory per CPU core
-#SBATCH -J "ces_call"   # job name
+#SBATCH -J "ekp_call"   # job name
 
 # Size of the ensemble
 n=10

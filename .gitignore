@@ -20,3 +20,4 @@ Manifest.toml
 # Ignore output folders
 **/results_*
 **/jl_*
+examples/Lorenz/output

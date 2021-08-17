@@ -7,13 +7,19 @@ using Documenter
 
 #----------
 
-api = ["EnsembleKalmanProcessModule" => "API/EnsembleKalmanProcessModule.md",
-       "ParameterDistribution" => "API/ParameterDistribution.md",
-       "Observations" => "API/Observations.md",
-       "DataStorage" => "API/DataStorage.md",
+api = [
+    "EnsembleKalmanProcessModule" => "API/EnsembleKalmanProcessModule.md",
+    "ParameterDistribution"       => "API/ParameterDistribution.md",
+    "Observations"                => "API/Observations.md",
+    "DataStorage"                 => "API/DataStorage.md",
 ] 
 
-examples = ["Template example" => "examples/template_example.md"]
+examples = [
+    "Template Example"  => "examples/template_example.md",
+    "Cloudy Example"    => "examples/Cloudy_example.md",
+    "Lorenz Example"    => "examples/lorenz_example.md",
+    "HPC interfacing example: ClimateMachine"    => "examples/ClimateMachine_example.md"
+]
 
 pages = [
     "Home" => "index.md",
@@ -22,6 +28,7 @@ pages = [
     "Observations" => "observations.md",
     "Ensemble Kalman Inversion" => "ensemble_kalman_inversion.md",
     "Ensemble Kalman Sampler" => "ensemble_kalman_sampler.md",
+    "Unscented Kalman Inversion" => "unscented_kalman_inversion.md",
     "Examples" => examples,
     "API" => api,
     "Glossary" => "glossary.md",
