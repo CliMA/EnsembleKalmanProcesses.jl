@@ -5,9 +5,9 @@
 #SBATCH --time=06:00:00   # walltime
 #SBATCH --ntasks=20  # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1   # number of nodes
-#SBATCH --mail-type=BEGIN
-#SBATCH --mail-type=END
-#SBATCH --mail-type=FAIL
+##SBATCH --mail-type=BEGIN
+##SBATCH --mail-type=END
+##SBATCH --mail-type=FAIL
 #SBATCH -J "ekp_bomex"   # job name
 
 module purge
