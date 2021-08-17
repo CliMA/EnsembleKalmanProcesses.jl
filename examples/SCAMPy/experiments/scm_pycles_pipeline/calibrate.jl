@@ -42,7 +42,7 @@ end
 """ Define reference simulations for loss function"""
 function construct_reference_models()::Vector{ReferenceModel}
     les_root = "/groups/esm/zhaoyi/pycles_clima"
-    scm_root = pwd()
+    scm_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
 
     # Calibrate using reference data and options described by the ReferenceModel struct.
     ref_bomex = ReferenceModel(
@@ -119,7 +119,7 @@ function run_calibrate(return_ekobj=false)
     # Create output dir
     algo_type = typeof(algo) == Sampler{Float64} ? "eks" : "eki"
     n_param = length(priors.names)
-    outdir_path = joinpath(outdir_root, "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$d")
+    outdir_path = joinpath(outdir_root, "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(model_type)")
     println("Name of outdir path for this EKP is: $outdir_path")
     mkpath(outdir_path)
 
