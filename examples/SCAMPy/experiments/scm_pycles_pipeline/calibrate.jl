@@ -26,12 +26,15 @@ using JLD2
 """ Define parameters and their priors"""
 function construct_priors()
     # Define the parameters that we want to learn
-    param_names = ["entrainment_factor", "detrainment_factor"]
+    params = Dict(
+        # entrainment parameters
+        "entrainment_factor"        => [bounded(0.0, 1.5*0.33)],
+        "detrainment_factor"        => [bounded(0.0, 1.5*0.31)],
+    )
+    param_names = collect(keys(params))
+    constraints = collect(values(params))
     n_param = length(param_names)
 
-    # Prior information: Define transform to unconstrained gaussian space
-    constraints = [ [bounded(0.01, 0.3)],
-                    [bounded(0.01, 1.0)]]
     # All vars are standard Gaussians in unconstrained space
     prior_dist = [Parameterized(Normal(0.0, 1.0))
                     for _ in range(1, n_param, length=n_param) ]
