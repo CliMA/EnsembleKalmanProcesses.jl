@@ -60,7 +60,7 @@ function construct_reference_models()::Vector{ReferenceModel}
         scm_name = "Bomex",
         # Define observation window (s)
         t_start = 4.0 * 3600,  # 4hrs
-        t_end = 24.0 * 3600,  # 6hrs
+        t_end = 24.0 * 3600,  # 24hrs
     )
     # Make vector of reference models
     ref_models::Vector{ReferenceModel} = [ref_bomex]
