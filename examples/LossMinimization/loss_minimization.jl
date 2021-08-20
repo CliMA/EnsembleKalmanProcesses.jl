@@ -24,12 +24,13 @@ noise_level =  1e-8
 Γy = noise_level * Matrix(I, n_obs, n_obs) 
 noise = MvNormal(zeros(n_obs), Γy)
 
-# Loss Function (unique minimum)
-G₁(u) = [sqrt((u[1] - 1)^2 + (u[2] + 1)^2)]
-
 # Loss Function Minimum
-u_star = [1.0, -1.0]
-y_obs  = G(u_star) + 0 * rand(noise) 
+u★ = [1, -1]
+
+# Loss Function (unique minimum)
+G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
+
+y_obs  = G₁(u★) + 0 * rand(noise) 
 
 # Define Prior
 prior_distns = [Parameterized(Normal(0., sqrt(1))),
@@ -73,12 +74,12 @@ anim_unique_minimum = @animate for i in 1:N_iter
                   ylims = extrema(u_init[2, :])
              )
     
-    plot!([u_star[1]], xaxis="u1", yaxis="u2", seriestype="vline",
+    plot!([u★[1]], xaxis="u1", yaxis="u2", seriestype="vline",
         linestyle = :dash, linecolor = :red, label = false,
         title = "EKI iteration = " * string(i)
         )
         
-    plot!([u_star[2]],
+    plot!([u★[2]],
           seriestype = "hline",
            linestyle = :dash,
            linecolor = :red,
@@ -95,14 +96,13 @@ rng_seed = 10 # 10 converges to one minima 100 converges to the other
 Random.seed!(rng_seed)
 nothing # hide
 
+# Loss Function Minima
+u₁★ = [ 1, -1]
+u₂★ = [-1, -1]
+
 # Loss Function (two minima)
-G₂(u) = [abs((u[1] - 1) * (u[1] + 1))^2 + (u[2] + 1)^2]
-
-# Loss Function Minimum
-u_star1 = [1.0, -1.0]
-u_star2 = [-1.0, -1.0]
-
-G(u_star1)[1] == G(u_star2)[1]
+G₂(u) = [abs((u[1] - u₁★[1]) * (u[1] - u₂★[1]))^2 + (u[2] - u₁★[2])^2]
+G₂(u₁★)[1] == G₂(u₂★)[1]
 y_obs  = [0.0]
 
 # Define Prior
