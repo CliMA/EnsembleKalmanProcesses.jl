@@ -12,6 +12,13 @@ The extended eddy-diffusivity mass-flux closure is implemented as described in [
 
 **Equations**
 
+## Prerequisites
+
+In order to run this example, you need to clone the `TurbulenceConvection.jl` repo from GitHub.
+
+  >> git clone https://github.com/CliMA/TurbulenceConvection.jl
+
+You can find more information about `TurbulenceConvection.jl` [here](https://github.com/CliMA/TurbulenceConvection.jl/blob/main/README.md)
 
 ## Structure
 
@@ -25,11 +32,19 @@ params = Dict(
 ```
 as well as the names of the variables used in the loss function and location of reference data used to compute finite time-averaged statistics, which is stored in the `ReferenceModel` construct.
 
+A number of variables are exposed that allow you to select where to fetch input data, and where to store the output:
+
+- update `les_name`, `les_suffix` and `les_root` to use different LES reference data
+    - By default, Zhaoyi's bomex les data is used.
+- update `scm_name` and `scm_root` to point to another SCM reference folder. Note that `scm_root` should point to a directory containing the folder `Output.<scm_name>.00000`. This folder is read (but not modified) when running forward simulations and updating parameters. The LES data will be interpolated to the resolution defined by the `.nc` datafile in the Output folder.
+    - By default it points to Haakon's bomex scm data.
+- update `outdir_root` to point to a directory where the output folder will be placed. By default, it is the current directory.
+
 Various flags allow us to easily decide whether to `perform_PCA` on the reference statistics, `normalize` the reference and forward model statistics, use LES or SCM data as reference (`model_type`), and restrict which type of output data is stored (`save_eki_data`, `save_ensemble_data`). 
 
 For the inversion step, we also specify the number of ensemble members `N_ens` and the number of iterations of the inversion method `N_iter`.
 
-Several methods and structures that enamble computation of the forward model, retrieval of time-averaged statistics or performing PCA is stored in the `helper_funcs.jl` file in the `src` folder of the `SCM` example directory.
+Several methods and structures that enable computation of the forward model, retrieval of time-averaged statistics or performing PCA is stored in the `helper_funcs.jl` file in the `src` folder of the `SCM` example directory.
 
 
 ## Running the Example
