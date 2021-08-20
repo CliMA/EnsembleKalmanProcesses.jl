@@ -25,7 +25,7 @@ noise_level =  1e-8
 noise = MvNormal(zeros(n_obs), Γy)
 
 # Loss Function (unique minimum)
-G(u) = [sqrt((u[1] - 1)^2 + (u[2] + 1)^2)]
+G₁(u) = [sqrt((u[1] - 1)^2 + (u[2] + 1)^2)]
 
 # Loss Function Minimum
 u_star = [1.0, -1.0]
@@ -57,7 +57,7 @@ ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
     
-    g_ens = hcat([G(params_i[:, i]) for i in 1:N_ens]...)
+    g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ens]...)
     
     EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
 end
@@ -74,13 +74,19 @@ anim_unique_minimum = @animate for i in 1:N_iter
              )
     
     plot!([u_star[1]], xaxis="u1", yaxis="u2", seriestype="vline",
-        linestyle=:dash, linecolor=:red, label = false,
+        linestyle = :dash, linecolor = :red, label = false,
         title = "EKI iteration = " * string(i)
         )
-    plot!([u_star[2]], seriestype="hline", linestyle=:dash, linecolor=:red, label = "optimum")
+        
+    plot!([u_star[2]],
+          seriestype = "hline",
+           linestyle = :dash,
+           linecolor = :red,
+               label = "optimum"
+          )
 end
 
-mp4(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
+gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 
 # Now let's do a case in which the loss function has two minima.
 
@@ -90,7 +96,7 @@ Random.seed!(rng_seed)
 nothing # hide
 
 # Loss Function (two minima)
-G(u) = [abs((u[1] - 1) * (u[1] + 1))^2 + (u[2] + 1)^2]
+G₂(u) = [abs((u[1] - 1) * (u[1] + 1))^2 + (u[2] + 1)^2]
 
 # Loss Function Minimum
 u_star1 = [1.0, -1.0]
@@ -124,7 +130,7 @@ ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
 #
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
-    g_ens = hcat([G(params_i[:, i]) for i in 1:N_ens]...)
+    g_ens = hcat([G₂(params_i[:, i]) for i in 1:N_ens]...)
     EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
 end
 
@@ -142,13 +148,15 @@ anim_two_minima = @animate for i in 1:N_iter
         linestyle=:dash, linecolor=:red, label = false,
         title = "EKI iteration = " * string(i)
         )
+        
     plot!([-1], seriestype="hline", linestyle=:dash, linecolor=:red, label = "optima 1")
 
     plot!([-1], xaxis="u1", yaxis="u2", seriestype="vline",
         linestyle=:dash, linecolor=:green, label = false,
         title = "EKI iteration = " * string(i)
         )
+        
     plot!([-1], seriestype="hline", linestyle=:dash, linecolor=:green, label = "optima 2")
 end
 
-mp4(anim_two_minima, "two_minima.gif", fps = 1) # hide
+gif(anim_two_minima, "two_minima.gif", fps = 1) # hide
