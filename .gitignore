@@ -12,7 +12,7 @@
 data/
 docs/build/
 docs/site/
-docs/src/generated
+docs/src/literated
 coverage/
 *.jl.*.cov
 *.jl.mem

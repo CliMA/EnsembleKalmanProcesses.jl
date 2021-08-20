@@ -13,7 +13,7 @@ using
 ENV["GKSwstype"] = "100"
     
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
-const OUTPUT_DIR   = joinpath(@__DIR__, "src/generated")
+const OUTPUT_DIR   = joinpath(@__DIR__, "src/literated")
 
 examples_for_literation = [
     "LossMinimization/loss_minimization.jl"
@@ -37,7 +37,7 @@ examples = [
     "Template"          => "examples/template_example.md",
     "Cloudy"            => "examples/Cloudy_example.md",
     "Lorenz"            => "examples/lorenz_example.md",
-    "Minimization Loss" => "generated/loss_minimization.md",
+    "Minimization Loss" => "literated/loss_minimization.md",
     "HPC interfacing example: ClimateMachine"    => "examples/ClimateMachine_example.md"
 ]
 
@@ -64,10 +64,10 @@ format = Documenter.HTML(
 makedocs(
    sitename = "EnsembleKalmanProcesses.jl",
     authors = "CliMA Contributors",
-      format = format,
+     format = format,
       pages = pages,
     modules = [EnsembleKalmanProcesses],
-    doctest = false,
+    doctest = true,
      strict = true,
       clean = true,
   checkdocs = :none,
@@ -75,9 +75,9 @@ makedocs(
 
 if !isempty(get(ENV, "CI", ""))
   deploydocs(
-    repo = "github.com/CliMA/EnsembleKalmanProcesses.jl.git",
-    versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"],
+            repo = "github.com/CliMA/EnsembleKalmanProcesses.jl.git",
+        versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"],
     push_preview = true,
-    devbranch = "main",
+       devbranch = "main",
   )
 end
