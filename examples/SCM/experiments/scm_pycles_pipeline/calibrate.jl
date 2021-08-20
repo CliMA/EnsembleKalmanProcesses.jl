@@ -45,7 +45,7 @@ end
 """ Define reference simulations for loss function"""
 function construct_reference_models()::Vector{ReferenceModel}
     les_root = "/groups/esm/zhaoyi/pycles_clima"
-    scm_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
+    scm_root = "/groups/esm/hervik/calibration/static_input"  # path to folder with `Output.<scm_name>.00000` files
 
     # Calibrate using reference data and options described by the ReferenceModel struct.
     ref_bomex = ReferenceModel(
