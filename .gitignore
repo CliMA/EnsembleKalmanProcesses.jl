@@ -9,9 +9,11 @@
 *.png
 !docs/src/assets/*.png
 *.DS_Store
-docs/build/
 data/
+docs/build/
 docs/site/
+docs/src/generated
+coverage/
 *.jl.*.cov
 *.jl.mem
 deps/deps.jl

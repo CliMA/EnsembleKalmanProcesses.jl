@@ -4,9 +4,25 @@ prepend!(LOAD_PATH, [joinpath(@__DIR__, "..")])
 using
     EnsembleKalmanProcesses,
     Documenter,
+    Plots,  # so that Literate.jl does not capture precompilation output
     Literate
+
+# Gotta set this environment variable when using the GR run-time on CI machines.
+# This happens as examples will use Plots.jl to make plots and movies.
+# See: https://github.com/jheinen/GR.jl/issues/278
+ENV["GKSwstype"] = "100"
     
-# using DocumenterCitations
+const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
+const OUTPUT_DIR   = joinpath(@__DIR__, "src/generated")
+
+examples_for_literation = [
+    "LossMinimization/loss_minimization.jl"
+]
+
+for example in examples_for_literation
+    example_filepath = joinpath(EXAMPLES_DIR, example)
+    Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
+end
 
 #----------
 
@@ -18,9 +34,10 @@ api = [
 ] 
 
 examples = [
-    "Template Example"  => "examples/template_example.md",
-    "Cloudy Example"    => "examples/Cloudy_example.md",
-    "Lorenz Example"    => "examples/lorenz_example.md",
+    "Template"          => "examples/template_example.md",
+    "Cloudy"            => "examples/Cloudy_example.md",
+    "Lorenz"            => "examples/lorenz_example.md",
+    "Minimization Loss" => "generated/loss_minimization.md",
     "HPC interfacing example: ClimateMachine"    => "examples/ClimateMachine_example.md"
 ]
 
@@ -45,14 +62,14 @@ format = Documenter.HTML(
 )
 
 makedocs(
-  sitename = "EnsembleKalmanProcesses.jl",
-  authors = "CliMA Contributors",
-  format = format,
-  pages = pages,
-  modules = [EnsembleKalmanProcesses],
-  doctest = false,
-  strict = true,
-  clean = true,
+   sitename = "EnsembleKalmanProcesses.jl",
+    authors = "CliMA Contributors",
+      format = format,
+      pages = pages,
+    modules = [EnsembleKalmanProcesses],
+    doctest = false,
+     strict = true,
+      clean = true,
   checkdocs = :none,
 )
 
