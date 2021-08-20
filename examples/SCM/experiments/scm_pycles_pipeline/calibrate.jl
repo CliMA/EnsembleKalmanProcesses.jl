@@ -28,8 +28,8 @@ function construct_priors()
     # Define the parameters that we want to learn
     params = Dict(
         # entrainment parameters
-        "entrainment_factor"        => [bounded(0.0, 1.5*0.33)],
-        "detrainment_factor"        => [bounded(0.0, 1.5*0.31)],
+        "entrainment_factor"        => [bounded(0.0, 5*0.33)],
+        "detrainment_factor"        => [bounded(0.0, 5*0.31)],
     )
     param_names = collect(keys(params))
     constraints = collect(values(params))
