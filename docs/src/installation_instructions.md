@@ -14,7 +14,7 @@ This will install the latest tagged release of the package.
 
 ### Cloning the repository
 
-Alternatively, you can clone the repository and then then instantiate:
+Alternatively, you can clone the repository and then instantiate:
 
 ```
 > cd EnsembleKalmanProcesses.jl
