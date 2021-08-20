@@ -83,7 +83,7 @@ function run_calibrate(return_ekobj=false)
 
     outdir_root = pwd()
     # Define preconditioning and regularization of inverse problem
-    perform_PCA = true # Performs PCA on data
+    perform_PCA = false # Performs PCA on data
     normalize = true  # whether to normalize data by pooled variance
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     model_type::Symbol = :les  # :les or :scm
