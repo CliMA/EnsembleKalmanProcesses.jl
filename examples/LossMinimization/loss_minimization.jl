@@ -14,12 +14,12 @@ using
 
 # ## Loss function with single minimum
 #
-# Here we minimize the loss function
+# Herem, we minimize the loss function
 # ```math
-# G₁(u) = \|u - u_*\|,
+# G₁(u) = \|u - u_*\| ,
 # ```
 # 
-#  where ``u`` is a vector of parameters and ``u_*`` is a vector of optimal parameters
+# where ``u`` is a vector of parameters and ``u_*`` is a vector of optimal parameters.
 #
 # We set the seed for pseudo-random number generator for reproducibility.
 rng_seed = 41
@@ -31,21 +31,20 @@ n_obs = 1
 noise_level = 1e-8
 nothing # hide
 
-# Independent noise for synthetic observations
+# Independent noise for synthetic observations:
 Γy = noise_level * Matrix(I, n_obs, n_obs) 
 noise = MvNormal(zeros(n_obs), Γy)
 
-# We start here with an example using a loss function `G₁(u)` that has one minimum. Let's
-# take the minimum to be at ``u_* = (-1, 1)``:
+# We take our optimum parameters to be ``u_* = (-1, 1)``:
 u★ = [1, -1]
 nothing # hide
 
-# and the loss function ``G₁:``, 
+# and define the loss function ``G₁``: 
 G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
 
 y_obs  = G₁(u★)
 
-# Define Prior
+# We then define the prior
 prior_distns = [Parameterized(Normal(0., sqrt(1))),
                 Parameterized(Normal(-0., sqrt(1)))]
                 
@@ -114,26 +113,26 @@ gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 
 # ## Loss function with two minima
 
-# Now let's do an example in which the loss function has two minima. The procedure is the\
-# same as before.
+# Now let's do an example in which the loss function has two minima. The procedure is same
+# as before.
 
 # Again, we set the seed for pseudo-random number generator for reproducibility,
-rng_seed = 10 # 10 converges to one minima 100 converges to the other
+rng_seed = 10 # 10 converges to one minima; 100 converges to the other
 Random.seed!(rng_seed)
 nothing # hide
 
-# The two loss function minima are at: ``u_{1*} = (1, -1)`` and ``u_{2*} = (-1, -1)``:
+# The two optimal set of parameter values are: ``u_{1*} = (1, -1)`` and ``u_{2*} = (-1, -1)``:
 u₁★ = [ 1, -1]
 u₂★ = [-1, -1]
 nothing # hide
 
-# and the loss function ``G₂(u)``:
+# and, thus, we construct the loss function ``G₂`` to have these two as its minima:
 G₂(u) = [abs((u[1] - u₁★[1]) * (u[1] - u₂★[1]))^2 + (u[2] - u₁★[2])^2]
 G₂(u₁★)[1] == G₂(u₂★)[1]
 
 y_obs = [0.0]
 
-# Define Prior
+# We then define the prior
 prior_distns = [Parameterized(Normal(0., sqrt(2))),
                 Parameterized(Normal(-0., sqrt(2)))]
                 
@@ -159,7 +158,7 @@ initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior,
 ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
                     y_obs, Γy, Inversion())
 
-# Then we calibrate:
+# We calibrate:
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
     
