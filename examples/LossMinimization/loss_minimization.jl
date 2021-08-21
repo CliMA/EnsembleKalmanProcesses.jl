@@ -29,6 +29,7 @@ nothing # hide
 # We choose the number of observations and noise level,
 n_obs = 1
 noise_level = 1e-8
+nothing # hide
 
 # Independent noise for synthetic observations
 Γy = noise_level * Matrix(I, n_obs, n_obs) 
@@ -62,6 +63,7 @@ prior_cov  = get_cov(prior)
 # We choose the number of ensemble members and the number of EKI iterations¨
 N_ens  = 50
 N_iter = 20
+nothing # hide
 
 # With that in hand, we can construct our initial ensemble
 initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
