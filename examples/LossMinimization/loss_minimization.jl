@@ -72,17 +72,18 @@ anim_unique_minimum = @animate for i in 1:N_iter
     plot([u★[1]], [u★[2]],
           seriestype = :scatter,
          markershape = :star5,
-          markersize = 10,
+          markersize = 11,
          markercolor = :red,
-               label = "optimum"
+               label = "optimum u⋆"
         )
 
     plot!(u_i[1, :], u_i[2, :],
              seriestype = :scatter,
                   xlims = extrema(u_init[1, :]),
                   ylims = extrema(u_init[2, :]),
-                 xlabel = "u1",
-                 ylabel = "u2",
+                 xlabel = "u₁",
+                 ylabel = "u₂",
+             markersize = 5,
             markeralpha = 0.6,
             markercolor = :blue,
                   label = "particles",
@@ -149,29 +150,29 @@ anim_two_minima = @animate for i in 1:N_iter
     plot([u₁★[1]], [u₁★[2]],
             seriestype = :scatter,
            markershape = :star5,
-            markersize = 10,
+            markersize = 11,
            markercolor = :red,
-                 label = "optima 1")
+                 label = "optimum u₁⋆")
      
     plot!([u₂★[1]], [u₂★[2]],
             seriestype = :scatter,
            markershape = :star5,
-            markersize = 10,
+            markersize = 11,
            markercolor = :green,
-                 label = "optima 2")
+                 label = "optimum u₂⋆")
 
     plot!(u_i[1, :], u_i[2, :],
              seriestype = :scatter,
-                  xlims = (-2, 2),
-                  ylims = (-2, 2),
-                 xlabel = "u1",
-                 ylabel = "u2",
+                  xlims = extrema(u_init[1, :]),
+                  ylims = extrema(u_init[2, :]),
+                 xlabel = "u₁",
+                 ylabel = "u₂",
+             markersize = 5,
             markeralpha = 0.6,
             markercolor = :blue,
                   label = "particles",
                   title = "EKI iteration = " * string(i)
          )
-      
 end
 
 gif(anim_two_minima, "two_minima.gif", fps = 1) # hide
