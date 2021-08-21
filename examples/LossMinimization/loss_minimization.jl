@@ -1,4 +1,4 @@
-# # Minimization Loss
+# # Minimization of Loss function
 #
 # First we load the required packages.
 
@@ -26,13 +26,11 @@ rng_seed = 41
 Random.seed!(rng_seed)
 nothing # hide
 
-# We choose the number of synthetic observations `n_obs` from ``G(u)``,
+# We choose the number of observations and noise level,
 n_obs = 1
+noise_level = 1e-8
 
-# and also set the observation noise level,
-noise_level =  1e-8   
-
-# Independent noise for synthetic observations       
+# Independent noise for synthetic observations
 Γy = noise_level * Matrix(I, n_obs, n_obs) 
 noise = MvNormal(zeros(n_obs), Γy)
 
@@ -41,7 +39,7 @@ noise = MvNormal(zeros(n_obs), Γy)
 u★ = [1, -1]
 nothing # hide
 
-# and the loss function ``G₁(u) = \|u - u_*\|``, 
+# and the loss function ``G₁:``, 
 G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
 
 y_obs  = G₁(u★)
@@ -61,10 +59,8 @@ prior_cov  = get_cov(prior)
 
 # ### Calibration
 #
-# We choose the number of ensemble members,
-N_ens = 50
-
-# and the number of EKI iterations
+# We choose the number of ensemble members and the number of EKI iterations¨
+N_ens  = 50
 N_iter = 20
 
 # With that in hand, we can construct our initial ensemble
@@ -133,7 +129,7 @@ nothing # hide
 G₂(u) = [abs((u[1] - u₁★[1]) * (u[1] - u₂★[1]))^2 + (u[2] - u₁★[2])^2]
 G₂(u₁★)[1] == G₂(u₂★)[1]
 
-y_obs  = [0.0]
+y_obs = [0.0]
 
 # Define Prior
 prior_distns = [Parameterized(Normal(0., sqrt(2))),
@@ -152,8 +148,7 @@ prior_cov = get_cov(prior)
 # ### Calibration
 # We choose the number of ensemble members, the number of EKI iterations, construct our
 # initial ensemble and the EKI:
-N_ens = 50
-
+N_ens  = 50
 N_iter = 40
 
 initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
