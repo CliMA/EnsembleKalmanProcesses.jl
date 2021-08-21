@@ -14,6 +14,13 @@ using
 
 # ## Loss function with single minimum
 #
+# Here we minimize the loss function
+# ```math
+# G₁(u) = \|u - u_*\|,
+# ```
+# 
+#  where ``u`` is a vector of parameters and ``u_*`` is a vector of optimal parameters
+#
 # We set the seed for pseudo-random number generator for reproducibility.
 rng_seed = 41
 Random.seed!(rng_seed)
