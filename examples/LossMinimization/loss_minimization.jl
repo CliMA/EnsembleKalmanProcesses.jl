@@ -2,29 +2,35 @@
 #
 # First we load the required packages.
 
-using Distributions
-using LinearAlgebra
-using Random
-using Plots
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using
+    Distributions,
+    LinearAlgebra,
+    Random,
+    Plots
 
-# Seed for pseudo-random number generator for reproducibility
+using
+    EnsembleKalmanProcesses.EnsembleKalmanProcessModule,
+    EnsembleKalmanProcesses.ParameterDistributionStorage
+
+# ## Loss function with single minimum
+#
+# We set the seed for pseudo-random number generator for reproducibility.
 rng_seed = 41
 Random.seed!(rng_seed)
 nothing # hide
 
-# Number of synthetic observations from ``G(u)``
+# We choose the number of synthetic observations `n_obs` from ``G(u)``,
 n_obs = 1
 
-# Defining the observation noise level
+# and also set the observation noise level,
 noise_level =  1e-8   
 
 # Independent noise for synthetic observations       
 Γy = noise_level * Matrix(I, n_obs, n_obs) 
 noise = MvNormal(zeros(n_obs), Γy)
 
-# Loss Function minimum, ``u_* = (-1, 1)``:
+# We start here with an example using a loss function `G₁(u)` that has one minimum. Let's
+# take the minimum to be at ``u_* = (-1, 1)``:
 u★ = [1, -1]
 nothing # hide
 
@@ -44,18 +50,25 @@ prior_names = ["u1", "u2"]
 prior = ParameterDistribution(prior_distns, constraints, prior_names)
 
 prior_mean = get_mean(prior)
+prior_cov  = get_cov(prior)
 
-prior_cov = get_cov(prior)
+# ### Calibration
+#
+# We choose the number of ensemble members,
+N_ens = 50
 
-# Calibrate
-N_ens = 50  # number of ensemble members
-N_iter = 20 # number of EKI iterations
+# and the number of EKI iterations
+N_iter = 20
+
+# With that in hand, we can construct our initial ensemble
 initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
                                                 rng_seed=rng_seed)
 
+# and the EKI
 ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
                     y_obs, Γy, Inversion())
-#
+
+# Then we calibrate:
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
     
@@ -64,6 +77,7 @@ for i in 1:N_iter
     EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
 end
 
+# and visualize the results:
 u_init = get_u_prior(ekiobj)
 
 anim_unique_minimum = @animate for i in 1:N_iter
@@ -93,14 +107,17 @@ end
 
 gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 
-# Now let's do a case in which the loss function has two minima.
+# ## Loss function with two minima
 
-# Again, we seed for pseudo-random number generator for reproducibility
+# Now let's do an example in which the loss function has two minima. The procedure is the\
+# same as before.
+
+# Again, we set the seed for pseudo-random number generator for reproducibility,
 rng_seed = 10 # 10 converges to one minima 100 converges to the other
 Random.seed!(rng_seed)
 nothing # hide
 
-# Loss function minima: ``u_{1*} = (1, -1)`` and ``u_{2*} = (-1, -1)``:
+# The two loss function minima are at: ``u_{1*} = (1, -1)`` and ``u_{2*} = (-1, -1)``:
 u₁★ = [ 1, -1]
 u₂★ = [-1, -1]
 nothing # hide
@@ -125,15 +142,20 @@ prior_mean = get_mean(prior)
 
 prior_cov = get_cov(prior)
 
-# Calibrate
-N_ens = 50  # number of ensemble members
-N_iter = 40 # number of EKI iterations
+# ### Calibration
+# We choose the number of ensemble members, the number of EKI iterations, construct our
+# initial ensemble and the EKI:
+N_ens = 50
+
+N_iter = 40
+
 initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
                                                 rng_seed=rng_seed)
 
 ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
                     y_obs, Γy, Inversion())
-#
+
+# Then we calibrate:
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
     
@@ -142,6 +164,7 @@ for i in 1:N_iter
     EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
 end
 
+# and visualize the results:
 u_init = get_u_prior(ekiobj)
 
 anim_two_minima = @animate for i in 1:N_iter
