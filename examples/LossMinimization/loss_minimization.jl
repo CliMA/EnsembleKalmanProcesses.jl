@@ -132,7 +132,7 @@ G₂(u₁★)[1] == G₂(u₂★)[1]
 
 y_obs = [0.0]
 
-# We then define the prior
+# Now define the prior
 prior_distns = [Parameterized(Normal(0., sqrt(2))),
                 Parameterized(Normal(-0., sqrt(2)))]
                 
