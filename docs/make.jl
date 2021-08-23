@@ -21,7 +21,7 @@ examples_for_literation = [
 
 for example in examples_for_literation
     example_filepath = joinpath(EXAMPLES_DIR, example)
-    Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
+    Literate.markdown(example_filepath, OUTPUT_DIR; flavor = Literate.DocumenterFlavor())
 end
 
 #----------
@@ -38,7 +38,7 @@ examples = [
     "Cloudy"            => "examples/Cloudy_example.md",
     "Lorenz"            => "examples/lorenz_example.md",
     "Minimization Loss" => "literated/loss_minimization.md",
-    "HPC interfacing example: ClimateMachine"    => "examples/ClimateMachine_example.md"
+    "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md"
 ]
 
 pages = [
