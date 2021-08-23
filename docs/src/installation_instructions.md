@@ -12,20 +12,42 @@ julia> ]
 
 This will install the latest tagged release of the package.
 
+!!! info "But I wanna be on the bleeding edge..."
+    If you want the *most recent* developer's version of the package then
+    
+    ```julia
+    julia> ]
+    (v1.5) pkg> add EnsembleKalmanProcesses#master
+    (v1.5) pkg> instantiate
+    ```
+    
+You can run the tests via the package manager by:
+
+```julia
+julia> ]
+(v1.5) pkg> test EnsembleKalmanProcesses
+```
+
 ### Cloning the repository
 
-Alternatively, you can clone the repository and then instantiate:
+If you are interested in having your hands dirty and modifying the code then, you can also
+clone the repository and then instantiate, e.g.,
 
 ```
 > cd EnsembleKalmanProcesses.jl
 > julia --project -e 'using Pkg; Pkg.instantiate()'
 ```
 
-To test that the package is working:
+You can run the package's tests:
 
 ```
 > julia --project -e 'using Pkg; Pkg.test()'
 ```
+
+!!! info "Do I need to clone the repository?"
+    Most times, cloning the repository in not a necessity. If you only wanna use the package's
+    functionality then merely adding the packages as a dependency on your project will do the
+    job.
 
 ### Building the documentation locally
 
