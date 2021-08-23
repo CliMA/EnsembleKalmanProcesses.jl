@@ -17,7 +17,7 @@ This will install the latest tagged release of the package.
     
     ```julia
     julia> ]
-    (v1.5) pkg> add EnsembleKalmanProcesses#master
+    (v1.5) pkg> add EnsembleKalmanProcesses#main
     (v1.5) pkg> instantiate
     ```
     
