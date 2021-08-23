@@ -14,7 +14,7 @@ using
 
 # ## Loss function with single minimum
 #
-# Herem, we minimize the loss function
+# Here, we minimize the loss function
 # ```math
 # G₁(u) = \|u - u_*\| ,
 # ```
@@ -28,12 +28,12 @@ nothing # hide
 
 # We choose the number of observations and noise level,
 n_obs = 1
-noise_level = 1e-8
+noise_level = 1e-3
 nothing # hide
 
-# Independent noise for synthetic observations:
-Γy = noise_level * Matrix(I, n_obs, n_obs) 
-noise = MvNormal(zeros(n_obs), Γy)
+# Independent noise for synthetic observation:
+Γ_stabilisation = noise_level * Matrix(I, n_obs, n_obs) 
+noise = MvNormal(zeros(n_obs), Γ_stabilisation)
 
 # We take our optimum parameters to be ``u_* = (-1, 1)``:
 u★ = [1, -1]
@@ -44,18 +44,17 @@ G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
 
 y_obs  = G₁(u★)
 
+# ### Prior distributions
+#
 # We then define the prior
-prior_distns = [Parameterized(Normal(0., sqrt(1))),
-                Parameterized(Normal(-0., sqrt(1)))]
+prior_distns = [Parameterized(Normal(0, 1)),
+                Parameterized(Normal(0, 1))]
                 
 constraints = [[no_constraint()], [no_constraint()]]
 
 prior_names = ["u1", "u2"]
 
 prior = ParameterDistribution(prior_distns, constraints, prior_names)
-
-prior_mean = get_mean(prior)
-prior_cov  = get_cov(prior)
 
 # ### Calibration
 #
@@ -68,11 +67,15 @@ nothing # hide
 initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
                                                 rng_seed=rng_seed)
 
-# and the EKI
-ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
-                    y_obs, Γy, Inversion())
+# and the EKI. The EKI is a choice of the available methods and it is constructed by
+# initializing with `Inversion()` method.
 
-# Then we calibrate:
+ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
+                                                           Γ_stabilisation, Inversion())
+
+# Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
+# the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
+# the model outputs:
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
     
@@ -117,7 +120,7 @@ gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 # as before.
 
 # Again, we set the seed for pseudo-random number generator for reproducibility,
-rng_seed = 10 # 10 converges to one minima; 100 converges to the other
+rng_seed = 10
 Random.seed!(rng_seed)
 nothing # hide
 
@@ -132,9 +135,14 @@ G₂(u₁★)[1] == G₂(u₂★)[1]
 
 y_obs = [0.0]
 
-# Now define the prior
-prior_distns = [Parameterized(Normal(0., sqrt(2))),
-                Parameterized(Normal(-0., sqrt(2)))]
+# ### Prior distributions
+#
+# Now define the prior. Suppose we have a bias on the prior of ``u₁``, e.g., that we know that
+# ``u₁`` is more likely to be negative. We take the mean of the prior of the first distribution
+# as `Normal(-0.5, sqrt(2))`:
+
+prior_distns = [Parameterized(Normal(-0.5, sqrt(2))),
+                Parameterized(Normal(   0, sqrt(2)))]
                 
 constraints = [[no_constraint()], [no_constraint()]]
 
@@ -142,23 +150,22 @@ prior_names = ["u1", "u2"]
 
 prior = ParameterDistribution(prior_distns, constraints, prior_names)
 
-prior_mean = get_mean(prior)
-
-prior_cov = get_cov(prior)
-
 # ### Calibration
+#
 # We choose the number of ensemble members, the number of EKI iterations, construct our
-# initial ensemble and the EKI:
+# initial ensemble and the EKI (similarly as in the single-minimum example):
 N_ens  = 50
 N_iter = 40
 
 initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
                                                 rng_seed=rng_seed)
 
-ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
-                    y_obs, Γy, Inversion())
+ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
+                                                           Γ_stabilisation, Inversion())
 
-# We calibrate:
+# We calibrate again. Doing so involves *(i)* obtaining the parameters, *(ii)* calculating the
+# loss function on the parameters (and concatenate), and last *(iii)* generate a new set of
+# parameters using the model outputs:
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
     
