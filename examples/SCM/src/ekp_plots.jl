@@ -18,6 +18,7 @@ function make_ekp_plots(ekp_path::ST, param_names::Vector{ST}) where ST<:Abstrac
 
     # plot parameter evolution
     fig, axs = subplots(nrows=n_param, sharex=true, figsize=(15, 4*n_param))
+    axs = n_param == 1 ? [axs] : axs
     x = 0:n_iter-1
     for (i, ax) in enumerate(axs)
         ax.plot(x, phi_m[:,i])
