@@ -30,7 +30,7 @@ julia> ]
 
 ### Cloning the repository
 
-If you are interested in having your hands dirty and modifying the code then, you can also
+If you are interested in getting your hands dirty and modifying the code then, you can also
 clone the repository and then instantiate, e.g.,
 
 ```
