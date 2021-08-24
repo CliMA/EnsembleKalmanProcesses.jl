@@ -27,7 +27,7 @@ Random.seed!(rng_seed)
 nothing # hide
 
 # We choose the number of observations and noise level,
-n_obs = 1
+N_observations = 1
 noise_level = 1e-3
 nothing # hide
 
