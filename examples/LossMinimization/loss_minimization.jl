@@ -47,8 +47,7 @@ y_obs  = G₁(u★)
 # ### Prior distributions
 #
 # We then define the prior
-prior_distns = [Parameterized(Normal(0, 1)),
-                Parameterized(Normal(0, 1))]
+prior_distributions = [Parameterized(Normal(0, 1)), Parameterized(Normal(0, 1))]
                 
 constraints = [[no_constraint()], [no_constraint()]]
 
