@@ -60,7 +60,7 @@ prior = ParameterDistribution(prior_distns, constraints, prior_names)
 #
 # We choose the number of ensemble members and the number of EKI iterations¨
 N_ensemble  = 50
-N_iter = 20
+N_iterations = 20
 nothing # hide
 
 # With that in hand, we can construct our initial ensemble
