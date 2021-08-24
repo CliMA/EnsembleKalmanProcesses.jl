@@ -124,7 +124,7 @@ gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 # where again ``u`` is a vector of parameters and ``u_{1*}`` and ``u_{2*}`` are vectors of
 # optimal parameters. Here, we take ``u_{1*} = (1, -1)`` and ``u_{2*} = (-1, -1)``.
 #
-#The procedure is same as before.
+# The procedure is same as the single-minimum example above.
 
 # Again, we set the seed for pseudo-random number generator for reproducibility,
 rng_seed = 10
