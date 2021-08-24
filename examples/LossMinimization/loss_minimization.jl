@@ -84,7 +84,7 @@ for i in 1:N_iterations
 end
 
 # and visualize the results:
-u_init = get_u_prior(ekiobj)
+u_init = get_u_prior(ensemble_kalman_process)
 
 anim_unique_minimum = @animate for i in 1:N_iterations
     u_i = get_u(ensemble_kalman_process, i)
