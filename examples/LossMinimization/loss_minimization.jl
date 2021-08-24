@@ -81,7 +81,7 @@ for i in 1:N_iterations
     
     g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
     
-    EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
+    EnsembleKalmanProcessModule.update_ensemble!(ensemble_kalman_process, g_ens)
 end
 
 # and visualize the results:
