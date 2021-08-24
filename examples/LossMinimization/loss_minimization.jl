@@ -87,8 +87,8 @@ end
 # and visualize the results:
 u_init = get_u_prior(ekiobj)
 
-anim_unique_minimum = @animate for i in 1:N_iter
-    u_i = get_u(ekiobj, i)
+anim_unique_minimum = @animate for i in 1:N_iterations
+    u_i = get_u(ensemble_kalman_process, i)
     
     plot([u★[1]], [u★[2]],
           seriestype = :scatter,
