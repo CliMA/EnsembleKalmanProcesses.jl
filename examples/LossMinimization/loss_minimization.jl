@@ -51,26 +51,28 @@ prior_distributions = [Parameterized(Normal(0, 1)), Parameterized(Normal(0, 1))]
                 
 constraints = [[no_constraint()], [no_constraint()]]
 
-prior_names = ["u1", "u2"]
+parameter_names = ["u1", "u2"]
 
-prior = ParameterDistribution(prior_distns, constraints, prior_names)
+prior = ParameterDistribution(prior_distributions, constraints, parameter_names)
 
 # ### Calibration
 #
 # We choose the number of ensemble members and the number of EKI iterations¨
-N_ensemble  = 50
+N_ensemble   = 50
 N_iterations = 20
 nothing # hide
 
 # With that in hand, we can construct our initial ensemble
 initial_ensemble =
-    EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble; rng_seed=rng_seed)
+    EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble;
+                                                           rng_seed=rng_seed)
 
 # and the EKI. The EKI is a choice of the available methods and it is constructed by
 # initializing with `Inversion()` method.
 
-ensemble_kalman_process =
-    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γ_stabilisation, Inversion())
+ensemble_kalman_process = 
+    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
+                                                      Γ_stabilisation, Inversion())
 
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
@@ -146,44 +148,46 @@ y_obs = [0.0]
 # ``u₁`` is more likely to be negative. We take the mean of the prior of the first distribution
 # as `Normal(-0.5, sqrt(2))`:
 
-prior_distns = [Parameterized(Normal(-0.5, sqrt(2))),
-                Parameterized(Normal(   0, sqrt(2)))]
+prior_distributions = [Parameterized(Normal(-0.5, sqrt(2))),
+                       Parameterized(Normal(   0, sqrt(2)))]
                 
 constraints = [[no_constraint()], [no_constraint()]]
 
-prior_names = ["u1", "u2"]
+parameter_names = ["u1", "u2"]
 
-prior = ParameterDistribution(prior_distns, constraints, prior_names)
+prior = ParameterDistribution(prior_distributions, constraints, parameter_names)
 
 # ### Calibration
 #
 # We choose the number of ensemble members, the number of EKI iterations, construct our
 # initial ensemble and the EKI (similarly as in the single-minimum example):
-N_ens  = 50
-N_iter = 40
+N_ensemble   = 50
+N_iterations = 40
 
-initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
-                                                rng_seed=rng_seed)
+initial_ensemble =
+    EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble;
+                                                           rng_seed=rng_seed)
 
-ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
-                                                           Γ_stabilisation, Inversion())
+ensemble_kalman_process = 
+    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
+                                                      Γ_stabilisation, Inversion())
 
 # We calibrate again. Doing so involves *(i)* obtaining the parameters, *(ii)* calculating the
 # loss function on the parameters (and concatenate), and last *(iii)* generate a new set of
 # parameters using the model outputs:
-for i in 1:N_iter
-    params_i = get_u_final(ekiobj)
+for i in 1:N_iterations
+    params_i = get_u_final(ensemble_kalman_process)
     
-    g_ens = hcat([G₂(params_i[:, i]) for i in 1:N_ens]...)
+    g_ens = hcat([G₂(params_i[:, i]) for i in 1:N_ensemble]...)
     
-    EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
+    EnsembleKalmanProcessModule.update_ensemble!(ensemble_kalman_process, g_ens)
 end
 
 # and visualize the results:
-u_init = get_u_prior(ekiobj)
+u_init = get_u_prior(ensemble_kalman_process)
 
-anim_two_minima = @animate for i in 1:N_iter
-    u_i = get_u(ekiobj, i)
+anim_two_minima = @animate for i in 1:N_iterations
+    u_i = get_u(ensemble_kalman_process, i)
 
     plot([u₁★[1]], [u₁★[2]],
             seriestype = :scatter,
