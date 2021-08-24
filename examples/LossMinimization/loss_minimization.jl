@@ -76,8 +76,8 @@ ensemble_kalman_process =
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
 # the model outputs:
-for i in 1:N_iter
-    params_i = get_u_final(ekiobj)
+for i in 1:N_iterations
+    params_i = get_u_final(ensemble_kalman_process)
     
     g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
     
