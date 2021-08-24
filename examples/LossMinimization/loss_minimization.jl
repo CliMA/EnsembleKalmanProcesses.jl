@@ -64,8 +64,8 @@ N_iterations = 20
 nothing # hide
 
 # With that in hand, we can construct our initial ensemble
-initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
-                                                rng_seed=rng_seed)
+initial_ensemble =
+    EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble; rng_seed=rng_seed)
 
 # and the EKI. The EKI is a choice of the available methods and it is constructed by
 # initializing with `Inversion()` method.
