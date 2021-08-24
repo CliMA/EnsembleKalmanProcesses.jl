@@ -79,7 +79,7 @@ ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_o
 for i in 1:N_iter
     params_i = get_u_final(ekiobj)
     
-    g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ens]...)
+    g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
     
     EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
 end
