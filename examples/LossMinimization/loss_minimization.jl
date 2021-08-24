@@ -18,8 +18,8 @@ using
 # ```math
 # G₁(u) = \|u - u_*\| ,
 # ```
-# 
-# where ``u`` is a vector of parameters and ``u_*`` is a vector of optimal parameters.
+# where ``u`` is a vector of parameters and ``u_*`` is a vector of optimal parameters, here
+# taken to be ``u_* = (-1, 1)``.
 #
 # We set the seed for pseudo-random number generator for reproducibility.
 rng_seed = 41
@@ -35,11 +35,11 @@ nothing # hide
 Γ_stabilisation = noise_level * Matrix(I, n_obs, n_obs) 
 noise = MvNormal(zeros(n_obs), Γ_stabilisation)
 
-# We take our optimum parameters to be ``u_* = (-1, 1)``:
+# The optimum parameters ``u_* = (-1, 1)``:
 u★ = [1, -1]
 nothing # hide
 
-# and define the loss function ``G₁``: 
+# and the loss function ``G₁``: 
 G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
 
 y_obs  = G₁(u★)
@@ -116,22 +116,28 @@ gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 
 # ## Loss function with two minima
 
-# Now let's do an example in which the loss function has two minima. The procedure is same
-# as before.
+# Now let's do an example in which the loss function has two minima. We minimize the loss
+# function
+# ```math
+# G₂(u) = \|u - u_{1*}\| \|u - u_{2*}\| ,
+# ```
+# where again ``u`` is a vector of parameters and ``u_{1*}`` and ``u_{2*}`` are vectors of
+# optimal parameters. Here, we take ``u_{1*} = (1, -1)`` and ``u_{2*} = (-1, -1)``.
+#
+#The procedure is same as before.
 
 # Again, we set the seed for pseudo-random number generator for reproducibility,
 rng_seed = 10
 Random.seed!(rng_seed)
 nothing # hide
 
-# The two optimal set of parameter values are: ``u_{1*} = (1, -1)`` and ``u_{2*} = (-1, -1)``:
+# The two optimal set of parameter values are:
 u₁★ = [ 1, -1]
 u₂★ = [-1, -1]
 nothing # hide
 
-# and, thus, we construct the loss function ``G₂`` to have these two as its minima:
-G₂(u) = [abs((u[1] - u₁★[1]) * (u[1] - u₂★[1]))^2 + (u[2] - u₁★[2])^2]
-G₂(u₁★)[1] == G₂(u₂★)[1]
+# and the loss function ``G₂``:
+G₂(u) = [sqrt((u[1] - u₁★[1])^2 + (u[2] - u₁★[2])^2) * sqrt((u[1] - u₂★[1])^2 + (u[2] - u₂★[2])^2)]
 
 y_obs = [0.0]
 
