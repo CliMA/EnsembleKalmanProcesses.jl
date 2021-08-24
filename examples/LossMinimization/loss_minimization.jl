@@ -1,4 +1,4 @@
-# # Minimization of Loss function
+# # Minimization of simple loss function with unique minimum
 #
 # First we load the required packages.
 
