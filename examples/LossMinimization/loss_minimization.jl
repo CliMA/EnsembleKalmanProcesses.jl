@@ -70,8 +70,8 @@ initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior,
 # and the EKI. The EKI is a choice of the available methods and it is constructed by
 # initializing with `Inversion()` method.
 
-ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
-                                                           Γ_stabilisation, Inversion())
+ensemble_kalman_process =
+    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γ_stabilisation, Inversion())
 
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
