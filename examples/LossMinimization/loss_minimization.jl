@@ -32,7 +32,7 @@ noise_level = 1e-3
 nothing # hide
 
 # Independent noise for synthetic observation:
-Γ_stabilisation = noise_level * Matrix(I, n_obs, n_obs) 
+Γ_stabilisation = noise_level * Matrix(I, N_observations, N_observations) 
 noise = MvNormal(zeros(N_observations), Γ_stabilisation)
 
 # The optimum parameters ``u_* = (-1, 1)``:
