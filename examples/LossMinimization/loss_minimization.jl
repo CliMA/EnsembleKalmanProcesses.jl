@@ -18,7 +18,7 @@ using
 # ```math
 # G₁(u) = \|u - u_*\| ,
 # ```
-# where ``u`` is a 2-vector of parameters and ``u_*`` is given; here ``u_* = (-1, 1)``.
+# where ``u`` is a 2-vector of parameters and ``u_*`` is given; here ``u_* = (-1, 1)``. 
 u★ = [1, -1]
 G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
 nothing # hide
@@ -28,17 +28,18 @@ nothing # hide
 rng_seed = 41
 Random.seed!(rng_seed)
 nothing # hide
-# We set a noise level, here this is just used to stabilize the algorithm
+# We set a stabilization level, which can aid the algorithm convergence
 dim_output = 1
 stabilization_level = 1e-3
 Γ_stabilization = stabilization_level * Matrix(I, dim_output, dim_output) 
 
-# We get the data by observing the function value at the true parameters
-y_obs  = G₁(u★)
+# The functional is positive so to minimize it we may set the target to be 0.0
+G_target  = [0.0]
+nothing # hide
 
 # ### Prior distributions
 #
-# As we work with a Bayesian method, we define the prior. This will behave like an "initial guess" for the likely region of parameter space we expect the solution to live in.
+# As we work with a Bayesian method, we define a prior. This will behave like an "initial guess" for the likely region of parameter space we expect the solution to live in.
 prior_distributions = [Parameterized(Normal(0, 1)), Parameterized(Normal(0, 1))]
                 
 constraints = [[no_constraint()], [no_constraint()]]
@@ -59,10 +60,9 @@ initial_ensemble =
     EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble;
                                                            rng_seed=rng_seed)
 
-# We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the data, the stabilization and the process: for EKI this is `Inversion`. EKI is just one choice of the available methods, and we initialize it by constructing the `Inversion` struct with `Inversion()`. and the EKI. The EKI is a choice of the available methods and it is constructed by
-
+# We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the target, the stabilization and the process type (for EKI this is `Inversion`, initialized with `Inversion()`). 
 ensemble_kalman_process = 
-    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
+    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target,
                                                       Γ_stabilization, Inversion())
 
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
@@ -104,6 +104,8 @@ anim_unique_minimum = @animate for i in 1:N_iterations
          )    
 end
 
+# The results show the minimizer of ``G_1`` is ``u=u_*`` 
+
 gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 
 # ## Loss function with two minima
@@ -113,7 +115,7 @@ gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 # ```math
 # G₂(u) = \|u - v_{*}\| \|u - w_{*}\| ,
 # ```
-# where again ``u`` is a vector of parameters and ``v_{1*}`` and ``w_{*}`` are vectors of
+# where again ``u`` is a vector of parameters and ``v_{*}`` and ``w_{*}`` are vectors of
 # optimal parameters. Here, we take ``v_{*} = (1, -1)`` and ``w_{*} = (-1, -1)``.
 
 v★ = [ 1, -1]
@@ -128,14 +130,14 @@ rng_seed = 10
 Random.seed!(rng_seed)
 nothing # hide
 
-# We get the data by observing the function value at the true parameters
-y_obs = G₂(w★)
+# Again, a positive function can be minimized with a target of 0
+G_target = [0.0]
 
 # We choose the stabilization as in the single-mimum example
 
 # ### Prior distributions
 #
-# We define the prior. We demonstrate here how we can place prior information through a bias of e.g., ``u₁``, showing we believe that ``u₁`` is more likely to be negatively valued. This can be implemented by setting the mean of the prior of its distribution `-0.5`:
+# We define the prior. We can place prior information on e.g., ``u₁``, demonstrating a belief that ``u₁`` is more likely to be negative. This can be implemented by setting a bias in the mean of its prior distribution to e.g., `-0.5`:
 
 prior_distributions = [Parameterized(Normal(-0.5, sqrt(2))),
                        Parameterized(Normal(   0, sqrt(2)))]
@@ -157,7 +159,7 @@ initial_ensemble =
                                                            rng_seed=rng_seed)
 
 ensemble_kalman_process = 
-    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
+    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target,
                                                       Γ_stabilization, Inversion())
 
 # We calibrate again. Doing so involves *(i)* obtaining the parameters, *(ii)* calculating the
@@ -204,5 +206,7 @@ anim_two_minima = @animate for i in 1:N_iterations
                   title = "EKI iteration = " * string(i)
          )
 end
+
+# Our bias in the prior shifts the initial ensemble into the negative ``u_1`` direction, and thus increases the likelihood (over different instances of the random number generator) of finding the minimizer ``u=w_*``.
 
 gif(anim_two_minima, "two_minima.gif", fps = 1) # hide
