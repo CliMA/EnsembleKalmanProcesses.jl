@@ -18,35 +18,27 @@ using
 # ```math
 # G₁(u) = \|u - u_*\| ,
 # ```
-# where ``u`` is a vector of parameters and ``u_*`` is a vector of optimal parameters, here
-# taken to be ``u_* = (-1, 1)``.
-#
+# where ``u`` is a 2-vector of parameters and ``u_*`` is given; here ``u_* = (-1, 1)``.
+u★ = [1, -1]
+G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
+nothing # hide
+
+
 # We set the seed for pseudo-random number generator for reproducibility.
 rng_seed = 41
 Random.seed!(rng_seed)
 nothing # hide
+# We set a noise level, here this is just used to stabilize the algorithm
+dim_output = 1
+stabilization_level = 1e-3
+Γ_stabilization = stabilization_level * Matrix(I, dim_output, dim_output) 
 
-# We choose the number of observations and noise level,
-N_observations = 1
-noise_level = 1e-3
-nothing # hide
-
-# Independent noise for synthetic observation:
-Γ_stabilisation = noise_level * Matrix(I, N_observations, N_observations) 
-noise = MvNormal(zeros(N_observations), Γ_stabilisation)
-
-# The optimum parameters ``u_* = (-1, 1)``:
-u★ = [1, -1]
-nothing # hide
-
-# and the loss function ``G₁``: 
-G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
-
+# We get the data by observing the function value at the true parameters
 y_obs  = G₁(u★)
 
 # ### Prior distributions
 #
-# We then define the prior
+# As we work with a Bayesian method, we define the prior. This will behave like an "initial guess" for the likely region of parameter space we expect the solution to live in.
 prior_distributions = [Parameterized(Normal(0, 1)), Parameterized(Normal(0, 1))]
                 
 constraints = [[no_constraint()], [no_constraint()]]
@@ -57,22 +49,21 @@ prior = ParameterDistribution(prior_distributions, constraints, parameter_names)
 
 # ### Calibration
 #
-# We choose the number of ensemble members and the number of EKI iterations¨
-N_ensemble   = 50
-N_iterations = 20
+# We choose the number of ensemble members and the number of iterations of the algorithm
+N_ensemble   = 20
+N_iterations = 10
 nothing # hide
 
-# With that in hand, we can construct our initial ensemble
+# The initial ensemble is constructed by sampling the prior
 initial_ensemble =
     EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble;
                                                            rng_seed=rng_seed)
 
-# and the EKI. The EKI is a choice of the available methods and it is constructed by
-# initializing with `Inversion()` method.
+# We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the data, the stabilization and the process: for EKI this is `Inversion`. EKI is just one choice of the available methods, and we initialize it by constructing the `Inversion` struct with `Inversion()`. and the EKI. The EKI is a choice of the available methods and it is constructed by
 
 ensemble_kalman_process = 
     EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
-                                                      Γ_stabilisation, Inversion())
+                                                      Γ_stabilization, Inversion())
 
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
@@ -120,10 +111,15 @@ gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 # Now let's do an example in which the loss function has two minima. We minimize the loss
 # function
 # ```math
-# G₂(u) = \|u - u_{1*}\| \|u - u_{2*}\| ,
+# G₂(u) = \|u - v_{*}\| \|u - w_{*}\| ,
 # ```
-# where again ``u`` is a vector of parameters and ``u_{1*}`` and ``u_{2*}`` are vectors of
-# optimal parameters. Here, we take ``u_{1*} = (1, -1)`` and ``u_{2*} = (-1, -1)``.
+# where again ``u`` is a vector of parameters and ``v_{1*}`` and ``w_{*}`` are vectors of
+# optimal parameters. Here, we take ``v_{*} = (1, -1)`` and ``w_{*} = (-1, -1)``.
+
+v★ = [ 1, -1]
+w★ = [-1, -1]
+G₂(u) = [sqrt(((u[1] - v★[1])^2 + (u[2] - v★[2])^2)*((u[1] - w★[1])^2 + (u[2] - w★[2])^2))]
+nothing # hide
 #
 # The procedure is same as the single-minimum example above.
 
@@ -132,21 +128,14 @@ rng_seed = 10
 Random.seed!(rng_seed)
 nothing # hide
 
-# The two optimal set of parameter values are:
-u₁★ = [ 1, -1]
-u₂★ = [-1, -1]
-nothing # hide
+# We get the data by observing the function value at the true parameters
+y_obs = G₂(w★)
 
-# and the loss function ``G₂``:
-G₂(u) = [sqrt(((u[1] - u₁★[1])^2 + (u[2] - u₁★[2])^2)*((u[1] - u₂★[1])^2 + (u[2] - u₂★[2])^2))]
-
-y_obs = [0.0]
+# We choose the stabilization as in the single-mimum example
 
 # ### Prior distributions
 #
-# Now define the prior. Suppose we have a bias on the prior of ``u₁``, e.g., that we know that
-# ``u₁`` is more likely to be negative. We take the mean of the prior of the first distribution
-# as `Normal(-0.5, sqrt(2))`:
+# We define the prior. We demonstrate here how we can place prior information through a bias of e.g., ``u₁``, showing we believe that ``u₁`` is more likely to be negatively valued. This can be implemented by setting the mean of the prior of its distribution `-0.5`:
 
 prior_distributions = [Parameterized(Normal(-0.5, sqrt(2))),
                        Parameterized(Normal(   0, sqrt(2)))]
@@ -159,10 +148,9 @@ prior = ParameterDistribution(prior_distributions, constraints, parameter_names)
 
 # ### Calibration
 #
-# We choose the number of ensemble members, the number of EKI iterations, construct our
-# initial ensemble and the EKI (similarly as in the single-minimum example):
-N_ensemble   = 50
-N_iterations = 40
+# We choose the number of ensemble members, the number of EKI iterations, construct our initial ensemble and the EKI with the `Inversion()` constructor (exactly as in the single-minimum example):
+N_ensemble   = 20
+N_iterations = 20
 
 initial_ensemble =
     EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble;
@@ -170,7 +158,7 @@ initial_ensemble =
 
 ensemble_kalman_process = 
     EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs,
-                                                      Γ_stabilisation, Inversion())
+                                                      Γ_stabilization, Inversion())
 
 # We calibrate again. Doing so involves *(i)* obtaining the parameters, *(ii)* calculating the
 # loss function on the parameters (and concatenate), and last *(iii)* generate a new set of
@@ -189,19 +177,19 @@ u_init = get_u_prior(ensemble_kalman_process)
 anim_two_minima = @animate for i in 1:N_iterations
     u_i = get_u(ensemble_kalman_process, i)
 
-    plot([u₁★[1]], [u₁★[2]],
+    plot([v★[1]], [v★[2]],
             seriestype = :scatter,
            markershape = :star5,
             markersize = 11,
            markercolor = :red,
-                 label = "optimum u₁⋆")
+                 label = "optimum v⋆")
      
-    plot!([u₂★[1]], [u₂★[2]],
+    plot!([w★[1]], [w★[2]],
             seriestype = :scatter,
            markershape = :star5,
             markersize = 11,
            markercolor = :green,
-                 label = "optimum u₂⋆")
+                 label = "optimum w⋆")
 
     plot!(u_i[1, :], u_i[2, :],
              seriestype = :scatter,
