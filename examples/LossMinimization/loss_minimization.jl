@@ -1,122 +1,220 @@
-using Distributions
-using LinearAlgebra
-using Random
-using Plots
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+# # Minimization of simple loss functions
+#
+# First we load the required packages.
 
-# Seed for pseudo-random number generator for reproducibility
+using
+    Distributions,
+    LinearAlgebra,
+    Random,
+    Plots
+
+using
+    EnsembleKalmanProcesses.EnsembleKalmanProcessModule,
+    EnsembleKalmanProcesses.ParameterDistributionStorage
+
+# ## Loss function with single minimum
+#
+# Here, we minimize the loss function
+# ```math
+# G₁(u) = \|u - u_*\| ,
+# ```
+# where ``u`` is a 2-vector of parameters and ``u_*`` is given; here ``u_* = (-1, 1)``. 
+u★ = [1, -1]
+G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
+nothing # hide
+
+# We set the seed for pseudo-random number generator for reproducibility.
 rng_seed = 41
 Random.seed!(rng_seed)
+nothing # hide
 
-# Number of synthetic observations from G(u)
-n_obs = 1
-# Defining the observation noise level
-noise_level =  1e-8   
-# Independent noise for synthetic observations       
-Γy = noise_level * Matrix(I, n_obs, n_obs) 
-noise = MvNormal(zeros(n_obs), Γy)
+# We set a stabilization level, which can aid the algorithm convergence
+dim_output = 1
+stabilization_level = 1e-3
+Γ_stabilization = stabilization_level * Matrix(I, dim_output, dim_output) 
 
-# Loss Function (unique minimum)
-function G(u)
-    return [sqrt((u[1]-1)^2 + (u[2]+1)^2)]
-end
+# The functional is positive so to minimize it we may set the target to be 0,
+G_target  = [0]
+nothing # hide
 
-# Loss Function Minimum
-u_star = [1.0, -1.0]
-y_obs  = G(u_star) + 0 * rand(noise) 
-
-# Define Prior
-prior_distns = [Parameterized(Normal(0., sqrt(1))),
-                Parameterized(Normal(-0., sqrt(1)))]
-constraints = [[no_constraint()], [no_constraint()]]
-prior_names = ["u1", "u2"]
-prior = ParameterDistribution(prior_distns, constraints, prior_names)
-prior_mean = get_mean(prior)
-prior_cov = get_cov(prior)
-
-# Calibrate
-N_ens = 50  # number of ensemble members
-N_iter = 20 # number of EKI iterations
-initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
-                                                rng_seed=rng_seed)
-
-ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
-                    y_obs, Γy, Inversion())
+# ### Prior distributions
 #
-for i in 1:N_iter
-    params_i = get_u_final(ekiobj)
-    g_ens = hcat([G(params_i[:,i]) for i in 1:N_ens]...)
-    EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
-end
-
-u_init = get_u_prior(ekiobj)
-
-for i in 1:N_iter
-    u_i = get_u(ekiobj,i)
-    p = plot(u_i[1,:], u_i[2,:], seriestype=:scatter, xlims = extrema(u_init[1,:]), ylims = extrema(u_init[2,:]))
-    plot!([u_star[1]], xaxis="u1", yaxis="u2", seriestype="vline",
-        linestyle=:dash, linecolor=:red, label = false,
-        title = "EKI iteration = " * string(i)
-        )
-    plot!([u_star[2]], seriestype="hline", linestyle=:dash, linecolor=:red, label = "optimum")
-    display(p)
-    sleep(0.1)
-end
-
-##
-rng_seed = 10 # 10 converges to one minima 100 converges to the other
-
-# Loss Function (two minima)
-function G(u)
-    return [abs((u[1]-1)*(u[1]+1))^2 + (u[2]+1)^2]
-end
-
-# Loss Function Minimum
-u_star1 = [1.0, -1.0]
-u_star2 = [-1.0, -1.0]
-G(u_star1)[1] == G(u_star2)[1]
-y_obs  = [0.0]
-
-# Define Prior
-prior_distns = [Parameterized(Normal(0., sqrt(2))),
-                Parameterized(Normal(-0., sqrt(2)))]
+# As we work with a Bayesian method, we define a prior. This will behave like an "initial guess"
+# for the likely region of parameter space we expect the solution to live in.
+prior_distributions = [Parameterized(Normal(0, 1)), Parameterized(Normal(0, 1))]
+                
 constraints = [[no_constraint()], [no_constraint()]]
-prior_names = ["u1", "u2"]
-prior = ParameterDistribution(prior_distns, constraints, prior_names)
-prior_mean = get_mean(prior)
-prior_cov = get_cov(prior)
 
-# Calibrate
-N_ens = 50  # number of ensemble members
-N_iter = 40 # number of EKI iterations
-initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens;
-                                                rng_seed=rng_seed)
+parameter_names = ["u1", "u2"]
 
-ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble,
-                    y_obs, Γy, Inversion())
+prior = ParameterDistribution(prior_distributions, constraints, parameter_names)
+
+# ### Calibration
 #
-for i in 1:N_iter
-    params_i = get_u_final(ekiobj)
-    g_ens = hcat([G(params_i[:,i]) for i in 1:N_ens]...)
-    EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
+# We choose the number of ensemble members and the number of iterations of the algorithm
+N_ensemble   = 20
+N_iterations = 10
+nothing # hide
+
+# The initial ensemble is constructed by sampling the prior
+initial_ensemble =
+    EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble;
+                                                           rng_seed=rng_seed)
+
+# We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
+# target, the stabilization and the process type (for EKI this is `Inversion`, initialized 
+# with `Inversion()`). 
+ensemble_kalman_process = 
+    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target,
+                                                      Γ_stabilization, Inversion())
+
+# Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
+# the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
+# the model outputs:
+for i in 1:N_iterations
+    params_i = get_u_final(ensemble_kalman_process)
+    
+    g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
+    
+    EnsembleKalmanProcessModule.update_ensemble!(ensemble_kalman_process, g_ens)
 end
 
-u_init = get_u_prior(ekiobj)
-for i in 1:N_iter
-    u_i = get_u(ekiobj,i)
-    p = plot(u_i[1,:], u_i[2,:], seriestype=:scatter, xlims = (-2,2), ylims = (-2,2))
-    plot!([1], xaxis="u1", yaxis="u2", seriestype="vline",
-        linestyle=:dash, linecolor=:red, label = false,
-        title = "EKI iteration = " * string(i)
-        )
-    plot!([-1], seriestype="hline", linestyle=:dash, linecolor=:red, label = "optima 1")
+# and visualize the results:
+u_init = get_u_prior(ensemble_kalman_process)
 
-    plot!([-1], xaxis="u1", yaxis="u2", seriestype="vline",
-        linestyle=:dash, linecolor=:green, label = false,
-        title = "EKI iteration = " * string(i)
+anim_unique_minimum = @animate for i in 1:N_iterations
+    u_i = get_u(ensemble_kalman_process, i)
+    
+    plot([u★[1]], [u★[2]],
+          seriestype = :scatter,
+         markershape = :star5,
+          markersize = 11,
+         markercolor = :red,
+               label = "optimum u⋆"
         )
-    plot!([-1], seriestype="hline", linestyle=:dash, linecolor=:green, label = "optima 2")
-    display(p)
-    sleep(0.1)
+
+    plot!(u_i[1, :], u_i[2, :],
+             seriestype = :scatter,
+                  xlims = extrema(u_init[1, :]),
+                  ylims = extrema(u_init[2, :]),
+                 xlabel = "u₁",
+                 ylabel = "u₂",
+             markersize = 5,
+            markeralpha = 0.6,
+            markercolor = :blue,
+                  label = "particles",
+                  title = "EKI iteration = " * string(i)
+         )    
 end
+nothing # hide
+
+# The results show that the minimizer of ``G_1`` is ``u=u_*``. 
+
+gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
+
+# ## Loss function with two minima
+
+# Now let's do an example in which the loss function has two minima. We minimize the loss
+# function
+# ```math
+# G₂(u) = \|u - v_{*}\| \|u - w_{*}\| ,
+# ```
+# where again ``u`` is a 2-vector, and ``v_{*}`` and ``w_{*}`` are given 2-vectors. Here, we take ``v_{*} = (1, -1)`` and ``w_{*} = (-1, -1)``.
+
+v★ = [ 1, -1]
+w★ = [-1, -1]
+G₂(u) = [sqrt(((u[1] - v★[1])^2 + (u[2] - v★[2])^2)*((u[1] - w★[1])^2 + (u[2] - w★[2])^2))]
+nothing # hide
+#
+# The procedure is same as the single-minimum example above.
+
+# We set the seed for pseudo-random number generator for reproducibility,
+rng_seed = 10
+Random.seed!(rng_seed)
+nothing # hide
+
+# A positive function can be minimized with a target of 0,
+G_target = [0]
+
+# We choose the stabilization as in the single-minimum example
+
+# ### Prior distributions
+#
+# We define the prior. We can place prior information on e.g., ``u₁``, demonstrating a belief
+# that ``u₁`` is more likely to be negative. This can be implemented by setting a bias in the
+# mean of its prior distribution to e.g., ``-0.5``:
+
+prior_distributions = [Parameterized(Normal(-0.5, sqrt(2))),
+                       Parameterized(Normal(   0, sqrt(2)))]
+                
+constraints = [[no_constraint()], [no_constraint()]]
+
+parameter_names = ["u1", "u2"]
+
+prior = ParameterDistribution(prior_distributions, constraints, parameter_names)
+
+# ### Calibration
+#
+# We choose the number of ensemble members, the number of EKI iterations, construct our initial ensemble and the EKI with the `Inversion()` constructor (exactly as in the single-minimum example):
+N_ensemble   = 20
+N_iterations = 20
+
+initial_ensemble =
+    EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble;
+                                                           rng_seed=rng_seed)
+
+ensemble_kalman_process = 
+    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target,
+                                                      Γ_stabilization, Inversion())
+
+# We calibrate by *(i)* obtaining the parameters, *(ii)* calculating the
+# loss function on the parameters (and concatenate), and last *(iii)* generate a new set of
+# parameters using the model outputs:
+for i in 1:N_iterations
+    params_i = get_u_final(ensemble_kalman_process)
+    
+    g_ens = hcat([G₂(params_i[:, i]) for i in 1:N_ensemble]...)
+    
+    EnsembleKalmanProcessModule.update_ensemble!(ensemble_kalman_process, g_ens)
+end
+
+# and visualize the results:
+u_init = get_u_prior(ensemble_kalman_process)
+
+anim_two_minima = @animate for i in 1:N_iterations
+    u_i = get_u(ensemble_kalman_process, i)
+
+    plot([v★[1]], [v★[2]],
+            seriestype = :scatter,
+           markershape = :star5,
+            markersize = 11,
+           markercolor = :red,
+                 label = "optimum v⋆")
+     
+    plot!([w★[1]], [w★[2]],
+            seriestype = :scatter,
+           markershape = :star5,
+            markersize = 11,
+           markercolor = :green,
+                 label = "optimum w⋆")
+
+    plot!(u_i[1, :], u_i[2, :],
+             seriestype = :scatter,
+                  xlims = extrema(u_init[1, :]),
+                  ylims = extrema(u_init[2, :]),
+                 xlabel = "u₁",
+                 ylabel = "u₂",
+             markersize = 5,
+            markeralpha = 0.6,
+            markercolor = :blue,
+                  label = "particles",
+                  title = "EKI iteration = " * string(i)
+         )
+end
+nothing # hide
+
+# Our bias in the prior shifts the initial ensemble into the negative ``u_1`` direction, and
+# thus increases the likelihood (over different instances of the random number generator) of
+# finding the minimizer ``u=w_*``.
+
+gif(anim_two_minima, "two_minima.gif", fps = 1) # hide
