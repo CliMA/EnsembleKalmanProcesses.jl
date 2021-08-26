@@ -23,23 +23,24 @@ u★ = [1, -1]
 G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
 nothing # hide
 
-
 # We set the seed for pseudo-random number generator for reproducibility.
 rng_seed = 41
 Random.seed!(rng_seed)
 nothing # hide
+
 # We set a stabilization level, which can aid the algorithm convergence
 dim_output = 1
 stabilization_level = 1e-3
 Γ_stabilization = stabilization_level * Matrix(I, dim_output, dim_output) 
 
-# The functional is positive so to minimize it we may set the target to be 0.0
-G_target  = [0.0]
+# The functional is positive so to minimize it we may set the target to be 0,
+G_target  = [0]
 nothing # hide
 
 # ### Prior distributions
 #
-# As we work with a Bayesian method, we define a prior. This will behave like an "initial guess" for the likely region of parameter space we expect the solution to live in.
+# As we work with a Bayesian method, we define a prior. This will behave like an "initial guess"
+# for the likely region of parameter space we expect the solution to live in.
 prior_distributions = [Parameterized(Normal(0, 1)), Parameterized(Normal(0, 1))]
                 
 constraints = [[no_constraint()], [no_constraint()]]
@@ -60,7 +61,9 @@ initial_ensemble =
     EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble;
                                                            rng_seed=rng_seed)
 
-# We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the target, the stabilization and the process type (for EKI this is `Inversion`, initialized with `Inversion()`). 
+# We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
+# target, the stabilization and the process type (for EKI this is `Inversion`, initialized 
+# with `Inversion()`). 
 ensemble_kalman_process = 
     EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target,
                                                       Γ_stabilization, Inversion())
@@ -103,8 +106,9 @@ anim_unique_minimum = @animate for i in 1:N_iterations
                   title = "EKI iteration = " * string(i)
          )    
 end
+nothing # hide
 
-# The results show the minimizer of ``G_1`` is ``u=u_*`` 
+# The results show that the minimizer of ``G_1`` is ``u=u_*``. 
 
 gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 
@@ -125,19 +129,21 @@ nothing # hide
 #
 # The procedure is same as the single-minimum example above.
 
-# Again, we set the seed for pseudo-random number generator for reproducibility,
+# We set the seed for pseudo-random number generator for reproducibility,
 rng_seed = 10
 Random.seed!(rng_seed)
 nothing # hide
 
-# Again, a positive function can be minimized with a target of 0
-G_target = [0.0]
+# A positive function can be minimized with a target of 0,
+G_target = [0]
 
-# We choose the stabilization as in the single-mimum example
+# We choose the stabilization as in the single-minimum example
 
 # ### Prior distributions
 #
-# We define the prior. We can place prior information on e.g., ``u₁``, demonstrating a belief that ``u₁`` is more likely to be negative. This can be implemented by setting a bias in the mean of its prior distribution to e.g., `-0.5`:
+# We define the prior. We can place prior information on e.g., ``u₁``, demonstrating a belief
+# that ``u₁`` is more likely to be negative. This can be implemented by setting a bias in the
+# mean of its prior distribution to e.g., ``-0.5``:
 
 prior_distributions = [Parameterized(Normal(-0.5, sqrt(2))),
                        Parameterized(Normal(   0, sqrt(2)))]
@@ -162,7 +168,7 @@ ensemble_kalman_process =
     EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target,
                                                       Γ_stabilization, Inversion())
 
-# We calibrate again. Doing so involves *(i)* obtaining the parameters, *(ii)* calculating the
+# We calibrate by *(i)* obtaining the parameters, *(ii)* calculating the
 # loss function on the parameters (and concatenate), and last *(iii)* generate a new set of
 # parameters using the model outputs:
 for i in 1:N_iterations
@@ -206,7 +212,10 @@ anim_two_minima = @animate for i in 1:N_iterations
                   title = "EKI iteration = " * string(i)
          )
 end
+nothing # hide
 
-# Our bias in the prior shifts the initial ensemble into the negative ``u_1`` direction, and thus increases the likelihood (over different instances of the random number generator) of finding the minimizer ``u=w_*``.
+# Our bias in the prior shifts the initial ensemble into the negative ``u_1`` direction, and
+# thus increases the likelihood (over different instances of the random number generator) of
+# finding the minimizer ``u=w_*``.
 
 gif(anim_two_minima, "two_minima.gif", fps = 1) # hide
