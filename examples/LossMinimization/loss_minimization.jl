@@ -119,8 +119,7 @@ gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 # ```math
 # G₂(u) = \|u - v_{*}\| \|u - w_{*}\| ,
 # ```
-# where again ``u`` is a vector of parameters and ``v_{*}`` and ``w_{*}`` are vectors of
-# optimal parameters. Here, we take ``v_{*} = (1, -1)`` and ``w_{*} = (-1, -1)``.
+# where again ``u`` is a 2-vector, and ``v_{*}`` and ``w_{*}`` are given 2-vectors. Here, we take ``v_{*} = (1, -1)`` and ``w_{*} = (-1, -1)``.
 
 v★ = [ 1, -1]
 w★ = [-1, -1]
