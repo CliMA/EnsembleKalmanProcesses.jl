@@ -68,6 +68,133 @@ Users can also define their own transformations by directly creating a `Constrai
 
 This is simply an identifier for the parameters later on.
 
+## 4. The power of the normal distribution
+
+The combination of a normal distribution with these transforms provide a suprising breadth of prior distributions. We **highly** recommend users start with Normal distributions and provided transformations before moving on to others.
+
+The unbounded case
+
+```@example
+using Distributions
+using Plots
+N=50
+x_eval = collect(-10:20/200:10)
+mean_varying = collect(-3:6/(N+1):3)
+sd_varying = collect(0.1:2.9/(N+1):3)
+
+mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval)
+sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval)
+
+ p1 = plot(x_eval, mean0norm.(1))
+ p2 = plot(x_eval, sd1norm.(1))      
+ p = plot(p1,p2, layout=(1,2))
+ 
+anim_unbounded = @animate for n = 1:size(mean_varying)[1]
+   #set new y data
+   p[1][1][:y] = mean0norm(n)
+   p[1][1][:label] = "sd = " * string(sd_varying[n])
+   p[2][1][:y] = sd1norm(n)
+   p[2][1][:label] = "mean = " * string(mean_varying[n])   
+
+end
+
+gif(anim_unbounded, "anim_unbounded.gif", fps = 10)
+```
+bounded below by 0.0
+
+```@example
+using Distributions
+using Plots
+N=50
+x_eval = collect(-5:10/400:5)
+mean_varying = collect(-1:2/(N+1):3)
+sd_varying = collect(0.1:0.9/(N+1):3)
+
+#bounded below by 0.0
+unconstrained_to_constrained(x) = exp(x)  
+
+mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval)
+sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval)
+constrained_x_eval = unconstrained_to_constrained.(x_eval)
+ p1 = plot(constrained_x_eval, mean0norm.(1))
+ p2 = plot(constrained_x_eval, sd1norm.(1))      
+ p = plot(p1,p2, layout=(1,2))
+ 
+anim_bounded_below = @animate for n = 1:size(mean_varying)[1]
+   #set new y data
+   p[1][1][:y] = mean0norm(n)
+   p[1][1][:label] = "sd = " * string(sd_varying[n])
+   p[2][1][:y] = sd1norm(n)
+   p[2][1][:label] = "mean = " * string(mean_varying[n])   
+
+end
+
+gif(anim_bounded_below, "anim_bounded_below.gif", fps = 10)
+```
+
+bounded above by 10.0
+
+```@example
+using Distributions
+using Plots
+N=50
+x_eval = collect(-5:4/400:5)
+mean_varying = collect(-1:2/(N+1):3)
+sd_varying = collect(0.1:0.9/(N+1):3)
+
+#bounded above by 10.0
+unconstrained_to_constrained(x) = 10.0 - exp(x)  
+
+mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval)
+sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval)
+constrained_x_eval = unconstrained_to_constrained.(x_eval)
+ p1 = plot(constrained_x_eval, mean0norm.(1))
+ p2 = plot(constrained_x_eval, sd1norm.(1))      
+ p = plot(p1,p2, layout=(1,2))
+ 
+anim_bounded_above = @animate for n = 1:size(mean_varying)[1]
+   #set new y data
+   p[1][1][:y] = mean0norm(n)
+   p[1][1][:label] = "sd = " * string(sd_varying[n])
+   p[2][1][:y] = sd1norm(n)
+   p[2][1][:label] = "mean = " * string(mean_varying[n])   
+
+end
+
+gif(anim_bounded_above, "anim_bounded_above.gif", fps = 10)
+```
+
+bounded in [5,10]
+
+```@example
+using Distributions
+using Plots
+N=50
+x_eval = collect(-10:20/400:10)
+mean_varying = collect(-3:2/(N+1):3)
+sd_varying = collect(0.1:0.9/(N+1):10)
+
+#bounded in [5.0,10.0]
+unconstrained_to_constrained(x) = (10.0 * exp(x) + 5.0) / (exp(x) + 1)
+
+mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval)
+sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval)
+constrained_x_eval = unconstrained_to_constrained.(x_eval)
+ p1 = plot(constrained_x_eval, mean0norm.(1))
+ p2 = plot(constrained_x_eval, sd1norm.(1))      
+ p = plot(p1,p2, layout=(1,2))
+ 
+anim_bounded = @animate for n = 1:size(mean_varying)[1]
+   #set new y data
+   p[1][1][:y] = mean0norm(n)
+   p[1][1][:label] = "sd = " * string(sd_varying[n])
+   p[2][1][:y] = sd1norm(n)
+   p[2][1][:label] = "mean = " * string(mean_varying[n])   
+
+end
+
+gif(anim_bounded, "anim_bounded.gif", fps = 10)
+```
 ## A more involved example:
 
 We create a 6-dimensional parameter distribution from 2 triples.
