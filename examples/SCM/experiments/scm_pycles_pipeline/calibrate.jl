@@ -35,9 +35,8 @@ function construct_priors()
     constraints = collect(values(params))
     n_param = length(param_names)
 
-    # All vars are standard Gaussians in unconstrained space
-    prior_dist = [Parameterized(Normal(0.0, 1.0))
-                    for _ in range(1, n_param, length=n_param) ]
+    # All vars are approximately uniform in unconstrained space
+    prior_dist = repeat([Parameterized(Normal(0.0, 1.78))], n_param)
     priors = ParameterDistribution(prior_dist, constraints, param_names)
     return priors
 end
