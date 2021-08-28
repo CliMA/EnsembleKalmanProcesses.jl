@@ -72,7 +72,7 @@ This is simply an identifier for the parameters later on.
 
 The combination of different normal distributions with these predefined constraints, provides a suprising breadth of prior distributions.
 
-!!! Note
+!!! note
     We **highly** recommend users start with Normal distribution and predefined constraint: these offer the best computational benefits and clearest interpretation of the methods.
 
 For each for the predefined ConstraintTypes, we present animations of the resulting prior distribution for
