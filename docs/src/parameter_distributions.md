@@ -98,7 +98,10 @@ mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) # hide
 sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) # hide
 constrained_x_eval = unconstrained_to_constrained.(x_eval) # hide 
 p1 = plot(constrained_x_eval, mean0norm.(1)) # hide
+vline!([unconstrained_to_constrained(0)]) # hide
 p2 = plot(constrained_x_eval, sd1norm.(1)) # hide     
+vline!([unconstrained_to_constrained(mean_varying[1])]) # hide
+
 p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false) # hide 
  
 anim_unbounded = @animate for n = 1:size(mean_varying)[1] # hide
@@ -108,10 +111,25 @@ anim_unbounded = @animate for n = 1:size(mean_varying)[1] # hide
    p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" # hide
    p[2][1][:y] = sd1norm(n) # hide
 #   p[2][1][:label] = "mean = " * string(round(mean_varying[n],digits=3)) # hide  
+   p[2][2][:x] = [ unconstrained_to_constrained(mean_varying[n]),
+                   unconstrained_to_constrained(mean_varying[n]),       
+                   unconstrained_to_constrained(mean_varying[n])] # hide       
+
    p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)" # hide
 end # hide
-gif(anim_unbounded, "anim_unbounded.gif", fps = 10) # hide
+gif(anim_unbounded, "anim_unbounded.gif", fps = 5) # hide
 ```
+The following commands generate the `Normal(0.5,1)` distribution with no constraint
+
+```@repl
+using EnsembleKalmanProcesses.ParameterDistributionStorage
+using Distributions 
+distribution = Parameterized(Normal(0.5,1)) 
+constraint = [no_constraint()]
+name = "normal_zero_one"
+prior = ParameterDistribution(distribution,constraint,name)
+```
+
 ### Bounded below by 0: `constraint = [bounded_below(0)]`
 
 ```@example
@@ -129,7 +147,10 @@ mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) # hide
 sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) # hide
 constrained_x_eval = unconstrained_to_constrained.(x_eval) # hide
 p1 = plot(constrained_x_eval, mean0norm.(1)) # hide
+vline!([unconstrained_to_constrained(0)]) # hide
 p2 = plot(constrained_x_eval, sd1norm.(1)) # hide
+vline!([unconstrained_to_constrained(mean_varying[1])]) # hide
+
 p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false) # hide 
  
 anim_bounded_below = @animate for n = 1:size(mean_varying)[1] # hide
@@ -139,10 +160,22 @@ anim_bounded_below = @animate for n = 1:size(mean_varying)[1] # hide
    p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" # hide
    p[2][1][:y] = sd1norm(n) # hide
 #   p[2][1][:label] = "mean = " * string(round(mean_varying[n],digits=3)) # hide  
+   p[2][2][:x] = [ unconstrained_to_constrained(mean_varying[n]),
+                   unconstrained_to_constrained(mean_varying[n]),       
+                   unconstrained_to_constrained(mean_varying[n])] # hide       
    p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)" # hide
 end # hide
 
-gif(anim_bounded_below, "anim_bounded_below.gif", fps = 10) # hide
+gif(anim_bounded_below, "anim_bounded_below.gif", fps = 5) # hide
+```
+The following commands generate the `Transformed(Normal(0.5,1))` distribution with a lower bound constraint
+```@repl
+using EnsembleKalmanProcesses.ParameterDistributionStorage
+using Distributions 
+distribution = Parameterized(Normal(0.5,1)) 
+constraint = [bounded_below(0)]
+name = "normal_zero_one"
+prior = ParameterDistribution(distribution,constraint,name)
 ```
 
 ### Bounded above by 10.0: `constraint = [bounded_above(10)]`
@@ -162,7 +195,9 @@ mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) # hide
 sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) # hide
 constrained_x_eval = unconstrained_to_constrained.(x_eval) # hide
 p1 = plot(constrained_x_eval, mean0norm.(1)) # hide
+vline!([unconstrained_to_constrained(0)]) # hide
 p2 = plot(constrained_x_eval, sd1norm.(1)) # hide
+vline!([unconstrained_to_constrained(mean_varying[1])]) # hide
 p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false) # hide 
  
 anim_bounded_above = @animate for n = 1:size(mean_varying)[1] # hide
@@ -171,14 +206,25 @@ anim_bounded_above = @animate for n = 1:size(mean_varying)[1] # hide
 #   p[1][1][:label] = "sd = " * string(round(sd_varying[n],digits=3)) # hide
    p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" # hide
    p[2][1][:y] = sd1norm(n) # hide
-#   p[2][1][:label] = "mean = " * string(round(mean_varying[n],digits=3)) # hide  
+#   p[2][1][:label] = "mean = " * string(round(mean_varying[n],digits=3)) # hide
+   p[2][2][:x] = [ unconstrained_to_constrained(mean_varying[n]),
+                   unconstrained_to_constrained(mean_varying[n]),       
+                   unconstrained_to_constrained(mean_varying[n])] # hide       
    p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)" # hide 
 
 end # hide
 
-gif(anim_bounded_above, "anim_bounded_above.gif", fps = 10) # hide
+gif(anim_bounded_above, "anim_bounded_above.gif", fps = 5) # hide
 ```
-
+The following commands generate the `Transformed(Normal(0.5,1))` distribution with a upper bound constraint 10
+```@repl
+using EnsembleKalmanProcesses.ParameterDistributionStorage
+using Distributions 
+distribution = Parameterized(Normal(0.5,1)) 
+constraint = [bounded_above(10)]
+name = "normal_zero_one"
+prior = ParameterDistribution(distribution,constraint,name)
+```
 ### Bounded in  between 5 and 10: `constraint = [bounded(5,10)]`
 
 ```@example
@@ -195,8 +241,10 @@ unconstrained_to_constrained(x) = (10.0 * exp(x) + 5.0) / (exp(x) + 1)
 mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) # hide
 sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) # hide
 constrained_x_eval = unconstrained_to_constrained.(x_eval) # hide
- p1 = plot(constrained_x_eval, mean0norm.(1)) # hide
- p2 = plot(constrained_x_eval, sd1norm.(1)) # hide
+p1 = plot(constrained_x_eval, mean0norm.(1)) # hide
+vline!([unconstrained_to_constrained(0)]) # hide
+p2 = plot(constrained_x_eval, sd1norm.(1)) # hide
+vline!([unconstrained_to_constrained(mean_varying[1])]) # hide
 p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false) # hide 
  
 anim_bounded = @animate for n = 1:size(mean_varying)[1] # hide
@@ -205,12 +253,25 @@ anim_bounded = @animate for n = 1:size(mean_varying)[1] # hide
 #   p[1][1][:label] = "sd = " * string(round(sd_varying[n],digits=3)) # hide
    p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" # hide
    p[2][1][:y] = sd1norm(n) # hide
-#   p[2][1][:label] = "mean = " * string(round(mean_varying[n],digits=3)) # hide  
+#   p[2][1][:label] = "mean = " * string(round(mean_varying[n],digits=3)) # hide
+   p[2][2][:x] = [ unconstrained_to_constrained(mean_varying[n]),
+                   unconstrained_to_constrained(mean_varying[n]),       
+                   unconstrained_to_constrained(mean_varying[n])] # hide       
+   
    p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)" # hide  
 
 end # hide
 
 gif(anim_bounded, "anim_bounded.gif", fps = 10) # hide
+```
+The following commands generate the `Transformed(Normal(0.5,1))` distribution with a bounded constraint between 5 and 10
+```@repl
+using EnsembleKalmanProcesses.ParameterDistributionStorage
+using Distributions 
+distribution = Parameterized(Normal(0.5,1)) 
+constraint = [bounded(5,10)]
+name = "normal_zero_one"
+prior = ParameterDistribution(distribution,constraint,name)
 ```
 ## A more involved example:
 
