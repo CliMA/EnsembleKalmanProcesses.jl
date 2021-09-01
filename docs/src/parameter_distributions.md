@@ -48,7 +48,7 @@ constrained_x_eval = unconstrained_to_constrained.(x_eval)
 ```
 The push-forward of the pdf and the push-forward of the mean look like
 ```@example zero_point_seven
-p = plot(constrained_x_eval, distplot, legend=false) # hide
+p = plot(constrained_x_eval, dist, legend=false) # hide
 vline!([unconstrained_to_constrained(1.0)]) # hide
 ```
 ## 1. The ParameterDistributionType
