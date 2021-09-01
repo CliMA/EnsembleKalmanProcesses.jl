@@ -16,9 +16,14 @@ Solution: We should use a Normal distribution with the predefined "bounded" cons
 
 Let's initialize the constraint first,
 ```julia
-constraint = [bounded(0,1)] # Sets up a logit-transformation into [0,1].
+constraint = [bounded(0,1)] 
 ```
-The prior is around 0.7, and the push forward of a normal distribution N(mean=1,sd=0.5) gives a prior with 95% of it's mass between [0.5,0.88].
+This sets up a logit transformation to and from the constrained space
+```julia
+unconstrained_to_constrained(x) = exp(x) / (exp(x) + 1)
+constrained_to_unconstrained(x) = log( x / (1 - x))
+```
+The prior is around 0.7 (constrained space), and the push-forward of an unconstrained normal distribution N(mean=1,sd=0.5) through the logit transformation gives a prior with 95% of it's mass between [0.5,0.88].
 ```julia
 distribution = Parameterized(Normal(1,0.5)) 
 ```
@@ -31,6 +36,21 @@ And the distribution is created by calling:
 prior = ParameterDistribution(distribution,constraint,name)
 ```
 
+```@setup zero_point_seven
+using Distributions 
+using Plots 
+N=50 
+x_eval = collect(-10:20/400:10) 
+#bounded in [0.0,1.0]
+unconstrained_to_constrained(x) = (1 * exp(x) + 0.0) / (exp(x) + 1)
+dist= pdf(Normal(1,0.5),x_eval) 
+constrained_x_eval = unconstrained_to_constrained.(x_eval) 
+```
+The push-forward of the pdf and the push-forward of the mean look like
+```@example zero_point_seven
+p = plot(constrained_x_eval, distplot, legend=false) # hide
+vline!([unconstrained_to_constrained(1.0)]) # hide
+```
 ## 1. The ParameterDistributionType
 
 The `ParameterDistributionType` has 2 flavours for building a distribution.
