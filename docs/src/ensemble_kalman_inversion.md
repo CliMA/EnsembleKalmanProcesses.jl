@@ -9,8 +9,8 @@ y = \mathcal{G}(\theta) + \eta,
 where ``\mathcal{G}`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations
 and ``\eta \sim \mathcal{N}(0, \Gamma_y)`` is additive Gaussian observational noise. Here, 
 ``\mathcal{N}(0, \Gamma_y)`` denotes a multivariate normal distribution with zero mean and 
-covariance matrix ``\Gamma_y``.  This noise-structure is meant to represents uncertainty, 
-including correlated uncertainty, in the observations. Note that ``p`` is the size of the parameter
+covariance matrix ``\Gamma_y``.  This noise structure represents the uncertainty, including
+correlated uncertainty, in the observations. Note that ``p`` is the size of the parameter
 vector ``\theta`` and ``d`` is taken to be the size of the observation vector ``y``.
 
 The EKI update equation for parameter vector ``\theta^{(j)}`` of ensemble member ``j`` is
