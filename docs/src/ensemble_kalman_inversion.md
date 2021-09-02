@@ -8,8 +8,10 @@ y = \mathcal{G}(\theta) + \eta,
 
 where ``\mathcal{G}`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations
 and ``\eta \sim \mathcal{N}(0, \Gamma_y)`` is additive Gaussian observational noise. Here, 
-``\mathcal{N}(0, \Gamma_y)`` denotes a normal distribution with mean 0 and variance ``\Gamma_y``.
-Note that ``p`` is the size of the parameter vector ``\theta`` and ``d`` is taken to be the size of the observation vector ``y``.
+``\mathcal{N}(0, \Gamma_y)`` denotes a multivariate normal distribution with zero mean and 
+covariance matrix ``\Gamma_y``.  This noise-structure is meant to represents uncertainty, 
+including correlated uncertainty, in the observations. Note that ``p`` is the size of the parameter
+vector ``\theta`` and ``d`` is taken to be the size of the observation vector ``y``.
 
 The EKI update equation for parameter vector ``\theta^{(j)}`` of ensemble member ``j`` is
 
@@ -17,16 +19,21 @@ The EKI update equation for parameter vector ``\theta^{(j)}`` of ensemble member
 \theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \frac{\mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n}{\sqrt{\Gamma_y}} \, , \, \frac{\mathcal{G}(\theta_n^{(j)}) - y}{\sqrt{\Gamma_y}} \right \rangle \theta_{n}^{(k)},
 ```
 
-where the subscript ``n=1, \dots, N_{it}`` indicates the iteration, ``J`` is the number of members in the ensemble and ``\bar{\mathcal{G}}_n`` is the mean value of ``\mathcal{G}(\theta)`` across ensemble members,
+where the subscript ``n=1, \dots, N_{it}`` indicates the iteration, ``J`` is the number of
+members in the ensemble and ``\bar{\mathcal{G}}_n`` is the mean value of ``\mathcal{G}(\theta)``
+across ensemble members,
 
 ```math
 \bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)}),
 ```
 
-and angle brackets denote a Euclidean inner product. By dividing with ``\sqrt{\Gamma_y}`` we
-render the elements inside the inner product non-dimensional.
+and angle brackets denote a Euclidean inner product. The covariance matrix ``\Gamma_y`` is
+positive-definite so raising it to the power ``-1/2`` is meaningful. By normalizing with
+``\Gamma_y^{-1/2}`` we render the elements inside the inner product non-dimensional.
 
-The EKI algorithm is considered converged when the ensemble achieves sufficient consensus/collapse in parameter space. The final estimate ``\bar{\theta}_{N_{it}}`` is taken to be the ensemble mean at the final iteration,
+The EKI algorithm is considered converged when the ensemble achieves sufficient consensus/collapse
+in parameter space. The final estimate ``\bar{\theta}_{N_{it}}`` is taken to be the ensemble
+mean at the final iteration,
 
 ```math
 \bar{\theta}_{N_{it}} = \dfrac{1}{J}\sum_{k=1}^J\theta_{N_{it}}^{(k)}.
