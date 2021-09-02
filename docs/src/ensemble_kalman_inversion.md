@@ -6,13 +6,12 @@ The ensemble Kalman inversion (EKI) is a derivative-free ensemble optimization m
 to find the optimal parameters ``\theta \in \mathbb{R}^p`` in the inverse problem
 
 ```math
-y = \mathcal{G}(\theta) + \eta,
+y = \mathcal{G}(\theta) + \eta ,
 ```
 
 where ``\mathcal{G}`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations
 and ``\eta  \in \mathbb{R}^d`` is additive observational noise. Note that ``p`` is the
-size of the parameter vector ``\theta`` and ``d`` is taken to be the size of the observation
-vector ``y``.
+size of the parameter vector ``\theta`` and ``d`` the size of the observation vector ``y``.
 
 Here, we take ``\eta \sim \mathcal{N}(0, \Gamma_y)`` from a ``d``-dimensional multivariate
 normal distribution with zero mean and covariance matrix ``\Gamma_y``.  This noise structure
@@ -21,7 +20,7 @@ aims to represent the correlations between observations.
 The parameter vector of the ``j``-th ensemble member at the ``n``-th iteration is ``\theta^{(j)}_n``. The EKI update equation for parameter vector ``\theta^{(j)}`` is
 
 ```math
-\theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n \, , \, \Gamma_y^{-1}[\mathcal{G}(\theta_n^{(j)}) - y] \right \rangle \theta_{n}^{(k)} ,
+\theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n \, , \, \Gamma_y^{-1} \left ( \mathcal{G}(\theta_n^{(j)}) - y \right ) \right \rangle \theta_{n}^{(k)} ,
 ```
 
 where the subscript ``n=1, \dots, N_{it}`` indicates the iteration, ``J`` is the number of
