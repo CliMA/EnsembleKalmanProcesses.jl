@@ -14,23 +14,23 @@ uncertainty, including correlated uncertainty, in the observations. Note that ``
 size of the parameter vector ``\theta`` and ``d`` is taken to be the size of the observation
 vector ``y``.
 
-The EKI update equation for parameter vector ``\theta^{(j)}`` of ensemble member ``j`` is
+The parameter vector of the ``j``-th ensemble member at the ``n``-th iteration is ``\theta^{(j)}_n``. The EKI update equation for parameter vector ``\theta^{(j)}`` is
 
 ```math
-\theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \frac{\mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n}{\sqrt{\Gamma_y}} \, , \, \frac{\mathcal{G}(\theta_n^{(j)}) - y}{\sqrt{\Gamma_y}} \right \rangle \theta_{n}^{(k)},
+\theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \frac{\mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n}{\sqrt{\Gamma_y}} \, , \, \frac{\mathcal{G}(\theta_n^{(j)}) - y}{\sqrt{\Gamma_y}} \right \rangle \theta_{n}^{(k)} ,
 ```
 
 where the subscript ``n=1, \dots, N_{it}`` indicates the iteration, ``J`` is the number of
-members in the ensemble and ``\bar{\mathcal{G}}_n`` is the mean value of ``\mathcal{G}(\theta)``
+members in the ensemble, ``\bar{\mathcal{G}}_n`` is the mean value of ``\mathcal{G}(\theta_n)``
 across ensemble members,
 
 ```math
-\bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)}),
+\bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)}) ,
 ```
 
-and angle brackets denote a Euclidean inner product. The covariance matrix ``\Gamma_y`` is
-positive-definite so raising it to the power ``-1/2`` is meaningful. By normalizing with
-``\Gamma_y^{-1/2}`` we render the elements inside the inner product non-dimensional.
+and angle brackets denote the Euclidean inner product. The covariance matrix ``\Gamma_y`` is
+positive-definite and, therefore, raising it to the power ``-1/2`` is meaningful. By normalizing
+with ``\Gamma_y^{-1/2}`` we render the elements inside the inner product non-dimensional.
 
 The EKI algorithm is considered converged when the ensemble achieves sufficient consensus/collapse
 in parameter space. The final estimate ``\bar{\theta}_{N_{it}}`` is taken to be the ensemble
