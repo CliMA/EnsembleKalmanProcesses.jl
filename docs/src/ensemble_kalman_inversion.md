@@ -1,23 +1,27 @@
 # Ensemble Kalman Inversion
 
-One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the ensemble Kalman inversion ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)). The ensemble Kalman inversion (EKI) is a derivative-free ensemble optimization method that seeks to find the optimal parameters ``\theta \in \mathbb{R}^p`` in the inverse problem
+One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the ensemble
+Kalman inversion ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)).
+The ensemble Kalman inversion (EKI) is a derivative-free ensemble optimization method that seeks
+to find the optimal parameters ``\theta \in \mathbb{R}^p`` in the inverse problem
 
 ```math
 y = \mathcal{G}(\theta) + \eta,
 ```
 
 where ``\mathcal{G}`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations
-and ``\eta  \in \mathbb{R}^d`` is additive Gaussian observational noise. Here, we take 
-``\eta \sim \mathcal{N}(0, \Gamma_y)`` from a multivariate ``d``-dimensional normal distribution
-with zero mean and covariance matrix ``\Gamma_y``.  This noise structure aims to represent the
-uncertainty, including correlated uncertainty, in the observations. Note that ``p`` is the
+and ``\eta  \in \mathbb{R}^d`` is additive observational noise. Note that ``p`` is the
 size of the parameter vector ``\theta`` and ``d`` is taken to be the size of the observation
 vector ``y``.
+
+Here, we take ``\eta \sim \mathcal{N}(0, \Gamma_y)`` from a ``d``-dimensional multivariate
+normal distribution with zero mean and covariance matrix ``\Gamma_y``.  This noise structure
+aims to represent the correlations between observations.
 
 The parameter vector of the ``j``-th ensemble member at the ``n``-th iteration is ``\theta^{(j)}_n``. The EKI update equation for parameter vector ``\theta^{(j)}`` is
 
 ```math
-\theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \frac{\mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n}{\sqrt{\Gamma_y}} \, , \, \frac{\mathcal{G}(\theta_n^{(j)}) - y}{\sqrt{\Gamma_y}} \right \rangle \theta_{n}^{(k)} ,
+\theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n \, , \, \Gamma_y^{-1}[\mathcal{G}(\theta_n^{(j)}) - y] \right \rangle \theta_{n}^{(k)} ,
 ```
 
 where the subscript ``n=1, \dots, N_{it}`` indicates the iteration, ``J`` is the number of
@@ -28,9 +32,8 @@ across ensemble members,
 \bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)}) ,
 ```
 
-and angle brackets denote the Euclidean inner product. The covariance matrix ``\Gamma_y`` is
-positive-definite and, therefore, raising it to the power ``-1/2`` is meaningful. By normalizing
-with ``\Gamma_y^{-1/2}`` we render the elements inside the inner product non-dimensional.
+and angle brackets denote the Euclidean inner product. By multiplying with ``\Gamma_y^{-1}``
+(which has dimensions ``y^2``) we render the inner product non-dimensional.
 
 The EKI algorithm is considered converged when the ensemble achieves sufficient consensus/collapse
 in parameter space. The final estimate ``\bar{\theta}_{N_{it}}`` is taken to be the ensemble
@@ -83,9 +86,9 @@ A call to the inversion algorithm can be performed with the `update_ensemble!` f
 
 A typical use of the `update_ensemble!` function given the ensemble Kalman inversion object `ekiobj`, the dynamical model `Ψ` and the observation map `H` is
 ```julia
-N_iterations = 20 # Number of steps of the algorithm
+N_iter = 20 # Number of steps of the algorithm
 
-for n in 1:N_iterations
+for n in 1:N_iter
     θ_n = get_u_final(ekiobj) # Get current ensemble
     ϕ_n = transform_unconstrained_to_constrained(prior, θ_n) # Transform parameters to physical/constrained space
     G_n = [H(Ψ((ϕ_n[:,i])) for i in 1:J]
