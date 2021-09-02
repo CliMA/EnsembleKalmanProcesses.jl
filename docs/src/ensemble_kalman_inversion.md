@@ -75,7 +75,7 @@ for n in 1:N_iter
 end
 ```
 
-In the previous update, note that the parameters stored in `ekiobj` are given in the unconstrained Gaussian space where the EKI algorithm is performed. The map $\mathcal{T}^{-1}$ between this unconstrained space and the (possibly constrained) physical space of parameters is encoded in the `prior` object. The dynamical model `Ψ` accepts as inputs the parameters in (possibly constrained) physical space, so it is necessary to apply `transform_unconstrained_to_constrained` before evaluations. See the [Prior distributions](parameter_distributions/) section for more details on parameter transformations.
+In the previous update, note that the parameters stored in `ekiobj` are given in the unconstrained Gaussian space where the EKI algorithm is performed. The map $\mathcal{T}^{-1}$ between this unconstrained space and the (possibly constrained) physical space of parameters is encoded in the `prior` object. The dynamical model `Ψ` accepts as inputs the parameters in (possibly constrained) physical space, so it is necessary to apply `transform_unconstrained_to_constrained` before evaluations. See the [Prior distributions](../parameter_distributions/) section for more details on parameter transformations.
 
 ### Solution
 
