@@ -32,7 +32,7 @@ across ensemble members,
 ```
 
 and angle brackets denote the Euclidean inner product. By multiplying with ``\Gamma_y^{-1}``
-(which has dimensions ``y^2``) we render the inner product non-dimensional.
+we render the inner product non-dimensional.
 
 The EKI algorithm is considered converged when the ensemble achieves sufficient consensus/collapse
 in parameter space. The final estimate ``\bar{\theta}_{N_{it}}`` is taken to be the ensemble
