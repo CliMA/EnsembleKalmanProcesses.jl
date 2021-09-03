@@ -18,12 +18,12 @@ Let's initialize the constraint first,
 ```julia
 constraint = [bounded(0,1)] 
 ```
-This sets up a logit transformation to and from the constrained space
+This *automatically* sets up the following transformations to the  constrained space and back
 ```julia
 unconstrained_to_constrained(x) = exp(x) / (exp(x) + 1)
 constrained_to_unconstrained(x) = log( x / (1 - x))
 ```
-The prior is around 0.7 (constrained space), and the push-forward of an unconstrained normal distribution N(mean=1,sd=0.5) through the logit transformation gives a prior with 95% of it's mass between [0.5,0.88].
+The prior should be around 0.7 (in the constrained space), and one can find that the push-forward of a particular normal distribution `unconstrained_to_constrained(Normal(mean=1,sd=0.5))` gives a prior pdf with 95% of its mass between [0.5,0.88].
 ```julia
 distribution = Parameterized(Normal(1,0.5)) 
 ```
@@ -71,7 +71,7 @@ In this section we call parameters are one-dimensional. Every parameter must hav
 
 ### Predefined ConstraintTypes
 
-We provide some ConstraintTypes, which apply different transformations internally to enforce bounds on physical parameter spaces. The types have the following constructors
+We provide some `ConstraintType`s, which apply different transformations internally to enforce bounds on physical parameter spaces. The types have the following constructors
 
  - `no_constraint()`, no transform is required for this parameter
  - `bounded_below(lower_bound)`, the physical parameter has a (provided) lower bound
@@ -93,9 +93,9 @@ This is simply an identifier for the parameters later on.
 The combination of different normal distributions with these predefined constraints, provides a suprising breadth of prior distributions.
 
 !!! note
-    We **highly** recommend users start with Normal distribution and predefined constraint: these offer the best computational benefits and clearest interpretation of the methods.
+    We **highly** recommend users start with Normal distribution and predefined `ConstraintType`: these offer the best computational benefits and clearest interpretation of the methods.
 
-For each for the predefined ConstraintTypes, we present animations of the resulting prior distribution for
+For each for the predefined `ConstraintType`s, we present animations of the resulting prior distribution for
 ```julia
 distribution = Parameterized(Normal(mean,sd))
 ```
@@ -140,9 +140,9 @@ end
 ```@example no_constraints
 gif(anim_unbounded, "anim_unbounded.gif", fps = 5) # hide
 ```
-The following commands generate the transformed `Normal(0.5,1)` distribution
+The following REPL commands generate the transformed `Normal(0.5,1)` distribution
 
-```@repl
+```julia
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using Distributions 
 distribution = Parameterized(Normal(0.5,1)) 
@@ -150,7 +150,7 @@ constraint = [no_constraint()]
 name = "unbounded_parameter"
 prior = ParameterDistribution(distribution,constraint,name)
 ```
-where `no_constraint()` automatically defines the constraint map
+where `no_constraint()` automatically defines the identity constraint map
 ```julia
 unconstrained_to_constrained(x) = x
 ```
@@ -193,9 +193,9 @@ end
 ```@example bounded_below
 gif(anim_bounded_below, "anim_bounded_below.gif", fps = 5) # hide
 ```
-The following commands generate the transformed `Normal(0.5,1)` distribution
+The following REPL commands generate the transformed `Normal(0.5,1)` distribution
 
-```@repl
+```julia
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using Distributions 
 distribution = Parameterized(Normal(0.5,1)) 
@@ -247,14 +247,14 @@ end
 gif(anim_bounded_above, "anim_bounded_above.gif", fps = 5) # hide
 ```
 
-The following commands generate the transformed `Normal(0.5,1)` distribution
+The following REPL commands generate the transformed `Normal(0.5,1)` distribution
 
-```@repl
+```julia
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using Distributions 
 distribution = Parameterized(Normal(0.5,1)) 
 constraint = [bounded_above(10)]
-name = "bounded_below_parameter"
+name = "bounded_above_parameter"
 prior = ParameterDistribution(distribution,constraint,name)
 ```
 where `bounded_above(10)` automatically defines the constraint map
@@ -301,14 +301,14 @@ end
 ```@example bounded
 gif(anim_bounded, "anim_bounded.gif", fps = 10) # hide
 ```
-The following commands generate the transformed `Normal(0.5,1)` distribution
+The following REPL commands generate the transformed `Normal(0.5,1)` distribution
 
-```@repl
+```julia
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using Distributions 
 distribution = Parameterized(Normal(0.5,1)) 
 constraint = [bounded(5,10)]
-name = "bounded_below_parameter"
+name = "bounded_parameter"
 prior = ParameterDistribution(distribution,constraint,name)
 ```
 where `bounded(5,10)` automatically defines the constraint map
