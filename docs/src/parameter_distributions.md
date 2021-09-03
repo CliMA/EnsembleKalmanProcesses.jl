@@ -16,14 +16,13 @@ Solution: We should use a Normal distribution with the predefined "bounded" cons
 
 Let's initialize the constraint first,
 ```julia
-constraint = [bounded(0,1)] 
+constraint = [bounded(0,1)]
 ```
-This *automatically* sets up the following transformations to the  constrained space and back
+This **automatically** sets up the following transformation to the  constrained space (and also its inverse)
 ```julia
-unconstrained_to_constrained(x) = exp(x) / (exp(x) + 1)
-constrained_to_unconstrained(x) = log( x / (1 - x))
+transform_unconstrained_to_constrained(x) = exp(x) / (exp(x) + 1)
 ```
-The prior should be around 0.7 (in the constrained space), and one can find that the push-forward of a particular normal distribution `unconstrained_to_constrained(Normal(mean=1,sd=0.5))` gives a prior pdf with 95% of its mass between [0.5,0.88].
+The prior should be around 0.7 (in the constrained space), and one can find that the push-forward of a particular normal distribution, namely, `transform_unconstrained_to_constrained(Normal(mean=1,sd=0.5))` gives a prior pdf with 95% of its mass between [0.5,0.88].
 ```julia
 distribution = Parameterized(Normal(1,0.5)) 
 ```
@@ -40,16 +39,21 @@ prior = ParameterDistribution(distribution,constraint,name)
 using Distributions 
 using Plots 
 N=50 
-x_eval = collect(-10:20/400:10) 
+x_eval = collect(-3:6/400:3) 
 #bounded in [0.0,1.0]
-unconstrained_to_constrained(x) = (1 * exp(x) + 0.0) / (exp(x) + 1)
+transform_unconstrained_to_constrained(x) = (1 * exp(x) + 0.0) / (exp(x) + 1)
 dist= pdf(Normal(1,0.5),x_eval) 
-constrained_x_eval = unconstrained_to_constrained.(x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
+p1 = plot(x_eval, dist,) 
+vline!([1.0]) 
+title!("Normal(1,0.5)")
+p2 = plot(constrained_x_eval, dist) 
+vline!([transform_unconstrained_to_constrained(1.0)]) 
+title!("Transformed Normal(1,0.5)")
 ```
-The push-forward of the pdf and the push-forward of the mean look like
+The pdf of the Normal distribution, and its transform look like:
 ```@example zero_point_seven
-p = plot(constrained_x_eval, dist, legend=false) # hide
-vline!([unconstrained_to_constrained(1.0)]) # hide
+p = plot(p1,p2,legend=false)
 ```
 ## 1. The ParameterDistributionType
 
@@ -113,15 +117,15 @@ x_eval = collect(-5:10/200:5)
 mean_varying = collect(-3:6/(N+1):3) 
 sd_varying = collect(0.1:2.9/(N+1):3) 
 # no constraint 
-unconstrained_to_constrained(x) = x
+transform_unconstrained_to_constrained(x) = x
 
 mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval)
 sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) 
-constrained_x_eval = unconstrained_to_constrained.(x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
 p1 = plot(constrained_x_eval, mean0norm.(1)) 
-vline!([unconstrained_to_constrained(0)]) 
+vline!([transform_unconstrained_to_constrained(0)]) 
 p2 = plot(constrained_x_eval, sd1norm.(1)) 
-vline!([unconstrained_to_constrained(mean_varying[1])]) 
+vline!([transform_unconstrained_to_constrained(mean_varying[1])]) 
 
 p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false) 
  
@@ -130,9 +134,9 @@ anim_unbounded = @animate for n = 1:size(mean_varying)[1]
    p[1][1][:y] = mean0norm(n) 
    p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" 
    p[2][1][:y] = sd1norm(n) 
-   p[2][2][:x] = [ unconstrained_to_constrained(mean_varying[n]),
-                   unconstrained_to_constrained(mean_varying[n]),       
-                   unconstrained_to_constrained(mean_varying[n])]
+   p[2][2][:x] = [ transform_unconstrained_to_constrained(mean_varying[n]),
+                   transform_unconstrained_to_constrained(mean_varying[n]),       
+                   transform_unconstrained_to_constrained(mean_varying[n])]
 
    p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)"
 end 
@@ -152,7 +156,7 @@ prior = ParameterDistribution(distribution,constraint,name)
 ```
 where `no_constraint()` automatically defines the identity constraint map
 ```julia
-unconstrained_to_constrained(x) = x
+transform_unconstrained_to_constrained(x) = x
 ```
 
 ### Bounded below by 0: `constraint = [bounded_below(0)]`
@@ -166,15 +170,15 @@ mean_varying = collect(-1:5/(N+1):4)
 sd_varying = collect(0.1:3.9/(N+1):4) 
 
 #bounded below by 0
-unconstrained_to_constrained(x) = exp(x)  
+transform_unconstrained_to_constrained(x) = exp(x)  
 
 mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) 
 sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) 
-constrained_x_eval = unconstrained_to_constrained.(x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
 p1 = plot(constrained_x_eval, mean0norm.(1)) 
-vline!([unconstrained_to_constrained(0)]) 
+vline!([transform_unconstrained_to_constrained(0)]) 
 p2 = plot(constrained_x_eval, sd1norm.(1)) 
-vline!([unconstrained_to_constrained(mean_varying[1])]) 
+vline!([transform_unconstrained_to_constrained(mean_varying[1])]) 
 
 p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false)  
  
@@ -183,9 +187,9 @@ anim_bounded_below = @animate for n = 1:size(mean_varying)[1]
    p[1][1][:y] = mean0norm(n) 
    p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" 
    p[2][1][:y] = sd1norm(n) 
-   p[2][2][:x] = [ unconstrained_to_constrained(mean_varying[n]),
-                   unconstrained_to_constrained(mean_varying[n]),       
-                   unconstrained_to_constrained(mean_varying[n])]        
+   p[2][2][:x] = [ transform_unconstrained_to_constrained(mean_varying[n]),
+                   transform_unconstrained_to_constrained(mean_varying[n]),       
+                   transform_unconstrained_to_constrained(mean_varying[n])]        
    p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)" 
 end 
 ```
@@ -205,7 +209,7 @@ prior = ParameterDistribution(distribution,constraint,name)
 ```
 where `bounded_below(0)` automatically defines the constraint map
 ```julia
-unconstrained_to_constrained(x) = exp(x)
+transform_unconstrained_to_constrained(x) = exp(x)
 ```
 
 ### Bounded above by 10.0: `constraint = [bounded_above(10)]`
@@ -219,15 +223,15 @@ mean_varying = collect(-1:5/(N+1):4)
 sd_varying = collect(0.1:3.9/(N+1):4) 
 
 #bounded above by 10.0
-unconstrained_to_constrained(x) = 10.0 - exp(x)  
+transform_unconstrained_to_constrained(x) = 10.0 - exp(x)  
 
 mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) 
 sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) 
-constrained_x_eval = unconstrained_to_constrained.(x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
 p1 = plot(constrained_x_eval, mean0norm.(1)) 
-vline!([unconstrained_to_constrained(0)]) 
+vline!([transform_unconstrained_to_constrained(0)]) 
 p2 = plot(constrained_x_eval, sd1norm.(1)) 
-vline!([unconstrained_to_constrained(mean_varying[1])]) 
+vline!([transform_unconstrained_to_constrained(mean_varying[1])]) 
 p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false)  
  
 anim_bounded_above = @animate for n = 1:size(mean_varying)[1] 
@@ -235,9 +239,9 @@ anim_bounded_above = @animate for n = 1:size(mean_varying)[1]
    p[1][1][:y] = mean0norm(n) 
    p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" 
    p[2][1][:y] = sd1norm(n) 
-   p[2][2][:x] = [ unconstrained_to_constrained(mean_varying[n]),
-                   unconstrained_to_constrained(mean_varying[n]),       
-                   unconstrained_to_constrained(mean_varying[n])]        
+   p[2][2][:x] = [ transform_unconstrained_to_constrained(mean_varying[n]),
+                   transform_unconstrained_to_constrained(mean_varying[n]),       
+                   transform_unconstrained_to_constrained(mean_varying[n])]        
    p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)"  
 
 end 
@@ -259,7 +263,7 @@ prior = ParameterDistribution(distribution,constraint,name)
 ```
 where `bounded_above(10)` automatically defines the constraint map
 ```julia
-unconstrained_to_constrained(x) = 10 - exp(x)
+transform_unconstrained_to_constrained(x) = 10 - exp(x)
 ```
 
 ### Bounded in  between 5 and 10: `constraint = [bounded(5,10)]`
@@ -273,15 +277,15 @@ mean_varying = collect(-3:2/(N+1):3)
 sd_varying = collect(0.1:0.9/(N+1):10) 
 
 #bounded in [5.0,10.0]
-unconstrained_to_constrained(x) = (10.0 * exp(x) + 5.0) / (exp(x) + 1)
+transform_unconstrained_to_constrained(x) = (10.0 * exp(x) + 5.0) / (exp(x) + 1)
 
 mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) 
 sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) 
-constrained_x_eval = unconstrained_to_constrained.(x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
 p1 = plot(constrained_x_eval, mean0norm.(1)) 
-vline!([unconstrained_to_constrained(0)]) 
+vline!([transform_unconstrained_to_constrained(0)]) 
 p2 = plot(constrained_x_eval, sd1norm.(1)) 
-vline!([unconstrained_to_constrained(mean_varying[1])]) 
+vline!([transform_unconstrained_to_constrained(mean_varying[1])]) 
 p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false)  
  
 anim_bounded = @animate for n = 1:size(mean_varying)[1] 
@@ -289,9 +293,9 @@ anim_bounded = @animate for n = 1:size(mean_varying)[1]
    p[1][1][:y] = mean0norm(n) 
    p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" 
    p[2][1][:y] = sd1norm(n) 
-   p[2][2][:x] = [ unconstrained_to_constrained(mean_varying[n]),
-                   unconstrained_to_constrained(mean_varying[n]),       
-                   unconstrained_to_constrained(mean_varying[n])]        
+   p[2][2][:x] = [ transform_unconstrained_to_constrained(mean_varying[n]),
+                   transform_unconstrained_to_constrained(mean_varying[n]),       
+                   transform_unconstrained_to_constrained(mean_varying[n])]        
    
    p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)"   
 
@@ -313,7 +317,7 @@ prior = ParameterDistribution(distribution,constraint,name)
 ```
 where `bounded(5,10)` automatically defines the constraint map
 ```julia
-unconstrained_to_constrained(x) = (10 * exp(x) + 5) / (exp(x) + 1)
+transform_unconstrained_to_constrained(x) = (10 * exp(x) + 5) / (exp(x) + 1)
 ```
 
 ## A more involved example:
