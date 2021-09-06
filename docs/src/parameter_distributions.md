@@ -53,7 +53,7 @@ title!("Transformed Normal(1,0.5)")
 ```
 The pdf of the Normal distribution, and its transform look like:
 ```@example zero_point_seven
-p = plot(p1,p2,legend=false)
+p = plot(p1,p2,legend=false) #hide
 ```
 ## 1. The ParameterDistributionType
 
