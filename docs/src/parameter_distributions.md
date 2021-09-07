@@ -16,9 +16,13 @@ Solution: We should use a Normal distribution with the predefined "bounded" cons
 
 Let's initialize the constraint first,
 ```julia
-constraint = [bounded(0,1)] # Sets up a logit-transformation into [0,1].
+constraint = [bounded(0,1)]
 ```
-The prior is around 0.7, and the push forward of a normal distribution N(mean=1,sd=0.5) gives a prior with 95% of it's mass between [0.5,0.88].
+This **automatically** sets up the following transformation to the  constrained space (and also its inverse)
+```julia
+transform_unconstrained_to_constrained(x) = exp(x) / (exp(x) + 1)
+```
+The prior should be around 0.7 (in the constrained space), and one can find that the push-forward of a particular normal distribution, namely, `transform_unconstrained_to_constrained(Normal(mean=1,sd=0.5))` gives a prior pdf with 95% of its mass between [0.5,0.88].
 ```julia
 distribution = Parameterized(Normal(1,0.5)) 
 ```
@@ -31,6 +35,26 @@ And the distribution is created by calling:
 prior = ParameterDistribution(distribution,constraint,name)
 ```
 
+```@setup zero_point_seven
+using Distributions 
+using Plots 
+N=50 
+x_eval = collect(-3:6/400:3) 
+#bounded in [0.0,1.0]
+transform_unconstrained_to_constrained(x) = (1 * exp(x) + 0.0) / (exp(x) + 1)
+dist= pdf(Normal(1,0.5),x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
+p1 = plot(x_eval, dist,) 
+vline!([1.0]) 
+title!("Normal(1,0.5)")
+p2 = plot(constrained_x_eval, dist) 
+vline!([transform_unconstrained_to_constrained(1.0)]) 
+title!("Transformed Normal(1,0.5)")
+```
+The pdf of the Normal distribution, and its transform look like:
+```@example zero_point_seven
+p = plot(p1,p2,legend=false,size = (900,450)) #hide
+```
 ## 1. The ParameterDistributionType
 
 The `ParameterDistributionType` has 2 flavours for building a distribution.
@@ -51,7 +75,7 @@ In this section we call parameters are one-dimensional. Every parameter must hav
 
 ### Predefined ConstraintTypes
 
-We provide some ConstraintTypes, which apply different transformations internally to enforce bounds on physical parameter spaces. The types have the following constructors
+We provide some `ConstraintType`s, which apply different transformations internally to enforce bounds on physical parameter spaces. The types have the following constructors
 
  - `no_constraint()`, no transform is required for this parameter
  - `bounded_below(lower_bound)`, the physical parameter has a (provided) lower bound
@@ -61,12 +85,240 @@ We provide some ConstraintTypes, which apply different transformations internall
 Users can also define their own transformations by directly creating a `ConstraintType` object with their own mappings.
 
 !!! note
-    It is up to the user to ensure their provided transforms are inverses of each other.
+    It is up to the user to ensure any custom mappings `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained` are inverses of each other.
 
 
 ## 3. The name
 
 This is simply an identifier for the parameters later on.
+
+## 4. The power of the normal distribution
+
+The combination of different normal distributions with these predefined constraints, provides a suprising breadth of prior distributions.
+
+!!! note
+    We **highly** recommend users start with Normal distribution and predefined `ConstraintType`: these offer the best computational benefits and clearest interpretation of the methods.
+
+For each for the predefined `ConstraintType`s, we present animations of the resulting prior distribution for
+```julia
+distribution = Parameterized(Normal(mean,sd))
+```
+where: 
+1. We fix the mean value to 0, and range over the standard deviation
+2. We fix the standard deviation to 1 and range over the mean value
+
+### Without constraints: `constraint = [no_constraints()]`
+
+```@setup no_constraints
+using Distributions 
+using Plots 
+N = 50 
+x_eval = collect(-5:10/200:5) 
+mean_varying = collect(-3:6/(N+1):3) 
+sd_varying = collect(0.1:2.9/(N+1):3) 
+# no constraint 
+transform_unconstrained_to_constrained(x) = x
+
+mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval)
+sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
+p1 = plot(constrained_x_eval, mean0norm.(1)) 
+vline!([transform_unconstrained_to_constrained(0)]) 
+p2 = plot(constrained_x_eval, sd1norm.(1)) 
+vline!([transform_unconstrained_to_constrained(mean_varying[1])]) 
+
+p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false) 
+ 
+anim_unbounded = @animate for n = 1:size(mean_varying)[1] 
+   #set new y data 
+   p[1][1][:y] = mean0norm(n) 
+   p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" 
+   p[2][1][:y] = sd1norm(n) 
+   p[2][2][:x] = [ transform_unconstrained_to_constrained(mean_varying[n]),
+                   transform_unconstrained_to_constrained(mean_varying[n]),       
+                   transform_unconstrained_to_constrained(mean_varying[n])]
+
+   p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)"
+end 
+```
+```@example no_constraints
+gif(anim_unbounded, "anim_unbounded.gif", fps = 5) # hide
+```
+The following REPL commands generate the transformed `Normal(0.5,1)` distribution
+
+```julia
+using EnsembleKalmanProcesses.ParameterDistributionStorage
+using Distributions 
+distribution = Parameterized(Normal(0.5,1)) 
+constraint = [no_constraint()]
+name = "unbounded_parameter"
+prior = ParameterDistribution(distribution,constraint,name)
+```
+where `no_constraint()` automatically defines the identity constraint map
+```julia
+transform_unconstrained_to_constrained(x) = x
+```
+
+### Bounded below by 0: `constraint = [bounded_below(0)]`
+
+```@setup bounded_below
+using Distributions  
+using Plots 
+N=50 
+x_eval = collect(-5:10/400:5) 
+mean_varying = collect(-1:5/(N+1):4) 
+sd_varying = collect(0.1:3.9/(N+1):4) 
+
+#bounded below by 0
+transform_unconstrained_to_constrained(x) = exp(x)  
+
+mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) 
+sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
+p1 = plot(constrained_x_eval, mean0norm.(1)) 
+vline!([transform_unconstrained_to_constrained(0)]) 
+p2 = plot(constrained_x_eval, sd1norm.(1)) 
+vline!([transform_unconstrained_to_constrained(mean_varying[1])]) 
+
+p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false)  
+ 
+anim_bounded_below = @animate for n = 1:size(mean_varying)[1] 
+   #set new y data  
+   p[1][1][:y] = mean0norm(n) 
+   p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" 
+   p[2][1][:y] = sd1norm(n) 
+   p[2][2][:x] = [ transform_unconstrained_to_constrained(mean_varying[n]),
+                   transform_unconstrained_to_constrained(mean_varying[n]),       
+                   transform_unconstrained_to_constrained(mean_varying[n])]        
+   p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)" 
+end 
+```
+
+```@example bounded_below
+gif(anim_bounded_below, "anim_bounded_below.gif", fps = 5) # hide
+```
+The following REPL commands generate the transformed `Normal(0.5,1)` distribution
+
+```julia
+using EnsembleKalmanProcesses.ParameterDistributionStorage
+using Distributions 
+distribution = Parameterized(Normal(0.5,1)) 
+constraint = [bounded_below(0)]
+name = "bounded_below_parameter"
+prior = ParameterDistribution(distribution,constraint,name)
+```
+where `bounded_below(0)` automatically defines the constraint map
+```julia
+transform_unconstrained_to_constrained(x) = exp(x)
+```
+
+### Bounded above by 10.0: `constraint = [bounded_above(10)]`
+
+```@setup bounded_above
+using Distributions 
+using Plots 
+N=50 
+x_eval = collect(-5:4/400:5) 
+mean_varying = collect(-1:5/(N+1):4) 
+sd_varying = collect(0.1:3.9/(N+1):4) 
+
+#bounded above by 10.0
+transform_unconstrained_to_constrained(x) = 10.0 - exp(x)  
+
+mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) 
+sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
+p1 = plot(constrained_x_eval, mean0norm.(1)) 
+vline!([transform_unconstrained_to_constrained(0)]) 
+p2 = plot(constrained_x_eval, sd1norm.(1)) 
+vline!([transform_unconstrained_to_constrained(mean_varying[1])]) 
+p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false)  
+ 
+anim_bounded_above = @animate for n = 1:size(mean_varying)[1] 
+  #set new y data  
+   p[1][1][:y] = mean0norm(n) 
+   p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" 
+   p[2][1][:y] = sd1norm(n) 
+   p[2][2][:x] = [ transform_unconstrained_to_constrained(mean_varying[n]),
+                   transform_unconstrained_to_constrained(mean_varying[n]),       
+                   transform_unconstrained_to_constrained(mean_varying[n])]        
+   p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)"  
+
+end 
+```
+
+```@example bounded_above
+gif(anim_bounded_above, "anim_bounded_above.gif", fps = 5) # hide
+```
+
+The following REPL commands generate the transformed `Normal(0.5,1)` distribution
+
+```julia
+using EnsembleKalmanProcesses.ParameterDistributionStorage
+using Distributions 
+distribution = Parameterized(Normal(0.5,1)) 
+constraint = [bounded_above(10)]
+name = "bounded_above_parameter"
+prior = ParameterDistribution(distribution,constraint,name)
+```
+where `bounded_above(10)` automatically defines the constraint map
+```julia
+transform_unconstrained_to_constrained(x) = 10 - exp(x)
+```
+
+### Bounded in  between 5 and 10: `constraint = [bounded(5,10)]`
+
+```@setup bounded
+using Distributions 
+using Plots 
+N=50 
+x_eval = collect(-10:20/400:10) 
+mean_varying = collect(-3:2/(N+1):3) 
+sd_varying = collect(0.1:0.9/(N+1):10) 
+
+#bounded in [5.0,10.0]
+transform_unconstrained_to_constrained(x) = (10.0 * exp(x) + 5.0) / (exp(x) + 1)
+
+mean0norm(n)= pdf(Normal(0,sd_varying[n]),x_eval) 
+sd1norm(n)= pdf(Normal(mean_varying[n],1),x_eval) 
+constrained_x_eval = transform_unconstrained_to_constrained.(x_eval) 
+p1 = plot(constrained_x_eval, mean0norm.(1)) 
+vline!([transform_unconstrained_to_constrained(0)]) 
+p2 = plot(constrained_x_eval, sd1norm.(1)) 
+vline!([transform_unconstrained_to_constrained(mean_varying[1])]) 
+p = plot(p1,p2, layout=(1,2), size = (900,450), legend=false)  
+ 
+anim_bounded = @animate for n = 1:size(mean_varying)[1] 
+   #set new y data  
+   p[1][1][:y] = mean0norm(n) 
+   p[1][:title] = "Transformed Normal(0," * string(round(sd_varying[n], digits=3)) * ")" 
+   p[2][1][:y] = sd1norm(n) 
+   p[2][2][:x] = [ transform_unconstrained_to_constrained(mean_varying[n]),
+                   transform_unconstrained_to_constrained(mean_varying[n]),       
+                   transform_unconstrained_to_constrained(mean_varying[n])]        
+   
+   p[2][:title] = "Transformed Normal(" * string(round(mean_varying[n], digits=3)) * ", 1)"   
+
+end 
+```
+
+```@example bounded
+gif(anim_bounded, "anim_bounded.gif", fps = 10) # hide
+```
+The following REPL commands generate the transformed `Normal(0.5,1)` distribution
+
+```julia
+using EnsembleKalmanProcesses.ParameterDistributionStorage
+using Distributions 
+distribution = Parameterized(Normal(0.5,1)) 
+constraint = [bounded(5,10)]
+name = "bounded_parameter"
+prior = ParameterDistribution(distribution,constraint,name)
+```
+where `bounded(5,10)` automatically defines the constraint map
+```julia
+transform_unconstrained_to_constrained(x) = (10 * exp(x) + 5) / (exp(x) + 1)
+```
 
 ## A more involved example:
 
