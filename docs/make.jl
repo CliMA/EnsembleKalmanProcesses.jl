@@ -11,7 +11,7 @@ using
 # This happens as examples will use Plots.jl to make plots and movies.
 # See: https://github.com/jheinen/GR.jl/issues/278
 ENV["GKSwstype"] = "100"
-    
+
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR   = joinpath(@__DIR__, "src/literated")
 
@@ -31,13 +31,14 @@ api = [
     "ParameterDistribution"       => "API/ParameterDistribution.md",
     "Observations"                => "API/Observations.md",
     "DataStorage"                 => "API/DataStorage.md",
-] 
+]
 
 examples = [
-    "Template"          => "examples/template_example.md",
-    "Cloudy"            => "examples/Cloudy_example.md",
-    "Lorenz"            => "examples/lorenz_example.md",
-    "Minimization Loss" => "literated/loss_minimization.md",
+    "Template"           => "examples/template_example.md",
+    "Cloudy"             => "examples/Cloudy_example.md",
+    "Lorenz"             => "examples/lorenz_example.md",
+    "Aerosol Activation" => "examples/Aerosol_activation_example.md",
+    "Minimization Loss"  => "literated/loss_minimization.md",
     "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md"
 ]
 
