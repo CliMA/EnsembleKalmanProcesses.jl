@@ -1,6 +1,7 @@
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 CLIMAParameters = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
+ClimaCore = "d414da3d-4745-48bb-8d80-42e94e092884"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 EnsembleKalmanProcesses = "aa8a2aa5-91d8-4396-bcef-d4f2ec43552d"
 Glob = "c27321d9-0574-5035-807b-f59d2c89b15c"
@@ -10,4 +11,5 @@ JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
 PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+Thermodynamics = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
 TurbulenceConvection = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
