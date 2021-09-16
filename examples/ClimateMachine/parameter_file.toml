@@ -1,0 +1,33 @@
+####### Example Parameter #########
+# [parser.zeropointseven]
+# RunValue = 0.7
+# ValueType = "real"
+# Prior = "fixed" 
+# Transformation = "none"
+# Description = "This parameter is constant 0.7 [nondimensional]"
+
+# EKP READS - RunValue, Prior, Transformation
+# ESM READS - RunValue, ValueType
+# Human readable description includes [units]
+###################################
+
+#other parameter files (ignore for now)
+# [general.files]
+# Planet = "earth_parameters.toml" # switch with earth_file
+
+# parameters for calibration #
+[atmos.edmf.C_smag]
+RunValue = 0.5
+ValueType = "real"
+Prior = "Normal(0.5, 0.05)" 
+Transformation = "none"
+Description = "Smagorinsky Coefficient, unbounded [nondimensional]"
+
+[atmos.edmf.C_drag]
+RunValue = 0.001
+ValueType = "real"
+Prior = "Normal(0.001, 0.0001)" 
+Transformation = "none"
+Description = "Drag coefficient, unbounded [nondimensional]"
+
+# other parameters to run the model #
