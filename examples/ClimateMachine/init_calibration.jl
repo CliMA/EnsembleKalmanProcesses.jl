@@ -42,12 +42,14 @@ function parse_parameters_from_toml(component,parameterization,filename)
     parameter_dict = Dict()
     parameter_parse = TOML.parsefile(filename)[component][parameterization] #note this makes a dictionary of dictionaries
     for (key,val) in parameter_parse
-        println(val)
         if haskey(val, "Prior")
             if val["Prior"] != "fixed"
-                parameter_dict[key] = Dict("RunValue"       => val["RunValue"],
+                prefix = component*"."*parameterization*"."
+                parameter_dict[key] = Dict("Prefix"         => prefix,
+                                           "RunValue"       => val["RunValue"],
                                            "Prior"          => val["Prior"],
                                            "Transformation" => val["Transformation"])
+               
             end
         end
     end
@@ -91,17 +93,70 @@ function create_parameter_distribution(parameter_dict)
     parameter_names = [key for key in keys(parameter_dict)]
     prior_dist = [create_prior(parameter_dict[name]) for name in parameter_names ]
     constraints  = [create_transformation(parameter_dict[name]) for name in parameter_names ]
-    println(parameter_names)
-    println(prior_dist)
-    println(constraints)
     return ParameterDistribution(prior_dist, constraints, parameter_names)
 end
+
+function create_dict_from_ensemble(parameter_dict, initial_params, param_names)
+    param_dict_ensemble=[]
+    for param_set in eachrow(initial_params') # for each parameter realization
+        #overwrite the param set
+        for (idx,name) in enumerate(param_names)
+            parameter_dict[name]["RunValue"] = param_set[idx]
+        end
+        push!(param_dict_ensemble,deepcopy(parameter_dict))
+    end
+    return param_dict_ensemble
+end
+
+function write_toml_ensemble(ens_dir_name,filename,param_dict_ensemble)
+    if ~isdir(ens_dir_name)
+        mkdir(ens_dir_name)
+    else
+        println("overwriting files in ", ens_dir_name)
+        rm(ens_dir_name,recursive=true)
+        mkdir(ens_dir_name)
+        
+    end
+    for (idx,param_dict) in enumerate(param_dict_ensemble)
+        member_filename = ens_dir_name*"/member_"*string(idx)*".toml" #toml file
+        io_member_file=open(member_filename, "a")
+        param_names = [ "["*param_dict[key]["Prefix"]*string(key)*"]" for (key,val) in param_dict]
+        param_vals = ["RunValue = "*string(param_dict[key]["RunValue"])*"\n" for (key,val) in param_dict]
+        open(filename) do io
+            #gets the right toml name
+            change_value=[Int(0)]
+            change_value_flag=[false]
+            for line in eachline(io, keep=true)
+                for (name_idx,name) in enumerate(param_names)
+                    if contains(line, name) #found the parameter
+                        # change the next RunValue instance
+                        change_value[1] = name_idx
+                        change_value_flag[1] = true
+                    end
+                    # if we have flagged a parameter value to be changed, we change it and then remove the flag.
+                    if change_value_flag[1] == true
+                        if contains(line, "RunValue") #found the parameter
+                            line = param_vals[change_value[1]]
+                            change_value_flag[1]=false
+                        end
+                    end
+                end
+                write(io_member_file,line) #write the line to new file
+            end
+            
+        end
+        close(io_member_file)
+    end
+    
+end
+
 
 function main()
 
     # parameter file name
     filename = "parameter_file.toml"
-
+    expname = "test"
+    
     # model component
     component = "atmos"
     parameterization = "edmf"
@@ -113,8 +168,15 @@ function main()
     # Construct initial ensemble
     N_ens = 10
     initial_params = construct_initial_ensemble(priors, N_ens)
+ 
+    # Store version identifiers for this ensemble in a common file
+    ens_dir_name = expname*"_1"
+    param_dict_ensemble = create_dict_from_ensemble(parameter_dict,initial_params, get_name(priors))
 
-    # then write new parameter files... (10 of them)
+    # write the parameter files, currently using sed-like insertions
+    write_toml_ensemble(ens_dir_name, filename, param_dict_ensemble)
+
+    println("Created ", N_ens, " files, in directory ",ens_dir_name)
     
 end
 
