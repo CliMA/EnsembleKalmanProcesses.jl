@@ -92,4 +92,6 @@ All output will be saved in a folder starting with `results_eki_`.
 Data related to the Ensemble Kalman Inversion will be stored in `ekp.jld2`. 
 
 ### Plots
-Plots of parameter and error evolution will be provided in the output folder.
+Plots of parameter and error evolution will be provided in the output folder. Examples for Bomex are provided below: 
+![plot](doc_plots/param_evol.jpg)
+![plot](doc_plots/error_evol.jpg)
