@@ -38,6 +38,8 @@ examples = [
     "Template"           => "examples/template_example.md",
     "Cloudy"             => "examples/Cloudy_example.md",
     "Lorenz"             => "examples/lorenz_example.md",
+    "Minimization Loss" => "literated/loss_minimization.md",
+    "Aerosol activation" => "literated/aerosol_activation.md",
     "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md"
 ]
 
