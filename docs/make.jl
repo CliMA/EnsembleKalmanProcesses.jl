@@ -16,7 +16,8 @@ const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR   = joinpath(@__DIR__, "src/literated")
 
 examples_for_literation = [
-    "LossMinimization/loss_minimization.jl"
+    "LossMinimization/loss_minimization.jl",
+    "AerosolActivation/aerosol_activation.jl"
 ]
 
 for example in examples_for_literation
@@ -37,8 +38,6 @@ examples = [
     "Template"           => "examples/template_example.md",
     "Cloudy"             => "examples/Cloudy_example.md",
     "Lorenz"             => "examples/lorenz_example.md",
-    "Aerosol Activation" => "examples/Aerosol_activation_example.md",
-    "Minimization Loss"  => "literated/loss_minimization.md",
     "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md"
 ]
 
