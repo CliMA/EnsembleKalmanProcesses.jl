@@ -27,7 +27,7 @@ Transformation = "none"
 Description = "Smagorinsky Coefficient, unbounded [nondimensional]"
 
 [C_drag]
-Tags = "edmf, atmos,"
+Tags = "edmf, atmos"
 RunValue = 0.001
 ValueType = "real"
 Prior = "Normal(0.001, 0.0001)"

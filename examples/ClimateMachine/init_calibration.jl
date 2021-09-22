@@ -69,7 +69,7 @@ end
 function parse_function_and_float_args(func_string)
     #parses a function F(x,y,z,...) with x,y,z floats
     function_symbol = Symbol(split(func_string,"(")[1])
-    args_string = distribution_arguments = split(split(split(func_string,"(")[2],")")[1],",") # ["0","1"]
+    args_string = split(split(split(func_string,"(")[2],")")[1],",") # ["0","1"]
     args =  parse.(Float64,args_string)
     return function_symbol, args
 end
@@ -90,9 +90,11 @@ function create_transformation(parameter)
     transformation_string = parameter["Transformation"]
     if transformation_string == "none"
         return [no_constraint()]
-    else
+    else #if it is a different predefined constraint
         function_symbol, distribution_args = parse_function_and_float_args(transformation_string)
-        return [function_symbol(distribution_args...)]
+        transform_function = getfield(ParameterDistributionStorage, function_symbol) 
+       
+        return [transform_function(distribution_args...)]
     end
 
 end
@@ -181,9 +183,10 @@ function main()
     priors = create_parameter_distribution(parameter_dict)
 
     # Construct initial ensemble
-    N_ens = 1000
-    initial_params = construct_initial_ensemble(priors, N_ens)
-    param_dict_ensemble = create_dict_from_ensemble(parameter_dict,initial_params, get_name(priors))
+    N_ens = 10
+    initial_unconstrained_params = construct_initial_ensemble(priors, N_ens)
+    initial_constrained_params = transform_unconstrained_to_constrained(priors,initial_unconstrained_params)
+    param_dict_ensemble = create_dict_from_ensemble(parameter_dict,initial_constrained_params, get_name(priors))
 
     # write the parameter files, currently using sed-like insertions
     write_toml_ensemble(ens_dir_name, filename, param_dict_ensemble)
