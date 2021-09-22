@@ -38,18 +38,28 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
 using TOML
 
-function parse_parameters_from_toml(component,parameterization,filename)
+
+function find_in_tags(tags_string,string_list)
+    #assume comma separation, this trims whitespace
+    tags_list=strip.(split(tags_string,","))
+    #returns true only if everything in stringlist occurs somewhere in tags_list
+    return all(i in tags_list for i in string_list)
+end
+
+function get_tagged_parameters(model_tags,toml_dict)
     parameter_dict = Dict()
-    parameter_parse = TOML.parsefile(filename)[component][parameterization] #note this makes a dictionary of dictionaries
-    for (key,val) in parameter_parse
-        if haskey(val, "Prior")
-            if val["Prior"] != "fixed"
-                prefix = component*"."*parameterization*"."
-                parameter_dict[key] = Dict("Prefix"         => prefix,
-                                           "RunValue"       => val["RunValue"],
-                                           "Prior"          => val["Prior"],
-                                           "Transformation" => val["Transformation"])
-               
+
+    # function returning true if all model_tags are in the current parameter 
+    for (key,val) in toml_dict
+        if haskey(val,"Tags")
+            if find_in_tags(val["Tags"],model_tags)
+                if val["Prior"] != "fixed"
+                    #prefix = component*"."*parameterization*"."
+                    parameter_dict[key] = Dict("Tags"           => val["Tags"],
+                                               "RunValue"       => val["RunValue"],
+                                               "Prior"          => val["Prior"],
+                                               "Transformation" => val["Transformation"])
+                end
             end
         end
     end
@@ -67,6 +77,7 @@ end
 function create_prior(parameter)
     # if the distribution is a Julia distribution type
     # distn(a,b,...,e) where a,...,e are just floats
+    
     prior_string = parameter["Prior"] #"Normal(0,1)"
     function_symbol, distribution_args = parse_function_and_float_args(prior_string)
     distribution_function = getfield(Distributions, function_symbol) # function: Normal
@@ -120,7 +131,7 @@ function write_toml_ensemble(ens_dir_name,filename,param_dict_ensemble)
     for (idx,param_dict) in enumerate(param_dict_ensemble)
         member_filename = ens_dir_name*"/member_"*string(idx)*".toml" #toml file
         io_member_file=open(member_filename, "a")
-        param_names = [ "["*param_dict[key]["Prefix"]*string(key)*"]" for (key,val) in param_dict]
+        param_names = [ "["*string(key)*"]" for (key,val) in param_dict]
         param_vals = ["RunValue = "*string(param_dict[key]["RunValue"])*"\n" for (key,val) in param_dict]
         open(filename) do io
             #gets the right toml name
@@ -157,20 +168,21 @@ function main()
     filename = "parameter_file.toml"
     expname = "test"
     
-    # model component
-    component = "atmos"
-    parameterization = "edmf"
+    # model component and parameterization choice
+    model_tags = ["atmos","edmf"]
+    
+    #directory name
+    ens_dir_name = expname*"_1"
     # get the parameter info from file
-    parameter_dict = parse_parameters_from_toml(component,parameterization,filename)
+    toml_dict = TOML.parsefile(filename)
+    parameter_dict = get_tagged_parameters(model_tags, toml_dict)
     # create a parameter distribution
+    # parameter_dict, also contains the naming in the toml file as the ["Prefix"]
     priors = create_parameter_distribution(parameter_dict)
 
     # Construct initial ensemble
     N_ens = 10
     initial_params = construct_initial_ensemble(priors, N_ens)
- 
-    # Store version identifiers for this ensemble in a common file
-    ens_dir_name = expname*"_1"
     param_dict_ensemble = create_dict_from_ensemble(parameter_dict,initial_params, get_name(priors))
 
     # write the parameter files, currently using sed-like insertions

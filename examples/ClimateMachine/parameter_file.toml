@@ -1,5 +1,6 @@
 ####### Example Parameter #########
 # [parser.zeropointseven]
+# Tags = ""
 # RunValue = 0.7
 # ValueType = "real"
 # Prior = "fixed" 
@@ -12,21 +13,24 @@
 ###################################
 
 #other parameter files (ignore for now)
+
 # [general.files]
-# Planet = "earth_parameters.toml" # switch with earth_file
+#Planet = "earth_parameters.toml" # switch with earth_file
 
 # parameters for calibration #
-[atmos.edmf.C_smag]
+[C_smag]
+Tags = "atmos,edmf"
 RunValue = 0.5
 ValueType = "real"
 Prior = "Normal(0.5, 0.05)" 
 Transformation = "none"
 Description = "Smagorinsky Coefficient, unbounded [nondimensional]"
 
-[atmos.edmf.C_drag]
+[C_drag]
+Tags = "edmf, atmos,"
 RunValue = 0.001
 ValueType = "real"
-Prior = "Normal(0.001, 0.0001)" 
+Prior = "Normal(0.001, 0.0001)"
 Transformation = "none"
 Description = "Drag coefficient, unbounded [nondimensional]"
 
