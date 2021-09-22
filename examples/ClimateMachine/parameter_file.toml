@@ -14,8 +14,8 @@
 
 #other parameter files (ignore for now)
 
-# [general.files]
-#Planet = "earth_parameters.toml" # switch with earth_file
+[files]
+Planet = "earth_parameters.toml" # switch with earth_file
 
 # parameters for calibration #
 [C_smag]

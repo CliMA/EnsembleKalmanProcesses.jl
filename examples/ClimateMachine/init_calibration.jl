@@ -121,7 +121,7 @@ function create_dict_from_ensemble(parameter_dict, initial_params, param_names)
     return param_dict_ensemble
 end
 
-function write_toml_ensemble(ens_dir_name,filename,param_dict_ensemble)
+function write_toml_ensemble_verbatim(ens_dir_name,filename,param_dict_ensemble)
     if ~isdir(ens_dir_name)
         mkdir(ens_dir_name)
     else
@@ -163,6 +163,36 @@ function write_toml_ensemble(ens_dir_name,filename,param_dict_ensemble)
     
 end
 
+function write_toml_ensemble_from_dict(ens_dir_name,toml_dict,param_dict_ensemble)
+    if ~isdir(ens_dir_name)
+        mkdir(ens_dir_name)
+    else
+        println("overwriting files in ", ens_dir_name)
+        rm(ens_dir_name,recursive=true)
+        mkdir(ens_dir_name)
+    end
+
+    
+    for (idx,param_dict) in enumerate(param_dict_ensemble)
+        member_filename = ens_dir_name*"/member_"*string(idx)*".toml" #toml file
+        io_member_file=open(member_filename, "a")
+        param_names = [ "["*string(key)*"]" for (key,val) in param_dict]
+        param_vals = ["RunValue = "*string(param_dict[key]["RunValue"])*"\n" for (key,val) in param_dict]
+
+        #for each parameter that needs changing. The toml key is the same as the param_dict key
+        for (key,val) in param_dict #key in param_dict, is the same as in toml dict
+            toml_dict[key]["RunValue"] = val["RunValue"] 
+        end
+        
+        open(member_filename,"w") do io
+            TOML.print(io,toml_dict)
+        end
+        
+    end
+            
+        
+    
+end
 
 function main()
 
@@ -183,13 +213,17 @@ function main()
     priors = create_parameter_distribution(parameter_dict)
 
     # Construct initial ensemble
-    N_ens = 10
+    N_ens = 100
     initial_unconstrained_params = construct_initial_ensemble(priors, N_ens)
-    initial_constrained_params = transform_unconstrained_to_constrained(priors,initial_unconstrained_params)
+    initial_constrained_params = hcat([transform_unconstrained_to_constrained(priors,initial_unconstrained_params[:,i]) for i in collect(1:N_ens)]...)
     param_dict_ensemble = create_dict_from_ensemble(parameter_dict,initial_constrained_params, get_name(priors))
 
     # write the parameter files, currently using sed-like insertions
-    write_toml_ensemble(ens_dir_name, filename, param_dict_ensemble)
+    #write_toml_ensemble(ens_dir_name, filename, param_dict_ensemble)
+
+    # or write the parameter files by adding to the dict, and writing back to file
+    # note order is not preserved
+    write_toml_ensemble_from_dict(ens_dir_name, toml_dict, param_dict_ensemble)
 
     println("Created ", N_ens, " files, in directory ",ens_dir_name)
     
