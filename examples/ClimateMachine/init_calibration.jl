@@ -181,7 +181,7 @@ function main()
     priors = create_parameter_distribution(parameter_dict)
 
     # Construct initial ensemble
-    N_ens = 10
+    N_ens = 1000
     initial_params = construct_initial_ensemble(priors, N_ens)
     param_dict_ensemble = create_dict_from_ensemble(parameter_dict,initial_params, get_name(priors))
 
