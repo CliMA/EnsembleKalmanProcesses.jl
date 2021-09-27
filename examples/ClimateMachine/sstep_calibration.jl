@@ -1,5 +1,5 @@
 using Distributions
-using JLD
+using JLD2
 using ArgParse
 using NCDatasets
 using LinearAlgebra
@@ -8,8 +8,10 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
+using TOML
+include(joinpath(@__DIR__, "toml_utils.jl"))
 include(joinpath(@__DIR__, "helper_funcs.jl"))
-
+#=
 """
 ek_update(iteration_::Int64)
 
@@ -33,6 +35,7 @@ function ek_update(iteration_::Int64)
         end
     end
     u = Array(u')
+
     # Set averaging period for loss function
     t0_ = 0.0
     tf_ = 1800.0
@@ -62,27 +65,69 @@ function ek_update(iteration_::Int64)
     u_new = get_u_final(ekobj)
     return u_new, u_names
 end
+=#
 
-# Read iteration number of ensemble to be recovered
-s = ArgParseSettings()
-@add_arg_table s begin
-    "--iteration"
+function construct_output_ensemble(y_names,t0_,tf_,N_ens)
+    # Get outputs
+    g_names = y_names
+    g_ =  get_clima_profile("$(versions[1]).output", g_names, ti=t0_, tf=tf_)
+    g_ens = zeros(N_ens, length(g_))
+    for (ens_index, version) in enumerate(versions)
+        g_ens[ens_index, :] = get_clima_profile("$(version).output", g_names, ti=t0_, tf=tf_)
+    end
+    return Array(g_ens') #we call this g_ens
+
+end
+
+              
+function main()
+
+    # Read iteration number of ensemble to be recovered
+    s = ArgParseSettings()
+    @add_arg_table s begin
+        "--iteration"
         help = "Calibration iteration number"
         arg_type = Int
         default = 1
-end
-parsed_args = parse_args(ARGS, s)
-iteration_ = parsed_args["iteration"]
-
-# Perform update
-ens_new, param_names = ek_update(iteration_)
-params_arr = [col[:] for col in eachcol(ens_new)]
-
-# Generate new identifiers
-versions = map(param -> generate_cm_params(param, param_names), params_arr)
-open("versions_$(iteration_+1).txt", "w") do io
-        for version in versions
-            write(io, "clima_param_defs_$(version).jl\n")
-        end
     end
+    parsed_args = parse_args(ARGS, s)
+    iteration_ = parsed_args["iteration"]
+    
+    # file names
+    expname = "test"
+    in_dir_name = expname*"_"*String(iteration_)
+    out_dir_name = expname*"_"*String(iteration_+1)
 
+    # to read ensemble in from old param files (don't need to do)
+    #toml_dict_dict, parameter_dict_dict, N_ens = read_ensemble_from_dir(ens_dir_name)
+    
+    #load ekp and priors
+    @load in_dir_name*"/priors.jld2" priors
+    @load in_dir_name*"/ekobj.jld2" ekobj
+    
+    #get output data
+    N_ens = ekobj.N_ens
+    #magic sim numbers
+    t0_ = 0.0
+    tf_ = 1800.0
+    y_names = ["u", "v"]
+    g_ens = construct_output_ensemble(y_names,t0_,tf_,N_ens)
+    
+    # Perform update
+    update_ensemble!(ekobj, g_ens)
+    unconstrained_params = get_u_final(ekobj)
+    constrained_params = hcat([transform_unconstrained_to_constrained(priors,unconstrained_params[:,i]) for i in collect(1:N_ens)]...)
+
+    #load parameter file templates
+    param_dict_ensemble = create_dict_from_ensemble(parameter_dict, constrained_params, get_name(priors))
+    write_toml_ensemble_from_dict(out_dir_name, toml_dict, param_dict_ensemble)
+    println("Created ", N_ens, " files, in directory ", out_dir_name)
+
+    #save ekobj,priors, and template files
+    @save out_dir_name*"/priors.jld2" priors
+    @save out_dir_name*"/ekobj.jld2" ekobj
+    @save out_dir_name*"/toml_dict.jld2" toml_dict
+    @save out_dir_name*"/parameter_dict.jld2" parameter_dict
+
+end
+main()
