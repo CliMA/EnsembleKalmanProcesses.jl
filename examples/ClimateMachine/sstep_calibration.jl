@@ -119,6 +119,8 @@ function main()
     constrained_params = hcat([transform_unconstrained_to_constrained(priors,unconstrained_params[:,i]) for i in collect(1:N_ens)]...)
 
     #load parameter file templates
+    @load out_dir_name*"/toml_dict.jld2" toml_dict
+    @load out_dir_name*"/parameter_dict.jld2" parameter_dict
     param_dict_ensemble = create_dict_from_ensemble(parameter_dict, constrained_params, get_name(priors))
     write_toml_ensemble_from_dict(out_dir_name, toml_dict, param_dict_ensemble)
     println("Created ", N_ens, " files, in directory ", out_dir_name)

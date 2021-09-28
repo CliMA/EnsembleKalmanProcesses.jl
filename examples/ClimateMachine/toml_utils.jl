@@ -106,9 +106,7 @@ function write_toml_ensemble_from_dict(ens_dir_name,toml_dict,param_dict_ensembl
             TOML.print(io,toml_dict)
         end
         
-    end
-            
-        
+    end      
     
 end
 

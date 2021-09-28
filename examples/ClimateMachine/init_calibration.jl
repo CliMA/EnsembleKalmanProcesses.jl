@@ -61,7 +61,7 @@ function create_prior(parameter)
 end
 
 function create_transformation(parameter)
-
+    #assume predefined constraint for now
     transformation_string = parameter["Transformation"]
     if transformation_string == "none"
         return [no_constraint()]
