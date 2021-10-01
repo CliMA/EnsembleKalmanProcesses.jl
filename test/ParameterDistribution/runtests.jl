@@ -222,6 +222,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
     @testset "transform functions" begin
         #setup for the tests
+        tol = 1e-8
         d1 = Parameterized(MvNormal(4,0.1))
         c1 = [no_constraint(),
               bounded_below(-1.0),
@@ -240,15 +241,26 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
         x_unbd = rand(MvNormal(6,3), 1000)  #6 x 1000 
         # Tests for transforms
-        x_real_constrained1 = mapslices(x -> transform_unconstrained_to_constrained(u1,x), x_unbd[1:4,:]; dims=1)
-        @test isapprox(x_unbd[1:4,:] - mapslices(x -> transform_constrained_to_unconstrained(u1,x), x_real_constrained1; dims=1), zeros(size(x_unbd[1:4,:])); atol=1e-8)
+        x_real_constrained1 = mapslices(x -> transform_unconstrained_to_constrained(u1,x),x_unbd[1:4,:]; dims=1)
+        @test isapprox(x_unbd[1:4,:] - mapslices(x -> transform_constrained_to_unconstrained(u1,x),
+            x_real_constrained1; dims=1), zeros(size(x_unbd[1:4,:])); atol=tol)
+
         x_real_constrained2 = mapslices(x -> transform_unconstrained_to_constrained(u2,x), x_unbd[5:6,:]; dims=1) 
-        @test isapprox(x_unbd[5:6,:] -  mapslices(x -> transform_constrained_to_unconstrained(u2,x), x_real_constrained2; dims=1), zeros(size(x_unbd[5:6,:])); atol=1e-8)
+        @test isapprox(x_unbd[5:6,:] - mapslices(x -> transform_constrained_to_unconstrained(u2,x),
+            x_real_constrained2; dims=1), zeros(size(x_unbd[5:6,:])); atol=tol)
         
         x_real = mapslices(x -> transform_unconstrained_to_constrained(u,x), x_unbd; dims=1)
         x_unbd_tmp = mapslices(x -> transform_constrained_to_unconstrained(u,x), x_real; dims=1)
-        @test isapprox(x_unbd - x_unbd_tmp,zeros(size(x_unbd)); atol=1e-8)
+        @test isapprox(x_unbd - x_unbd_tmp,zeros(size(x_unbd)); atol=tol)
         
+        # Tests transforms for other input structures
+        @test isapprox(transform_unconstrained_to_constrained(u1,x_unbd[1:4,:]), x_real_constrained1; atol=tol)
+        @test isapprox(x_unbd[1:4,:] - transform_constrained_to_unconstrained(u1, x_real_constrained1),
+            zeros(size(x_unbd[1:4,:])); atol=tol)
+        @test isapprox(transform_unconstrained_to_constrained(u2,x_unbd[5:6,:]), x_real_constrained2; atol=tol)
+        @test isapprox(x_unbd[5:6,:] - transform_constrained_to_unconstrained(u2, x_real_constrained2),
+            zeros(size(x_unbd[5:6,:])); atol=tol)
+        @test isapprox(transform_unconstrained_to_constrained(u2,[x_unbd[5:6,:], x_unbd[5:6,:]]),
+            [x_real_constrained2, x_real_constrained2]; atol=tol)
     end
-    
 end
