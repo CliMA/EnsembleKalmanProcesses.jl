@@ -10,7 +10,7 @@ using Distributions
 using LinearAlgebra
 using DocStringExtensions
 
-export EnsembleKalmanProcess 
+export EnsembleKalmanProcess
 export get_u, get_g
 export get_u_prior, get_u_final, get_u_mean_final, get_g_final, get_N_iterations, get_error
 export compute_error!
@@ -31,7 +31,7 @@ Structure that is used in Ensemble Kalman processes
 #Fields
 $(DocStringExtensions.FIELDS)
 """
-struct EnsembleKalmanProcess{FT<:AbstractFloat, IT<:Int, P<:Process}
+struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     "Array of stores for parameters (u), each of size [N_par × N_ens]"
     u::Array{DataContainer{FT}}
     "vector of the observed vector size [N_obs]"
@@ -51,26 +51,27 @@ struct EnsembleKalmanProcess{FT<:AbstractFloat, IT<:Int, P<:Process}
 end
 
 # outer constructors
-function EnsembleKalmanProcess(params::Array{FT, 2},
-                               obs_mean,
-                               obs_noise_cov::Array{FT, 2},
-                               process::P;
-                               Δt=FT(1)) where {FT<:AbstractFloat, P<:Process}
+function EnsembleKalmanProcess(
+    params::Array{FT, 2},
+    obs_mean,
+    obs_noise_cov::Array{FT, 2},
+    process::P;
+    Δt = FT(1),
+) where {FT <: AbstractFloat, P <: Process}
 
     #initial parameters stored as columns
-    init_params=DataContainer(params, data_are_columns=true)
+    init_params = DataContainer(params, data_are_columns = true)
     # ensemble size
-    N_ens = size(init_params,2) #stored with data as columns
+    N_ens = size(init_params, 2) #stored with data as columns
     IT = typeof(N_ens)
     #store for model evaluations
-    g=[] 
+    g = []
     # error store
     err = FT[]
     # timestep store
     Δt = Array([Δt])
 
-    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g,
-                                     err, Δt, process)
+    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process)
 end
 
 
@@ -80,8 +81,8 @@ end
 
 Get for the EKI iteration. Returns a DataContainer object unless array is specified.
 """
-function get_u(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
-    return  return_array ? get_data(ekp.u[iteration]) : ekp.u[iteration]
+function get_u(ekp::EnsembleKalmanProcess, iteration::IT; return_array = true) where {IT <: Integer}
+    return return_array ? get_data(ekp.u[iteration]) : ekp.u[iteration]
 end
 
 """
@@ -89,7 +90,7 @@ end
 
 Get for the EKI iteration. Returns a DataContainer object unless array is specified.
 """
-function get_g(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
+function get_g(ekp::EnsembleKalmanProcess, iteration::IT; return_array = true) where {IT <: Integer}
     return return_array ? get_data(ekp.g[iteration]) : ekp.g[iteration]
 end
 
@@ -98,9 +99,9 @@ end
 
 Get for the EKI iteration. Returns a DataContainer object unless array is specified.
 """
-function get_u(ekp::EnsembleKalmanProcess; return_array=true) where {IT <: Integer}
-    N_stored_u = get_N_iterations(ekp)+1
-    return [get_u(ekp, it, return_array=return_array) for it in 1:N_stored_u]
+function get_u(ekp::EnsembleKalmanProcess; return_array = true) where {IT <: Integer}
+    N_stored_u = get_N_iterations(ekp) + 1
+    return [get_u(ekp, it, return_array = return_array) for it in 1:N_stored_u]
 end
 
 """
@@ -108,9 +109,9 @@ end
 
 Get for the EKI iteration. Returns a DataContainer object unless array is specified.
 """
-function get_g(ekp::EnsembleKalmanProcess; return_array=true) where {IT <: Integer}
+function get_g(ekp::EnsembleKalmanProcess; return_array = true) where {IT <: Integer}
     N_stored_g = get_N_iterations(ekp)
-    return [get_g(ekp, it, return_array=return_array) for it in 1:N_stored_g]
+    return [get_g(ekp, it, return_array = return_array) for it in 1:N_stored_g]
 end
 
 
@@ -119,8 +120,8 @@ end
 
 Get the final or prior iteration of parameters or model ouputs, returns a DataContainer Object if return_array is false.
 """
-function get_u_final(ekp::EnsembleKalmanProcess; return_array=true)
-    return return_array ? get_u(ekp,size(ekp.u)[1]) : ekp.u[end]
+function get_u_final(ekp::EnsembleKalmanProcess; return_array = true)
+    return return_array ? get_u(ekp, size(ekp.u)[1]) : ekp.u[end]
 end
 
 """
@@ -129,8 +130,8 @@ end
 Get the final or prior iteration of parameters or model ouputs, returns a DataContainer Object if return_array is false.
 """
 
-function get_u_prior(ekp::EnsembleKalmanProcess; return_array=true)
-    return return_array ? get_u(ekp,1) : ekp.u[1]
+function get_u_prior(ekp::EnsembleKalmanProcess; return_array = true)
+    return return_array ? get_u(ekp, 1) : ekp.u[1]
 end
 
 """
@@ -139,8 +140,8 @@ end
 Get the final or prior iteration of parameters or model ouputs, returns a DataContainer Object if return_array is false.
 """
 
-function get_g_final(ekp::EnsembleKalmanProcess; return_array=true)
-    return return_array ? get_g(ekp,size(ekp.g)[1]) : ekp.g[end]
+function get_g_final(ekp::EnsembleKalmanProcess; return_array = true)
+    return return_array ? get_g(ekp, size(ekp.g)[1]) : ekp.g[end]
 end
 
 """
@@ -149,7 +150,7 @@ end
 get number of times update has been called (equals size(g), or size(u)-1) 
 """
 function get_N_iterations(ekp::EnsembleKalmanProcess)
-    return size(ekp.u)[1] - 1 
+    return size(ekp.u)[1] - 1
 end
 
 """
@@ -158,7 +159,7 @@ end
 Construct the initial parameters, by sampling N_ens samples from specified
 prior distribution. Returned with parameters as columns
 """
-function construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed=42) where {IT<:Int}
+function construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed = 42) where {IT <: Int}
     # Ensuring reproducibility of the sampled parameter values
     Random.seed!(rng_seed)
     parameters = sample_distribution(prior, N_ens) #of size [dim(param space) N_ens]
@@ -166,7 +167,7 @@ function construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng
 end
 
 function compute_error!(ekp::EnsembleKalmanProcess)
-    mean_g = dropdims(mean(get_g_final(ekp), dims=2), dims=2)
+    mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
     diff = ekp.obs_mean - mean_g
     X = ekp.obs_noise_cov \ diff # diff: column vector
     newerr = dot(diff, X)
@@ -186,14 +187,14 @@ export find_ekp_stepsize
 include("EnsembleKalmanInversion.jl")
 
 # struct Sampler
-export Sampler 
+export Sampler
 include("EnsembleKalmanSampler.jl")
 
 # struct Unscented
 export Unscented
 export construct_initial_ensemble
 export Gaussian_2d
-include("UnscentedKalmanInversion.jl") 
+include("UnscentedKalmanInversion.jl")
 
 
 

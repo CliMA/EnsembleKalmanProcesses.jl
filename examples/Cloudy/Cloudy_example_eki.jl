@@ -28,8 +28,8 @@ rng_seed = 41
 Random.seed!(rng_seed)
 
 homedir = pwd()
-figure_save_directory = homedir*"/output/"
-data_save_directory = homedir*"/output/"
+figure_save_directory = homedir * "/output/"
+data_save_directory = homedir * "/output/"
 if ~isdir(figure_save_directory)
     mkdir(figure_save_directory)
 end
@@ -92,12 +92,12 @@ n_moments = length(moments)
 ###
 
 # Collision-coalescence kernel to be used in Cloudy
-coalescence_coeff = 1/3.14/4/100
+coalescence_coeff = 1 / 3.14 / 4 / 100
 kernel_func = x -> coalescence_coeff
 kernel = CoalescenceTensor(kernel_func, 0, 100.0)
 
 # Time period over which to run Cloudy
-tspan = (0., 1.0)
+tspan = (0.0, 1.0)
 
 
 ###
@@ -134,20 +134,18 @@ N_ens = 50 # number of ensemble members
 N_iter = 8 # number of EKI iterations
 # initial parameters: N_par x N_ens
 initial_par = construct_initial_ensemble(priors, N_ens; rng_seed)
-ekiobj = EnsembleKalmanProcess(initial_par, truth_sample, truth.obs_noise_cov,
-                               Inversion(), Δt=0.1)
+ekiobj = EnsembleKalmanProcess(initial_par, truth_sample, truth.obs_noise_cov, Inversion(), Δt = 0.1)
 
 # Initialize a ParticleDistribution with dummy parameters. The parameters 
 # will then be set within `run_dyn_model`
 dummy = ones(n_par)
 dist_type = ParticleDistributions.GammaPrimitiveParticleDistribution(dummy...)
-model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, 
-                                              tspan)
+model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, tspan)
 # EKI iterations
 for n in 1:N_iter
     θ_n = get_u_final(ekiobj)
     # Transform parameters to physical/constrained space
-    ϕ_n = mapslices(x -> transform_unconstrained_to_constrained(priors, x), θ_n; dims=1)
+    ϕ_n = mapslices(x -> transform_unconstrained_to_constrained(priors, x), θ_n; dims = 1)
     # Evaluate forward map
     G_n = [run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:N_ens]
     G_ens = hcat(G_n...)  # reformat
@@ -160,45 +158,63 @@ println("True parameters (unconstrained): ")
 println(θ_true)
 
 println("\nEKI results:")
-println(mean(get_u_final(ekiobj), dims=2))
+println(mean(get_u_final(ekiobj), dims = 2))
 
-u_stored= get_u(ekiobj, return_array=false)
-g_stored= get_g(ekiobj, return_array=false)
-@save data_save_directory*"parameter_storage_eki.jld2" u_stored
-@save data_save_directory*"data_storage_eki.jld2" g_stored
+u_stored = get_u(ekiobj, return_array = false)
+g_stored = get_g(ekiobj, return_array = false)
+@save data_save_directory * "parameter_storage_eki.jld2" u_stored
+@save data_save_directory * "data_storage_eki.jld2" g_stored
 
 #plots
-gr(size=(1800, 600))
+gr(size = (1800, 600))
 
 u_init = get_u_prior(ekiobj)
 for i in 1:N_iter
     u_i = get_u(ekiobj, i)
 
-    p1 = plot(u_i[1,:], u_i[2,:], seriestype=:scatter,
-              xlims = extrema(u_init[1,:]), ylims=extrema(u_init[2,:]))
-    plot!(p1, [θ_true[1]], xaxis="u1", yaxis="u2", seriestype="vline",
-          linestyle=:dash, linecolor=:red, label=false,
-          title="EKI iteration = " * string(i))
-    plot!(p1, [θ_true[2]], seriestype="hline", linestyle=:dash,
-          linecolor=:red, label="optimum")
+    p1 = plot(u_i[1, :], u_i[2, :], seriestype = :scatter, xlims = extrema(u_init[1, :]), ylims = extrema(u_init[2, :]))
+    plot!(
+        p1,
+        [θ_true[1]],
+        xaxis = "u1",
+        yaxis = "u2",
+        seriestype = "vline",
+        linestyle = :dash,
+        linecolor = :red,
+        label = false,
+        title = "EKI iteration = " * string(i),
+    )
+    plot!(p1, [θ_true[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
-    p2 = plot(u_i[2,:], u_i[3,:], seriestype=:scatter,
-              xlims=extrema(u_init[2,:]), ylims=extrema(u_init[3,:]))
-    plot!(p2, [θ_true[2]], xaxis="u1", yaxis="u2", seriestype="vline",
-          linestyle=:dash, linecolor=:red, label=false,
-          title="EKI iteration = " * string(i))
-    plot!(p2, [θ_true[3]], seriestype="hline", linestyle=:dash,
-          linecolor=:red, label="optimum")
+    p2 = plot(u_i[2, :], u_i[3, :], seriestype = :scatter, xlims = extrema(u_init[2, :]), ylims = extrema(u_init[3, :]))
+    plot!(
+        p2,
+        [θ_true[2]],
+        xaxis = "u1",
+        yaxis = "u2",
+        seriestype = "vline",
+        linestyle = :dash,
+        linecolor = :red,
+        label = false,
+        title = "EKI iteration = " * string(i),
+    )
+    plot!(p2, [θ_true[3]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
-    p3 = plot(u_i[3,:], u_i[1,:], seriestype=:scatter,
-              xlims=extrema(u_init[3,:]), ylims=extrema(u_init[1,:]))
-    plot!(p3, [θ_true[3]], xaxis="u1", yaxis="u2",
-          seriestype="vline", linestyle=:dash, linecolor=:red, label=false,
-          title="EKI iteration = " * string(i))
-    plot!(p3, [θ_true[1]], seriestype="hline", linestyle=:dash,
-          linecolor=:red, label="optimum")
+    p3 = plot(u_i[3, :], u_i[1, :], seriestype = :scatter, xlims = extrema(u_init[3, :]), ylims = extrema(u_init[1, :]))
+    plot!(
+        p3,
+        [θ_true[3]],
+        xaxis = "u1",
+        yaxis = "u2",
+        seriestype = "vline",
+        linestyle = :dash,
+        linecolor = :red,
+        label = false,
+        title = "EKI iteration = " * string(i),
+    )
+    plot!(p3, [θ_true[1]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
-    p = plot(p1, p2, p3, layout=(1,3))
+    p = plot(p1, p2, p3, layout = (1, 3))
     display(p)
     sleep(0.5)
 end

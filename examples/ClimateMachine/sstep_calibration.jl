@@ -22,14 +22,17 @@ function ek_update(iteration_::Int64)
     n_params = 0
     u_names = String[]
     open("$(versions[1]).output/$(versions[1])", "r") do io
-        append!(u_names, [strip(string(split(line, "(")[1]), [' ']) for (index, line) in enumerate(eachline(io)) if index%3 == 2])
+        append!(
+            u_names,
+            [strip(string(split(line, "(")[1]), [' ']) for (index, line) in enumerate(eachline(io)) if index % 3 == 2],
+        )
         n_params = length(u_names)
     end
     # Recover ensemble from last iteration, [N_ens, N_params]
     u = zeros(length(versions), n_params)
     for (ens_index, version_) in enumerate(versions)
         open("$(version_).output/$(version_)", "r") do io
-            u[ens_index, :] = [parse(Float64, line) for (index, line) in enumerate(eachline(io)) if index%3 == 0]
+            u[ens_index, :] = [parse(Float64, line) for (index, line) in enumerate(eachline(io)) if index % 3 == 0]
         end
     end
     u = Array(u')
@@ -40,7 +43,7 @@ function ek_update(iteration_::Int64)
     yt = zeros(0)
     yt_var_list = []
     y_names = ["u", "v"]
-    yt_, yt_var_ = get_clima_profile("truth_output", y_names, ti=t0_, tf=tf_, get_variance=true)
+    yt_, yt_var_ = get_clima_profile("truth_output", y_names, ti = t0_, tf = tf_, get_variance = true)
     # Add nugget to variance (regularization)
     yt_var_ = yt_var_ + Matrix(0.1I, size(yt_var_)[1], size(yt_var_)[2])
     append!(yt, yt_)
@@ -48,10 +51,10 @@ function ek_update(iteration_::Int64)
 
     # Get outputs
     g_names = y_names
-    g_ =  get_clima_profile("$(versions[1]).output", g_names, ti=t0_, tf=tf_)
+    g_ = get_clima_profile("$(versions[1]).output", g_names, ti = t0_, tf = tf_)
     g_ens = zeros(length(versions), length(g_))
     for (ens_index, version) in enumerate(versions)
-        g_ens[ens_index, :] = get_clima_profile("$(version).output", g_names, ti=t0_, tf=tf_)
+        g_ens[ens_index, :] = get_clima_profile("$(version).output", g_names, ti = t0_, tf = tf_)
     end
     g_ens = Array(g_ens')
     # Construct EKP
@@ -67,9 +70,9 @@ end
 s = ArgParseSettings()
 @add_arg_table s begin
     "--iteration"
-        help = "Calibration iteration number"
-        arg_type = Int
-        default = 1
+    help = "Calibration iteration number"
+    arg_type = Int
+    default = 1
 end
 parsed_args = parse_args(ARGS, s)
 iteration_ = parsed_args["iteration"]
@@ -81,8 +84,7 @@ params_arr = [col[:] for col in eachcol(ens_new)]
 # Generate new identifiers
 versions = map(param -> generate_cm_params(param, param_names), params_arr)
 open("versions_$(iteration_+1).txt", "w") do io
-        for version in versions
-            write(io, "clima_param_defs_$(version).jl\n")
-        end
+    for version in versions
+        write(io, "clima_param_defs_$(version).jl\n")
     end
-
+end
