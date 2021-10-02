@@ -104,7 +104,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     if TEST_PLOT_OUTPUT
         gr()
         p = plot(get_u_prior(ekiobj)[1,:], get_u_prior(ekiobj)[2,:], seriestype=:scatter)
-        plot!(get_u_final(ekiobj)[1, :],  get_u_final(ekiobj)[2,:], seriestype=:scatter)
+        plot!(get_u_final(ekiobj)[1, :], get_u_final(ekiobj)[2,:], seriestype=:scatter)
         plot!([u_star[1]], xaxis="u1", yaxis="u2", seriestype="vline",
             linestyle=:dash, linecolor=:red)
         plot!([u_star[2]], seriestype="hline", linestyle=:dash, linecolor=:red)
@@ -136,7 +136,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     if TEST_PLOT_OUTPUT
         gr()
         p = plot(get_u_prior(eksobj)[1,:], get_u_prior(eksobj)[2,:], seriestype=:scatter)
-        plot!(get_u_final(eksobj)[1, :],  get_u_final(eksobj)[2,:], seriestype=:scatter)
+        plot!(get_u_final(eksobj)[1, :], get_u_final(eksobj)[2,:], seriestype=:scatter)
         plot!([u_star[1]], xaxis="u1", yaxis="u2", seriestype="vline",
             linestyle=:dash, linecolor=:red)
         plot!([u_star[2]], seriestype="hline", linestyle=:dash, linecolor=:red)
@@ -168,7 +168,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     N_iter = 20 # number of UKI iterations
     α_reg =  1.0
     update_freq = 0
-    process = Unscented(prior_mean, prior_cov, length(y_star),  α_reg, update_freq)
+    process = Unscented(prior_mean, prior_cov, α_reg, update_freq)
     ukiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(y_star, Γy, process)
 
     # UKI iterations
@@ -210,7 +210,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         end
 
         ites = Array(LinRange(1, N_iter+1, N_iter+1))
-        p = plot(ites,grid=false, θ_mean_arr[1,:], yerror=3.0*θθ_std_arr[1,:],  label="u1")
+        p = plot(ites,grid=false, θ_mean_arr[1,:], yerror=3.0*θθ_std_arr[1,:], label="u1")
         plot!(ites, fill(u_star[1], N_iter+1), linestyle=:dash, linecolor=:grey,label=nothing)
         plot!(ites,grid=false, θ_mean_arr[2,:], yerror=3.0*θθ_std_arr[2,:], label="u2", xaxis="Iterations")
         plot!(ites, fill(u_star[2], N_iter+1), linestyle=:dash, linecolor=:grey,label=nothing)

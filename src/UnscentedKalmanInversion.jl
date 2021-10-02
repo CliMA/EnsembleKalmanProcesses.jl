@@ -76,7 +76,6 @@ update_freq::IT : set to 0 when the inverse problem is not identifiable,
 function Unscented(
     u0_mean::Array{FT, 1}, 
     uu0_cov::Array{FT, 2},
-    N_y::IT,
     α_reg::FT,
     update_freq::IT;
     modified_uscented_transform::Bool = true,
@@ -125,9 +124,7 @@ function Unscented(
     r = u0_mean
     iter = 0
 
-    Unscented(u_mean, uu_cov,  obs_pred, c_weights, mean_weights, cov_weights, Σ_ω, Σ_ν_scale, α_reg, r, update_freq, iter)
-    
-    
+    Unscented(u_mean, uu_cov, obs_pred, c_weights, mean_weights, cov_weights, Σ_ω, Σ_ν_scale, α_reg, r, update_freq, iter)
 end
 
 
@@ -248,7 +245,6 @@ function update_ensemble_analysis!(uki::EnsembleKalmanProcess{FT, IT,Unscented},
     obs_mean = uki.obs_mean
     Σ_ν = uki.process.Σ_ν_scale * uki.obs_noise_cov
     
-    N_u, N_y, N_ens = length(uki.process.u_mean[1]), length(uki.obs_mean), uki.N_ens
     ############# Prediction step:
     
     u_p_mean = construct_mean(uki, u_p) 
@@ -266,7 +262,7 @@ function update_ensemble_analysis!(uki::EnsembleKalmanProcess{FT, IT,Unscented},
     uu_cov =  uu_p_cov - tmp*ug_cov' 
     
     
-    ########### Save resutls
+    ########### Save results
     push!(uki.process.obs_pred, g_mean) # N_ens x N_data
     push!(uki.process.u_mean, u_mean) # N_ens x N_params
     push!(uki.process.uu_cov, uu_cov) # N_ens x N_data
