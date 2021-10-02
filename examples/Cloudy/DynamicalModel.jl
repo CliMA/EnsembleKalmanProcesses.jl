@@ -23,7 +23,7 @@ Structure to hold all information to run the dynamical model
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct ModelSettings{FT<:AbstractFloat, KT, D}
+struct ModelSettings{FT <: AbstractFloat, KT, D}
     "a kernel tensor specifying the physics of collision-coalescence"
     kernel::KT
     "a cloud droplet mass distribution function"
@@ -45,7 +45,7 @@ Return a vector of length N_obs containing the model output
  - `settings` - a ModelSettings struct
 
 """
-function run_dyn_model(ϕ::Array{FT, 1}, settings::ModelSettings{FT}) where {FT<:AbstractFloat}
+function run_dyn_model(ϕ::Array{FT, 1}, settings::ModelSettings{FT}) where {FT <: AbstractFloat}
 
     # generate the initial distribution
     dist = ParticleDistributions.update_params(settings.dist, ϕ)
@@ -66,8 +66,7 @@ function run_dyn_model(ϕ::Array{FT, 1}, settings::ModelSettings{FT}) where {FT<
     ODE_par = Dict(:dist => dist)  # ODE parameters
     prob = ODEProblem(rhs, moments_init, settings.tspan, ODE_par)
     # Solve the ODE
-    sol = solve(prob, CVODE_BDF(), alg_hints=[:stiff], reltol=tol, 
-                abstol=tol)
+    sol = solve(prob, CVODE_BDF(), alg_hints = [:stiff], reltol = tol, abstol = tol)
     # Return moments at last time step
     moments_final = vcat(sol.u'...)[end, :]
 

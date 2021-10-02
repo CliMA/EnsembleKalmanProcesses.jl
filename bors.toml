@@ -1,6 +1,7 @@
 status = [
   'docs-build',
   'test_success',
+  'format',
 ]
 delete_merged_branches = true
 timeout_sec = 3600

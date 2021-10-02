@@ -14,7 +14,7 @@ Structure that contains the observations
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct Obs{FT<:AbstractFloat}
+struct Obs{FT <: AbstractFloat}
     "vector of observational samples, each of length sample_dim"
     samples::Vector{Vector{FT}}
     "covariance of the observational noise (assumed to be normally 
@@ -32,8 +32,7 @@ struct Obs{FT<:AbstractFloat}
 end
 
 # Constructors
-function Obs(samples::Vector{Vector{FT}},
-             data_names::Union{Vector{String}, String}) where {FT<:AbstractFloat}
+function Obs(samples::Vector{Vector{FT}}, data_names::Union{Vector{String}, String}) where {FT <: AbstractFloat}
 
     N_samples = length(samples)
     # convert to sample_dim x N_samples to determine sample covariance
@@ -41,8 +40,8 @@ function Obs(samples::Vector{Vector{FT}},
     if N_samples == 1
         # only one sample - this requires a bit more data massaging
         temp1 = convert(Array, reshape(hcat(samples...)', N_samples, :))
-        temp = dropdims(temp1, dims=1)
-        samplemean = vec(mean(temp, dims=2))
+        temp = dropdims(temp1, dims = 1)
+        samplemean = vec(mean(temp, dims = 2))
         obs_noise_cov = nothing
     else
         temp = convert(Array, reshape(hcat(samples...)', N_samples, :))
@@ -52,15 +51,14 @@ function Obs(samples::Vector{Vector{FT}},
             samplemean = mean(temp)
             obs_noise_cov = var(temp)
         else
-            samplemean = vec(mean(temp, dims=1))
+            samplemean = vec(mean(temp, dims = 1))
             obs_noise_cov = cov(temp)
         end
     end
     Obs(samples, obs_noise_cov, samplemean, data_names)
 end
 
-function Obs(samples::Array{FT, 2},
-             data_names::Union{Vector{String}, String}) where {FT<:AbstractFloat}
+function Obs(samples::Array{FT, 2}, data_names::Union{Vector{String}, String}) where {FT <: AbstractFloat}
 
     # samples is of size sample_dim x N_samples
     sample_dim, N_samples = size(samples)
@@ -81,16 +79,18 @@ function Obs(samples::Array{FT, 2},
             samplemean = mean(samples)
             obs_noise_cov = var(samples)
         else
-            samplemean = vec(mean(samples, dims=2))
-            obs_noise_cov = cov(samples, dims=2)
+            samplemean = vec(mean(samples, dims = 2))
+            obs_noise_cov = cov(samples, dims = 2)
         end
     end
     Obs(samples_vec, obs_noise_cov, samplemean, data_names)
 end
 
-function Obs(samples::Vector{Vector{FT}},
-             obs_noise_cov::Array{FT, 2},
-             data_names::Union{Vector{String}, String}) where {FT<:AbstractFloat}
+function Obs(
+    samples::Vector{Vector{FT}},
+    obs_noise_cov::Array{FT, 2},
+    data_names::Union{Vector{String}, String},
+) where {FT <: AbstractFloat}
 
     N_samples = length(samples)
     sample_dim = length(samples[1])
@@ -99,9 +99,9 @@ function Obs(samples::Vector{Vector{FT}},
     if N_samples == 1
         # only one sample - this requires a bit more data massaging
         temp1 = convert(Array, reshape(hcat(samples...)', N_samples, :))
-        temp = dropdims(temp1, dims=1)
-        samplemean = vec(mean(temp, dims=2))
-        obsnoisecov=obs_noise_cov
+        temp = dropdims(temp1, dims = 1)
+        samplemean = vec(mean(temp, dims = 2))
+        obsnoisecov = obs_noise_cov
     else
         temp = convert(Array, reshape(hcat(samples...)', N_samples, :))
         if sample_dim == 1
@@ -109,14 +109,14 @@ function Obs(samples::Vector{Vector{FT}},
             # this case is actually the covariance) are scalars
             samplemean = mean(temp)
             err = ("When sample_dim is 1, obs_cov_noise must be a 1x1 matrix")
-            @assert(size(obs_noise_cov) == (1,1), err)
-            obsnoisecov=obs_noise_cov[1]
+            @assert(size(obs_noise_cov) == (1, 1), err)
+            obsnoisecov = obs_noise_cov[1]
         else
-            samplemean = vec(mean(temp, dims=1))
+            samplemean = vec(mean(temp, dims = 1))
             err = ("obs_cov_noise must be of size sample_dim x sample_dim.
                    \tsample_dim: number of elements per observation sample")
             @assert(size(obs_noise_cov) == (sample_dim, sample_dim), err)
-            obsnoisecov=obs_noise_cov
+            obsnoisecov = obs_noise_cov
         end
     end
 
@@ -124,9 +124,11 @@ function Obs(samples::Vector{Vector{FT}},
     Obs(samples, obsnoisecov, samplemean, data_names)
 end
 
-function Obs(samples::Array{FT, 2},
-             obs_noise_cov::Union{Array{FT, 2}, Nothing},
-             data_names::Union{Vector{String}, String})where {FT<:AbstractFloat}
+function Obs(
+    samples::Array{FT, 2},
+    obs_noise_cov::Union{Array{FT, 2}, Nothing},
+    data_names::Union{Vector{String}, String},
+) where {FT <: AbstractFloat}
 
     # samples is of size sample_dim x N_samples
     sample_dim, N_samples = size(samples)
@@ -143,14 +145,14 @@ function Obs(samples::Array{FT, 2},
             # this case is actually the variance) are scalars
             samplemean = mean(samples)
             err = ("When sample_dim is 1, obs_cov_noise must be a 1x1 matrix")
-            @assert(size(obs_noise_cov) == (1,1), err)
-            obsnoisecov=obs_noise_cov[1]
+            @assert(size(obs_noise_cov) == (1, 1), err)
+            obsnoisecov = obs_noise_cov[1]
         else
-            samplemean = vec(mean(samples, dims=2))
+            samplemean = vec(mean(samples, dims = 2))
             err = ("obs_cov_noise must be of size sample_dim x sample_dim.
                    \tsample_dim: number of elements per observation sample")
             @assert(size(obs_noise_cov) == (sample_dim, sample_dim), err)
-            obsnoisecov=obs_noise_cov
+            obsnoisecov = obs_noise_cov
         end
     end
 
