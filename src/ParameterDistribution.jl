@@ -231,7 +231,7 @@ end
 """
     function get_all_constraints(pd::ParameterDistribution)
 
-returns the (flattened) array of constraints of the parameter distribution
+Returns the (flattened) array of constraints of the parameter distribution.
 """
 function get_all_constraints(pd::ParameterDistribution)
     return pd.constraints
@@ -240,7 +240,7 @@ end
 """
     function batch(pd:ParameterDistribution)
 
-Returns a list of contiguous `[collect(1:i), collect(i+1:j),... ]`` used to split parameter arrays by distribution dimensions
+Returns a list of contiguous `[collect(1:i), collect(i+1:j),... ]`` used to split parameter arrays by distribution dimensions.
 """
 function batch(pd::ParameterDistribution)
     #chunk xarray to give to the different distributions.
@@ -257,7 +257,7 @@ end
 """
     function get_distribution(pd::ParameterDistribution)
 
-Returns a `Dict` of `ParameterDistribution` distributions, with the parameter names as dictionary keys. For parameters represented by `Samples`, the samples are returned as a 2D (parameter_dimension x n_samples) array
+Returns a `Dict` of `ParameterDistribution` distributions, with the parameter names as dictionary keys. For parameters represented by `Samples`, the samples are returned as a 2D (`parameter_dimension x n_samples`) array.
 """
 function get_distribution(pd::ParameterDistribution)
     return Dict{String, Any}(pd.names[i] => get_distribution(d) for (i, d) in enumerate(pd.distributions))
@@ -273,7 +273,7 @@ end
 """
     function sample_distribution(pd::ParameterDistribution)
 
-Draws samples from the parameter distributions returns an array, with parameters as columns
+Draws samples from the parameter distributions returns an array, with parameters as columns.
 """
 function sample_distribution(pd::ParameterDistribution)
     return sample_distribution(pd, 1)
@@ -332,7 +332,7 @@ end
 """
     function get_cov(pd::ParameterDistribution)
 
-returns a blocked covariance of the distributions
+Returns a blocked covariance of the distributions.
 """
 function get_cov(d::Parameterized)
     return cov(d.distribution)
@@ -373,7 +373,7 @@ end
 """
     get_mean(pd::Parameterized)
 
-returns a mean of parameterized distribution
+Returns a mean of parameterized distribution.
 """
 function get_mean(d::Parameterized)
     return mean(d.distribution)
@@ -382,7 +382,7 @@ end
 """
     get_mean(pd::Samples)
 
-returns a mean of the samples
+Returns a mean of the samples.
 """
 function get_mean(d::Samples)
     return mean(d.distribution_samples, dims = 2) #parameters are columns
@@ -391,7 +391,7 @@ end
 """
     function get_mean(pd::ParameterDistribution)
 
-returns a mean of the distributions
+Returns a mean of the distributions.
 """
 function get_mean(pd::ParameterDistribution)
     return cat([get_mean(d) for d in pd.distributions]..., dims = 1)
@@ -401,7 +401,7 @@ end
 #apply transforms
 
 """
-    function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Array{<:Real,1})
+    function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{<:Real,1})
 
 Apply the transformation to map (possibly constrained) parameters `xarray` into the unconstrained space.
 """

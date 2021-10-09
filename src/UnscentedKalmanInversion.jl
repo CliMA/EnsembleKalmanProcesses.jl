@@ -6,11 +6,11 @@
 An unscented Kalman Inversion process
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
-    "a vector of arrays of size N_parameters containing the mean of the parameters (in each uki iteration a new array of mean is added)"
+    "a vector of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added)"
     u_mean::Vector{Array{FT, 1}}
-    "a vector of arrays of size (N_parameters x N_parameters) containing the covariance of the parameters (in each uki iteration a new array of cov is added)"
+    "a vector of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added)"
     uu_cov::Vector{Array{FT, 2}}
-    "a vector of arrays of size N_y containing the predicted observation (in each uki iteration a new array of predicted observation is added)"
+    "a vector of arrays of size `N_y` containing the predicted observation (in each `uki` iteration a new array of predicted observation is added)"
     obs_pred::Vector{Array{FT, 1}}
     "weights in UKI"
     c_weights::Array{FT, 1}
@@ -64,7 +64,7 @@ u0_mean::Array{FT} : prior mean
 uu0_cov::Array{FT, 2} : prior covariance
 obs_mean::Array{FT,1} : observation 
 obs_noise_cov::Array{FT, 2} : observation error covariance
-α_reg::FT : regularization parameter toward u0 (0 < α_reg <= 1), default should be 1, without regulariazion
+α_reg::FT : regularization parameter toward `u0` (0 < `α_reg` ≤ 1), default should be 1, without regulariazion
 update_freq::IT : set to 0 when the inverse problem is not identifiable, 
                   namely the inverse problem has multiple solutions, 
                   the covariance matrix will represent only the sensitivity of the parameters, 
@@ -144,8 +144,9 @@ end
 
 
 """
-construct_sigma_ensemble
-Construct the sigma ensemble, based on the mean x_mean, and covariance x_cov
+    construct_sigma_ensemble(process::Unscented, x_mean::Array{FT}, x_cov::Array{FT, 2}) where {FT <: AbstractFloat, IT <: Int}
+
+Construct the sigma ensemble based on the mean `x_mean` and covariance `x_cov`.
 """
 function construct_sigma_ensemble(
     process::Unscented,
@@ -172,7 +173,7 @@ end
 
 
 """
-construct_mean x_mean from ensemble x
+construct_mean `x_mean` from ensemble `x`.
 """
 function construct_mean(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
@@ -195,7 +196,7 @@ function construct_mean(
 end
 
 """
-construct_cov xx_cov from ensemble x and mean x_mean
+construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
@@ -216,7 +217,7 @@ function construct_cov(
 end
 
 """
-construct_cov xy_cov from ensemble x and mean x_mean, ensemble obs_mean and mean y_mean
+construct_cov `xy_cov` from ensemble x and mean `x_mean`, ensemble `obs_mean` and mean `y_mean`.
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
@@ -270,7 +271,7 @@ end
 
 """
 uki analysis step 
-g is the predicted observations  Ny  by N_ens matrix
+g is the predicted observations  `Ny x N_ens` matrix
 """
 function update_ensemble_analysis!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},

@@ -60,7 +60,7 @@ struct PairedDataContainer{FT <: Real}
     function PairedDataContainer(inputs::DataContainer, outputs::DataContainer)
 
         if !(size(inputs, 2) == size(outputs, 2))
-            throw(DimensionMismatch("There must be the same number of samples of both inputs and outputs"))
+            throw(DimensionMismatch("There must be the same number of samples of both inputs and outputs."))
         else
             FT = eltype(get_data(inputs))
             new{FT}(inputs, outputs)
@@ -73,7 +73,7 @@ end
 """
     size(dc::DataContainer, idx::IT) where {IT <: Integer}
 
-Returns the size of the stored data. if `idx` provided, it returns the size along dimension `idx`.
+Returns the size of the stored data. If `idx` provided, it returns the size along dimension `idx`.
 """
 function size(dc::DataContainer)
     return size(dc.stored_data)
