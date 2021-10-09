@@ -71,9 +71,9 @@ end
 
 ## functions
 """
-    size(dc::DataContainer,idx::IT) where {IT <: Integer}
+    size(dc::DataContainer, idx::IT) where {IT <: Integer}
 
-returns the size of the stored data (if idx provided, it returns the size along dimension idx) 
+Returns the size of the stored data. if `idx` provided, it returns the size along dimension `idx`.
 """
 function size(dc::DataContainer)
     return size(dc.stored_data)
@@ -86,10 +86,11 @@ end
 function size(pdc::PairedDataContainer)
     return size(pdc.inputs), size(pdc.outputs)
 end
-"""
-    size(pdc::PairedDataContainer,idx::IT) where {IT <: Integer}
 
-returns the sizes of the inputs and ouputs along dimension idx (if provided)
+"""
+    size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer}
+
+Returns the sizes of the inputs and ouputs along dimension `idx` (if provided)
 """
 function size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer}
     return size(pdc.inputs, idx), size(pdc.outputs, idx)
@@ -109,5 +110,4 @@ function get_outputs(pdc::PairedDataContainer)
     return get_data(pdc.outputs)
 end
 
-
-end
+end # module

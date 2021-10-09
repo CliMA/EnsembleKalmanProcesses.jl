@@ -91,7 +91,7 @@ end
 """
     function bounded_above(upper_bound::FT) where {FT <: Real} 
 
-Constructs a Constraint with provided upper bound, enforced by maps x -> log(upper_bound - x) and x -> upper_bound - exp(x).
+Constructs a Constraint with provided upper bound, enforced by maps `x -> log(upper_bound - x)` and `x -> upper_bound - exp(x)`.
 """
 function bounded_above(upper_bound::FT) where {FT <: Real}
     c_to_u = (x -> log(upper_bound - x))
@@ -104,9 +104,9 @@ end
     function bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real} 
 
 Constructs a Constraint with provided upper and lower bounds, enforced by maps
-x -> log((x - lower_bound) / (upper_bound - x))
+`x -> log((x - lower_bound) / (upper_bound - x))`
 and
-x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1)
+`x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1)`.
 
 """
 function bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real}
@@ -240,7 +240,7 @@ end
 """
     function batch(pd:ParameterDistribution)
 
-Returns a list of contiguous [collect(1:i), collect(i+1:j),... ] used to split parameter arrays by distribution dimensions
+Returns a list of contiguous `[collect(1:i), collect(i+1:j),... ]`` used to split parameter arrays by distribution dimensions
 """
 function batch(pd::ParameterDistribution)
     #chunk xarray to give to the different distributions.
