@@ -165,4 +165,4 @@ The solution of the unscented Kalman inversion algorithm is a Gaussian distribut
 sigma = ukiobj.process.uu_cov[end]
 ```
 
-There are two examples: [Lorenz96](examples/Lorenz_example) and [Cloudy](examples/Cloudy_example)
+There are two examples: [Lorenz96](../examples/Lorenz_example) and [Cloudy](../examples/Cloudy_example).
