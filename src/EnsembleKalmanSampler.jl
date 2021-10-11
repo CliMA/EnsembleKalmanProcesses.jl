@@ -3,7 +3,7 @@
 """
     Sampler{FT<:AbstractFloat,IT<:Int} <: Process
 
-An ensemble Kalman Sampler process
+An ensemble Kalman Sampler process.
 """
 struct Sampler{FT <: AbstractFloat} <: Process
     ""

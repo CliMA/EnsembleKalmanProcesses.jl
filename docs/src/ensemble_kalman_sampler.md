@@ -13,25 +13,25 @@ The data ``y`` and parameter vector ``\theta`` are assumed to be related accordi
 ```math
     y = \mathcal{G}(\theta) + \eta,
 ```
-where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a d-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics $\eta$ of the process. 
+where ``\mathcal{G}: \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a d-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics ``\eta`` of the process. 
 
 
 ### Ensemble Kalman Sampling Algorithm
 
 
-The ensemble Kalman sampler is based on the following update equation for the parameter vector $\theta^{(j)}$ of ensemble member $j$:
+The ensemble Kalman sampler is based on the following update equation for the parameter vector ``\theta^{(j)}`` of ensemble member ``j``:
 
 ```math
 \begin{aligned}
-\theta_{n+1}^{(*, j)} &= \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)} - \Delta t_n \mathsf{C}(\Theta_n) \Gamma_{\theta}^{-1} \theta_{n + 1}^{(*, j)} \\
-\theta_{n + 1}^{j} &= \theta_{n+1}^{(*, j)} + \sqrt{2 \Delta t_n \mathsf{C}(\Theta_n)} \xi_n^{j}
+\theta_{n+1}^{(*, j)} &= \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)} - \Delta t_n \mathsf{C}(\Theta_n) \Gamma_{\theta}^{-1} \theta_{n + 1}^{(*, j)},\\
+\theta_{n + 1}^{j} &= \theta_{n+1}^{(*, j)} + \sqrt{2 \Delta t_n \mathsf{C}(\Theta_n)} \xi_n^{j},
 \end{aligned}
 ```
 
-where the subscript ``n=1, \dots, N_{it}`` indicates the iteration, ``J`` is the ensemble size (i.e., the number of particles in the ensemble), ``\Delta t_n`` is an adaptive time step, ``\Gamma_{\theta}`` is the prior covariance, and ``\xi_n^{(j)} \sim \mathcal{N}(0, \mathrm{I})``. ``\bar{\mathcal{G}}_n`` is the ensemble mean of ``\mathcal{G}(\theta)``,
+where the subscript ``n=1, \dots, N_{\rm it}`` indicates the iteration, ``J`` is the ensemble size (i.e., the number of particles in the ensemble), ``\Delta t_n`` is an adaptive time step, ``\Gamma_{\theta}`` is the prior covariance, and ``\xi_n^{(j)} \sim \mathcal{N}(0, \mathrm{I})``. ``\bar{\mathcal{G}}_n`` is the ensemble mean of ``\mathcal{G}(\theta)``,
 
 ```math
-\bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)})
+\bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)}).
 ```
 
 The ``p \times p`` matrix ``\mathsf{C}(\Theta_n)``, where ``\Theta_n = \left\{\theta^{(j)}\right\}_{j=1}^{J}`` is the set of all ensemble particles in the nth iteration, denotes the empirical covariance between particles,
@@ -42,7 +42,7 @@ The ``p \times p`` matrix ``\mathsf{C}(\Theta_n)``, where ``\Theta_n = \left\{\t
 where ``\bar{\theta}`` is the ensemble mean of the particles,
 
 ```math
-\bar{\theta} = \dfrac{1}{J}\sum_{k=1}^J\theta^{(k)}
+\bar{\theta} = \dfrac{1}{J}\sum_{k=1}^J\theta^{(k)}.
 ```
 
 

@@ -23,7 +23,7 @@ The parameter vector of the ``j``-th ensemble member at the ``n``-th iteration i
 \theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n \, , \, \Gamma_y^{-1} \left ( \mathcal{G}(\theta_n^{(j)}) - y \right ) \right \rangle \theta_{n}^{(k)} ,
 ```
 
-where the subscript ``n=1, \dots, N_{it}`` indicates the iteration, ``J`` is the number of
+where the subscript ``n=1, \dots, N_{\rm it}`` indicates the iteration, ``J`` is the number of
 members in the ensemble, ``\bar{\mathcal{G}}_n`` is the mean value of ``\mathcal{G}(\theta_n)``
 across ensemble members,
 
@@ -35,11 +35,11 @@ and angle brackets denote the Euclidean inner product. By multiplying with ``\Ga
 we render the inner product non-dimensional.
 
 The EKI algorithm is considered converged when the ensemble achieves sufficient consensus/collapse
-in parameter space. The final estimate ``\bar{\theta}_{N_{it}}`` is taken to be the ensemble
+in parameter space. The final estimate ``\bar{\theta}_{N_{\rm it}}`` is taken to be the ensemble
 mean at the final iteration,
 
 ```math
-\bar{\theta}_{N_{it}} = \dfrac{1}{J}\sum_{k=1}^J\theta_{N_{it}}^{(k)}.
+\bar{\theta}_{N_{\rm it}} = \dfrac{1}{J}\sum_{k=1}^J\theta_{N_{\rm it}}^{(k)}.
 ```
 
 For typical applications, a near-optimal solution ``\theta`` can be found after as few as 10 iterations of the algorithm. The obtained solution is optimal in the sense of the mean squared error loss, details can be found in [Iglesias et al (2013)](http://dx.doi.org/10.1088/0266-5611/29/4/045001). The algorithm performs better with larger ensembles. As a rule of thumb, the number of members in the ensemble should be larger than ``10p``, although the optimal ensemble size may depend on the problem setting and the computational power available.
@@ -52,14 +52,14 @@ The forward map ``\mathcal{G}`` maps the space of unconstrained parameters ``\th
 \mathcal{G} = \mathcal{H} \circ \Psi \circ \mathcal{T}^{-1},
 ```
 
-where ``\mathcal{H}: \mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation map and ``\mathcal{T}`` is the transformation map from constrained to unconstrained parameter spaces, such that ``\mathcal{T}(\phi)=\theta``. A family of standard transformation maps and their inverse are available in the `ParameterDistributionStorage` module.
+where ``\mathcal{H}: \mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation map and ``\mathcal{T}`` is the transformation map from constrained to unconstrained parameter spaces, such that ``\mathcal{T}(\phi) = \theta``. A family of standard transformation maps and their inverse are available in the `ParameterDistributionStorage` module.
 
 ### Creating the EKI Object
 
 An ensemble Kalman inversion object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Inversion()` process type.
 
 Creating an ensemble Kalman inversion object requires as arguments:
- 1. An initial parameter ensemble, `Array{FT, 2}` of size `[p × J]`;
+ 1. An initial parameter ensemble, `Array{Float, 2}` of size `[p × J]`;
  2. The mean value of the observed outputs, a vector of size `[d]`;
  3. The covariance of the observational noise, a matrix of size `[d × d]`
  4. The `Inversion()` process type.
@@ -75,7 +75,7 @@ initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble fr
 ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion())
 ```
 
-See the [Prior distributions](https://clima.github.io/EnsembleKalmanProcesses.jl/previews/PR21/parameter_distributions/) section to learn about the construction of priors in `EnsembleKalmanProcesses.jl`. The prior is assumed to be over the unconstrained parameter space where ``\theta`` is defined. For applications where enforcing parameter bounds is necessary, the `ParameterDistributionStorage` module provides functions to map from constrained to unconstrained space and viceversa. 
+See the [Prior distributions](../parameter_distributions/) section to learn about the construction of priors in EnsembleKalmanProcesses.jl. The prior is assumed to be over the unconstrained parameter space where ``\theta`` is defined. For applications where enforcing parameter bounds is necessary, the `ParameterDistributionStorage` module provides functions to map from constrained to unconstrained space and vice versa. 
 
 ### Updating the Ensemble
 
@@ -90,7 +90,7 @@ N_iter = 20 # Number of steps of the algorithm
 for n in 1:N_iter
     θ_n = get_u_final(ekiobj) # Get current ensemble
     ϕ_n = transform_unconstrained_to_constrained(prior, θ_n) # Transform parameters to physical/constrained space
-    G_n = [H(Ψ((ϕ_n[:,i])) for i in 1:J]
+    G_n = [H(Ψ((ϕ_n[:, i])) for i in 1:J]
     g_ens = hcat(G_n...) # Evaluate forward map
     
     update_ensemble!(ekiobj, g_ens) # Update ensemble
