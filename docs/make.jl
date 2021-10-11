@@ -14,7 +14,7 @@ ENV["GKSwstype"] = "100"
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/literated")
 
-examples_for_literation = ["LossMinimization/loss_minimization.jl"]
+examples_for_literation = ["LossMinimization/loss_minimization.jl", "AerosolActivation/aerosol_activation.jl"]
 
 for example in examples_for_literation
     example_filepath = joinpath(EXAMPLES_DIR, example)
@@ -35,6 +35,7 @@ examples = [
     "Cloudy" => "examples/Cloudy_example.md",
     "Lorenz" => "examples/lorenz_example.md",
     "Minimization Loss" => "literated/loss_minimization.md",
+    "Aerosol activation" => "literated/aerosol_activation.md",
     "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md",
 ]
 
