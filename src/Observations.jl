@@ -18,11 +18,11 @@ struct Obs{FT <: AbstractFloat}
     "vector of observational samples, each of length sample_dim"
     samples::Vector{Vector{FT}}
     "covariance of the observational noise (assumed to be normally 
-    distributed); sample_dim x sample_dim (where sample_dim is the number of 
+    distributed); `sample_dim x sample_dim` (where `sample_dim` is the number of 
     elements in each sample), or a scalar if the sample dim is 1. If not 
-    supplied, obs_noise_cov is set to a diagonal matrix whose non-zero elements 
+    supplied, `obs_noise_cov` is set to a diagonal matrix whose non-zero elements 
     are the variances of the samples, or to a scalar variance in the case of 
-    1d samples. obs_noise_cov is set to nothing if only a single sample is 
+    1d samples. `obs_noise_cov` is set to nothing if only a single sample is 
     provided."
     obs_noise_cov::Union{Array{FT, 2}, FT, Nothing}
     "sample mean"
