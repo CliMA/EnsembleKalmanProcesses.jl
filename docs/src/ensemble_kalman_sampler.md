@@ -4,14 +4,14 @@
 Ensemble Kalman Sampling ([Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), [Cleary et al, 2020](https://clima.caltech.edu/files/2020/01/2001.03689.pdf), [Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)) is a derivative-free approximate-sampling method that can be used to solve the inverse problem of finding the optimal model parameters given noisy data. In contrast to ensemble Kalman inversion ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)), whose iterative updates result in a collapse of the ensemble onto the optimal parameter, the ensemble Kalman sampler generates approximate samples from the Bayesian posterior distribution of the parameter -- i.e., it can be used not only for point estimation of the optimal parameter (as provided by the mean of the particles after the last iteration), but also for (approximate) uncertainty quantification (as provided by either the covariance or the distribution of the particles after the last iteration). 
 
 
-The ensemble Kalman sampler is an interacting particle system in stochastic differential equation form, and it is based on a dynamic which transforms an arbitrary initial probability distribution into the desired posterior distribution over an infinite time horizon -- see [Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), for a comprehensive description of the method. The ensemble Kalman sampling algorithm results from the introduction of a judiciously chosen noise to the ensemble Kalman inversion algorithm. Note that while there are also noisy variants of the standard ensemble Kalman inversion, ensemble Kalman sampling differs from them in its noise structure (its noise is added in parameter space, not in  data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization). The ensemble Kalman sampling algorithm can be understood as well as an affine invariant system of interacting particles [Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)) for which finite sample correction is introduced to overcome its computational finite-sample implementation. 
+The ensemble Kalman sampler is an interacting particle system in stochastic differential equation form, and it is based on a dynamic which transforms an arbitrary initial probability distribution into the desired posterior distribution over an infinite time horizon -- see [Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), for a comprehensive description of the method. The ensemble Kalman sampling algorithm results from the introduction of a judiciously chosen noise to the ensemble Kalman inversion algorithm. Note that while there are also noisy variants of the standard ensemble Kalman inversion, ensemble Kalman sampling differs from them in its noise structure (its noise is added in parameter space, not in  data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization). The ensemble Kalman sampling algorithm can be understood as well as an affine invariant system of interacting particles ([Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)) for which a finite-sample correction is introduced to overcome its computational finite-sample implementation. 
 
 
 ### Problem Formulation
 
 The data ``y`` and parameter vector ``\theta`` are assumed to be related according to:
 ```math
-    y = \mathcal{G}(\theta) + \eta,
+    y = \mathcal{G}(\theta) + \eta \,,
 ```
 where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a d-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics $\eta$ of the process.
 
@@ -19,30 +19,30 @@ where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forwar
 ### Ensemble Kalman Sampling Algorithm
 
 
-The ensemble Kalman sampler is based on the following update equation for the parameter vector $\theta^{(j)}$ of ensemble member $j$:
+The ensemble Kalman sampler is based on the following update equation for the parameter vector $\theta^{(j)}_n$ of ensemble member $j$ at the $n$-iteration:
 
 ```math
 \begin{aligned}
-\theta_{n+1}^{(*, j)} &= \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)} - \Delta t_n \mathsf{C}(\Theta_n) \Gamma_{\theta}^{-1} \theta_{n + 1}^{(*, j)} \\
-\theta_{n + 1}^{j} &= \theta_{n+1}^{(*, j)} + \sqrt{2 \Delta t_n \mathsf{C}(\Theta_n)} \xi_n^{j}
+\theta_{n+1}^{(*, j)} &= \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)} + \frac{d+1}{J} \left(\theta_{n}^{(j)} - \bar \theta_n \right) - \Delta t_n \mathsf{C}(\Theta_n) \Gamma_{\theta}^{-1} \theta_{n + 1}^{(*, j)} \,, \\
+\theta_{n + 1}^{j} &= \theta_{n+1}^{(*, j)} + \sqrt{2 \Delta t_n \mathsf{C}(\Theta_n)} \xi_n^{j} \,,
 \end{aligned}
 ```
 
-where the subscript ``n=1, \dots, N_{it}`` indicates the iteration, ``J`` is the ensemble size (i.e., the number of particles in the ensemble), ``\Delta t_n`` is an adaptive time step, ``\Gamma_{\theta}`` is the prior covariance, and ``\xi_n^{(j)} \sim \mathcal{N}(0, \mathrm{I})``. ``\bar{\mathcal{G}}_n`` is the ensemble mean of ``\mathcal{G}(\theta)``,
+where the subscript ``n=1, \dots, N_{\text{it}}`` indicates the iteration, ``J`` is the ensemble size (i.e., the number of particles in the ensemble), ``\Delta t_n`` is an adaptive time step, ``\Gamma_{\theta}`` is the prior covariance, and ``\xi_n^{(j)} \sim \mathcal{N}(0, \mathrm{I}_p)``. ``\bar{\mathcal{G}}_n`` is the ensemble mean of the forward map ``\mathcal{G}(\theta)``,
 
 ```math
-\bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)})
+\bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)})\,.
 ```
 
-The ``p \times p`` matrix ``\mathsf{C}(\Theta_n)``, where ``\Theta_n = \left\{\theta^{(j)}\right\}_{j=1}^{J}`` is the set of all ensemble particles in the nth iteration, denotes the empirical covariance between particles,
+The ``p \times p`` matrix ``\mathsf{C}(\Theta_n)``, where ``\Theta_n = \left\{\theta^{(j)}_n\right\}_{j=1}^{J}`` is the set of all ensemble particles in the ``n``-th iteration, denotes the empirical covariance between particles
 
 ```math
-\mathsf{C}(\Theta_n) = \frac{1}{J} \sum_{k=1}^J (\theta^{(k)} - \bar{\theta}) \otimes (\theta^{(k)} - \bar{\theta}),
+\mathsf{C}(\Theta_n) = \frac{1}{J} \sum_{k=1}^J (\theta^{(k)}_n - \bar{\theta}_n) \otimes (\theta^{(k)}_n - \bar{\theta}_n)\,,
 ```
-where ``\bar{\theta}`` is the ensemble mean of the particles,
+where ``\bar{\theta}_n`` is the ensemble mean of the particles,
 
 ```math
-\bar{\theta} = \dfrac{1}{J}\sum_{k=1}^J\theta^{(k)}
+\bar{\theta}_n = \dfrac{1}{J}\sum_{k=1}^J\theta^{(k)}_n \,.
 ```
 
 
