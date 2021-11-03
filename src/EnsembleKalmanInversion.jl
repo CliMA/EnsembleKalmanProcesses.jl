@@ -44,6 +44,8 @@ function find_ekp_stepsize(
 end
 
 """
+    sparse_qp(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, v_j::Vector{FT}, cov_vv_inv::Array{FT, 2}, H_u::SparseArrays.SparseMatrixCSC{FT}, H_g::SparseArrays.SparseMatrixCSC{FT}, y_j::Vector{FT}, γ::FT; H_uc::SparseArrays.SparseMatrixCSC{FT} = H_u) where {FT, IT} 
+
 Solving quadratic programming problem with sparsity constraint.
 """
 function sparse_qp(
