@@ -1,4 +1,6 @@
 #Ensemble Kalman Inversion: specific structures and function definitions
+using CVXOPT
+using SparseArrays
 
 """
     Inversion <: Process
@@ -42,6 +44,38 @@ function find_ekp_stepsize(
 end
 
 """
+Solving quadratic programming problem with sparsity constraint.
+"""
+function sparse_qp(
+    ekp::EnsembleKalmanProcess{FT, IT, Inversion}, 
+    v_j::Vector{FT}, 
+    cov_vv_inv::Array{FT, 2}, 
+    H_u::SparseArrays.SparseMatrixCSC{FT}, 
+    H_g::SparseArrays.SparseMatrixCSC{FT}, 
+    y_j::Vector{FT}, 
+    γ::FT; 
+    H_uc::SparseArrays.SparseMatrixCSC{FT} = H_u
+) where {FT, IT}
+
+    P = H_g' * inv(ekp.obs_noise_cov) * H_g + cov_vv_inv
+    P = 0.5 * (P + P')
+    q = -(cov_vv_inv*v_j + H_g' * inv(ekp.obs_noise_cov) * y_j)
+    N_params = size(H_uc)[1]
+    P1 = vcat(hcat(P, fill(FT(0), size(P)[1], N_params)), 
+	      hcat(fill(FT(0), N_params, size(P)[1]), fill(FT(0), N_params, N_params)))
+    q1 = vcat(q, fill(FT(0), N_params, 1))
+    H_uc_abs = 1.0 * I(N_params)
+    G = hcat(vcat(H_uc, -1.0 * H_uc), vcat(-1.0 * H_uc_abs, -1.0 * H_uc_abs))
+    h = fill(FT(0), 2*N_params, 1)
+    G1 = vcat(G, hcat(fill(FT(0), 1, size(P)[1]), fill(FT(1), 1, N_params)))
+    h1 = vcat(h, γ)
+    options = Dict([("show_progress",false)])
+    sol = CVXOPT.qp(P1, q1, G1, h1, options=options)
+
+    return hcat(H_u, fill(FT(0), size(H_u)[1], N_params)) * sol["x"]
+end
+
+"""
     update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, <:Inversion}, g::Array{FT,2} cov_threshold::FT=0.01, Δt_new=nothing) where {FT, IT}
 
 Updates the ensemble according to which type of Process we have. Model outputs `g` need to be a `N_obs × N_ens` array (i.e data are columms).
@@ -52,6 +86,12 @@ function update_ensemble!(
     cov_threshold::FT = 0.01,
     Δt_new = nothing,
     deterministic_forward_map = true,
+    sparse_eki = false,
+    γ = 10,
+    threshold_eki = false,
+    threshold_value = 1e-2,
+    reg = 1e-6,
+    uc_idx = []
 ) where {FT, IT}
 
     # Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
@@ -69,6 +109,7 @@ function update_ensemble!(
     cov_init = cov(u, dims = 2)
     cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
     cov_gg = cov(g, g, dims = 2, corrected = false) # [N_obs × N_obs]
+    cov_uu = cov(u, u, dims = 2, corrected = false) # [N_par × N_par]
 
     if !isnothing(Δt_new)
         push!(ekp.Δt, Δt_new)
@@ -77,6 +118,8 @@ function update_ensemble!(
     else
         push!(ekp.Δt, ekp.Δt[end])
     end
+
+    v = hcat(u', g')
 
     # Scale noise using Δt
     scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
@@ -94,6 +137,40 @@ function update_ensemble!(
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns = true))
     push!(ekp.g, DataContainer(g, data_are_columns = true))
+
+    if sparse_eki
+    	# Sparse EKI
+    	cov_vv = vcat(hcat(cov_uu, cov_ug), hcat(cov_ug',cov_gg))
+    	H_u = hcat(1.0 * I(size(u)[1]), fill(FT(0), size(u)[1], size(g)[1]))
+    	H_g = hcat(fill(FT(0), size(g)[1], size(u)[1]), 1.0 * I(size(g)[1]))
+
+    	if uc_idx == []
+    	    H_uc = H_u
+    	else
+    	    H_uc = H_u[uc_idx,:]
+    	end
+
+        for j = 1:ekp.N_ens
+            # Solve a quadratic programming problem
+            u[:,j] = sparse_qp(ekp, v[j,:], inv(cov_vv), H_u, H_g, y[:,j], γ, H_uc=H_uc)
+
+	    # Threshold the results if needed
+	    if threshold_eki
+                if uc_idx == []
+                    u[:,j] = u[:,j] .* (abs.(u[:,j]) .> threshold_value)
+                else
+                    u[uc_idx,j] = u[uc_idx,j] .* (abs.(u[uc_idx,j]) .> threshold_value)
+	        end
+	    end
+
+            # Add small noise to constrained elements of u
+            if uc_idx == []
+                u[:,j] += rand(MvNormal(zeros(size(u)[1]), reg * I(size(u)[1])))
+            else
+                u[uc_idx,j] += rand(MvNormal(zeros(size(uc_idx)[1]), reg * I(size(uc_idx)[1])))
+            end
+        end
+    end
 
     # Store error
     compute_error!(ekp)
