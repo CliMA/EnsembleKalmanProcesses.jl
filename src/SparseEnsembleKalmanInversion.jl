@@ -42,7 +42,8 @@ function sparse_qp(
     N_params = size(H_uc)[1]
     P1 = vcat(
         hcat(P, fill(FT(0), size(P)[1], N_params)),
-        hcat(fill(FT(0), N_params, size(P)[1]), fill(FT(0), N_params, N_params)))
+        hcat(fill(FT(0), N_params, size(P)[1]), fill(FT(0), N_params, N_params))
+    )
     q1 = vcat(q, fill(FT(0), N_params, 1))
     H_uc_abs = 1.0 * I(N_params)
     G = hcat(vcat(H_uc, -1.0 * H_uc), vcat(-1.0 * H_uc_abs, -1.0 * H_uc_abs))
