@@ -58,7 +58,7 @@ initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior,
 threshold_eki = false
 threshold_value = 1e-2
 reg = 1e-6
-uc_idx = [1,2]
+uc_idx = [1, 2]
 
 process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
 
