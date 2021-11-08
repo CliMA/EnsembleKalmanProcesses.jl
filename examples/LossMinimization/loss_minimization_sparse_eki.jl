@@ -1,4 +1,4 @@
-# # Minimization of simple loss functions
+# # Minimization of simple loss functions with sparse EKI
 #
 # First we load the required packages.
 
@@ -12,7 +12,7 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule, EnsembleKalmanProcess
 # ```math
 # G₁(u) = \|u - u_*\| ,
 # ```
-# where ``u`` is a 2-vector of parameters and ``u_*`` is given; here ``u_* = (-1, 1)``. 
+# where ``u`` is a 2-vector of parameters and ``u_*`` is given; here ``u_* = (1, 0)``. 
 u★ = [1, 0]
 G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
 nothing # hide
@@ -53,11 +53,19 @@ nothing # hide
 # The initial ensemble is constructed by sampling the prior
 initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
 
+# Sparse EKI parameters
+γ = 1.0
+threshold_eki = false
+threshold_value = 1e-2
+reg = 1e-6
+uc_idx = [1,2]
+
+process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
+
 # We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
-# target, the stabilization and the process type (for EKI this is `Inversion`, initialized 
-# with `Inversion()`). 
+# target, the stabilization and the process type (for sparse EKI this is `SparseInversion`). 
 ensemble_kalman_process =
-    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, Inversion())
+    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, process)
 
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
@@ -67,12 +75,7 @@ for i in 1:N_iterations
 
     g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
 
-    EnsembleKalmanProcessModule.update_ensemble!(ensemble_kalman_process, g_ens,
-						sparse_eki=true, γ=1.0, 
-						threshold_eki=true,
-						threshold_value=1e-2,
-						reg=1e-6,
-						uc_idx=[1,2])
+    EnsembleKalmanProcessModule.update_ensemble!(ensemble_kalman_process, g_ens)
 end
 
 # and visualize the results:
