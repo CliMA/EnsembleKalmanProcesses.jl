@@ -40,8 +40,9 @@ function sparse_qp(
     P = 0.5 * (P + P')
     q = -(cov_vv_inv * v_j + H_g' * inv(ekp.obs_noise_cov) * y_j)
     N_params = size(H_uc)[1]
-    P1 = vcat(hcat(P, fill(FT(0), size(P)[1], N_params)),
-              hcat(fill(FT(0), N_params, size(P)[1]), fill(FT(0), N_params, N_params)))
+    P1 = vcat(
+        hcat(P, fill(FT(0), size(P)[1], N_params)),
+        hcat(fill(FT(0), N_params, size(P)[1]), fill(FT(0), N_params, N_params)))
     q1 = vcat(q, fill(FT(0), N_params, 1))
     H_uc_abs = 1.0 * I(N_params)
     G = hcat(vcat(H_uc, -1.0 * H_uc), vcat(-1.0 * H_uc_abs, -1.0 * H_uc_abs))
@@ -115,16 +116,16 @@ function update_ensemble!(
     cov_vv = vcat(hcat(cov_uu, cov_ug), hcat(cov_ug', cov_gg))
     H_u = hcat(1.0 * I(size(u)[1]), fill(FT(0), size(u)[1], size(g)[1]))
     H_g = hcat(fill(FT(0), size(g)[1], size(u)[1]), 1.0 * I(size(g)[1]))
-    
+
     if ekp.process.uc_idx == []
         H_uc = H_u
     else
         H_uc = H_u[ekp.process.uc_idx, :]
     end
 
-    for j = 1:(ekp.N_ens)
+    for j in 1:(ekp.N_ens)
         # Solve a quadratic programming problem
-        u[:,j] = sparse_qp(ekp, v[j, :], inv(cov_vv), H_u, H_g, y[:, j], ekp.process.γ, H_uc = H_uc)
+        u[:, j] = sparse_qp(ekp, v[j, :], inv(cov_vv), H_u, H_g, y[:, j], ekp.process.γ, H_uc = H_uc)
 
         # Threshold the results if needed
         if ekp.process.threshold_eki
