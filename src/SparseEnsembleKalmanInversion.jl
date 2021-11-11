@@ -1,5 +1,5 @@
 #Sparse Ensemble Kalman Inversion: specific structures and function definitions
-using CVXOPT
+using Convex, SCS
 using SparseArrays
 
 """
@@ -50,10 +50,11 @@ function sparse_qp(
     h = fill(FT(0), 2 * N_params, 1)
     G1 = vcat(G, hcat(fill(FT(0), 1, size(P)[1]), fill(FT(1), 1, N_params)))
     h1 = vcat(h, γ)
-    options = Dict([("show_progress", false)])
-    sol = CVXOPT.qp(P1, q1, G1, h1, options = options)
+    x = Variable(size(P1)[1])
+    problem = minimize(0.5 * quadform(x, P1; assume_psd=true) + q1' * x, [G1 * x <= h1])
+    solve!(problem, () -> SCS.Optimizer(verbose=false))
 
-    return hcat(H_u, fill(FT(0), size(H_u)[1], N_params)) * sol["x"]
+    return hcat(H_u, fill(FT(0), size(H_u)[1], N_params)) * evaluate(x)
 end
 
 """
