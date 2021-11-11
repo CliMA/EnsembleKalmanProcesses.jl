@@ -4,7 +4,6 @@ authors = ["CLIMA contributors <clima-software@caltech.edu>"]
 version = "0.1.1"
 
 [deps]
-CVXOPT = "1a0d837d-f7ba-5e72-a8f8-b8273492ab4e"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
