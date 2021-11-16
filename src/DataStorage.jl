@@ -97,7 +97,7 @@ function size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer}
 end
 
 function get_data(dc::DataContainer)
-    return copy(dc.stored_data)
+    return deepcopy(dc.stored_data)
 end
 function get_data(pdc::PairedDataContainer)
     return get_inputs(pdc), get_outputs(pdc)
