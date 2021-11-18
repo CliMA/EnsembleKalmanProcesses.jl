@@ -42,7 +42,7 @@ function sparse_qp(
     N_params = size(H_uc)[1]
     P1 = vcat(
         hcat(P, fill(FT(0), size(P)[1], N_params)),
-        hcat(fill(FT(0), N_params, size(P)[1]), fill(FT(0), N_params, N_params))
+        hcat(fill(FT(0), N_params, size(P)[1]), fill(FT(0), N_params, N_params)),
     )
     q1 = vcat(q, fill(FT(0), N_params, 1))
     H_uc_abs = 1.0 * I(N_params)
@@ -51,8 +51,8 @@ function sparse_qp(
     G1 = vcat(G, hcat(fill(FT(0), 1, size(P)[1]), fill(FT(1), 1, N_params)))
     h1 = vcat(h, γ)
     x = Variable(size(P1)[1])
-    problem = minimize(0.5 * quadform(x, P1; assume_psd=true) + q1' * x, [G1 * x <= h1])
-    solve!(problem, () -> SCS.Optimizer(verbose=false))
+    problem = minimize(0.5 * quadform(x, P1; assume_psd = true) + q1' * x, [G1 * x <= h1])
+    solve!(problem, () -> SCS.Optimizer(verbose = false))
 
     return hcat(H_u, fill(FT(0), size(H_u)[1], N_params)) * evaluate(x)
 end

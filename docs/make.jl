@@ -17,7 +17,8 @@ const OUTPUT_DIR = joinpath(@__DIR__, "src/literated")
 examples_for_literation = [
     "LossMinimization/loss_minimization.jl",
     "SparseLossMinimization/loss_minimization_sparse_eki.jl",
-    "AerosolActivation/aerosol_activation.jl"]
+    "AerosolActivation/aerosol_activation.jl",
+]
 
 for example in examples_for_literation
     example_filepath = joinpath(EXAMPLES_DIR, example)
