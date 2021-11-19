@@ -19,6 +19,7 @@ where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forwar
 ### Ensemble Kalman Sampling Algorithm
 
 
+
 The ensemble Kalman sampler is based on the following update equation for the parameter vector $\theta^{(j)}_n$ of ensemble member $j$ at the $n$-iteration:
 
 ```math
