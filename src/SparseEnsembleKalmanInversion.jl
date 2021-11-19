@@ -119,11 +119,7 @@ function update_ensemble!(
     H_u = hcat(1.0 * I(size(u)[1]), fill(FT(0), size(u)[1], size(g)[1]))
     H_g = hcat(fill(FT(0), size(g)[1], size(u)[1]), 1.0 * I(size(g)[1]))
 
-    if ekp.process.uc_idx == []
-        H_uc = H_u
-    else
-        H_uc = H_u[ekp.process.uc_idx, :]
-    end
+    H_uc = H_u[ekp.process.uc_idx, :]
 
     for j in 1:(ekp.N_ens)
         # Solve a quadratic programming problem
@@ -131,21 +127,13 @@ function update_ensemble!(
 
         # Threshold the results if needed
         if ekp.process.threshold_eki
-            if ekp.process.uc_idx == []
-                u[:, j] = u[:, j] .* (abs.(u[:, j]) .> ekp.process.threshold_value)
-            else
-                u[ekp.process.uc_idx, j] =
-                    u[ekp.process.uc_idx, j] .* (abs.(u[ekp.process.uc_idx, j]) .> ekp.process.threshold_value)
-            end
+            u[ekp.process.uc_idx, j] =
+                u[ekp.process.uc_idx, j] .* (abs.(u[ekp.process.uc_idx, j]) .> ekp.process.threshold_value)
         end
 
         # Add small noise to constrained elements of u
-        if ekp.process.uc_idx == []
-            u[:, j] += rand(MvNormal(zeros(size(u)[1]), ekp.process.reg * I(size(u)[1])))
-        else
-            u[ekp.process.uc_idx, j] +=
-                rand(MvNormal(zeros(size(ekp.process.uc_idx)[1]), ekp.process.reg * I(size(ekp.process.uc_idx)[1])))
-        end
+        u[ekp.process.uc_idx, j] +=
+            rand(MvNormal(zeros(size(ekp.process.uc_idx)[1]), ekp.process.reg * I(size(ekp.process.uc_idx)[1])))
     end
 
     # Store error
