@@ -39,7 +39,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     @test isapprox(norm(y_obs .- G(u_star))^2 - n_obs * noise_level^2,0 ; atol=0.05)
 
     #### Define prior information on parameters
-    prior_distns = [Parameterized(Normal(1.0, sqrt(2))), Parameterized(Normal(1.0, sqrt(2)))]
+    prior_distns = [Parameterized(Normal(0.0, 0.5)), Parameterized(Normal(3.0, 0.5))]
     constraints = [[no_constraint()], [no_constraint()]]
     prior_names = ["u1", "u2"]
     prior = ParameterDistribution(prior_distns, constraints, prior_names)
@@ -49,26 +49,69 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     # Assuming independence of u1 and u2
     prior_cov = get_cov(prior) #convert(Array, Diagonal([sqrt(2.), sqrt(2.)]))
 
-    ###
-    ###  Calibrate (1): Ensemble Kalman Inversion
-    ###
 
-    N_ens = 40 # number of ensemble members
-    N_iter = 7 # number of EKI iterations
+
+    ###
+    ###  Calibrate: Ensemble Kalman Sampler
+    ###
+    N_ens = 50 # number of ensemble members (NB for @test throws, make different to N_ens)
+    N_iter = 20
+
     initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens; rng_seed = rng_seed)
     @test size(initial_ensemble) == (n_par, N_ens)
+    
+    eksobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov))
 
+    g_ens = G(get_u_final(eksobj))
+    @test size(g_ens) == (n_obs, N_ens)
+    # as the columns of g are the data, this should throw an error
+    g_ens_t = permutedims(g_ens, (2, 1))
+    
+    # EKS iterations
+    for i in 1:N_iter
+        params_i = get_u_final(eksobj)
+        g_ens = G(params_i)
+        if i == 1
+            g_ens_t = permutedims(g_ens, (2, 1))
+            @test_throws DimensionMismatch EnsembleKalmanProcessModule.update_ensemble!(eksobj, g_ens_t)
+        end
+
+        EnsembleKalmanProcessModule.update_ensemble!(eksobj, g_ens)
+    end
+    # Plot evolution of the EKS particles
+    eks_final_result = vec(mean(get_u_final(eksobj), dims = 2))
+
+    if TEST_PLOT_OUTPUT
+        gr()
+        p = plot(get_u_prior(eksobj)[1, :], get_u_prior(eksobj)[2, :], seriestype = :scatter)
+        plot!(get_u_final(eksobj)[1, :], get_u_final(eksobj)[2, :], seriestype = :scatter)
+        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red)
+        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
+        savefig(p, "EKS_test.png")
+    end
+    
+    
+    ###
+    ###  Calibrate: Ensemble Kalman Inversion
+    ###
+
+    #N_ens = 40 # number of ensemble members
+    # We will try to compare the EKI and EKS results, therefore we need comparable timesteps and iterations
+    #N_iter = 7 # number of EKI iterations
+    Δ_vec = eksobj.Δt[2:end]
+    
     ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
 
-    # Find EKI timestep
+    # some checks 
     g_ens = G(get_u_final(ekiobj))
     @test size(g_ens) == (n_obs, N_ens)
     # as the columns of g are the data, this should throw an error
     g_ens_t = permutedims(g_ens, (2, 1))
     @test_throws DimensionMismatch find_ekp_stepsize(ekiobj, g_ens_t)
     Δ = find_ekp_stepsize(ekiobj, g_ens)
-    # for linear problem the stepsize is likely too large
+    # huge collapse for linear problem so should find timestep should < 1
     @test Δ < 1
+    # NOTE We don't use this info, this is just for the test.
 
     # EKI iterations
     params_i_vec = []
@@ -82,9 +125,11 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
             g_ens_t = permutedims(g_ens, (2, 1))
             @test_throws DimensionMismatch EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens_t)
         end
-        EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
+        Δ = Δ_vec[i] # use the same timesteps as EKS (EKI is more stable, so this is fine to do)
+        EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens, Δt_new = Δ)
         
     end
+    @test isapprox(ekiobj.Δt - eksobj.Δt, zeros(N_iter+1))
 
     push!(params_i_vec, get_u_final(ekiobj))
 
@@ -98,8 +143,8 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     # values
     eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
 
-    # kind of arbitrary tolerance here, 
-    @test norm(u_star - eki_final_result) < 0.2
+# kind of arbitrary tolerance here,
+    @test norm(u_star - eki_final_result) < 0.1
 
     # Plot evolution of the EKI particles
     #eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
@@ -112,36 +157,6 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         savefig(p, "EKI_test.png")
     end
 
-    ###
-    ###  Calibrate (2): Ensemble Kalman Sampler
-    ###
-    eksobj =
-        EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov))
-
-    # EKS iterations
-    N_iter = 50
-    for i in 1:N_iter
-        params_i = get_u_final(eksobj)
-        g_ens = G(params_i)
-        if i == 1
-            g_ens_t = permutedims(g_ens, (2, 1))
-            @test_throws DimensionMismatch EnsembleKalmanProcessModule.update_ensemble!(eksobj, g_ens_t)
-        end
-
-        EnsembleKalmanProcessModule.update_ensemble!(eksobj, g_ens)
-    end
-
-    # Plot evolution of the EKS particles
-    eks_final_result = vec(mean(get_u_final(eksobj), dims = 2))
-
-    if TEST_PLOT_OUTPUT
-        gr()
-        p = plot(get_u_prior(eksobj)[1, :], get_u_prior(eksobj)[2, :], seriestype = :scatter)
-        plot!(get_u_final(eksobj)[1, :], get_u_final(eksobj)[2, :], seriestype = :scatter)
-        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red)
-        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
-        savefig(p, "EKS_test.png")
-    end
 
     posterior_cov_inv = (A' * (Γy \ A) + 1 * Matrix(I, n_par, n_par) / prior_cov)
     ols_mean = (A' * (Γy \ A)) \ (A' * (Γy \ y_obs))
@@ -163,7 +178,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
 
     ###
-    ###  Calibrate (3): Unscented Kalman Inversion
+    ###  Calibrate: Unscented Kalman Inversion
     ###
 
     N_iter = 20 # number of UKI iterations
