@@ -299,7 +299,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     threshold_eki = true
     threshold_value = 1e-2
     reg = 1e-4
-    uc_idx = collect(1: n_par)
+    uc_idx = collect(1:n_par)
 
     process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
 
