@@ -121,7 +121,7 @@ function update_ensemble!(
 
     H_uc = H_u[ekp.process.uc_idx, :]
 
-    for j in 1:(ekp.N_ens)
+    Threads.@threads for j in 1:(ekp.N_ens)
         # Solve a quadratic programming problem
         u[:, j] = sparse_qp(ekp, v[j, :], inv(cov_vv), H_u, H_g, y[:, j], ekp.process.γ, H_uc = H_uc)
 
