@@ -18,7 +18,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     u_star = [-1.0, 2.0]          # True parameters
     noise_level = 0.05            # Defining the observation noise level (std) 
     Γy = noise_level^2 * Matrix(I, n_obs, n_obs) # Independent noise for synthetic observations
-    noise = MvNormal(zeros(n_obs), Γy) 
+    noise = MvNormal(zeros(n_obs), Γy)
     C = [1 -.9; -.9 1]          # Correlation structure for linear operator
     A = rand(MvNormal(zeros(2,), C), n_obs)'    # Linear operator in R^{n_par x n_obs}
 
@@ -36,7 +36,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
 
     # sum(y-G)^2 ~ n_obs*noise_level^2
-    @test isapprox(norm(y_obs .- G(u_star))^2 - n_obs * noise_level^2,0 ; atol=0.05)
+    @test isapprox(norm(y_obs .- G(u_star))^2 - n_obs * noise_level^2, 0; atol = 0.05)
 
     #### Define prior information on parameters
     prior_distns = [Parameterized(Normal(0.0, 0.5)), Parameterized(Normal(3.0, 0.5))]
@@ -59,14 +59,15 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
     initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens; rng_seed = rng_seed)
     @test size(initial_ensemble) == (n_par, N_ens)
-    
-    eksobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov))
+
+    eksobj =
+        EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov))
 
     g_ens = G(get_u_final(eksobj))
     @test size(g_ens) == (n_obs, N_ens)
     # as the columns of g are the data, this should throw an error
     g_ens_t = permutedims(g_ens, (2, 1))
-    
+
     # EKS iterations
     for i in 1:N_iter
         params_i = get_u_final(eksobj)
@@ -89,8 +90,8 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
         savefig(p, "EKS_test.png")
     end
-    
-    
+
+
     ###
     ###  Calibrate: Ensemble Kalman Inversion
     ###
@@ -99,7 +100,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     # We will try to compare the EKI and EKS results, therefore we need comparable timesteps and iterations
     #N_iter = 7 # number of EKI iterations
     Δ_vec = eksobj.Δt[2:end]
-    
+
     ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
 
     # some checks 
@@ -127,9 +128,9 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         end
         Δ = Δ_vec[i] # use the same timesteps as EKS (EKI is more stable, so this is fine to do)
         EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens, Δt_new = Δ)
-        
+
     end
-    @test isapprox(ekiobj.Δt - eksobj.Δt, zeros(N_iter+1))
+    @test isapprox(ekiobj.Δt - eksobj.Δt, zeros(N_iter + 1))
 
     push!(params_i_vec, get_u_final(ekiobj))
 
@@ -143,7 +144,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     # values
     eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
 
-# kind of arbitrary tolerance here,
+    # kind of arbitrary tolerance here,
     @test norm(u_star - eki_final_result) < 0.1
 
     # Plot evolution of the EKI particles
