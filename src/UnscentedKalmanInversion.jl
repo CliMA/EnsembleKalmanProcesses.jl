@@ -7,23 +7,23 @@ An unscented Kalman Inversion process
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
     "a vector of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added)"
-    u_mean::Vector{Array{FT, 1}}
+    u_mean::Vector{Vector{FT}}
     "a vector of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added)"
-    uu_cov::Vector{Array{FT, 2}}
+    uu_cov::Vector{Matrix{FT}}
     "a vector of arrays of size `N_y` containing the predicted observation (in each `uki` iteration a new array of predicted observation is added)"
-    obs_pred::Vector{Array{FT, 1}}
+    obs_pred::Vector{Vector{FT}}
     "weights in UKI"
-    c_weights::Array{FT, 1}
-    mean_weights::Array{FT, 1}
-    cov_weights::Array{FT, 1}
+    c_weights::Vector{FT}
+    mean_weights::Vector{FT}
+    cov_weights::Vector{FT}
     "covariance of the artificial evolution error"
-    Σ_ω::Array{FT, 2}
+    Σ_ω::Matrix{FT}
     "covariance of the artificial observation error"
     Σ_ν_scale::FT
     "regularization parameter"
     α_reg::FT
     "regularization vector"
-    r::Array{FT, 1}
+    r::Vector{FT}
     "update frequency"
     update_freq::IT
     "current iteration number"
@@ -34,8 +34,8 @@ end
 
 # outer constructors
 function EnsembleKalmanProcess(
-    obs_mean::Array{FT, 1},
-    obs_noise_cov::Array{FT, 2},
+    obs_mean::Vector{FT},
+    obs_noise_cov::Matrix{FT},
     process::Unscented{FT, IT};
     Δt = FT(1),
 ) where {FT <: AbstractFloat, IT <: Int}
@@ -59,27 +59,45 @@ end
 
 
 """
-EnsembleKalmanProcess Constructor 
-u0_mean::Array{FT} : prior mean
-uu0_cov::Array{FT, 2} : prior covariance
-obs_mean::Array{FT,1} : observation 
-obs_noise_cov::Array{FT, 2} : observation error covariance
-α_reg::FT : regularization parameter toward `u0` (0 < `α_reg` ≤ 1), default should be 1, without regulariazion
-update_freq::IT : set to 0 when the inverse problem is not identifiable, 
-                  namely the inverse problem has multiple solutions, 
-                  the covariance matrix will represent only the sensitivity of the parameters, 
-                  instead of posterior covariance information;
-                  set to 1 (or anything > 0) when the inverse problem is identifiable, and 
-                  the covariance matrix will converge to a good approximation of the 
-                  posterior covariance with an uninformative prior.
+    Unscented(
+        u0_mean::Vector{FT},
+        uu0_cov::Matrix{FT},
+        α_reg::FT,
+        update_freq::IT;
+        modified_unscented_transform::Bool = true,
+        prior_mean::Union{Vector{FT}, Nothing} = nothing,
+        κ::FT = 0.0,
+        β::FT = 2.0,
+    ) where {FT <: AbstractFloat, IT <: Int}
+
+Construct an Unscented Inversion EnsembleKalmanProcess.
+
+Inputs:
+ - u0_mean : Mean at initialization.
+ - uu0_cov : Covariance at initialization.
+ - α_reg : Hyperparameter controlling regularization toward the prior mean (0 < `α_reg` ≤ 1),
+    default should be 1, without regulariazion.
+ - update_freq : Set to 0 when the inverse problem is not identifiable, 
+    namely the inverse problem has multiple solutions, the covariance matrix
+    will represent only the sensitivity of the parameters, instead of
+    posterior covariance information; set to 1 (or anything > 0) when
+    the inverse problem is identifiable, and the covariance matrix will
+    converge to a good approximation of the posterior covariance with an
+    uninformative prior.
+ - modified_unscented_transform : Modification of the UKI quadrature given
+    in Huang et al (2021).
+ - prior_mean : Prior mean used for regularization.
+ - κ : 
+ - β : 
                   
 """
 function Unscented(
-    u0_mean::Array{FT, 1},
-    uu0_cov::Array{FT, 2},
+    u0_mean::Vector{FT},
+    uu0_cov::Matrix{FT},
     α_reg::FT,
     update_freq::IT;
-    modified_uscented_transform::Bool = true,
+    modified_unscented_transform::Bool = true,
+    prior_mean::Union{Vector{FT}, Nothing} = nothing,
     κ::FT = 0.0,
     β::FT = 2.0,
 ) where {FT <: AbstractFloat, IT <: Int}
@@ -88,13 +106,11 @@ function Unscented(
     # ensemble size
     N_ens = 2 * N_u + 1
 
-
     c_weights = zeros(FT, N_u)
     mean_weights = zeros(FT, N_ens)
     cov_weights = zeros(FT, N_ens)
 
     # todo parameters λ, α, β
-
     α = min(sqrt(4 / (N_u + κ)), 1.0)
     λ = α^2 * (N_u + κ) - N_u
 
@@ -105,25 +121,23 @@ function Unscented(
     cov_weights[1] = λ / (N_u + λ) + 1 - α^2 + β
     cov_weights[2:N_ens] .= 1 / (2 * (N_u + λ))
 
-    if modified_uscented_transform
+    if modified_unscented_transform
         mean_weights[1] = 1.0
         mean_weights[2:N_ens] .= 0.0
     end
 
-
-
-    u_mean = Array{FT, 1}[]  # array of Array{FT, 2}'s
+    u_mean = Vector{FT}[]  # array of Vector{FT}'s
     push!(u_mean, u0_mean) # insert parameters at end of array (in this case just 1st entry)
-    uu_cov = Array{FT, 2}[] # array of Array{FT, 2}'s
+    uu_cov = Matrix{FT}[] # array of Matrix{FT}'s
     push!(uu_cov, uu0_cov) # insert parameters at end of array (in this case just 1st entry)
 
-    obs_pred = Array{FT, 1}[]  # array of Array{FT, 2}'s
+    obs_pred = Vector{FT}[]  # array of Vector{FT}'s
     err = FT[]
 
     Σ_ω = (2 - α_reg^2) * uu0_cov
     Σ_ν_scale = 2.0
 
-    r = u0_mean
+    r = isnothing(prior_mean) ? u0_mean : prior_mean
     iter = 0
 
     Unscented(
@@ -144,20 +158,23 @@ end
 
 
 """
-    construct_sigma_ensemble(process::Unscented, x_mean::Array{FT}, x_cov::Array{FT, 2}) where {FT <: AbstractFloat, IT <: Int}
+    function construct_sigma_ensemble(
+        process::Unscented,
+        x_mean::Array{FT},
+        x_cov::Matrix{FT},
+    ) where {FT <: AbstractFloat, IT <: Int}
 
 Construct the sigma ensemble based on the mean `x_mean` and covariance `x_cov`.
 """
 function construct_sigma_ensemble(
     process::Unscented,
     x_mean::Array{FT},
-    x_cov::Array{FT, 2},
+    x_cov::Matrix{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
 
     N_x = size(x_mean, 1)
 
     c_weights = process.c_weights
-
 
     chol_xx_cov = cholesky(Hermitian(x_cov)).L
 
@@ -177,7 +194,7 @@ construct_mean `x_mean` from ensemble `x`.
 """
 function construct_mean(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Array{FT, 2},
+    x::Matrix{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
     N_x, N_ens = size(x)
 
@@ -186,7 +203,6 @@ function construct_mean(
     x_mean = zeros(FT, N_x)
 
     mean_weights = uki.process.mean_weights
-
 
     for i in 1:N_ens
         x_mean += mean_weights[i] * x[:, i]
@@ -200,7 +216,7 @@ construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Array{FT, 2},
+    x::Matrix{FT},
     x_mean::Array{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
     N_ens, N_x = uki.N_ens, size(x_mean, 1)
@@ -221,9 +237,9 @@ construct_cov `xy_cov` from ensemble x and mean `x_mean`, ensemble `obs_mean` an
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Array{FT, 2},
+    x::Matrix{FT},
     x_mean::Array{FT},
-    obs_mean::Array{FT, 2},
+    obs_mean::Matrix{FT},
     y_mean::Array{FT},
 ) where {FT <: AbstractFloat, IT <: Int, P <: Process}
     N_ens, N_x, N_y = uki.N_ens, size(x_mean, 1), size(y_mean, 1)
@@ -275,8 +291,8 @@ g is the predicted observations  `Ny x N_ens` matrix
 """
 function update_ensemble_analysis!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    u_p::Array{FT, 2},
-    g::Array{FT, 2},
+    u_p::Matrix{FT},
+    g::Matrix{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
 
     obs_mean = uki.obs_mean
@@ -298,7 +314,6 @@ function update_ensemble_analysis!(
     u_mean = u_p_mean + tmp * (obs_mean - g_mean)
     uu_cov = uu_p_cov - tmp * ug_cov'
 
-
     ########### Save results
     push!(uki.process.obs_pred, g_mean) # N_ens x N_data
     push!(uki.process.u_mean, u_mean) # N_ens x N_params
@@ -311,7 +326,7 @@ end
 
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    g_in::Array{FT, 2},
+    g_in::Matrix{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
     #catch works when g_in non-square 
     if !(size(g_in)[2] == uki.N_ens)
@@ -328,7 +343,6 @@ function update_ensemble!(
     push!(uki.u, DataContainer(u_p, data_are_columns = true))
 
     return u_p
-
 end
 
 
@@ -351,8 +365,8 @@ end
 
 
 function Gaussian_2d(
-    u_mean::Array{FT, 1},
-    uu_cov::Array{FT, 2},
+    u_mean::Vector{FT},
+    uu_cov::Matrix{FT},
     Nx::IT,
     Ny::IT;
     xx = nothing,
@@ -380,5 +394,4 @@ function Gaussian_2d(
     end
 
     return xx, yy, Z
-
 end
