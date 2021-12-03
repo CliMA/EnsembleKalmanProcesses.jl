@@ -1,6 +1,5 @@
 module EnsembleKalmanProcessModule
 
-
 using ..ParameterDistributionStorage
 using ..DataStorage
 
@@ -24,15 +23,16 @@ abstract type Process end
 
 
 """
-    EnsembleKalmanProcess{FT<:AbstractFloat, IT<:Int}
+    struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
 
-Structure that is used in Ensemble Kalman processes
+Structure that is used in Ensemble Kalman processes.
 
-#Fields
-$(DocStringExtensions.FIELDS)
+# Fields
+
+$(TYPEDFIELDS)
 """
 struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
-    "Array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
+    "array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
     u::Array{DataContainer{FT}}
     "vector of the observed vector size [`N_obs`]"
     obs_mean::Vector{FT}

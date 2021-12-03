@@ -37,7 +37,7 @@ struct Parameterized <: ParameterDistributionType
 end
 
 """
-    struct Samples{FT<:Real} <: ParameterDistributionType
+struct Samples{FT <: Real} <: ParameterDistributionType
 
 A distribution comprised of only samples, stored as columns of parameters
 """

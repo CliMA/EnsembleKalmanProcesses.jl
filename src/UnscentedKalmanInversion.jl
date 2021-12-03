@@ -3,7 +3,7 @@
 """
     Unscented{FT<:AbstractFloat, IT<:Int} <: Process
 
-An unscented Kalman Inversion process
+An unscented Kalman Inversion process.
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
     "a vector of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added)"
@@ -59,19 +59,32 @@ end
 
 
 """
-EnsembleKalmanProcess Constructor 
-u0_mean::Array{FT} : prior mean
-uu0_cov::Array{FT, 2} : prior covariance
-obs_mean::Array{FT,1} : observation 
-obs_noise_cov::Array{FT, 2} : observation error covariance
-α_reg::FT : regularization parameter toward `u0` (0 < `α_reg` ≤ 1), default should be 1, without regulariazion
-update_freq::IT : set to 0 when the inverse problem is not identifiable, 
-                  namely the inverse problem has multiple solutions, 
-                  the covariance matrix will represent only the sensitivity of the parameters, 
-                  instead of posterior covariance information;
-                  set to 1 (or anything > 0) when the inverse problem is identifiable, and 
-                  the covariance matrix will converge to a good approximation of the 
-                  posterior covariance with an uninformative prior.
+    function Unscented(
+        u0_mean::Array{FT, 1},
+        uu0_cov::Array{FT, 2},
+        α_reg::FT,
+        update_freq::IT;
+        modified_uscented_transform::Bool = true,
+        κ::FT = 0.0,
+        β::FT = 2.0,
+    ) where {FT <: AbstractFloat, IT <: Int}
+
+Return an unscented Kalman Inversion process object.
+
+Arguments
+=========
+- `u0_mean::Array{FT}`: prior mean
+- `uu0_cov::Array{FT, 2}`: prior covariance
+- `obs_mean::Array{FT,1}`: observation 
+- `obs_noise_cov::Array{FT, 2}``: observation error covariance
+- `α_reg::FT`: regularization parameter toward `u0` (0 < `α_reg` ≤ 1), default should be 1, without regulariazion
+- `update_freq::IT`: set to 0 when the inverse problem is not identifiable, 
+                     namely the inverse problem has multiple solutions, 
+                     the covariance matrix will represent only the sensitivity of the parameters, 
+                     instead of posterior covariance information;
+                     set to 1 (or anything > 0) when the inverse problem is identifiable, and 
+                     the covariance matrix will converge to a good approximation of the 
+                     posterior covariance with an uninformative prior.
                   
 """
 function Unscented(
@@ -109,8 +122,6 @@ function Unscented(
         mean_weights[1] = 1.0
         mean_weights[2:N_ens] .= 0.0
     end
-
-
 
     u_mean = Array{FT, 1}[]  # array of Array{FT, 2}'s
     push!(u_mean, u0_mean) # insert parameters at end of array (in this case just 1st entry)
