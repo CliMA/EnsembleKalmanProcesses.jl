@@ -45,7 +45,7 @@ x_eval = collect(-3:6/400:3)
 
 #bounded in [0.0, 1.0]
 transform_unconstrained_to_constrained(x) = exp(x) / (exp(x) + 1)
-dist= pdf(Normal(1, 0.5), x_eval)
+dist= pdf.(Normal(1, 0.5), x_eval)
 constrained_x_eval = transform_unconstrained_to_constrained.(x_eval)
 
 p1 = plot(x_eval, dist,) 
@@ -129,8 +129,8 @@ sd_varying = collect(0.1:2.9/(N+1):3)
 # no constraint
 transform_unconstrained_to_constrained(x) = x
 
-mean0norm(n) = pdf(Normal(0, sd_varying[n]), x_eval)
-sd1norm(n) = pdf(Normal(mean_varying[n], 1), x_eval)
+mean0norm(n) = pdf.(Normal(0, sd_varying[n]), x_eval)
+sd1norm(n) = pdf.(Normal(mean_varying[n], 1), x_eval)
 constrained_x_eval = transform_unconstrained_to_constrained.(x_eval)
 
 p1 = plot(constrained_x_eval, mean0norm.(1))
@@ -189,8 +189,8 @@ sd_varying = collect(0.1:3.9/(N+1):4)
 #bounded below by 0
 transform_unconstrained_to_constrained(x) = exp(x)
 
-mean0norm(n) = pdf(Normal(0,sd_varying[n]), x_eval)
-sd1norm(n) = pdf(Normal(mean_varying[n], 1), x_eval)
+mean0norm(n) = pdf.(Normal(0,sd_varying[n]), x_eval)
+sd1norm(n) = pdf.(Normal(mean_varying[n], 1), x_eval)
 constrained_x_eval = transform_unconstrained_to_constrained.(x_eval)
 
 p1 = plot(constrained_x_eval, mean0norm.(1))
@@ -248,8 +248,8 @@ sd_varying = collect(0.1:3.9/(N+1):4)
 #bounded above by 10.0
 transform_unconstrained_to_constrained(x) = 10 - exp(x)
 
-mean0norm(n) = pdf(Normal(0, sd_varying[n]), x_eval)
-sd1norm(n) = pdf(Normal(mean_varying[n], 1), x_eval)
+mean0norm(n) = pdf.(Normal(0, sd_varying[n]), x_eval)
+sd1norm(n) = pdf.(Normal(mean_varying[n], 1), x_eval)
 constrained_x_eval = transform_unconstrained_to_constrained.(x_eval)
 
 p1 = plot(constrained_x_eval, mean0norm.(1))
@@ -307,8 +307,8 @@ sd_varying = collect(0.1:0.9/(N+1):10)
 #bounded in [5.0, 10.0]
 transform_unconstrained_to_constrained(x) = (10 * exp(x) + 5) / (exp(x) + 1)
 
-mean0norm(n) = pdf(Normal(0, sd_varying[n]), x_eval)
-sd1norm(n) = pdf(Normal(mean_varying[n], 1), x_eval)
+mean0norm(n) = pdf.(Normal(0, sd_varying[n]), x_eval)
+sd1norm(n) = pdf.(Normal(mean_varying[n], 1), x_eval)
 constrained_x_eval = transform_unconstrained_to_constrained.(x_eval)
 
 p1 = plot(constrained_x_eval, mean0norm.(1))
