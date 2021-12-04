@@ -143,7 +143,8 @@ The number of samples in the array.
 """
 n_samples(d::Samples) = size(d.distribution_samples)[2]
 
-n_samples(d::Parameterized) = error("Distribution stored in Parameterized form, draw samples using `sample_distribution` function")
+n_samples(d::Parameterized) =
+    error("Distribution stored in Parameterized form, draw samples using `sample_distribution` function")
 
 """
     ParameterDistribution
@@ -269,7 +270,7 @@ end
 function sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer}
     n_stored_samples = n_samples(d)
     samples_idx = StatsBase.sample(collect(1:n_stored_samples), n_draws)
-    
+
     if dimension(d) == 1
         return reshape(d.distribution_samples[:, samples_idx], :, n_draws) #columns are parameters
     else
