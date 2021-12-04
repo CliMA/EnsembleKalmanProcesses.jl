@@ -23,7 +23,7 @@ abstract type Process end
 
 
 """
-    struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
+    EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
 
 Structure that is used in Ensemble Kalman processes.
 
@@ -51,6 +51,17 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
 end
 
 # outer constructors
+"""
+    function EnsembleKalmanProcess(
+        params::Array{FT, 2},
+        obs_mean,
+        obs_noise_cov::Array{FT, 2},
+        process::P;
+        Δt = FT(1),
+    ) where {FT <: AbstractFloat, P <: Process}
+
+Construct an  Ensemble Kalman process.
+"""
 function EnsembleKalmanProcess(
     params::Array{FT, 2},
     obs_mean,
