@@ -8,8 +8,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 @testset "EnsembleKalmanProcessModule" begin
 
     # Seed for pseudo-random number generator
-    rng_seed = 41
-    Random.seed!(rng_seed)
+    rng = Random.MersenneTwister(41)
 
     ### Generate data from a linear model: a regression problem with n_par parameters
     ### and n_obs. G(u) = A \times u, where A : R^n_par -> R
@@ -21,12 +20,12 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     noise = MvNormal(zeros(n_obs), Γy)
 
     C = [1 -.9; -.9 1]          # Correlation structure for linear operator
-    A = rand(MvNormal(zeros(2,), C), n_obs)'    # Linear operator in R^{n_obs \times n_par}
+    A = rand(rng, MvNormal(zeros(2,), C), n_obs)'    # Linear operator in R^{n_obs \times n_par}
 
     @test size(A) == (n_obs, n_par)
 
     y_star = A * u_star
-    y_obs = y_star + rand(noise)
+    y_obs = y_star + rand(rng, noise)
 
     @test size(y_star) == (n_obs,)
 
@@ -54,10 +53,10 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
     N_ens = 50 # number of ensemble members
     N_iter = 20 # number of EKI iterations
-    initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens; rng_seed = rng_seed)
+    initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens; rng = rng)
     @test size(initial_ensemble) == (n_par, N_ens)
 
-    ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
+    ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(); rng = rng)
 
     # Find EKI timestep
     g_ens = G(get_u_final(ekiobj))
@@ -110,8 +109,13 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     ###
     ###  Calibrate (2): Ensemble Kalman Sampler
     ###
-    eksobj =
-        EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov))
+    eksobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(
+        initial_ensemble,
+        y_obs,
+        Γy,
+        Sampler(prior_mean, prior_cov);
+        rng = rng,
+    )
 
     # EKS iterations
     for i in 1:N_iter
@@ -163,7 +167,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     α_reg = 1.0
     update_freq = 0
     process = Unscented(prior_mean, prior_cov, α_reg, update_freq)
-    ukiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(y_star, Γy, process)
+    ukiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(y_star, Γy, process; rng = rng)
 
     # UKI iterations
     params_i_vec = []
