@@ -37,9 +37,9 @@ struct Parameterized <: ParameterDistributionType
 end
 
 """
-struct Samples{FT <: Real} <: ParameterDistributionType
+    struct Samples{FT <: Real} <: ParameterDistributionType
 
-A distribution comprised of only samples, stored as columns of parameters
+A distribution comprised of only samples, stored as columns of parameters.
 """
 struct Samples{FT <: Real} <: ParameterDistributionType
     distribution_samples::Array{FT, 2} #parameters are columns
@@ -48,7 +48,6 @@ struct Samples{FT <: Real} <: ParameterDistributionType
     #Distinguish 1 sample of an ND parameter or N samples of 1D parameter, and store as 2D array  
     Samples(distribution_samples::Array{FT, 1}; params_are_columns = true) where {FT <: Real} =
         params_are_columns ? new{FT}(reshape(distribution_samples, 1, :)) : new{FT}(reshape(distribution_samples, :, 1))
-
 end
 
 
