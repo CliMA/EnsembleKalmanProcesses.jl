@@ -5,15 +5,14 @@ using Random
 using EnsembleKalmanProcesses.DataContainers
 
 @testset "DataContainers" begin
-    seed = 2021
-    Random.seed!(seed)
+    rng = Random.MersenneTwister(2021)
 
-    parameter_samples = rand(MvNormal(2, 0.1), 10) #10 samples of 4D params
-    data_samples = rand(MvNormal(12, 2), 10) #10 samples of 12D data
+    parameter_samples = rand(rng, MvNormal(2, 0.1), 10) #10 samples of 4D params
+    data_samples = rand(rng, MvNormal(12, 2), 10) #10 samples of 12D data
     data_samples_short = data_samples[:, 1:(end - 1)]
 
-    new_parameter_samples = rand(MvNormal(2, 0.1), 10) #10 samples of 4D params
-    new_data_samples = rand(MvNormal(12, 2), 10) #10 samples of 12D data
+    new_parameter_samples = rand(rng, MvNormal(2, 0.1), 10) #10 samples of 4D params
+    new_data_samples = rand(rng, MvNormal(12, 2), 10) #10 samples of 12D data
     new_data_samples_short = new_data_samples[:, 1:(end - 1)]
 
     #test DataContainer

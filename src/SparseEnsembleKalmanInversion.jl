@@ -111,7 +111,7 @@ function update_ensemble!(
 
     # Scale noise using Δt
     scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
-    noise = rand(MvNormal(zeros(N_obs), scaled_obs_noise_cov), ekp.N_ens)
+    noise = rand(ekp.rng, MvNormal(zeros(N_obs), scaled_obs_noise_cov), ekp.N_ens)
 
     # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic
@@ -147,8 +147,10 @@ function update_ensemble!(
         end
 
         # Add small noise to constrained elements of u
-        u[ekp.process.uc_idx, j] +=
-            rand(MvNormal(zeros(size(ekp.process.uc_idx)[1]), ekp.process.reg * I(size(ekp.process.uc_idx)[1])))
+        u[ekp.process.uc_idx, j] += rand(
+            ekp.rng,
+            MvNormal(zeros(size(ekp.process.uc_idx)[1]), ekp.process.reg * I(size(ekp.process.uc_idx)[1])),
+        )
     end
 
     # Store error

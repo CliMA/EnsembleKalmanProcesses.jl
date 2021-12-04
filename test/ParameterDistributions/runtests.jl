@@ -1,5 +1,6 @@
 using Test
 using Distributions
+using StableRNGs
 using StatsBase
 using Random
 
@@ -204,6 +205,83 @@ using EnsembleKalmanProcesses.ParameterDistributions
         means = cat([get_mean(d1), get_mean(d2), get_mean(d3), get_mean(d4)]..., dims = 1)
         @test isapprox(get_mean(v) - means, zeros(get_total_dimension(v)); atol = 1e-6)
 
+    end
+
+    @testset "statistics functions: explict RNG" begin
+
+        # setup for the tests:
+        rng_seed = 1234
+        test_d = MvNormal(4, 0.1)
+        d0 = Parameterized(test_d)
+
+        d1 = Parameterized(test_d)
+        c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
+        name1 = "constrained_mvnormal"
+        u1 = ParameterDistribution(d1, c1, name1)
+
+        d2 = Samples([1 2 3 4])
+        c2 = [bounded(10, 15)]
+        name2 = "constrained_sampled"
+        u2 = ParameterDistribution(d2, c2, name2)
+
+        # Tests for sample distribution
+        rng1 = Random.MersenneTwister(rng_seed)
+        @test sample_distribution(copy(rng1), d0) == rand(copy(rng1), test_d, 1)
+        @test sample_distribution(copy(rng1), d0, 3) == rand(copy(rng1), test_d, 3)
+
+        @test sample_distribution(copy(rng1), u1) == rand(copy(rng1), test_d, 1)
+        @test sample_distribution(copy(rng1), u1, 3) == rand(copy(rng1), test_d, 3)
+
+        idx = StatsBase.sample(copy(rng1), collect(1:size(d2.distribution_samples)[2]), 1)
+        s2 = d2.distribution_samples[:, idx]
+        @test sample_distribution(copy(rng1), u2) == s2
+
+        # try it again with different RNG; use StableRNG since Random doesn't provide a 
+        # second seedable algorithm on julia <=1.7
+        rng2 = StableRNG(rng_seed)
+        @test sample_distribution(copy(rng2), d0) == rand(copy(rng2), test_d, 1)
+        @test sample_distribution(copy(rng2), d0, 3) == rand(copy(rng2), test_d, 3)
+
+        @test sample_distribution(copy(rng2), u1) == rand(copy(rng2), test_d, 1)
+        @test sample_distribution(copy(rng2), u1, 3) == rand(copy(rng2), test_d, 3)
+
+        idx = StatsBase.sample(copy(rng2), collect(1:size(d2.distribution_samples)[2]), 1)
+        s2 = d2.distribution_samples[:, idx]
+        @test sample_distribution(copy(rng2), u2) == s2
+
+        # test that optional parameter defaults to Random.GLOBAL_RNG, for all methods.
+        # reset the global seed instead of copying the rng object's state
+        rng_seed = 2468
+        Random.seed!(rng_seed)
+        test_lhs = sample_distribution(d0)
+        Random.seed!(rng_seed)
+        @test test_lhs == rand(test_d, 1)
+
+        Random.seed!(rng_seed)
+        test_lhs = sample_distribution(d0, 3)
+        Random.seed!(rng_seed)
+        @test test_lhs == rand(test_d, 3)
+
+        Random.seed!(rng_seed)
+        test_lhs = sample_distribution(u1)
+        Random.seed!(rng_seed)
+        @test test_lhs == rand(test_d, 1)
+
+        Random.seed!(rng_seed)
+        test_lhs = sample_distribution(u1, 3)
+        Random.seed!(rng_seed)
+        @test test_lhs == rand(test_d, 3)
+
+        Random.seed!(rng_seed)
+        test_lhs = sample_distribution(d0)
+        Random.seed!(rng_seed)
+        @test test_lhs == rand(test_d, 1)
+
+        Random.seed!(rng_seed)
+        idx = StatsBase.sample(collect(1:size(d2.distribution_samples)[2]), 1)
+        test_lhs = d2.distribution_samples[:, idx]
+        Random.seed!(rng_seed)
+        @test test_lhs == sample_distribution(u2)
     end
 
     @testset "transform functions" begin
