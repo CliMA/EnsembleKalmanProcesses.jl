@@ -24,11 +24,11 @@ jobs:
         with:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: julia-actions/setup-julia@latest
         with:
-          version: 1.6.4
+          version: 1.6
       - name: Cache artifacts
-        uses: actions/cache@v1
+        uses: actions/cache@latest
         env:
           cache-name: cache-artifacts
         with:
@@ -39,12 +39,7 @@ jobs:
             ${{ runner.os }}-test-
             ${{ runner.os }}-
       - name: Install dependencies
-        env:
-          PYTHON: ""
-        run: |
-          julia --color=yes --project -e 'using Pkg; Pkg.instantiate()'
-          julia --color=yes --project=docs/ -e 'using Pkg; Pkg.instantiate()'
-          julia --color=yes --project=docs/ -e 'using Pkg; Pkg.precompile()'
+        run: julia --color=yes --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
