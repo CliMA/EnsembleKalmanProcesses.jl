@@ -48,6 +48,8 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     Δt::Vector{FT}
     "the particular EK process (`Inversion` or `Sampler` or `Unscented`)"
     process::P
+    "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility."
+    rng::Random.AbstractRNG
 end
 
 # outer constructors
@@ -57,6 +59,7 @@ function EnsembleKalmanProcess(
     obs_noise_cov::Array{FT, 2},
     process::P;
     Δt = FT(1),
+    rng::Random.AbstractRNG = Random.GLOBAL_RNG
 ) where {FT <: AbstractFloat, P <: Process}
 
     #initial parameters stored as columns
@@ -71,7 +74,7 @@ function EnsembleKalmanProcess(
     # timestep store
     Δt = Array([Δt])
 
-    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process)
+    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng)
 end
 
 
@@ -154,16 +157,19 @@ function get_N_iterations(ekp::EnsembleKalmanProcess)
 end
 
 """
-    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed=42) where {IT<:Int}
+    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed::IT = 42, rng::Union{Random.AbstractRNG,Nothing} = nothing) where {IT<:Int}
 
 Construct the initial parameters, by sampling `N_ens` samples from specified
 prior distribution. Returned with parameters as columns.
 """
-function construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed = 42) where {IT <: Int}
+function construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; 
+    rng_seed::IT = 42, rng::Union{Random.AbstractRNG,Nothing} = nothing) where {IT <: Int}
     # Ensuring reproducibility of the sampled parameter values
-    Random.seed!(rng_seed)
-    parameters = sample_distribution(prior, N_ens) #of size [dim(param space) N_ens]
-    return parameters
+    if rng === nothing
+        rng = Random.seed!(rng_seed)
+    end
+    # on the other hand, if we did pass an explicit rng, we seeded it already
+    return sample_distribution(rng, prior, N_ens) #of size [dim(param space) N_ens]
 end
 
 function compute_error!(ekp::EnsembleKalmanProcess)

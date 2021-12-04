@@ -38,6 +38,7 @@ function EnsembleKalmanProcess(
     obs_noise_cov::Matrix{FT},
     process::Unscented{FT, IT};
     Δt = FT(1),
+    rng::Random.AbstractRNG = Random.GLOBAL_RNG
 ) where {FT <: AbstractFloat, IT <: Int}
 
     #initial parameters stored as columns
@@ -53,7 +54,7 @@ function EnsembleKalmanProcess(
     # timestep store
     Δt = Array([Δt])
 
-    EnsembleKalmanProcess{FT, IT, Unscented}(init_params, obs_mean, obs_noise_cov, N_ens, g, err, Δt, process)
+    EnsembleKalmanProcess{FT, IT, Unscented}(init_params, obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng)
 end
 
 
