@@ -203,7 +203,7 @@ The number of dimensions of the parameter space.
 function get_dimensions(pd::ParameterDistribution)
     return [dimension(d) for d in pd.distributions]
 end
-    
+
 function get_total_dimension(pd::ParameterDistribution)
     return sum(dimension(d) for d in pd.distributions)
 end
