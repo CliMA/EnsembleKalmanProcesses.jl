@@ -143,7 +143,8 @@ The number of samples in the array.
 """
 n_samples(d::Samples) = size(d.distribution_samples)[2]
 
-n_samples(d::Parameterized) = "Distribution stored in Parameterized form, draw samples using `sample_distribution` function"
+n_samples(d::Parameterized) =
+    "Distribution stored in Parameterized form, draw samples using `sample_distribution` function"
 
 """
     ParameterDistribution
