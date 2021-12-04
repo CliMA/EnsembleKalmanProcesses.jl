@@ -16,7 +16,7 @@ jobs:
         julia-arch: [x64]
         os: [ubuntu-latest, windows-latest, macOS-latest]
     steps:
-      - uses: styfle/cancel-workflow-action@0.6.0
+      - uses: styfle/cancel-workflow-action@latest
         with:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v2
