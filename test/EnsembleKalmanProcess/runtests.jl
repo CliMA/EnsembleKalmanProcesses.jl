@@ -12,7 +12,7 @@ const EKP = EnsembleKalmanProcesses
 
     # Seed for pseudo-random number generator
     rng_seed = 42
-    Random.seed!(rng_seed)
+    rng = Random.MersenneTwister(rng_seed)
 
     ### Generate data from a linear model: a regression problem with n_par parameters
     ### and 1 observation of G(u) = A \times u, where A : R^n_par -> R^n_obs
@@ -37,7 +37,7 @@ const EKP = EnsembleKalmanProcesses
     end
 
     y_star = G(u_star)
-    y_obs = y_star .+ rand(noise)
+    y_obs = y_star .+ rand(rng, noise)
 
     @test size(y_obs) == (n_obs,)
 
@@ -58,14 +58,18 @@ const EKP = EnsembleKalmanProcesses
 
 
     @testset "EnsembleKalmanSampler" begin
+        # Seed for pseudo-random number generator
+        rng_seed = 42
+        rng = Random.MersenneTwister(rng_seed)
 
         N_ens = 50 # number of ensemble members (NB for @test throws, make different to N_ens)
         N_iter = 20
 
-        initial_ensemble = EKP.construct_initial_ensemble(prior, N_ens; rng_seed = rng_seed)
+        initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         @test size(initial_ensemble) == (n_par, N_ens)
 
-        global eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov))
+        global eksobj =
+            EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov); rng = rng)
 
         g_ens = G(get_u_final(eksobj))
         @test size(g_ens) == (n_obs, N_ens)
@@ -111,13 +115,16 @@ const EKP = EnsembleKalmanProcesses
 
 
     @testset "EnsembleKalmanInversion" begin
+        # Seed for pseudo-random number generator
+        rng_seed = 42
+        rng = Random.MersenneTwister(rng_seed)
 
         N_ens = 50 # number of ensemble members (NB for @test throws, make different to N_ens)
         N_iter = 20
 
-        initial_ensemble = EKP.construct_initial_ensemble(prior, N_ens; rng_seed = rng_seed)
+        initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
-        ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
+        ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(); rng = rng)
 
         # some checks 
         g_ens = G(get_u_final(ekiobj))
@@ -205,12 +212,15 @@ const EKP = EnsembleKalmanProcesses
 
 
     @testset "UnscentedKalmanInversion" begin
+        # Seed for pseudo-random number generator
+        rng_seed = 42
+        rng = Random.MersenneTwister(rng_seed)
 
         N_iter = 20 # number of UKI iterations
         α_reg = 1.0
         update_freq = 0
         process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
-        ukiobj = EKP.EnsembleKalmanProcess(y_star, Γy, process)
+        ukiobj = EKP.EnsembleKalmanProcess(y_star, Γy, process; rng = rng)
 
         # UKI iterations
         params_i_vec = []
@@ -294,10 +304,13 @@ const EKP = EnsembleKalmanProcesses
     ###  Calibrate (4): Sparse Ensemble Kalman Inversion
     ###
     @testset "SparseInversion" begin
+        # Seed for pseudo-random number generator
+        rng_seed = 42
+        rng = Random.MersenneTwister(rng_seed)
 
         N_ens = 20 # number of ensemble members
         N_iter = 5 # number of EKI iterations
-        initial_ensemble = EKP.construct_initial_ensemble(prior, N_ens; rng_seed = rng_seed)
+        initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         @test size(initial_ensemble) == (n_par, N_ens)
 
         for (threshold_eki, threshold_value, test_name) in ((false, 1e-2, "test"), (true, 1e-2, "test_thresholded"))
@@ -309,7 +322,7 @@ const EKP = EnsembleKalmanProcesses
 
             process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
 
-            ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, process)
+            ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, process; rng = rng)
 
             # EKI iterations
             params_i_vec = []

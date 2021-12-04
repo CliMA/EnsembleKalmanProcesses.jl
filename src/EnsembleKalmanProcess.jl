@@ -46,6 +46,8 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     Δt::Vector{FT}
     "the particular EK process (`Inversion` or `Sampler` or `Unscented`)"
     process::P
+    "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility. Defaults to `Random.GLOBAL_RNG`."
+    rng::AbstractRNG
 end
 
 # outer constructors
@@ -56,6 +58,7 @@ end
         obs_noise_cov::Array{FT, 2},
         process::P;
         Δt = FT(1),
+        rng::AbstractRNG = Random.GLOBAL_RNG
     ) where {FT <: AbstractFloat, P <: Process}
 
 Ensemble Kalman process constructor.
@@ -66,6 +69,7 @@ function EnsembleKalmanProcess(
     obs_noise_cov::Array{FT, 2},
     process::P;
     Δt = FT(1),
+    rng::AbstractRNG = Random.GLOBAL_RNG,
 ) where {FT <: AbstractFloat, P <: Process}
 
     #initial parameters stored as columns
@@ -80,7 +84,7 @@ function EnsembleKalmanProcess(
     # timestep store
     Δt = Array([Δt])
 
-    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process)
+    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng)
 end
 
 
@@ -163,17 +167,24 @@ function get_N_iterations(ekp::EnsembleKalmanProcess)
 end
 
 """
-    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed=42) where {IT<:Int}
+    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed::IT = 42, rng::Union{Random.AbstractRNG,Nothing} = nothing) where {IT<:Int}
 
 Construct the initial parameters, by sampling `N_ens` samples from specified
 prior distribution. Returned with parameters as columns.
 """
-function construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed = 42) where {IT <: Int}
-    # Ensuring reproducibility of the sampled parameter values
-    Random.seed!(rng_seed)
-    parameters = sample_distribution(prior, N_ens) #of size [dim(param space) N_ens]
-    return parameters
+function construct_initial_ensemble(
+    prior::ParameterDistribution,
+    N_ens::IT;
+    rng_seed::IT = 42,
+    rng::Union{AbstractRNG, Nothing} = nothing,
+) where {IT <: Int}
+    # Ensuring reproducibility of the sampled parameter values: re-seed GLOBAL_RNG if we're
+    # given a seed, but if we got an explicit rng, we shouldn't re-seed it
+    rng = isnothing(rng) ? Random.seed!(rng_seed) : rng
+    return sample_distribution(rng, prior, N_ens) #of size [dim(param space) N_ens]
 end
+construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT) where {IT <: Int} =
+    construct_initial_ensemble(prior, N_ens; rng = rng)
 
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)

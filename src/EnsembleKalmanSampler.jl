@@ -51,7 +51,7 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}}, g_in:
         (1 * Matrix(I, size(u)[2], size(u)[2]) + Δt * (ekp.process.prior_cov' \ u_cov')') \
         (u' .- Δt * (u' .- u_mean) * D .+ Δt * u_cov * (ekp.process.prior_cov \ ekp.process.prior_mean))
 
-    u = implicit' + sqrt(2 * Δt) * rand(noise, ekp.N_ens)'
+    u = implicit' + sqrt(2 * Δt) * rand(ekp.rng, noise, ekp.N_ens)'
 
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns = false))
