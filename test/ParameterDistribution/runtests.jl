@@ -222,7 +222,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         # Tests for sample distribution
         rng1 = Random.MersenneTwister(1234)
         @test sample_distribution(u1, copy(rng1)) == rand(copy(rng1), MvNormal(4, 0.1), 1)
-        @test sample_distribution(u1, 3, copy(rng1)) == rand(copy(rng1), MvNormal(4, 0.1), 3, )
+        @test sample_distribution(u1, 3, copy(rng1)) == rand(copy(rng1), MvNormal(4, 0.1), 3)
 
         idx = StatsBase.sample(copy(rng1), collect(1:size(d2.distribution_samples)[2]), 1)
         s2 = d2.distribution_samples[:, idx]
@@ -231,7 +231,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         # try it again with different RNG
         rng2 = Random.Xoshiro(4321)
         @test sample_distribution(u1, copy(rng2)) == rand(copy(rng2), MvNormal(4, 0.1), 1)
-        @test sample_distribution(u1, 3, copy(rng2)) == rand(copy(rng2), MvNormal(4, 0.1), 3, )
+        @test sample_distribution(u1, 3, copy(rng2)) == rand(copy(rng2), MvNormal(4, 0.1), 3)
 
         idx = StatsBase.sample(copy(rng2), collect(1:size(d2.distribution_samples)[2]), 1)
         s2 = d2.distribution_samples[:, idx]

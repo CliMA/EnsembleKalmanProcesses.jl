@@ -283,13 +283,15 @@ function sample_distribution(pd::ParameterDistribution, rng::Random.AbstractRNG 
     return sample_distribution(pd, 1, rng)
 end
 
-function sample_distribution(pd::ParameterDistribution, n_draws::IT,
-    rng::Random.AbstractRNG = Random.GLOBAL_RNG) where {IT <: Integer}
+function sample_distribution(
+    pd::ParameterDistribution,
+    n_draws::IT,
+    rng::Random.AbstractRNG = Random.GLOBAL_RNG,
+) where {IT <: Integer}
     return cat([sample_distribution(d, n_draws, rng) for d in pd.distributions]..., dims = 1)
 end
 
-function sample_distribution(d::Samples, n_draws::IT,
-    rng::Random.AbstractRNG = Random.GLOBAL_RNG) where {IT <: Integer}
+function sample_distribution(d::Samples, n_draws::IT, rng::Random.AbstractRNG = Random.GLOBAL_RNG) where {IT <: Integer}
     n_stored_samples = n_samples(d)
     samples_idx = StatsBase.sample(rng, collect(1:n_stored_samples), n_draws)
     if dimension(d) == 1
@@ -299,8 +301,11 @@ function sample_distribution(d::Samples, n_draws::IT,
     end
 end
 
-function sample_distribution(d::Parameterized, n_draws::IT,
-    rng::Random.AbstractRNG = Random.GLOBAL_RNG) where {IT <: Integer}
+function sample_distribution(
+    d::Parameterized,
+    n_draws::IT,
+    rng::Random.AbstractRNG = Random.GLOBAL_RNG,
+) where {IT <: Integer}
     if dimension(d) == 1
         return reshape(rand(rng, d.distribution, n_draws), :, n_draws) #columns are parameters
     else

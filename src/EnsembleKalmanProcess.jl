@@ -59,7 +59,7 @@ function EnsembleKalmanProcess(
     obs_noise_cov::Array{FT, 2},
     process::P;
     Δt = FT(1),
-    rng::Random.AbstractRNG = Random.GLOBAL_RNG
+    rng::Random.AbstractRNG = Random.GLOBAL_RNG,
 ) where {FT <: AbstractFloat, P <: Process}
 
     #initial parameters stored as columns
@@ -162,8 +162,12 @@ end
 Construct the initial parameters, by sampling `N_ens` samples from specified
 prior distribution. Returned with parameters as columns.
 """
-function construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; 
-    rng_seed::IT = 42, rng::Union{Random.AbstractRNG,Nothing} = nothing) where {IT <: Int}
+function construct_initial_ensemble(
+    prior::ParameterDistribution,
+    N_ens::IT;
+    rng_seed::IT = 42,
+    rng::Union{Random.AbstractRNG, Nothing} = nothing,
+) where {IT <: Int}
     # Ensuring reproducibility of the sampled parameter values
     if rng === nothing
         rng = Random.seed!(rng_seed)
