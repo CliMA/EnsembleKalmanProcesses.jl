@@ -28,7 +28,7 @@ export get_logpdf, get_cov, get_var, get_mean, batch
 abstract type ParameterDistributionType end
 
 """
-    struct Parameterized <: ParameterDistributionType
+    Parameterized <: ParameterDistributionType
     
 A distribution constructed from a parametrized formula (e.g Julia Distributions.jl)
 """
@@ -37,7 +37,7 @@ struct Parameterized <: ParameterDistributionType
 end
 
 """
-    struct Samples{FT <: Real} <: ParameterDistributionType
+    Samples{FT <: Real} <: ParameterDistributionType
 
 A distribution comprised of only samples, stored as columns of parameters.
 """
@@ -55,7 +55,7 @@ end
 abstract type ConstraintType end
 
 """
-    struct Constraint <: ConstraintType
+    Constraint <: ConstraintType
 
 Contains two functions to map between constrained and unconstrained spaces.
 """
@@ -66,7 +66,7 @@ end
 
 
 """
-    function no_constraint()
+    no_constraint()
 
 Constructs a Constraint with no constraints, enforced by maps x -> x and x -> x.
 """
@@ -77,7 +77,7 @@ function no_constraint()
 end
 
 """
-    function bounded_below(lower_bound::FT) where {FT <: Real}
+    bounded_below(lower_bound::FT) where {FT <: Real}
 
 Constructs a Constraint with provided lower bound, enforced by maps `x -> log(x - lower_bound)`
 and `x -> exp(x) + lower_bound`.
@@ -89,7 +89,7 @@ function bounded_below(lower_bound::FT) where {FT <: Real}
 end
 
 """
-    function bounded_above(upper_bound::FT) where {FT <: Real} 
+    bounded_above(upper_bound::FT) where {FT <: Real} 
 
 Constructs a Constraint with provided upper bound, enforced by maps `x -> log(upper_bound - x)`
 and `x -> upper_bound - exp(x)`.
@@ -102,7 +102,7 @@ end
 
 
 """
-    function bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real} 
+    bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real} 
 
 Constructs a Constraint with provided upper and lower bounds, enforced by maps
 `x -> log((x - lower_bound) / (upper_bound - x))`
@@ -119,46 +119,34 @@ function bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real}
 end
 
 """
-    function len(c::Array{CType})
+    len(c::Array{CType})
 
 The number of constraints, each constraint has length 1.
 """
-function len(c::CType) where {CType <: ConstraintType}
-    return 1
-end
+len(c::CType) where {CType <: ConstraintType} = 1
 
-function len(carray::Array{CType}) where {CType <: ConstraintType}
-    return size(carray)[1]
-end
+len(carray::Array{CType}) where {CType <: ConstraintType} = size(carray)[1]
 
 """
-    function get_dimensions(d<:ParametrizedDistributionType)
+    get_dimensions(d<:ParametrizedDistributionType)
 
 The number of dimensions of the parameter space
 """
-function dimension(d::Parameterized)
-    return length(d.distribution)
-end
+dimension(d::Parameterized) = length(d.distribution)
 
-function dimension(d::Samples)
-    return size(d.distribution_samples)[1]
-end
+dimension(d::Samples) = size(d.distribution_samples)[1]
 
 """
-    function n_samples(d::Samples)
+    n_samples(d::Samples)
 
 The number of samples in the array.
 """
-function n_samples(d::Samples)
-    return size(d.distribution_samples)[2]
-end
+n_samples(d::Samples) = size(d.distribution_samples)[2]
 
-function n_samples(d::Parameterized)
-    return "Distribution stored in Parameterized form, draw samples using `sample_distribution` function"
-end
+n_samples(d::Parameterized) = error("Distribution stored in Parameterized form, draw samples using `sample_distribution` function")
 
 """
-    struct ParameterDistribution
+    ParameterDistribution
 
 Structure to hold a parameter distribution, always stored as an array of distributions.
 """
@@ -200,28 +188,27 @@ end
 ## Functions
 
 """
-    function get_name(pd::ParameterDistribution)
+    get_name(pd::ParameterDistribution)
 
 Returns a list of ParameterDistribution names.
 """
-function get_name(pd::ParameterDistribution)
-    return pd.names
-end
+get_name(pd::ParameterDistribution) = pd.names
 
 """
-    function get_dimensions(pd::ParameterDistribution)
+    get_dimensions(pd::ParameterDistribution)
 
 The number of dimensions of the parameter space.
 """
 function get_dimensions(pd::ParameterDistribution)
     return [dimension(d) for d in pd.distributions]
 end
+    
 function get_total_dimension(pd::ParameterDistribution)
     return sum(dimension(d) for d in pd.distributions)
 end
 
 """
-    function get_n_samples(pd::ParameterDistribution)
+    get_n_samples(pd::ParameterDistribution)
 
 The number of samples in a Samples distribution
 """
@@ -230,16 +217,14 @@ function get_n_samples(pd::ParameterDistribution)
 end
 
 """
-    function get_all_constraints(pd::ParameterDistribution)
+    get_all_constraints(pd::ParameterDistribution)
 
 Returns the (flattened) array of constraints of the parameter distribution.
 """
-function get_all_constraints(pd::ParameterDistribution)
-    return pd.constraints
-end
+get_all_constraints(pd::ParameterDistribution) = pd.constraints
 
 """
-    function batch(pd:ParameterDistribution)
+    batch(pd:ParameterDistribution)
 
 Returns a list of contiguous `[collect(1:i), collect(i+1:j),... ]` used to split parameter arrays by distribution dimensions.
 """
@@ -256,7 +241,7 @@ function batch(pd::ParameterDistribution)
 end
 
 """
-    function get_distribution(pd::ParameterDistribution)
+    get_distribution(pd::ParameterDistribution)
 
 Returns a `Dict` of `ParameterDistribution` distributions, with the parameter names
 as dictionary keys. For parameters represented by `Samples`, the samples are returned
@@ -266,21 +251,16 @@ function get_distribution(pd::ParameterDistribution)
     return Dict{String, Any}(pd.names[i] => get_distribution(d) for (i, d) in enumerate(pd.distributions))
 end
 
-function get_distribution(d::Samples)
-    return d.distribution_samples
-end
-function get_distribution(d::Parameterized)
-    return d.distribution
-end
+get_distribution(d::Samples) = d.distribution_samples
+
+get_distribution(d::Parameterized) = d.distribution
 
 """
-    function sample_distribution(pd::ParameterDistribution)
+    sample_distribution(pd::ParameterDistribution)
 
 Draws samples from the parameter distributions returns an array, with parameters as columns.
 """
-function sample_distribution(pd::ParameterDistribution)
-    return sample_distribution(pd, 1)
-end
+sample_distribution(pd::ParameterDistribution) = sample_distribution(pd, 1)
 
 function sample_distribution(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer}
     return cat([sample_distribution(d, n_draws) for d in pd.distributions]..., dims = 1)
@@ -289,6 +269,7 @@ end
 function sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer}
     n_stored_samples = n_samples(d)
     samples_idx = StatsBase.sample(collect(1:n_stored_samples), n_draws)
+    
     if dimension(d) == 1
         return reshape(d.distribution_samples[:, samples_idx], :, n_draws) #columns are parameters
     else
@@ -305,14 +286,12 @@ function sample_distribution(d::Parameterized, n_draws::IT) where {IT <: Integer
 end
 
 """
-    function logpdf(pd::ParameterDistribution, xarray::Array{<:Real,1})
+    logpdf(pd::ParameterDistribution, xarray::Array{<:Real,1})
 
 Obtains the independent logpdfs of the parameter distributions at `xarray`
 (non-Samples Distributions only), and returns their sum.
 """
-function get_logpdf(d::Parameterized, xarray::Array{FT, 1}) where {FT <: Real}
-    return logpdf.(d.distribution, xarray)
-end
+get_logpdf(d::Parameterized, xarray::Array{FT, 1}) where {FT <: Real} = logpdf.(d.distribution, xarray)
 
 function get_logpdf(pd::ParameterDistribution, xarray::Array{FT, 1}) where {FT <: Real}
     #first check we don't have sampled distribution
@@ -334,17 +313,13 @@ function get_logpdf(pd::ParameterDistribution, xarray::Array{FT, 1}) where {FT <
 end
 
 """
-    function get_cov(pd::ParameterDistribution)
+    get_cov(pd::ParameterDistribution)
 
 Returns a blocked covariance of the distributions.
 """
-function get_cov(d::Parameterized)
-    return cov(d.distribution)
-end
+get_cov(d::Parameterized) = cov(d.distribution)
 
-function get_cov(d::Samples)
-    return cov(d.distribution_samples, dims = 2) #parameters are columns
-end
+get_cov(d::Samples) = cov(d.distribution_samples, dims = 2) #parameters are columns
 
 function get_var(d::Parameterized)
     return var(d.distribution)
@@ -379,21 +354,17 @@ end
 
 Returns a mean of parameterized distribution.
 """
-function get_mean(d::Parameterized)
-    return mean(d.distribution)
-end
+get_mean(d::Parameterized) = mean(d.distribution)
 
 """
     get_mean(pd::Samples)
 
 Returns a mean of the samples.
 """
-function get_mean(d::Samples)
-    return mean(d.distribution_samples, dims = 2) #parameters are columns
-end
+get_mean(d::Samples) = mean(d.distribution_samples, dims = 2) #parameters are columns
 
 """
-    function get_mean(pd::ParameterDistribution)
+    get_mean(pd::ParameterDistribution)
 
 Returns a mean of the distributions.
 """
@@ -405,7 +376,7 @@ end
 #apply transforms
 
 """
-    function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{<:Real,1})
+    transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{<:Real,1})
 
 Apply the transformation to map (possibly constrained) parameters `xarray` into the unconstrained space.
 """
@@ -414,7 +385,7 @@ function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarra
 end
 
 """
-    function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{<:Real,2})
+    transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{<:Real,2})
 
 Apply the transformation to map (possibly constrained) parameter samples `xarray` into the unconstrained space.
 Here, `xarray` contains parameters as columns and samples as rows.
@@ -424,7 +395,7 @@ function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarra
 end
 
 """
-    function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{<:Real,1})
+    transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{<:Real,1})
 
 Apply the transformation to map parameters `xarray` from the unconstrained space into (possibly constrained) space.
 """
@@ -433,7 +404,7 @@ function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarra
 end
 
 """
-    function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{<:Real,2})
+    transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{<:Real,2})
 
 Apply the transformation to map parameter samples `xarray` from the unconstrained space into (possibly constrained) space.
 Here, `xarray` contains parameters as columns and samples as rows.
@@ -443,7 +414,7 @@ function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarra
 end
 
 """
-    function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{Array{<:Real,2},1})
+    transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{Array{<:Real,2},1})
 
 Apply the transformation to map parameter sample ensembles `xarray` from the unconstrained space into (possibly constrained) space.
 Here, `xarray` contains parameters sample ensembles for different EKP iterations.
@@ -458,7 +429,5 @@ function transform_unconstrained_to_constrained(
     end
     return transf_xarray
 end
-
-
 
 end # of module

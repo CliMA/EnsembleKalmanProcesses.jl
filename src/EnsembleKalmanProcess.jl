@@ -52,7 +52,7 @@ end
 
 # outer constructors
 """
-    function EnsembleKalmanProcess(
+    EnsembleKalmanProcess(
         params::Array{FT, 2},
         obs_mean,
         obs_noise_cov::Array{FT, 2},
@@ -185,10 +185,7 @@ function compute_error!(ekp::EnsembleKalmanProcess)
     push!(ekp.err, newerr)
 end
 
-function get_error(ekp::EnsembleKalmanProcess)
-    return ekp.err
-end
-
+get_error(ekp::EnsembleKalmanProcess) = ekp.err
 
 ## include the different types of Processes and their exports:
 

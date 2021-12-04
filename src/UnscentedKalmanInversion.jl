@@ -59,7 +59,7 @@ end
 
 
 """
-    function Unscented(
+    Unscented(
         u0_mean::Vector{FT},
         uu0_cov::Matrix{FT},
         α_reg::FT,
@@ -159,7 +159,7 @@ end
 
 
 """
-    function construct_sigma_ensemble(
+    construct_sigma_ensemble(
         process::Unscented,
         x_mean::Array{FT},
         x_cov::Matrix{FT},

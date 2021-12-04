@@ -7,7 +7,7 @@ using Statistics
 export Obs
 
 """
-    struct Obs{FT <: AbstractFloat}
+    Obs{FT <: AbstractFloat}
 
 Structure that contains the observations
 
