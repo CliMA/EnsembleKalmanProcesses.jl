@@ -206,6 +206,38 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
     end
 
+    @testset "statistics functions: explict RNG" begin
+
+        # setup for the tests:
+        d1 = Parameterized(MvNormal(4, 0.1))
+        c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
+        name1 = "constrained_mvnormal"
+        u1 = ParameterDistribution(d1, c1, name1)
+
+        d2 = Samples([1 2 3 4])
+        c2 = [bounded(10, 15)]
+        name2 = "constrained_sampled"
+        u2 = ParameterDistribution(d2, c2, name2)
+
+        # Tests for sample distribution
+        rng1 = Random.MersenneTwister(1234)
+        @test sample_distribution(u1, copy(rng1)) == rand(copy(rng1), MvNormal(4, 0.1), 1)
+        @test sample_distribution(u1, 3, copy(rng1)) == rand(copy(rng1), MvNormal(4, 0.1), 3, )
+
+        idx = StatsBase.sample(copy(rng1), collect(1:size(d2.distribution_samples)[2]), 1)
+        s2 = d2.distribution_samples[:, idx]
+        @test sample_distribution(u2, copy(rng1)) == s2
+
+        # try it again with different RNG
+        rng2 = Random.Xoshiro(4321)
+        @test sample_distribution(u1, copy(rng2)) == rand(copy(rng2), MvNormal(4, 0.1), 1)
+        @test sample_distribution(u1, 3, copy(rng2)) == rand(copy(rng2), MvNormal(4, 0.1), 3, )
+
+        idx = StatsBase.sample(copy(rng2), collect(1:size(d2.distribution_samples)[2]), 1)
+        s2 = d2.distribution_samples[:, idx]
+        @test sample_distribution(u2, copy(rng2)) == s2
+    end
+
     @testset "transform functions" begin
         #setup for the tests
         tol = 1e-8
