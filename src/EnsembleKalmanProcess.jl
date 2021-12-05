@@ -1,6 +1,5 @@
 module EnsembleKalmanProcessModule
 
-
 using ..ParameterDistributionStorage
 using ..DataStorage
 
@@ -24,15 +23,16 @@ abstract type Process end
 
 
 """
-    EnsembleKalmanProcess{FT<:AbstractFloat, IT<:Int}
+    EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
 
-Structure that is used in Ensemble Kalman processes
+Structure that is used in Ensemble Kalman processes.
 
-#Fields
-$(DocStringExtensions.FIELDS)
+# Fields
+
+$(TYPEDFIELDS)
 """
 struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
-    "Array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
+    "array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
     u::Array{DataContainer{FT}}
     "vector of the observed vector size [`N_obs`]"
     obs_mean::Vector{FT}
@@ -51,6 +51,17 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
 end
 
 # outer constructors
+"""
+    EnsembleKalmanProcess(
+        params::Array{FT, 2},
+        obs_mean,
+        obs_noise_cov::Array{FT, 2},
+        process::P;
+        Δt = FT(1),
+    ) where {FT <: AbstractFloat, P <: Process}
+
+Ensemble Kalman process constructor.
+"""
 function EnsembleKalmanProcess(
     params::Array{FT, 2},
     obs_mean,
@@ -174,10 +185,7 @@ function compute_error!(ekp::EnsembleKalmanProcess)
     push!(ekp.err, newerr)
 end
 
-function get_error(ekp::EnsembleKalmanProcess)
-    return ekp.err
-end
-
+get_error(ekp::EnsembleKalmanProcess) = ekp.err
 
 ## include the different types of Processes and their exports:
 
