@@ -60,7 +60,7 @@ end
         Δt = FT(1),
     ) where {FT <: AbstractFloat, P <: Process}
 
-Construct an  Ensemble Kalman process.
+Ensemble Kalman process constructor.
 """
 function EnsembleKalmanProcess(
     params::Array{FT, 2},
