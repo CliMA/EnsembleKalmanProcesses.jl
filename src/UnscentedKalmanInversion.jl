@@ -3,7 +3,7 @@
 """
     Unscented{FT<:AbstractFloat, IT<:Int} <: Process
 
-An unscented Kalman Inversion process
+An unscented Kalman Inversion process.
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
     "a vector of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added)"
@@ -73,24 +73,25 @@ end
 
 Construct an Unscented Inversion EnsembleKalmanProcess.
 
-Inputs:
- - u0_mean : Mean at initialization.
- - uu0_cov : Covariance at initialization.
- - α_reg : Hyperparameter controlling regularization toward the prior mean (0 < `α_reg` ≤ 1),
-    default should be 1, without regulariazion.
- - update_freq : Set to 0 when the inverse problem is not identifiable, 
-    namely the inverse problem has multiple solutions, the covariance matrix
-    will represent only the sensitivity of the parameters, instead of
-    posterior covariance information; set to 1 (or anything > 0) when
-    the inverse problem is identifiable, and the covariance matrix will
-    converge to a good approximation of the posterior covariance with an
-    uninformative prior.
- - modified_unscented_transform : Modification of the UKI quadrature given
+Arguments
+=========
+
+  - `u0_mean`: Mean at initialization.
+  - `uu0_cov`: Covariance at initialization.
+  - `α_reg`: Hyperparameter controlling regularization toward the prior mean (0 < `α_reg` ≤ 1),
+  default should be 1, without regulariazion.
+  - `update_freq`: Set to 0 when the inverse problem is not identifiable, 
+  namely the inverse problem has multiple solutions, the covariance matrix
+  will represent only the sensitivity of the parameters, instead of
+  posterior covariance information; set to 1 (or anything > 0) when
+  the inverse problem is identifiable, and the covariance matrix will
+  converge to a good approximation of the posterior covariance with an
+  uninformative prior.
+  - `modified_unscented_transform`: Modification of the UKI quadrature given
     in Huang et al (2021).
- - prior_mean : Prior mean used for regularization.
- - κ : 
- - β : 
-                  
+  - `prior_mean`: Prior mean used for regularization.
+  - `κ`: 
+  - `β`: 
 """
 function Unscented(
     u0_mean::Vector{FT},
@@ -129,7 +130,7 @@ function Unscented(
 
     u_mean = Vector{FT}[]  # array of Vector{FT}'s
     push!(u_mean, u0_mean) # insert parameters at end of array (in this case just 1st entry)
-    uu_cov = Matrix{FT}[] # array of Matrix{FT}'s
+    uu_cov = Matrix{FT}[]  # array of Matrix{FT}'s
     push!(uu_cov, uu0_cov) # insert parameters at end of array (in this case just 1st entry)
 
     obs_pred = Vector{FT}[]  # array of Vector{FT}'s
@@ -159,7 +160,7 @@ end
 
 
 """
-    function construct_sigma_ensemble(
+    construct_sigma_ensemble(
         process::Unscented,
         x_mean::Array{FT},
         x_cov::Matrix{FT},
