@@ -84,10 +84,10 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
     if TEST_PLOT_OUTPUT
         gr()
-        p = plot(get_u_prior(eksobj)[1, :], get_u_prior(eksobj)[2, :], seriestype = :scatter)
-        plot!(get_u_final(eksobj)[1, :], get_u_final(eksobj)[2, :], seriestype = :scatter)
-        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red)
-        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
+        p = plot(get_u_prior(eksobj)[1, :], get_u_prior(eksobj)[2, :], seriestype = :scatter, label="Initial ensemble")
+        plot!(get_u_final(eksobj)[1, :], get_u_final(eksobj)[2, :], seriestype = :scatter, label="Final ensemble")
+        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red, label=:none)
+        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label=:none)
         savefig(p, "EKS_test.png")
     end
 
@@ -151,10 +151,10 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     #eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
     if TEST_PLOT_OUTPUT
         gr()
-        p = plot(get_u_prior(ekiobj)[1, :], get_u_prior(ekiobj)[2, :], seriestype = :scatter)
-        plot!(get_u_final(ekiobj)[1, :], get_u_final(ekiobj)[2, :], seriestype = :scatter)
-        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red)
-        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
+        p = plot(get_u_prior(ekiobj)[1, :], get_u_prior(ekiobj)[2, :], seriestype = :scatter, label="Initial ensemble")
+        plot!(get_u_final(ekiobj)[1, :], get_u_final(ekiobj)[2, :], seriestype = :scatter, label="Final ensemble")
+        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red, label=:none)
+        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label=:none)
         savefig(p, "EKI_test.png")
     end
 
@@ -228,9 +228,9 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
         ites = Array(LinRange(1, N_iter + 1, N_iter + 1))
         p = plot(ites, grid = false, θ_mean_arr[1, :], yerror = 3.0 * θθ_std_arr[1, :], label = "u1")
-        plot!(ites, fill(u_star[1], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+        plot!(ites, fill(u_star[1], N_iter + 1), linestyle = :dash, linecolor = :grey, label = :none)
         plot!(ites, grid = false, θ_mean_arr[2, :], yerror = 3.0 * θθ_std_arr[2, :], label = "u2", xaxis = "Iterations")
-        plot!(ites, fill(u_star[2], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+        plot!(ites, fill(u_star[2], N_iter + 1), linestyle = :dash, linecolor = :grey, label = :none)
         savefig(p, "UKI_test.png")
     end
 
