@@ -84,10 +84,23 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
     if TEST_PLOT_OUTPUT
         gr()
-        p = plot(get_u_prior(eksobj)[1, :], get_u_prior(eksobj)[2, :], seriestype = :scatter, label="Initial ensemble")
-        plot!(get_u_final(eksobj)[1, :], get_u_final(eksobj)[2, :], seriestype = :scatter, label="Final ensemble")
-        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red, label=:none)
-        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label=:none)
+        p = plot(
+            get_u_prior(eksobj)[1, :],
+            get_u_prior(eksobj)[2, :],
+            seriestype = :scatter,
+            label = "Initial ensemble",
+        )
+        plot!(get_u_final(eksobj)[1, :], get_u_final(eksobj)[2, :], seriestype = :scatter, label = "Final ensemble")
+        plot!(
+            [u_star[1]],
+            xaxis = "u1",
+            yaxis = "u2",
+            seriestype = "vline",
+            linestyle = :dash,
+            linecolor = :red,
+            label = :none,
+        )
+        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = :none)
         savefig(p, "EKS_test.png")
     end
 
@@ -151,10 +164,23 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     #eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
     if TEST_PLOT_OUTPUT
         gr()
-        p = plot(get_u_prior(ekiobj)[1, :], get_u_prior(ekiobj)[2, :], seriestype = :scatter, label="Initial ensemble")
-        plot!(get_u_final(ekiobj)[1, :], get_u_final(ekiobj)[2, :], seriestype = :scatter, label="Final ensemble")
-        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red, label=:none)
-        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label=:none)
+        p = plot(
+            get_u_prior(ekiobj)[1, :],
+            get_u_prior(ekiobj)[2, :],
+            seriestype = :scatter,
+            label = "Initial ensemble",
+        )
+        plot!(get_u_final(ekiobj)[1, :], get_u_final(ekiobj)[2, :], seriestype = :scatter, label = "Final ensemble")
+        plot!(
+            [u_star[1]],
+            xaxis = "u1",
+            yaxis = "u2",
+            seriestype = "vline",
+            linestyle = :dash,
+            linecolor = :red,
+            label = :none,
+        )
+        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = :none)
         savefig(p, "EKI_test.png")
     end
 
