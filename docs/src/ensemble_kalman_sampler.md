@@ -7,6 +7,8 @@ The Ensemble Kalman Sampler (EKS) ([Garbuno-Inigo et al, 2019](https://arxiv.org
 The EKS is an interacting particle system in stochastic differential equation form, and it is based on a dynamic which transforms an arbitrary initial probability distribution into an approximation of the desired posterior distribution over an infinite time horizon -- see [Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), for a comprehensive description of the method. While there are noisy variants of the standard EKI, EKS differs from them in its noise structure (as its noise is added in parameter space, not in  data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization). The EKS algorithm can be understood as well as an affine invariant system of interacting particles ([Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)) for which a finite-sample correction is introduced to overcome its computational finite-sample implementation. The finite-sample corrected version of EKS is referred to as ALDI for its acronym in ([Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)). 
 
 
+Note that in practice the approximate posterior characterization through EKS needs more iterations, and thus more forward model evaluations, than EKI. This is because of the discrete-time implementation of the EKS diffusion process and the need to maintain a stable interacting particle system. However, the posterior approximation through EKS is obtained with less computational effort than a typical Markov Chain Monte Carlo (MCMC) like Metropolis-Hastings.
+
 ### Problem Formulation
 
 The data ``y`` and parameter vector ``\theta`` are assumed to be related according to:
