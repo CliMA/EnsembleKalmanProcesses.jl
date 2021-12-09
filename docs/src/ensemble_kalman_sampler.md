@@ -15,13 +15,13 @@ The data ``y`` and parameter vector ``\theta`` are assumed to be related accordi
 ```math
     y = \mathcal{G}(\theta) + \eta \,,
 ```
-where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a d-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics $\eta$ of the process.
+where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a ``d``-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics ``\eta`` of the process. The full Bayesian characterization for the posterior under the EKS framework requires a ``p``-dimensional Gaussian distribution ``\mathcal{N}(m_\theta, \Gamma_\theta)``.
 
 
 ### Ensemble Kalman Sampling Algorithm
 
 
-The ensemble Kalman sampler is based on the following update equation for the parameter vector $\theta^{(j)}_n$ of ensemble member $j$ at the $n$-iteration:
+The EKS is based on the following update equation for the parameter vector ``\theta^{(j)}_n`` of ensemble member ``j`` at the ``n``-iteration:
 
 ```math
 \begin{aligned}
@@ -47,7 +47,6 @@ where ``\bar{\theta}_n`` is the ensemble mean of the particles,
 \bar{\theta}_n = \dfrac{1}{J}\sum_{k=1}^J\theta^{(k)}_n \,.
 ```
 
-
 ### Constructing the Forward Map
 
 At the core of the forward map ``\mathcal{G}`` is the dynamical model ``\Psi:\mathbb{R}^p \rightarrow \mathbb{R}^o`` (running ``\Psi`` is usually where the computational heavy-lifting is done), but the map ``\mathcal{G}`` may include additional components such as a transformation of the (unbounded) parameters ``\theta`` to a constrained domain the dynamical model can work with, or some post-processing of the output of ``\Psi`` to generate the observations. For example, ``\mathcal{G}`` may take the following form:
@@ -62,7 +61,7 @@ where ``\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation m
 
 An EKS object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Sampler` type. The constructor takes two arguments, the prior mean `prior_mean` and the prior covariance `prior_cov`. 
 
-Creating an ensemble Kalman inversion object requires as arguments:
+Creating an EKI object requires as arguments:
 
  1. An initial parameter ensemble -- an array of size `p × N_ens`, where `N_ens` is the  ensemble size;
 
@@ -72,7 +71,7 @@ Creating an ensemble Kalman inversion object requires as arguments:
 
  4. The `Sampler(prior_mean, prior_cov)` process type, with the mean (a vector of length `p`) and the covariance (an array of size `p x p`) of the parameter's prior distribution
 
-The following example shows how an ensemble Kalman sampling object is instantiated. The mean of the observational data (`obs_mean`) and the covariance of the observational noise (`obs_cov`) are assumed to be defined previously in the code.
+The following example shows how an EKS object is instantiated. The mean of the observational data (`obs_mean`) and the covariance of the observational noise (`obs_cov`) are assumed to be defined previously in the code.
 
 ```julia
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
@@ -95,9 +94,9 @@ eks_obj = EnsembleKalmanProcess(initial_ensemble, obs_mean, obs_noise_cov, eks_p
 
 ### Updating the ensemble
 
-Once the ensemble Kalman sampling object `eks_obj` has been initialized, the initial ensemble of particles is iteratively updated by the `update_ensemble!` function, which takes as arguments the `eks_obj` and the evaluations of the forward model at each member of the current ensemble. In the following example, the forward map `G` maps a parameter to the corresponding data -- this is done for each parameter in the ensemble, such that the resulting `g_ens` is of size `d x N_ens`. The `update_ensemble!` function then stores the updated ensemble as well as the evaluations of the forward map in `eks_obj`.
+Once the EKS object `eks_obj` has been initialized, the initial ensemble of particles is iteratively updated by the `update_ensemble!` function, which takes as arguments the `eks_obj` and the evaluations of the forward model at each member of the current ensemble. In the following example, the forward map `G` maps a parameter to the corresponding data -- this is done for each parameter in the ensemble, such that the resulting `g_ens` is of size `d x N_ens`. The `update_ensemble!` function then stores the updated ensemble as well as the evaluations of the forward map in `eks_obj`.
 
-A typical use of the `update_ensemble!` function given the ensemble Kalman sampler object `eks_obj`, the dynamical model `Ψ`, and the observation map `H` (the latter two are assumed to be defined elsewhere, e.g. in a separate module)  may look as follows:
+A typical use of the `update_ensemble!` function given the EKS object `eks_obj`, the dynamical model `Ψ`, and the observation map `H` (the latter two are assumed to be defined elsewhere, e.g. in a separate module)  may look as follows:
 
 
 ```julia
