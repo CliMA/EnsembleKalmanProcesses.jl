@@ -60,7 +60,7 @@ where ``\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation m
 
 ### How to Construct an Ensemble Kalman Sampler
 
-An ensemble Kalman sampling object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Sampler(prior_mean, prior_cov)` process type.
+An EKS object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Sampler` type. The constructor takes two arguments, the prior mean `prior_mean` and the prior covariance `prior_cov`. 
 
 Creating an ensemble Kalman inversion object requires as arguments:
 
