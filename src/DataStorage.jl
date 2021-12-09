@@ -10,9 +10,9 @@ export get_data, get_inputs, get_outputs
 
 ## Objects
 """
-    struct DataContainer{FT <: Real}
+    DataContainer{FT <: Real}
 
-struct to store data samples as columns in an array
+Container to store data samples as columns in an array.
 """
 struct DataContainer{FT <: Real}
     #stored data, each piece of data is a column [data dimension × number samples]
@@ -75,39 +75,25 @@ end
 
 Returns the size of the stored data. If `idx` provided, it returns the size along dimension `idx`.
 """
-function size(dc::DataContainer)
-    return size(dc.stored_data)
-end
+size(dc::DataContainer) = size(dc.stored_data)
 
-function size(dc::DataContainer, idx::IT) where {IT <: Integer}
-    return size(dc.stored_data, idx)
-end
+size(dc::DataContainer, idx::IT) where {IT <: Integer} = size(dc.stored_data, idx)
 
-function size(pdc::PairedDataContainer)
-    return size(pdc.inputs), size(pdc.outputs)
-end
+size(pdc::PairedDataContainer) = size(pdc.inputs), size(pdc.outputs)
 
 """
     size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer}
 
 Returns the sizes of the inputs and ouputs along dimension `idx` (if provided)
 """
-function size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer}
-    return size(pdc.inputs, idx), size(pdc.outputs, idx)
-end
+size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer} = size(pdc.inputs, idx), size(pdc.outputs, idx)
 
-function get_data(dc::DataContainer)
-    return deepcopy(dc.stored_data)
-end
-function get_data(pdc::PairedDataContainer)
-    return get_inputs(pdc), get_outputs(pdc)
-end
+get_data(dc::DataContainer) = deepcopy(dc.stored_data)
 
-function get_inputs(pdc::PairedDataContainer)
-    return get_data(pdc.inputs)
-end
-function get_outputs(pdc::PairedDataContainer)
-    return get_data(pdc.outputs)
-end
+get_data(pdc::PairedDataContainer) = get_inputs(pdc), get_outputs(pdc)
+
+get_inputs(pdc::PairedDataContainer) = get_data(pdc.inputs)
+
+get_outputs(pdc::PairedDataContainer) = get_data(pdc.outputs)
 
 end # module

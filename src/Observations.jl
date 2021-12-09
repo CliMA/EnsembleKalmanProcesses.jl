@@ -7,12 +7,13 @@ using Statistics
 export Obs
 
 """
-    Obs{FT<:AbstractFloat}
+    Obs{FT <: AbstractFloat}
 
 Structure that contains the observations
 
 # Fields
-$(DocStringExtensions.FIELDS)
+
+$(TYPEDFIELDS)
 """
 struct Obs{FT <: AbstractFloat}
     "vector of observational samples, each of length sample_dim"
