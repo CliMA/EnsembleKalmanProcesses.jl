@@ -28,8 +28,8 @@ rng_seed = 41
 Random.seed!(rng_seed)
 
 homedir = pwd()
-figure_save_directory = homedir*"/output/"
-data_save_directory = homedir*"/output/"
+figure_save_directory = homedir * "/output/"
+data_save_directory = homedir * "/output/"
 if ~isdir(figure_save_directory)
     mkdir(figure_save_directory)
 end
@@ -60,7 +60,7 @@ dist_true = ParticleDistributions.GammaPrimitiveParticleDistribution(ϕ_true...)
 ###
 
 # Define constraints
-lbound_N0 = 0.4 * N0_true 
+lbound_N0 = 0.4 * N0_true
 lbound_θ = 1.0e-1
 lbound_k = 1.0e-4
 c1 = bounded_below(lbound_N0)
@@ -93,12 +93,12 @@ n_moments = length(moments)
 ###
 
 # Collision-coalescence kernel to be used in Cloudy
-coalescence_coeff = 1/3.14/4/100
+coalescence_coeff = 1 / 3.14 / 4 / 100
 kernel_func = x -> coalescence_coeff
 kernel = CoalescenceTensor(kernel_func, 0, 100.0)
 
 # Time period over which to run Cloudy
-tspan = (0., 1.0)
+tspan = (0.0, 1.0)
 
 
 ###
@@ -134,38 +134,42 @@ truth_sample = truth.mean
 N_iter = 20 # number of iterations
 # need to choose regularization factor α ∈ (0,1],  
 # when you have enough observation data α=1: no regularization
-α_reg =  1.0
+α_reg = 1.0
 # update_freq 1 : approximate posterior covariance matrix with an uninformative
 #                 prior
 #             0 : weighted average between posterior covariance matrix with an
 #                 uninformative prior and prior
 update_freq = 1
 
-process = Unscented(prior_mean, prior_cov, length(truth_sample), α_reg,
-                    update_freq)
+process = Unscented(prior_mean, prior_cov, length(truth_sample), α_reg, update_freq)
 ukiobj = EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
 
 # Initialize a ParticleDistribution with dummy parameters. The parameters 
 # will then be set within `run_dyn_model`
 dummy = ones(n_par)
 dist_type = ParticleDistributions.GammaPrimitiveParticleDistribution(dummy...)
-model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, 
-                                              tspan)
+model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, tspan)
 
 err = zeros(N_iter)
 for n in 1:N_iter
     θ_n = get_u_final(ukiobj)
     # Transform parameters to physical/constrained space
-    ϕ_n = mapslices(x -> transform_unconstrained_to_constrained(priors, x),
-                    θ_n; dims=1)
+    ϕ_n = mapslices(x -> transform_unconstrained_to_constrained(priors, x), θ_n; dims = 1)
     # Evaluate forward map
     println("size: ", size(ϕ_n))
     G_n = [run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:size(ϕ_n)[2]]
     G_ens = hcat(G_n...)  # reformat
-    EnsembleKalmanProcessModule.update_ensemble!(ukiobj, G_ens) 
+    EnsembleKalmanProcessModule.update_ensemble!(ukiobj, G_ens)
     err[n] = get_error(ukiobj)[end]
-    println("Iteration: "*string(n)*", Error: "*string(err[n])*" norm(Cov):
-            "*string(norm(ukiobj.process.uu_cov[n])))
+    println(
+        "Iteration: " *
+        string(n) *
+        ", Error: " *
+        string(err[n]) *
+        " norm(Cov):
+" *
+        string(norm(ukiobj.process.uu_cov[n])),
+    )
 end
 
 
@@ -179,65 +183,80 @@ println(θ_true)
 println("\nUKI results:")
 println(get_u_mean_final(ukiobj))
 
-u_stored= get_u(ukiobj, return_array=false)
-g_stored= get_g(ukiobj, return_array=false)
-@save data_save_directory*"parameter_storage_uki.jld2" u_stored
-@save data_save_directory*"data_storage_uki.jld2" g_stored
+u_stored = get_u(ukiobj, return_array = false)
+g_stored = get_g(ukiobj, return_array = false)
+@save data_save_directory * "parameter_storage_uki.jld2" u_stored
+@save data_save_directory * "data_storage_uki.jld2" g_stored
 
 ####
 θ_mean_arr = hcat(ukiobj.process.u_mean...)
 N_θ = length(ukiobj.process.u_mean[1])
-θθ_std_arr = zeros(Float64, (N_θ, N_iter+1))
-for i = 1:N_iter+1
-    for j = 1:N_θ
-        θθ_std_arr[j, i] = sqrt(ukiobj.process.uu_cov[i][j,j])
+θθ_std_arr = zeros(Float64, (N_θ, N_iter + 1))
+for i in 1:(N_iter + 1)
+    for j in 1:N_θ
+        θθ_std_arr[j, i] = sqrt(ukiobj.process.uu_cov[i][j, j])
     end
 end
 
 
-ites = Array(LinRange(1, N_iter+1, N_iter+1))
-plot(ites, grid=false, θ_mean_arr[1,:], yerror=3.0*θθ_std_arr[1,:], label="u1")
-plot!(ites, fill(θ_true[1], N_iter+1), linestyle=:dash, linecolor=:grey,
-      label=nothing)
-plot!(ites, grid=false, θ_mean_arr[2,:], yerror=3.0*θθ_std_arr[2,:], label="u2",
-      xaxis="Iterations")
-plot!(ites, fill(θ_true[2], N_iter+1), linestyle=:dash, linecolor=:grey,
-      label=nothing)
-plot!(ites, grid=false, θ_mean_arr[3,:], yerror=3.0*θθ_std_arr[3,:], label="u3",
-      xaxis="Iterations")
-plot!(ites, fill(θ_true[3], N_iter+1), linestyle=:dash, linecolor=:grey,
-      label=nothing)
+ites = Array(LinRange(1, N_iter + 1, N_iter + 1))
+plot(ites, grid = false, θ_mean_arr[1, :], yerror = 3.0 * θθ_std_arr[1, :], label = "u1")
+plot!(ites, fill(θ_true[1], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+plot!(ites, grid = false, θ_mean_arr[2, :], yerror = 3.0 * θθ_std_arr[2, :], label = "u2", xaxis = "Iterations")
+plot!(ites, fill(θ_true[2], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+plot!(ites, grid = false, θ_mean_arr[3, :], yerror = 3.0 * θθ_std_arr[3, :], label = "u3", xaxis = "Iterations")
+plot!(ites, fill(θ_true[3], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
 
-gr(size=(1800,600))
+gr(size = (1800, 600))
 
 for i in 1:N_iter
     θ_mean, θθ_cov = ukiobj.process.u_mean[i], ukiobj.process.uu_cov[i]
-    θ1, θ2, fθ1θ2 = Gaussian_2d(θ_mean[1:2], θθ_cov[1:2,1:2], 100, 100) 
+    θ1, θ2, fθ1θ2 = Gaussian_2d(θ_mean[1:2], θθ_cov[1:2, 1:2], 100, 100)
     p1 = contour(θ1, θ2, fθ1θ2)
-    plot!(p1, [θ_true[1]], xaxis="u1", yaxis="u2", seriestype="vline",
-          linestyle=:dash, linecolor=:red, label=false,
-          title="UKI iteration = " * string(i))
-    plot!(p1, [θ_true[2]], seriestype="hline", linestyle=:dash, linecolor=:red,
-          label="optimum")
+    plot!(
+        p1,
+        [θ_true[1]],
+        xaxis = "u1",
+        yaxis = "u2",
+        seriestype = "vline",
+        linestyle = :dash,
+        linecolor = :red,
+        label = false,
+        title = "UKI iteration = " * string(i),
+    )
+    plot!(p1, [θ_true[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
-    θ2, θ3, fθ2θ3 = Gaussian_2d(θ_mean[2:3], θθ_cov[2:3,2:3], 100, 100) 
+    θ2, θ3, fθ2θ3 = Gaussian_2d(θ_mean[2:3], θθ_cov[2:3, 2:3], 100, 100)
     p2 = contour(θ2, θ3, fθ2θ3)
-    plot!(p2, [θ_true[2]], xaxis="u2", yaxis="u3", seriestype="vline",
-          linestyle=:dash, linecolor=:red, label=false,
-          title="UKI iteration = " * string(i)
-        )
-    plot!(p2,[θ_true[3]], seriestype="hline", linestyle=:dash, linecolor=:red,
-          label="optimum")
+    plot!(
+        p2,
+        [θ_true[2]],
+        xaxis = "u2",
+        yaxis = "u3",
+        seriestype = "vline",
+        linestyle = :dash,
+        linecolor = :red,
+        label = false,
+        title = "UKI iteration = " * string(i),
+    )
+    plot!(p2, [θ_true[3]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
-    θ3, θ1, fθ3θ1 = Gaussian_2d(θ_mean[3:-2:1], θθ_cov[3:-2:1,3:-2:1], 100, 100)
+    θ3, θ1, fθ3θ1 = Gaussian_2d(θ_mean[3:-2:1], θθ_cov[3:-2:1, 3:-2:1], 100, 100)
     p3 = contour(θ3, θ1, fθ3θ1)
-    plot!(p3, [θ_true[3]], xaxis="u3", yaxis="u1", seriestype="vline",
-          linestyle=:dash, linecolor=:red, label=false,
-          title="UKI iteration = " * string(i))
-    plot!(p3, [θ_true[1]], seriestype="hline", linestyle=:dash, linecolor=:red,
-          label="optimum")
+    plot!(
+        p3,
+        [θ_true[3]],
+        xaxis = "u3",
+        yaxis = "u1",
+        seriestype = "vline",
+        linestyle = :dash,
+        linecolor = :red,
+        label = false,
+        title = "UKI iteration = " * string(i),
+    )
+    plot!(p3, [θ_true[1]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
-    p = plot(p1, p2, p3, layout=(1,3))
+    p = plot(p1, p2, p3, layout = (1, 3))
     display(p)
     sleep(0.5)
 end

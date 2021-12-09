@@ -1,7 +1,7 @@
 # Ensemble Kalman Sampling
 
 ### What Is It and What Does It Do?
-The Ensemble Kalman Sampler (EKS) ([Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), [Cleary et al, 2020](https://clima.caltech.edu/files/2020/01/2001.03689.pdf), [Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)) is a derivative-free method that can be used to solve the inverse problem of finding the optimal model parameters given noisy data. In contrast to Ensemble Kalman Inversion (EKI) ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)), the EKS method approximately samples from the posterior distribution; that is, EKS provides both point estimation (through the mean of the final ensemble) and uncertainty quantification (through the covariance of the final ensemble), unlike EKI, which only provides the former. 
+The Ensemble Kalman Sampler (EKS) ([Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), [Cleary et al, 2020](https://clima.caltech.edu/files/2020/01/2001.03689.pdf), [Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)) is a derivative-free method that can be used to solve the inverse problem of finding the optimal model parameters given noisy data. In contrast to Ensemble Kalman Inversion (EKI) ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)), the EKS method approximately samples from the posterior distribution; that is, EKS provides both point estimation (through the mean of the final ensemble) and uncertainty quantification (through the covariance of the final ensemble), unlike EKI, which only provides the former.
 
 
 The EKS is an interacting particle system in stochastic differential equation form, and it is based on a dynamic which transforms an arbitrary initial probability distribution into an approximation of the desired posterior distribution over an infinite time horizon -- see [Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), for a comprehensive description of the method. While there are noisy variants of the standard EKI, EKS differs from them in its noise structure (as its noise is added in parameter space, not in  data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization). The EKS algorithm can be understood as well as an affine invariant system of interacting particles ([Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)) for which a finite-sample correction is introduced to overcome its computational finite-sample implementation. The finite-sample corrected version of EKS is referred to as ALDI for its acronym in ([Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)). 
@@ -59,7 +59,7 @@ where ``\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation m
 
 ### How to Construct an Ensemble Kalman Sampler
 
-An EKS object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Sampler` type. The constructor takes two arguments, the prior mean `prior_mean` and the prior covariance `prior_cov`. 
+An EKS object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Sampler` type. The constructor takes two arguments, the prior mean `prior_mean` and the prior covariance `prior_cov`.
 
 Creating an EKI object requires as arguments:
 
