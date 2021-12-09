@@ -114,14 +114,14 @@ end
 
 ### Solution
 
-The solution of the ensemble Kalman sampling algorithm is a Gaussian distribution whose mean and covariance can be extracted from the ''last ensemble'' (i.e., the ensemble after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter (`θ_optim`) for the given calibration problem. These statistics can be accessed as follows:
+The solution of the EKS algorithm is an approximate Gaussian distribution whose mean (`θ_post`) and covariance (`Γ_post`) can be extracted from the ''last ensemble'' (i.e., the ensemble after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter (`θ_optim`) for the given calibration problem. These statistics can be accessed as follows:
 
 
 ```julia
 using Statistics
 
 # mean of the Gaussian distribution, also the optimal parameter for the calibration problem
-θ_optim = mean(get_u_final(eks_obj), dims=2)
+θ_post = mean(get_u_final(eks_obj), dims=2)
 # covariance of the Gaussian distribution
-sigma = cov(get_u_final(eks_obj), dims=2)
+Γ_post = cov(get_u_final(eks_obj), dims=2)
 ```
