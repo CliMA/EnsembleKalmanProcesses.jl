@@ -15,7 +15,7 @@ The data ``y`` and parameter vector ``\theta`` are assumed to be related accordi
 ```math
     y = \mathcal{G}(\theta) + \eta \,,
 ```
-where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a ``d``-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics ``\eta`` of the process. The full Bayesian characterization for the posterior under the EKS framework requires a ``p``-dimensional Gaussian distribution ``\mathcal{N}(m_\theta, \Gamma_\theta)``.
+where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a ``d``-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics ``\eta`` of the process. The full Bayesian characterization for the posterior under the EKS framework requires a ``p``-dimensional prior Gaussian distribution ``\mathcal{N}(m_\theta, \Gamma_\theta)``.
 
 
 ### Ensemble Kalman Sampling Algorithm
