@@ -29,6 +29,17 @@ jobs:
         with:
           version: '1.6'
           show-versioninfo: 'true'
+      - name: Cache artifacts
+         uses: actions/cache@v1
+         env:
+           cache-name: cache-artifacts
+         with:
+           path: ~/.julia/artifacts
+           key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+           restore-keys: |
+             ${{ runner.os }}-test-${{ env.cache-name }}-
+             ${{ runner.os }}-test-
+             ${{ runner.os }}-
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Build and deploy
