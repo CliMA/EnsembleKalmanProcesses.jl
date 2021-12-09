@@ -56,6 +56,7 @@ function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}}, g_in:
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns = false))
     push!(ekp.g, DataContainer(g, data_are_columns = false))
+    push!(ekp.Δt, Δt)
     # u_old is N_ens × N_par, g is N_ens × N_obs,
     # but stored in data container with N_ens as the 2nd dim
 
