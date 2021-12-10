@@ -109,7 +109,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 #             0 : weighted average between posterior covariance matrix with an uninformative prior and prior
 update_freq = 0
 
-process = Unscented(prior_mean, prior_cov, length(truth_sample), α_reg, update_freq)
+process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
 ukiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
 
 ```

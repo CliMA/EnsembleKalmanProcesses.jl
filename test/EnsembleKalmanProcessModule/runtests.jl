@@ -211,7 +211,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     N_iter = 20 # number of UKI iterations
     α_reg = 1.0
     update_freq = 0
-    process = Unscented(prior_mean, prior_cov, α_reg, update_freq)
+    process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
     ukiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(y_star, Γy, process)
 
     # UKI iterations
