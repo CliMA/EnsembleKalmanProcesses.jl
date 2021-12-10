@@ -89,18 +89,14 @@ Arguments
   - `modified_unscented_transform`: Modification of the UKI quadrature given
     in Huang et al (2021).
   - `prior_mean`: Prior mean used for regularization.
-  - `κ`: 
-  - `β`: 
 """
 function Unscented(
     u0_mean::Vector{FT},
-    uu0_cov::Matrix{FT},
-    α_reg::FT,
-    update_freq::IT;
+    uu0_cov::Matrix{FT};
+    α_reg::FT = 1.0,
+    update_freq::IT = 1,
     modified_unscented_transform::Bool = true,
     prior_mean::Union{Vector{FT}, Nothing} = nothing,
-    κ::FT = 0.0,
-    β::FT = 2.0,
 ) where {FT <: AbstractFloat, IT <: Int}
 
     N_u = size(u0_mean, 1)
@@ -111,15 +107,15 @@ function Unscented(
     mean_weights = zeros(FT, N_ens)
     cov_weights = zeros(FT, N_ens)
 
-    # todo parameters λ, α, β
-    α = min(sqrt(4 / (N_u + κ)), 1.0)
-    λ = α^2 * (N_u + κ) - N_u
+    # set parameters λ, α
+    α = min(sqrt(4 / N_u), 1.0)
+    λ = α^2 * N_u - N_u
 
 
     c_weights[1:N_u] .= sqrt(N_u + λ)
     mean_weights[1] = λ / (N_u + λ)
     mean_weights[2:N_ens] .= 1 / (2 * (N_u + λ))
-    cov_weights[1] = λ / (N_u + λ) + 1 - α^2 + β
+    cov_weights[1] = λ / (N_u + λ) + 1 - α^2 + 2.0
     cov_weights[2:N_ens] .= 1 / (2 * (N_u + λ))
 
     if modified_unscented_transform
@@ -133,7 +129,6 @@ function Unscented(
     push!(uu_cov, uu0_cov) # insert parameters at end of array (in this case just 1st entry)
 
     obs_pred = Vector{FT}[]  # array of Vector{FT}'s
-    err = FT[]
 
     Σ_ω = (2 - α_reg^2) * uu0_cov
     Σ_ν_scale = 2.0
