@@ -62,12 +62,10 @@ end
     Unscented(
         u0_mean::Vector{FT},
         uu0_cov::Matrix{FT},
-        α_reg::FT,
-        update_freq::IT;
+        α_reg::FT = 1.0;
+        update_freq::IT = 1,
         modified_unscented_transform::Bool = true,
         prior_mean::Union{Vector{FT}, Nothing} = nothing,
-        κ::FT = 0.0,
-        β::FT = 2.0,
     ) where {FT <: AbstractFloat, IT <: Int}
 
 Construct an Unscented Inversion EnsembleKalmanProcess.
