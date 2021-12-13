@@ -184,7 +184,7 @@ function construct_initial_ensemble(
         rng = Random.seed!(rng_seed)
     end
     # on the other hand, if we did pass an explicit rng, we seeded it already
-    return sample_distribution(rng, prior, N_ens) #of size [dim(param space) N_ens]
+    return sample_distribution(prior, N_ens, rng) #of size [dim(param space) N_ens]
 end
 
 function compute_error!(ekp::EnsembleKalmanProcess)
