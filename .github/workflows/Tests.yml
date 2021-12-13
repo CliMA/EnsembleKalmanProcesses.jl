@@ -9,29 +9,36 @@ on:
       - main
 jobs:
   test:
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
-        julia-version: ['1.5']
-        julia-arch: [x64]
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+       matrix:
+        version:
+          - '1.6' # Long-Term Support release
+          - '1'   # automatically expands to the latest stable 1.x release of Julia
+          - nightly
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macOS-latest
+        arch:
+          - x64
     steps:
-      - uses: styfle/cancel-workflow-action@0.6.0
+      - uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
         with:
-          version: ${{ matrix.julia-version }}
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
-      
       - name: Generate coverage file
         run: julia --project -e 'using Pkg; Pkg.add("Coverage");
                                  using Coverage;
                                  LCOV.writefile("coverage-lcov.info", Codecov.process_folder())'
         if: ${{ matrix.os == 'ubuntu-latest' }}
-
       - name: Submit coverage
         uses: codecov/codecov-action@v1
         with:
