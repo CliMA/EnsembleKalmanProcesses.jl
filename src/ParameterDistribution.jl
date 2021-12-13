@@ -257,7 +257,7 @@ get_distribution(d::Samples) = d.distribution_samples
 get_distribution(d::Parameterized) = d.distribution
 
 """
-    sample_distribution(pd::ParameterDistribution)
+    sample_distribution(pd::ParameterDistribution, rng::Random.AbstractRNG = Random.GLOBAL_RNG)
 
 Draws samples from the parameter distributions returns an array, with parameters as columns.
 """

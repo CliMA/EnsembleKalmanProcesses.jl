@@ -48,7 +48,7 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     Δt::Vector{FT}
     "the particular EK process (`Inversion` or `Sampler` or `Unscented`)"
     process::P
-    "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility."
+    "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility. Defaults to `Random.GLOBAL_RNG`."
     rng::Random.AbstractRNG
 end
 
@@ -60,6 +60,7 @@ end
         obs_noise_cov::Array{FT, 2},
         process::P;
         Δt = FT(1),
+        rng::Random.AbstractRNG = Random.GLOBAL_RNG
     ) where {FT <: AbstractFloat, P <: Process}
 
 Ensemble Kalman process constructor.
