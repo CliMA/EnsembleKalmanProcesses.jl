@@ -8,20 +8,28 @@ using SparseArrays
 A sparse ensemble Kalman Inversion process
 """
 struct SparseInversion{FT <: AbstractFloat, IT <: Int} <: Process
-    ""
+    "upper limit of l1-norm"
     γ::FT
-    ""
+    "the flag to enable thresholding"
     threshold_eki::Bool
-    ""
+    "a small value to threshold results that are close to zero"
     threshold_value::FT
-    ""
+    "a small value for regularization to enhance robustness of convex optimization"
     reg::FT
-    ""
+    "a list of index to indicate the parameters included in the evaluation of l1-norm"
     uc_idx::Vector{IT}
 end
 
 """
-    sparse_qp(ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT,IT}}, v_j::Vector{FT}, cov_vv_inv::Array{FT, 2}, H_u::SparseArrays.SparseMatrixCSC{FT}, H_g::SparseArrays.SparseMatrixCSC{FT}, y_j::Vector{FT}, γ::FT; H_uc::SparseArrays.SparseMatrixCSC{FT} = H_u) where {FT, IT} 
+    sparse_qp(
+        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT,IT}},
+        v_j::Vector{FT},
+        cov_vv_inv::Array{FT, 2},
+        H_u::SparseArrays.SparseMatrixCSC{FT},
+        H_g::SparseArrays.SparseMatrixCSC{FT},
+        y_j::Vector{FT};
+        H_uc::SparseArrays.SparseMatrixCSC{FT} = H_u,
+    ) where {FT, IT}
 
 Solving quadratic programming problem with sparsity constraint.
 """
@@ -31,14 +39,13 @@ function sparse_qp(
     cov_vv_inv::Array{FT, 2},
     H_u::SparseArrays.SparseMatrixCSC{FT},
     H_g::SparseArrays.SparseMatrixCSC{FT},
-    y_j::Vector{FT},
-    γ::FT;
+    y_j::Vector{FT};
     H_uc::SparseArrays.SparseMatrixCSC{FT} = H_u,
 ) where {FT, IT}
 
-    P = H_g' * inv(ekp.obs_noise_cov) * H_g + cov_vv_inv
+    P = H_g' * (ekp.obs_noise_cov \ H_g) + cov_vv_inv
     P = 0.5 * (P + P')
-    q = -(cov_vv_inv * v_j + H_g' * inv(ekp.obs_noise_cov) * y_j)
+    q = -(cov_vv_inv * v_j + H_g' * (ekp.obs_noise_cov \ y_j))
     N_params = size(H_uc)[1]
     P1 = vcat(
         hcat(P, fill(FT(0), size(P)[1], N_params)),
@@ -49,7 +56,7 @@ function sparse_qp(
     G = hcat(vcat(H_uc, -1.0 * H_uc), vcat(-1.0 * H_uc_abs, -1.0 * H_uc_abs))
     h = fill(FT(0), 2 * N_params, 1)
     G1 = vcat(G, hcat(fill(FT(0), 1, size(P)[1]), fill(FT(1), 1, N_params)))
-    h1 = vcat(h, γ)
+    h1 = vcat(h, ekp.process.γ)
     x = Variable(size(P1)[1])
     problem = minimize(0.5 * quadform(x, P1; assume_psd = true) + q1' * x, [G1 * x <= h1])
     solve!(problem, () -> SCS.Optimizer(verbose = false))
@@ -121,9 +128,10 @@ function update_ensemble!(
 
     H_uc = H_u[ekp.process.uc_idx, :]
 
+    cov_vv_inv = cov_vv \ (1.0 * I(size(cov_vv)[1]))
     Threads.@threads for j in 1:(ekp.N_ens)
         # Solve a quadratic programming problem
-        u[:, j] = sparse_qp(ekp, v[j, :], inv(cov_vv), H_u, H_g, y[:, j], ekp.process.γ, H_uc = H_uc)
+        u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], H_uc = H_uc)
 
         # Threshold the results if needed
         if ekp.process.threshold_eki

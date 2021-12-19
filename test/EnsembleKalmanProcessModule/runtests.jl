@@ -293,104 +293,54 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens; rng_seed = rng_seed)
     @test size(initial_ensemble) == (n_par, N_ens)
 
-    # Sparse EKI parameters
-    γ = 1.0
-    threshold_eki = false
-    threshold_value = 1e-2
-    reg = 1e-4
-    uc_idx = [1, 2]
+    for (threshold_eki, threshold_value, test_name) in ((false, 1e-2, "test"), (true, 1e-2, "test_thresholded"))
 
-    process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
+        # Sparse EKI parameters
+        γ = 1.0
+        reg = 1e-4
+        uc_idx = [1, 2]
 
-    ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, process)
+        process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
 
-    # EKI iterations
-    params_i_vec = []
-    g_ens_vec = []
-    for i in 1:N_iter
-        params_i = get_u_final(ekiobj)
-        push!(params_i_vec, params_i)
-        g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ens]...)
-        push!(g_ens_vec, g_ens)
-        if i == 1
-            g_ens_t = permutedims(g_ens, (2, 1))
-            @test_throws DimensionMismatch EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens_t)
+        ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, process)
+
+        # EKI iterations
+        params_i_vec = []
+        g_ens_vec = []
+        for i in 1:N_iter
+            params_i = get_u_final(ekiobj)
+            push!(params_i_vec, params_i)
+            g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ens]...)
+            push!(g_ens_vec, g_ens)
+            if i == 1
+                g_ens_t = permutedims(g_ens, (2, 1))
+                @test_throws DimensionMismatch EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens_t)
+            end
+            EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
         end
-        EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
-    end
-    push!(params_i_vec, get_u_final(ekiobj))
+        push!(params_i_vec, get_u_final(ekiobj))
 
-    @test get_u_prior(ekiobj) == params_i_vec[1]
-    @test get_u(ekiobj) == params_i_vec
-    @test get_g(ekiobj) == g_ens_vec
-    @test get_g_final(ekiobj) == g_ens_vec[end]
-    @test get_error(ekiobj) == ekiobj.err
+        @test get_u_prior(ekiobj) == params_i_vec[1]
+        @test get_u(ekiobj) == params_i_vec
+        @test get_g(ekiobj) == g_ens_vec
+        @test get_g_final(ekiobj) == g_ens_vec[end]
+        @test get_error(ekiobj) == ekiobj.err
 
-    # EKI results: Test if ensemble has collapsed toward the true parameter
-    # values
-    eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
-    @test norm(u_star - eki_final_result) < 0.5
+        # EKI results: Test if ensemble has collapsed toward the true parameter
+        # values
+        eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
+        @test norm(u_star - eki_final_result) < 0.5
 
-    # Plot evolution of the EKI particles
-    eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
+        # Plot evolution of the EKI particles
+        eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
 
-    if TEST_PLOT_OUTPUT
-        gr()
-        p = plot(get_u_prior(ekiobj)[1, :], get_u_prior(ekiobj)[2, :], seriestype = :scatter)
-        plot!(get_u_final(ekiobj)[1, :], get_u_final(ekiobj)[2, :], seriestype = :scatter)
-        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red)
-        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
-        savefig(p, "SparseEKI_test.png")
-    end
-
-    # Sparse EKI parameters with thresholding and constraints on all parameters
-    γ = 1.0
-    threshold_eki = true
-    threshold_value = 1e-2
-    reg = 1e-4
-    uc_idx = collect(1:n_par)
-
-    process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
-
-    ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, process)
-
-    # EKI iterations
-    params_i_vec = []
-    g_ens_vec = []
-    for i in 1:N_iter
-        params_i = get_u_final(ekiobj)
-        push!(params_i_vec, params_i)
-        g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ens]...)
-        push!(g_ens_vec, g_ens)
-        if i == 1
-            g_ens_t = permutedims(g_ens, (2, 1))
-            @test_throws DimensionMismatch EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens_t)
+        if TEST_PLOT_OUTPUT
+            gr()
+            p = plot(get_u_prior(ekiobj)[1, :], get_u_prior(ekiobj)[2, :], seriestype = :scatter)
+            plot!(get_u_final(ekiobj)[1, :], get_u_final(ekiobj)[2, :], seriestype = :scatter)
+            plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red)
+            plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
+            savefig(p, string("SparseEKI_", test_name, ".png"))
         end
-        EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
     end
-    push!(params_i_vec, get_u_final(ekiobj))
-
-    @test get_u_prior(ekiobj) == params_i_vec[1]
-    @test get_u(ekiobj) == params_i_vec
-    @test get_g(ekiobj) == g_ens_vec
-    @test get_g_final(ekiobj) == g_ens_vec[end]
-    @test get_error(ekiobj) == ekiobj.err
-
-    # EKI results: Test if ensemble has collapsed toward the true parameter
-    # values
-    eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
-    @test norm(u_star - eki_final_result) < 0.5
-
-    # Plot evolution of the EKI particles
-    eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
-
-    if TEST_PLOT_OUTPUT
-        gr()
-        p = plot(get_u_prior(ekiobj)[1, :], get_u_prior(ekiobj)[2, :], seriestype = :scatter)
-        plot!(get_u_final(ekiobj)[1, :], get_u_final(ekiobj)[2, :], seriestype = :scatter)
-        plot!([u_star[1]], xaxis = "u1", yaxis = "u2", seriestype = "vline", linestyle = :dash, linecolor = :red)
-        plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
-        savefig(p, "SparseEKI_thresholded_test.png")
-    end
-
 end
