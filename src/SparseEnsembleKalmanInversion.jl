@@ -65,7 +65,12 @@ function sparse_qp(
 end
 
 """
-    update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, <:SparseInversion{FT,IT}}, g::Array{FT,2} cov_threshold::FT=0.01, Δt_new=nothing) where {FT, IT}
+    update_ensemble!(
+        ekp::EnsembleKalmanProcess{FT, IT, <:SparseInversion{FT,IT}},
+        g::Array{FT,2};
+        cov_threshold::FT=0.01,
+        Δt_new=nothing
+    ) where {FT, IT}
 
 Updates the ensemble according to which type of Process we have. Model outputs `g` need to be a `N_obs × N_ens` array (i.e data are columms).
 """
@@ -129,6 +134,8 @@ function update_ensemble!(
     H_uc = H_u[ekp.process.uc_idx, :]
 
     cov_vv_inv = cov_vv \ (1.0 * I(size(cov_vv)[1]))
+
+    # Loop over ensemble members to impose sparsity
     Threads.@threads for j in 1:(ekp.N_ens)
         # Solve a quadratic programming problem
         u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], H_uc = H_uc)
