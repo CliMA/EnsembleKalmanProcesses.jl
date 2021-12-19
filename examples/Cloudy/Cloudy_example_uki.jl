@@ -141,7 +141,7 @@ N_iter = 20 # number of iterations
 #                 uninformative prior and prior
 update_freq = 1
 
-process = Unscented(prior_mean, prior_cov, length(truth_sample), α_reg, update_freq)
+process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
 ukiobj = EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
 
 # Initialize a ParticleDistribution with dummy parameters. The parameters 
