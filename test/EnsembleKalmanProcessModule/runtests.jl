@@ -315,8 +315,10 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
             if i == 1
                 g_ens_t = permutedims(g_ens, (2, 1))
                 @test_throws DimensionMismatch EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens_t)
+                EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
+            else
+                EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens, Δt_new = ekiobj.Δt[1])
             end
-            EnsembleKalmanProcessModule.update_ensemble!(ekiobj, g_ens)
         end
         push!(params_i_vec, get_u_final(ekiobj))
 
@@ -329,7 +331,8 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         # EKI results: Test if ensemble has collapsed toward the true parameter
         # values
         eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
-        @test norm(u_star - eki_final_result) < 0.5
+        @test norm(u_star - eki_final_result) < 0.1
+        @test sum(eki_final_result .> 0.05) < size(eki_final_result)[1]
 
         # Plot evolution of the EKI particles
         eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
