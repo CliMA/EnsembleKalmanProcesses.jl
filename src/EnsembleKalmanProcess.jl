@@ -194,6 +194,10 @@ export Inversion
 export find_ekp_stepsize
 include("EnsembleKalmanInversion.jl")
 
+# struct SparseInversion
+export SparseInversion
+include("SparseEnsembleKalmanInversion.jl")
+
 # struct Sampler
 export Sampler
 include("EnsembleKalmanSampler.jl")
