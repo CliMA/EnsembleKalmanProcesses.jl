@@ -128,13 +128,13 @@ for i in 1:n_samples
     y_t[:, i] = G_t .+ rand(MvNormal(μ, Γy))
 end
 
-truth = Observations.Obs(y_t, Γy, data_names)
+truth = Observations.Observation(y_t, Γy, data_names)
 ```
 
 
 ### Solution and Output
 
-* `Cloudy_example_eki.jl`: The optimal parameter vector determined by the ensemble Kalman inversion is the ensemble mean of the particles after the last iteration, which is printed to standard output. An output directory is created, where two files are stored: `parameter_storage_eki.jld2` and `data_storage_eki.jld2`, which contain all parameters and model output from the ensemble Kalman iterations, respectively (both as `DataStorage.DataContainer` objects). In addition, an animation is produced that shows the evolution of the ensemble of particles over subsequent iterations of the optimization.
+* `Cloudy_example_eki.jl`: The optimal parameter vector determined by the ensemble Kalman inversion is the ensemble mean of the particles after the last iteration, which is printed to standard output. An output directory is created, where two files are stored: `parameter_storage_eki.jld2` and `data_storage_eki.jld2`, which contain all parameters and model output from the ensemble Kalman iterations, respectively (both as `DataContainers.DataContainer` objects). In addition, an animation is produced that shows the evolution of the ensemble of particles over subsequent iterations of the optimization.
 
 * `Cloudy_example_uki.jl`: In addition to a point estimate of the optimal parameter (which is again given by the ensemble mean of the last iteration and printed to standard output), Unscented Kalman inversion also provides a covariance approximation of the posterior distribution. Together, the mean and covariance allow for the reconstruction of a Gaussian approximation of the posterior distribution. The evolution of this Gaussian approximation over subsequent iterations is shown as an animation. All parameters as well as the model output from the unscented Kalman inversion are stored in an output directory, as `parameter_storage_uki.jld2` and `data_storage_uki.jld2`.
 

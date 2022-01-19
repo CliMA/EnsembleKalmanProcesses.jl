@@ -54,7 +54,7 @@ At the core of the forward map ``\mathcal{G}`` is the dynamical model ``\Psi:\ma
 ```math
 \mathcal{G} = \mathcal{H} \circ \Psi \circ \mathcal{T}^{-1},
 ```
-where ``\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation map and ``\mathcal{T}`` is the transformation from the constrained to the unconstrained parameter space, such that ``\mathcal{T}(\phi)=\theta``. A family of standard transformations and their inverses are available in the `ParameterDistributionStorage` module.
+where ``\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation map and ``\mathcal{T}`` is the transformation from the constrained to the unconstrained parameter space, such that ``\mathcal{T}(\phi)=\theta``. A family of standard transformations and their inverses are available in the `ParameterDistributions` module.
 
 
 ### How to Construct an Ensemble Kalman Sampler
@@ -74,10 +74,10 @@ Creating an EKI object requires as arguments:
 The following example shows how an EKS object is instantiated. The mean of the observational data (`obs_mean`) and the covariance of the observational noise (`obs_cov`) are assumed to be defined previously in the code.
 
 ```julia
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage  # required to create the prior
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions  # required to create the prior
 
-# Construct prior (see `ParameterDistributionStorage.jl` docs)
+# Construct prior (see `ParameterDistributions.jl` docs)
 prior = ParameterDistribution(...)
 prior_mean = get_mean(prior)
 prior_cov = get_cov(prior)

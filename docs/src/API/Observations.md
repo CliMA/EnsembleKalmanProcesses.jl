@@ -5,6 +5,6 @@ CurrentModule = EnsembleKalmanProcesses.Observations
 ```
 
 ```@docs
-Obs
+Observation
 ```
 

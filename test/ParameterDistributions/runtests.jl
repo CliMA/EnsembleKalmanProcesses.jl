@@ -3,9 +3,9 @@ using Distributions
 using StatsBase
 using Random
 
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 
-@testset "ParameterDistributionStorage" begin
+@testset "ParameterDistributions" begin
     @testset "ParameterDistributionType" begin
         # Tests for the ParameterDistributionType
         d = Parameterized(Gamma(2.0, 0.8))

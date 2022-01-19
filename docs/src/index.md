@@ -12,4 +12,4 @@ EnsembleKalmanProcesses.jl                  | Collection of all tools
 EnsembleKalmanProcess.jl                    | Implementations of EKI, EKS and UKI
 Observations.jl                             | Structure to hold observational data
 ParameterDistributions.jl                   | Structures to hold prior and posterior distributions
-DataStorage.jl                              | Structure to hold model parameters and outputs
+DataContainers.jl                           | Structure to hold model parameters and outputs
