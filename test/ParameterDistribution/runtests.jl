@@ -1,5 +1,6 @@
 using Test
 using Distributions
+using StableRNGs
 using StatsBase
 using Random
 
@@ -228,8 +229,9 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         s2 = d2.distribution_samples[:, idx]
         @test sample_distribution(u2, copy(rng1)) == s2
 
-        # try it again with different RNG
-        rng2 = Random.Xoshiro(4321)
+        # try it again with different RNG; use StableRNG since Random doesn't provide a 
+        # second seedable algorithm on julia <=1.7
+        rng2 = StableRNG(1234)
         @test sample_distribution(u1, copy(rng2)) == rand(copy(rng2), MvNormal(4, 0.1), 1)
         @test sample_distribution(u1, 3, copy(rng2)) == rand(copy(rng2), MvNormal(4, 0.1), 3)
 
