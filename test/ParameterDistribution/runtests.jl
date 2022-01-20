@@ -222,22 +222,22 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 
         # Tests for sample distribution
         rng1 = Random.MersenneTwister(1234)
-        @test sample_distribution(u1, copy(rng1)) == rand(copy(rng1), MvNormal(4, 0.1), 1)
-        @test sample_distribution(u1, 3, copy(rng1)) == rand(copy(rng1), MvNormal(4, 0.1), 3)
+        @test sample_distribution(copy(rng1), u1) == rand(copy(rng1), MvNormal(4, 0.1), 1)
+        @test sample_distribution(copy(rng1), u1, 3) == rand(copy(rng1), MvNormal(4, 0.1), 3)
 
         idx = StatsBase.sample(copy(rng1), collect(1:size(d2.distribution_samples)[2]), 1)
         s2 = d2.distribution_samples[:, idx]
-        @test sample_distribution(u2, copy(rng1)) == s2
+        @test sample_distribution(copy(rng1), u2) == s2
 
         # try it again with different RNG; use StableRNG since Random doesn't provide a 
         # second seedable algorithm on julia <=1.7
         rng2 = StableRNG(1234)
-        @test sample_distribution(u1, copy(rng2)) == rand(copy(rng2), MvNormal(4, 0.1), 1)
-        @test sample_distribution(u1, 3, copy(rng2)) == rand(copy(rng2), MvNormal(4, 0.1), 3)
+        @test sample_distribution(copy(rng2), u1) == rand(copy(rng2), MvNormal(4, 0.1), 1)
+        @test sample_distribution(copy(rng2), u1, 3) == rand(copy(rng2), MvNormal(4, 0.1), 3)
 
         idx = StatsBase.sample(copy(rng2), collect(1:size(d2.distribution_samples)[2]), 1)
         s2 = d2.distribution_samples[:, idx]
-        @test sample_distribution(u2, copy(rng2)) == s2
+        @test sample_distribution(copy(rng2), u2) == s2
     end
 
     @testset "transform functions" begin
