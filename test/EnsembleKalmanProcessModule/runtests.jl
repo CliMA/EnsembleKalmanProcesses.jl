@@ -58,7 +58,7 @@ import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_mean, cons
     N_ens = 50 # number of ensemble members (NB for @test throws, make different to N_ens)
     N_iter = 20
 
-    initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ens; rng = rng)
+    initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(rng, prior, N_ens)
     @test size(initial_ensemble) == (n_par, N_ens)
 
     eksobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(

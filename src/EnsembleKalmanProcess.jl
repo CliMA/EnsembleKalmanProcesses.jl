@@ -187,6 +187,8 @@ function construct_initial_ensemble(
     # on the other hand, if we did pass an explicit rng, we seeded it already
     return sample_distribution(rng, prior, N_ens) #of size [dim(param space) N_ens]
 end
+construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT) where {IT <: Int} = 
+    construct_initial_ensemble(prior, N_ens; rng = rng)
 
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
