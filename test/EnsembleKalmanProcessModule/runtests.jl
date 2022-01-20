@@ -5,6 +5,7 @@ using Test
 
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
+import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_mean, construct_cov
 @testset "EnsembleKalmanProcessModule" begin
 
     # Seed for pseudo-random number generator
@@ -239,6 +240,11 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     @test get_g(ukiobj) == g_ens_vec
     @test get_g_final(ukiobj) == g_ens_vec[end]
     @test get_error(ukiobj) == ukiobj.err
+
+    @test isa(construct_mean(ukiobj, rand(2 * n_par + 1)), Float64)
+    @test isa(construct_mean(ukiobj, rand(5, 2 * n_par + 1)), Vector{Float64})
+    @test isa(construct_cov(ukiobj, rand(2 * n_par + 1)), Float64)
+    @test isa(construct_cov(ukiobj, rand(5, 2 * n_par + 1)), Matrix{Float64})
 
     # UKI results: Test if ensemble has collapsed toward the true parameter 
     # values

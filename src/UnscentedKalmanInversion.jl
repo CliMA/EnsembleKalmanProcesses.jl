@@ -189,21 +189,18 @@ construct_mean `x_mean` from ensemble `x`.
 """
 function construct_mean(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Matrix{FT},
+    x::Union{Vector{FT}, Matrix{FT}},
 ) where {FT <: AbstractFloat, IT <: Int}
-    N_x, N_ens = size(x)
 
-    @assert(uki.N_ens == N_ens)
-
-    x_mean = zeros(FT, N_x)
-
-    mean_weights = uki.process.mean_weights
-
-    for i in 1:N_ens
-        x_mean += mean_weights[i] * x[:, i]
+    if isa(x, Matrix{FT})
+        _, N_ens = size(x)
+        @assert(uki.N_ens == N_ens)
+        return Array((uki.process.mean_weights' * x')')
+    else
+        N_ens = length(x)
+        @assert(uki.N_ens == N_ens)
+        return uki.process.mean_weights' * x
     end
-
-    return x_mean
 end
 
 """
@@ -211,19 +208,30 @@ construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Matrix{FT},
-    x_mean::Array{FT},
+    x::Union{Matrix{FT}, Vector{FT}},
+    x_mean::Union{FT, Array{FT}, Nothing} = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
-    N_ens, N_x = uki.N_ens, size(x_mean, 1)
 
     cov_weights = uki.process.cov_weights
 
-    xx_cov = zeros(FT, N_x, N_x)
+    x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
 
-    for i in 1:N_ens
-        xx_cov .+= cov_weights[i] * (x[:, i] - x_mean) * (x[:, i] - x_mean)'
+    if isa(x, Matrix{FT})
+        @assert isa(x_mean, Vector{FT})
+        N_ens, N_x = uki.N_ens, size(x_mean, 1)
+        xx_cov = zeros(FT, N_x, N_x)
+
+        for i in 1:N_ens
+            xx_cov .+= cov_weights[i] * (x[:, i] - x_mean) * (x[:, i] - x_mean)'
+        end
+    else
+        @assert isa(x_mean, FT)
+        xx_cov = FT(0)
+
+        for i in 1:(uki.N_ens)
+            xx_cov += cov_weights[i] * (x[i] - x_mean) * (x[i] - x_mean)
+        end
     end
-
     return xx_cov
 end
 
