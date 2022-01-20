@@ -9,7 +9,8 @@ import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_mean, cons
 @testset "EnsembleKalmanProcessModule" begin
 
     # Seed for pseudo-random number generator
-    rng = Random.MersenneTwister(42)
+    rng_seed = 42
+    rng = Random.MersenneTwister(rng_seed)
 
     ### Generate data from a linear model: a regression problem with n_par parameters
     ### and 1 observation of G(u) = A \times u, where A : R^n_par -> R^n_obs
