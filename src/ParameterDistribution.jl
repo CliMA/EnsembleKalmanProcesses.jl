@@ -301,13 +301,11 @@ function sample_distribution(rng::AbstractRNG, d::Parameterized, n_draws::IT) wh
 end
 
 # define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
-sample_distribution(pd::ParameterDistribution) = 
-    sample_distribution(Random.GLOBAL_RNG, pd)
-sample_distribution(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer} = 
+sample_distribution(pd::ParameterDistribution) = sample_distribution(Random.GLOBAL_RNG, pd)
+sample_distribution(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer} =
     sample_distribution(Random.GLOBAL_RNG, pd, n_draws)
-sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer} =
-    sample_distribution(Random.GLOBAL_RNG, d, n_draws)
-sample_distribution(d::Parameterized, n_draws::IT) where {IT <: Integer} = 
+sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer} = sample_distribution(Random.GLOBAL_RNG, d, n_draws)
+sample_distribution(d::Parameterized, n_draws::IT) where {IT <: Integer} =
     sample_distribution(Random.GLOBAL_RNG, d, n_draws)
 
 """
