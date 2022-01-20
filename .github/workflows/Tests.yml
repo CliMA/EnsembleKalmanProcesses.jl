@@ -15,6 +15,7 @@ jobs:
        matrix:
         version:
           - '1.6' # Long-Term Support release
+          - '1.7' # Breaking release
           - '1'   # automatically expands to the latest stable 1.x release of Julia
         os:
           - ubuntu-latest
