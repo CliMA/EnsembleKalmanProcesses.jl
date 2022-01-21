@@ -266,7 +266,12 @@ optional and defaults to 1.
 function sample_distribution(rng::AbstractRNG, pd::ParameterDistribution, n_draws::IT) where {IT <: Integer}
     return cat([sample_distribution(rng, d, n_draws) for d in pd.distributions]..., dims = 1)
 end
+
+# define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
+sample_distribution(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer} =
+    sample_distribution(Random.GLOBAL_RNG, pd, n_draws)
 sample_distribution(rng::AbstractRNG, pd::ParameterDistribution) = sample_distribution(rng, pd, 1)
+sample_distribution(pd::ParameterDistribution) = sample_distribution(Random.GLOBAL_RNG, pd, 1)
 
 """
     sample_distribution([rng], d::Samples, [n_draws])
@@ -285,6 +290,12 @@ function sample_distribution(rng::AbstractRNG, d::Samples, n_draws::IT) where {I
     end
 end
 
+# define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
+sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer} =
+    sample_distribution(Random.GLOBAL_RNG, d, n_draws)
+sample_distribution(rng::AbstractRNG, d::Samples) = sample_distribution(rng, d, 1)
+sample_distribution(d::Samples) = sample_distribution(Random.GLOBAL_RNG, d, 1)
+
 """
     sample_distribution([rng], d::Parameterized, [n_draws])
 
@@ -301,12 +312,10 @@ function sample_distribution(rng::AbstractRNG, d::Parameterized, n_draws::IT) wh
 end
 
 # define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
-sample_distribution(pd::ParameterDistribution) = sample_distribution(Random.GLOBAL_RNG, pd)
-sample_distribution(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer} =
-    sample_distribution(Random.GLOBAL_RNG, pd, n_draws)
-sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer} = sample_distribution(Random.GLOBAL_RNG, d, n_draws)
 sample_distribution(d::Parameterized, n_draws::IT) where {IT <: Integer} =
     sample_distribution(Random.GLOBAL_RNG, d, n_draws)
+sample_distribution(rng::AbstractRNG, d::Parameterized) = sample_distribution(rng, d, 1)
+sample_distribution(d::Parameterized) = sample_distribution(Random.GLOBAL_RNG, d, 1)
 
 """
     logpdf(pd::ParameterDistribution, xarray::Array{<:Real,1})
