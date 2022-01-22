@@ -2,12 +2,12 @@ module EnsembleKalmanProcesses
 
 using Distributions, Statistics, LinearAlgebra, DocStringExtensions
 
-#auxilliaries
-include("ParameterDistribution.jl")
-include("DataStorage.jl")
+# auxiliary modules
+include("ParameterDistributions.jl")
+include("DataContainers.jl")
 include("Observations.jl")
 
-#updates:
+# algorithmic updates
 include("EnsembleKalmanProcess.jl")
 
 end # module

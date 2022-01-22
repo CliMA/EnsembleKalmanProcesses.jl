@@ -98,8 +98,8 @@ Creating an ensemble Kalman inversion object requires as arguments:
 The initialization of the `Unscented()` process requires prior mean and prior covariance, and the the size of the observation `d`. And user defined hyperparameters 
 `α_reg` and `update_freq`.
 ```julia
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 
 
 # need to choose regularization factor α ∈ (0,1],  
@@ -110,7 +110,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 update_freq = 0
 
 process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
-ukiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
+ukiobj = EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
 
 ```
 
@@ -124,7 +124,7 @@ At the core of the forward map ``\mathcal{G}`` is the dynamical model ``\Psi:\ma
 ```math
 \mathcal{G} = \mathcal{H} \circ \Psi \circ \mathcal{T}^{-1},
 ```
-where ``\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation map and ``\mathcal{T}`` is the transformation from the constrained to the unconstrained parameter space, such that ``\mathcal{T}(\phi)=\theta``. A family of standard transformations and their inverses are available in the `ParameterDistributionStorage` module.
+where ``\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation map and ``\mathcal{T}`` is the transformation from the constrained to the unconstrained parameter space, such that ``\mathcal{T}(\phi)=\theta``. A family of standard transformations and their inverses are available in the `ParameterDistributions` module.
 
 
 
@@ -150,7 +150,7 @@ for n in 1:N_iter
     ϕ_n = transform_unconstrained_to_constrained(prior, θ_n) # Transform parameters to physical/constrained space
     G_n = [H(Ψ(ϕ_n[:, i])) for i in 1:J]  # Evaluate forward map
     g_ens = hcat(G_n...)  # Reformat into `d x N_ens` matrix
-    EnsembleKalmanProcessModule.update_ensemble!(ukiobj, g_ens) # Update ensemble
+    EnsembleKalmanProcesses.update_ensemble!(ukiobj, g_ens) # Update ensemble
 end
 ```
 

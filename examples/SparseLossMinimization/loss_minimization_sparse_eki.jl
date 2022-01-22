@@ -4,8 +4,9 @@
 
 using Distributions, LinearAlgebra, Random, Plots
 
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule, EnsembleKalmanProcesses.ParameterDistributionStorage
-
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+const EKP = EnsembleKalmanProcesses
 # ## Loss function with single minimum
 #
 # Here, we minimize the loss function
@@ -51,7 +52,7 @@ N_iterations = 10
 nothing # hide
 
 # The initial ensemble is constructed by sampling the prior
-initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
+initial_ensemble = EKP.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
 
 # Sparse EKI parameters
 γ = 1.0
@@ -64,8 +65,7 @@ process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
 
 # We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
 # target, the stabilization and the process type (for sparse EKI this is `SparseInversion`). 
-ensemble_kalman_process =
-    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, process)
+ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, process)
 
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
@@ -75,7 +75,7 @@ for i in 1:N_iterations
 
     g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
 
-    EnsembleKalmanProcessModule.update_ensemble!(ensemble_kalman_process, g_ens)
+    EKP.update_ensemble!(ensemble_kalman_process, g_ens)
 end
 
 # and visualize the results:
