@@ -257,20 +257,32 @@ get_distribution(d::Samples) = d.distribution_samples
 get_distribution(d::Parameterized) = d.distribution
 
 """
-    sample_distribution(pd::ParameterDistribution)
+    sample_distribution([rng], pd::ParameterDistribution, [n_draws])
 
-Draws samples from the parameter distributions returns an array, with parameters as columns.
+Draws `n_draws` samples from the parameter distributions `pd`. Returns an array, with 
+parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
+optional and defaults to 1. 
 """
-sample_distribution(pd::ParameterDistribution) = sample_distribution(pd, 1)
-
-function sample_distribution(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer}
-    return cat([sample_distribution(d, n_draws) for d in pd.distributions]..., dims = 1)
+function sample_distribution(rng::AbstractRNG, pd::ParameterDistribution, n_draws::IT) where {IT <: Integer}
+    return cat([sample_distribution(rng, d, n_draws) for d in pd.distributions]..., dims = 1)
 end
 
-function sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer}
-    n_stored_samples = n_samples(d)
-    samples_idx = StatsBase.sample(collect(1:n_stored_samples), n_draws)
+# define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
+sample_distribution(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer} =
+    sample_distribution(Random.GLOBAL_RNG, pd, n_draws)
+sample_distribution(rng::AbstractRNG, pd::ParameterDistribution) = sample_distribution(rng, pd, 1)
+sample_distribution(pd::ParameterDistribution) = sample_distribution(Random.GLOBAL_RNG, pd, 1)
 
+"""
+    sample_distribution([rng], d::Samples, [n_draws])
+
+Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
+parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
+optional and defaults to 1. 
+"""
+function sample_distribution(rng::AbstractRNG, d::Samples, n_draws::IT) where {IT <: Integer}
+    n_stored_samples = n_samples(d)
+    samples_idx = StatsBase.sample(rng, collect(1:n_stored_samples), n_draws)
     if dimension(d) == 1
         return reshape(d.distribution_samples[:, samples_idx], :, n_draws) #columns are parameters
     else
@@ -278,13 +290,31 @@ function sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer}
     end
 end
 
-function sample_distribution(d::Parameterized, n_draws::IT) where {IT <: Integer}
+# define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
+sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer} = sample_distribution(Random.GLOBAL_RNG, d, n_draws)
+sample_distribution(rng::AbstractRNG, d::Samples) = sample_distribution(rng, d, 1)
+sample_distribution(d::Samples) = sample_distribution(Random.GLOBAL_RNG, d, 1)
+
+"""
+    sample_distribution([rng], d::Parameterized, [n_draws])
+
+Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
+parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
+optional and defaults to 1. 
+"""
+function sample_distribution(rng::AbstractRNG, d::Parameterized, n_draws::IT) where {IT <: Integer}
     if dimension(d) == 1
-        return reshape(rand(d.distribution, n_draws), :, n_draws) #columns are parameters
+        return reshape(rand(rng, d.distribution, n_draws), :, n_draws) #columns are parameters
     else
-        return rand(d.distribution, n_draws)
+        return rand(rng, d.distribution, n_draws)
     end
 end
+
+# define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
+sample_distribution(d::Parameterized, n_draws::IT) where {IT <: Integer} =
+    sample_distribution(Random.GLOBAL_RNG, d, n_draws)
+sample_distribution(rng::AbstractRNG, d::Parameterized) = sample_distribution(rng, d, 1)
+sample_distribution(d::Parameterized) = sample_distribution(Random.GLOBAL_RNG, d, 1)
 
 """
     logpdf(pd::ParameterDistribution, xarray::Array{<:Real,1})
