@@ -25,7 +25,7 @@ Implements Optimization and approximate uncertainty quantification algorithms, E
 [codecov-url]: https://codecov.io/gh/CliMA/EnsembleKalmanProcesses.jl
 
 ### Requirements
-Julia version 1.5+ 
+Julia version 1.6+ 
 
 
 ### Project Mind map
