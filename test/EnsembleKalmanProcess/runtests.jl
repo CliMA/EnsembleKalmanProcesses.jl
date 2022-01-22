@@ -162,10 +162,9 @@ const EKP = EnsembleKalmanProcesses
 
         # EKI results: Test if ensemble has collapsed toward the true parameter 
         # values
+        eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
         eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
-
-        # kind of arbitrary tolerance here,
-        @test norm(u_star - eki_final_result) < 0.15
+        @test norm(u_star - eki_final_result) < norm(u_star - eki_init_result)
 
         # Plot evolution of the EKI particles
         #eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
@@ -251,8 +250,9 @@ const EKP = EnsembleKalmanProcesses
 
         # UKI results: Test if ensemble has collapsed toward the true parameter 
         # values
+        uki_init_result = vec(mean(get_u_prior(ukiobj), dims = 2))
         uki_final_result = get_u_mean_final(ukiobj)
-        @test norm(u_star - uki_final_result) < 0.5
+        @test norm(u_star - uki_final_result) < norm(u_star - uki_init_result)
 
         if TEST_PLOT_OUTPUT
             gr()
@@ -350,8 +350,9 @@ const EKP = EnsembleKalmanProcesses
 
             # EKI results: Test if ensemble has collapsed toward the true parameter
             # values
+            eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
             eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
-            @test norm(u_star - eki_final_result) < 0.1
+            @test norm(u_star - eki_final_result) < norm(u_star - eki_init_result)
             @test sum(eki_final_result .> 0.05) < size(eki_final_result)[1]
 
             # Plot evolution of the EKI particles
