@@ -23,7 +23,7 @@ const EKP = EnsembleKalmanProcesses
     Γy = noise_level^2 * Matrix(I, n_obs, n_obs) # Independent noise for synthetic observations
     noise = MvNormal(zeros(n_obs), Γy)
     C = [1 -.9; -.9 1]          # Correlation structure for linear operator
-    A = rand(MvNormal(zeros(2,), C), n_obs)'    # Linear operator in R^{n_par x n_obs}
+    A = rand(rng, MvNormal(zeros(2,), C), n_obs)'    # Linear operator in R^{n_par x n_obs}
 
     @test size(A) == (n_obs, n_par)
 
@@ -244,10 +244,10 @@ const EKP = EnsembleKalmanProcesses
         @test get_g_final(ukiobj) == g_ens_vec[end]
         @test get_error(ukiobj) == ukiobj.err
 
-        @test isa(construct_mean(ukiobj, rand(2 * n_par + 1)), Float64)
-        @test isa(construct_mean(ukiobj, rand(5, 2 * n_par + 1)), Vector{Float64})
-        @test isa(construct_cov(ukiobj, rand(2 * n_par + 1)), Float64)
-        @test isa(construct_cov(ukiobj, rand(5, 2 * n_par + 1)), Matrix{Float64})
+        @test isa(construct_mean(ukiobj, rand(rng, 2 * n_par + 1)), Float64)
+        @test isa(construct_mean(ukiobj, rand(rng, 5, 2 * n_par + 1)), Vector{Float64})
+        @test isa(construct_cov(ukiobj, rand(rng, 2 * n_par + 1)), Float64)
+        @test isa(construct_cov(ukiobj, rand(rng, 5, 2 * n_par + 1)), Matrix{Float64})
 
         # UKI results: Test if ensemble has collapsed toward the true parameter 
         # values
@@ -289,7 +289,7 @@ const EKP = EnsembleKalmanProcesses
         noise = MvNormal(zeros(n_obs), Γy)
 
         y_star = G₁(u_star)
-        y_obs = y_star + rand(noise)
+        y_obs = y_star + rand(rng, noise)
 
         @test size(y_star) == (n_obs,)
 
