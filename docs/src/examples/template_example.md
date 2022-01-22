@@ -10,7 +10,7 @@ For small examples typically have 2 files.
 ## The structure of the example script
 First we create the data and the setting for the model
 1. Set up the forward model.
-2. Construct/load the truth data. Store this data conveniently in the `Observations.Obs` object
+2. Construct/load the truth data. Store this data conveniently in the `Observations.Observation` object
 
 Then we set up the inverse problem
 3. Define the prior distributions. Use the `ParameterDistribution` object

@@ -52,7 +52,7 @@ The forward map ``\mathcal{G}`` maps the space of unconstrained parameters ``\th
 \mathcal{G} = \mathcal{H} \circ \Psi \circ \mathcal{T}^{-1},
 ```
 
-where ``\mathcal{H}: \mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation map and ``\mathcal{T}`` is the transformation map from constrained to unconstrained parameter spaces, such that ``\mathcal{T}(\phi) = \theta``. A family of standard transformation maps and their inverse are available in the `ParameterDistributionStorage` module.
+where ``\mathcal{H}: \mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation map and ``\mathcal{T}`` is the transformation map from constrained to unconstrained parameter spaces, such that ``\mathcal{T}(\phi) = \theta``. A family of standard transformation maps and their inverse are available in the `ParameterDistributions` module.
 
 ### Creating the EKI Object
 
@@ -66,8 +66,8 @@ Creating an ensemble Kalman inversion object requires as arguments:
 
 A typical initialization of the `Inversion()` process takes a user-defined `prior`, a summary of the observation statistics given by the mean `y` and covariance `obs_noise_cov`, and a desired number of members in the ensemble,
 ```julia
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 
 J = 50  # number of ensemble members
 initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble from prior
@@ -75,7 +75,7 @@ initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble fr
 ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion())
 ```
 
-See the [Prior distributions](../parameter_distributions/) section to learn about the construction of priors in EnsembleKalmanProcesses.jl. The prior is assumed to be over the unconstrained parameter space where ``\theta`` is defined. For applications where enforcing parameter bounds is necessary, the `ParameterDistributionStorage` module provides functions to map from constrained to unconstrained space and vice versa. 
+See the [Prior distributions](../parameter_distributions/) section to learn about the construction of priors in EnsembleKalmanProcesses.jl. The prior is assumed to be over the unconstrained parameter space where ``\theta`` is defined. For applications where enforcing parameter bounds is necessary, the `ParameterDistributions` module provides functions to map from constrained to unconstrained space and vice versa. 
 
 ### Updating the Ensemble
 

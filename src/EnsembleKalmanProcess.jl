@@ -1,7 +1,5 @@
-module EnsembleKalmanProcessModule
-
-using ..ParameterDistributionStorage
-using ..DataStorage
+using ..ParameterDistributions
+using ..DataContainers
 
 using Random
 using Statistics
@@ -204,8 +202,6 @@ include("EnsembleKalmanSampler.jl")
 
 # struct Unscented
 export Unscented
-export construct_initial_ensemble
 export Gaussian_2d
+export construct_initial_ensemble, construct_mean, construct_cov
 include("UnscentedKalmanInversion.jl")
-
-end # module

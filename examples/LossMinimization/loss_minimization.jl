@@ -4,7 +4,10 @@
 
 using Distributions, LinearAlgebra, Random, Plots
 
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule, EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+
+const EKP = EnsembleKalmanProcesses
 
 # ## Loss function with single minimum
 #
@@ -51,13 +54,12 @@ N_iterations = 10
 nothing # hide
 
 # The initial ensemble is constructed by sampling the prior
-initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
+initial_ensemble = EKP.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
 
 # We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
 # target, the stabilization and the process type (for EKI this is `Inversion`, initialized 
 # with `Inversion()`). 
-ensemble_kalman_process =
-    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, Inversion())
+ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, Inversion())
 
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
@@ -67,7 +69,7 @@ for i in 1:N_iterations
 
     g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
 
-    EnsembleKalmanProcessModule.update_ensemble!(ensemble_kalman_process, g_ens)
+    EKP.update_ensemble!(ensemble_kalman_process, g_ens)
 end
 
 # and visualize the results:
@@ -153,10 +155,9 @@ prior = ParameterDistribution(prior_distributions, constraints, parameter_names)
 N_ensemble = 20
 N_iterations = 20
 
-initial_ensemble = EnsembleKalmanProcessModule.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
+initial_ensemble = EKP.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
 
-ensemble_kalman_process =
-    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, Inversion())
+ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, Inversion())
 
 # We calibrate by *(i)* obtaining the parameters, *(ii)* calculating the
 # loss function on the parameters (and concatenate), and last *(iii)* generate a new set of
@@ -166,7 +167,7 @@ for i in 1:N_iterations
 
     g_ens = hcat([G₂(params_i[:, i]) for i in 1:N_ensemble]...)
 
-    EnsembleKalmanProcessModule.update_ensemble!(ensemble_kalman_process, g_ens)
+    EKP.update_ensemble!(ensemble_kalman_process, g_ens)
 end
 
 # and visualize the results:

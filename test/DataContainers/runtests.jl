@@ -2,9 +2,9 @@ using Test
 using Distributions
 using Random
 
-using EnsembleKalmanProcesses.DataStorage
+using EnsembleKalmanProcesses.DataContainers
 
-@testset "DataStorage" begin
+@testset "DataContainers" begin
     seed = 2021
     Random.seed!(seed)
 

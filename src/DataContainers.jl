@@ -1,4 +1,4 @@
-module DataStorage
+module DataContainers
 
 ## Imports
 import Base: size #must import to add a definition to size

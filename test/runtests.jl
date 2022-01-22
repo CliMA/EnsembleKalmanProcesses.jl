@@ -24,7 +24,7 @@ end
         end
     end
 
-    for submodule in ["DataStorage", "ParameterDistribution", "Observations", "EnsembleKalmanProcessModule"]
+    for submodule in ["DataContainers", "ParameterDistributions", "Observations", "EnsembleKalmanProcess"]
         if all_tests || has_submodule(submodule) || "EnsembleKalmanProcesses" in ARGS
             include_test(submodule)
         end
