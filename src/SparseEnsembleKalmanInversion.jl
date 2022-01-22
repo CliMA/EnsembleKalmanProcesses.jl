@@ -147,8 +147,10 @@ function update_ensemble!(
         end
 
         # Add small noise to constrained elements of u
-        u[ekp.process.uc_idx, j] +=
-            rand(ekp.rng, MvNormal(zeros(size(ekp.process.uc_idx)[1]), ekp.process.reg * I(size(ekp.process.uc_idx)[1])))
+        u[ekp.process.uc_idx, j] += rand(
+            ekp.rng,
+            MvNormal(zeros(size(ekp.process.uc_idx)[1]), ekp.process.reg * I(size(ekp.process.uc_idx)[1])),
+        )
     end
 
     # Store error
