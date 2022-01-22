@@ -165,7 +165,7 @@ const EKP = EnsembleKalmanProcesses
         eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
 
         # kind of arbitrary tolerance here,
-        @test norm(u_star - eki_final_result) < 0.1
+        @test norm(u_star - eki_final_result) < 0.15
 
         # Plot evolution of the EKI particles
         #eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
