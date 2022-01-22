@@ -38,7 +38,7 @@ function EnsembleKalmanProcess(
     obs_noise_cov::Matrix{FT},
     process::Unscented{FT, IT};
     Δt = FT(1),
-    rng::Random.AbstractRNG = Random.GLOBAL_RNG,
+    rng::AbstractRNG = Random.GLOBAL_RNG,
 ) where {FT <: AbstractFloat, IT <: Int}
 
     #initial parameters stored as columns

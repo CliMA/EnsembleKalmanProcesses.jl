@@ -47,7 +47,7 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     "the particular EK process (`Inversion` or `Sampler` or `Unscented`)"
     process::P
     "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility. Defaults to `Random.GLOBAL_RNG`."
-    rng::Random.AbstractRNG
+    rng::AbstractRNG
 end
 
 # outer constructors
@@ -58,7 +58,7 @@ end
         obs_noise_cov::Array{FT, 2},
         process::P;
         Δt = FT(1),
-        rng::Random.AbstractRNG = Random.GLOBAL_RNG
+        rng::AbstractRNG = Random.GLOBAL_RNG
     ) where {FT <: AbstractFloat, P <: Process}
 
 Ensemble Kalman process constructor.
@@ -69,7 +69,7 @@ function EnsembleKalmanProcess(
     obs_noise_cov::Array{FT, 2},
     process::P;
     Δt = FT(1),
-    rng::Random.AbstractRNG = Random.GLOBAL_RNG,
+    rng::AbstractRNG = Random.GLOBAL_RNG,
 ) where {FT <: AbstractFloat, P <: Process}
 
     #initial parameters stored as columns
@@ -176,13 +176,11 @@ function construct_initial_ensemble(
     prior::ParameterDistribution,
     N_ens::IT;
     rng_seed::IT = 42,
-    rng::Union{Random.AbstractRNG, Nothing} = nothing,
+    rng::Union{AbstractRNG, Nothing} = nothing,
 ) where {IT <: Int}
-    # Ensuring reproducibility of the sampled parameter values
-    if rng === nothing
-        rng = Random.seed!(rng_seed)
-    end
-    # on the other hand, if we did pass an explicit rng, we seeded it already
+    # Ensuring reproducibility of the sampled parameter values: re-seed GLOBAL_RNG if we're
+    # given a seed, but if we got an explicit rng, we shouldn't re-seed it
+    rng = isnothing(rng) ? Random.seed!(rng_seed) : rng
     return sample_distribution(rng, prior, N_ens) #of size [dim(param space) N_ens]
 end
 construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT) where {IT <: Int} =

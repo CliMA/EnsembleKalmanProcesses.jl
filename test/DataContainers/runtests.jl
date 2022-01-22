@@ -5,8 +5,7 @@ using Random
 using EnsembleKalmanProcesses.DataContainers
 
 @testset "DataContainers" begin
-    seed = 2021
-    rng = Random.MersenneTwister(seed)
+    rng = Random.MersenneTwister(2021)
 
     parameter_samples = rand(rng, MvNormal(2, 0.1), 10) #10 samples of 4D params
     data_samples = rand(rng, MvNormal(12, 2), 10) #10 samples of 12D data
