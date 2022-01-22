@@ -11,9 +11,10 @@ using JLD2
 
 using Plots
 # CES 
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
+using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.Observations
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
+const EKP = EnsembleKalmanProcesses
 
 rng_seed = 4137
 Random.seed!(rng_seed)
@@ -185,7 +186,7 @@ else
 end
 
 # Construct observation object
-truth = Observations.Obs(yt, Γy, data_names)
+truth = Observations.Observation(yt, Γy, data_names)
 truth_sample = truth.mean
 ###
 ###  Calibrate: Ensemble Kalman Inversion
@@ -210,7 +211,7 @@ N_iter = 20 # number of UKI iterations
 update_freq = 0
 
 process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
-ukiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
+ukiobj = EKP.EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
 
 
 # UKI iterations
@@ -225,7 +226,7 @@ for i in 1:N_iter
 
 
     # analysis step 
-    EnsembleKalmanProcessModule.update_ensemble!(ukiobj, g_ens)
+    EKP.update_ensemble!(ukiobj, g_ens)
 
     err[i] = get_error(ukiobj)[end] #mean((params_true - mean(params_i,dims=2)).^2)
     println(

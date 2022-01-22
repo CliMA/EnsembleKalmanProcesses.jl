@@ -4,10 +4,10 @@ using DocStringExtensions
 using LinearAlgebra
 using Statistics
 
-export Obs
+export Observation
 
 """
-    Obs{FT <: AbstractFloat}
+    Observation{FT <: AbstractFloat}
 
 Structure that contains the observations
 
@@ -15,7 +15,7 @@ Structure that contains the observations
 
 $(TYPEDFIELDS)
 """
-struct Obs{FT <: AbstractFloat}
+struct Observation{FT <: AbstractFloat}
     "vector of observational samples, each of length sample_dim"
     samples::Vector{Vector{FT}}
     "covariance of the observational noise (assumed to be normally 
@@ -33,7 +33,7 @@ struct Obs{FT <: AbstractFloat}
 end
 
 # Constructors
-function Obs(samples::Vector{Vector{FT}}, data_names::Union{Vector{String}, String}) where {FT <: AbstractFloat}
+function Observation(samples::Vector{Vector{FT}}, data_names::Union{Vector{String}, String}) where {FT <: AbstractFloat}
 
     N_samples = length(samples)
     # convert to sample_dim x N_samples to determine sample covariance
@@ -56,10 +56,10 @@ function Obs(samples::Vector{Vector{FT}}, data_names::Union{Vector{String}, Stri
             obs_noise_cov = cov(temp)
         end
     end
-    Obs(samples, obs_noise_cov, samplemean, data_names)
+    Observation(samples, obs_noise_cov, samplemean, data_names)
 end
 
-function Obs(samples::Array{FT, 2}, data_names::Union{Vector{String}, String}) where {FT <: AbstractFloat}
+function Observation(samples::Array{FT, 2}, data_names::Union{Vector{String}, String}) where {FT <: AbstractFloat}
 
     # samples is of size sample_dim x N_samples
     sample_dim, N_samples = size(samples)
@@ -84,10 +84,10 @@ function Obs(samples::Array{FT, 2}, data_names::Union{Vector{String}, String}) w
             obs_noise_cov = cov(samples, dims = 2)
         end
     end
-    Obs(samples_vec, obs_noise_cov, samplemean, data_names)
+    Observation(samples_vec, obs_noise_cov, samplemean, data_names)
 end
 
-function Obs(
+function Observation(
     samples::Vector{Vector{FT}},
     obs_noise_cov::Array{FT, 2},
     data_names::Union{Vector{String}, String},
@@ -122,10 +122,10 @@ function Obs(
     end
 
 
-    Obs(samples, obsnoisecov, samplemean, data_names)
+    Observation(samples, obsnoisecov, samplemean, data_names)
 end
 
-function Obs(
+function Observation(
     samples::Array{FT, 2},
     obs_noise_cov::Union{Array{FT, 2}, Nothing},
     data_names::Union{Vector{String}, String},
@@ -157,7 +157,7 @@ function Obs(
         end
     end
 
-    Obs(samples_vec, obsnoisecov, samplemean, data_names)
+    Observation(samples_vec, obsnoisecov, samplemean, data_names)
 end
 
 end # module Observations

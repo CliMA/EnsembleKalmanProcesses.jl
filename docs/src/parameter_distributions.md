@@ -1,6 +1,6 @@
 # Prior distributions
 
-We provide a flexible setup for storing prior distribution with the `ParameterDistributionStorage` module found in `src/ParameterDistribution.jl`.
+We provide a flexible setup for storing prior distribution with the `ParameterDistributions` module found in `src/ParameterDistributions.jl`.
 
 One can create a full parameter distribution using three inputs:
  1. A Distribution, given as a `ParameterDistributionType` object,
@@ -161,7 +161,7 @@ gif(anim_unbounded, "anim_unbounded.gif", fps = 5) # hide
 The following generates the transformed `Normal(0.5, 1)` distribution
 
 ```julia
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 using Distributions 
 
 distribution = Parameterized(Normal(0.5, 1)) 
@@ -220,7 +220,7 @@ gif(anim_bounded_below, "anim_bounded_below.gif", fps = 5) # hide
 The following generates the transformed `Normal(0.5, 1)` distribution
 
 ```julia
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 using Distributions 
 
 distribution = Parameterized(Normal(0.5, 1)) 
@@ -279,7 +279,7 @@ gif(anim_bounded_above, "anim_bounded_above.gif", fps = 5) # hide
 The following generates the transformed `Normal(0.5, 1)` distribution
 
 ```julia
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 using Distributions
 
 distribution = Parameterized(Normal(0.5, 1))
@@ -338,7 +338,7 @@ gif(anim_bounded, "anim_bounded.gif", fps = 10) # hide
 The following generates the transformed `Normal(0.5, 1)` distribution
 
 ```julia
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 using Distributions
 
 distribution = Parameterized(Normal(0.5, 1)) 

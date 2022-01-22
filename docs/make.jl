@@ -28,10 +28,10 @@ end
 #----------
 
 api = [
-    "EnsembleKalmanProcessModule" => "API/EnsembleKalmanProcessModule.md",
-    "ParameterDistribution" => "API/ParameterDistribution.md",
+    "EnsembleKalmanProcesses" => "API/EnsembleKalmanProcesses.md",
+    "ParameterDistributions" => "API/ParameterDistributions.md",
     "Observations" => "API/Observations.md",
-    "DataStorage" => "API/DataStorage.md",
+    "DataContainers" => "API/DataContainers.md",
 ]
 
 examples = [

@@ -1,7 +1,7 @@
-# ParameterDistribution
+# ParameterDistributions
 
 ```@meta
-CurrentModule = EnsembleKalmanProcesses.ParameterDistributionStorage
+CurrentModule = EnsembleKalmanProcesses.ParameterDistributions
 ```
 
 ```@docs

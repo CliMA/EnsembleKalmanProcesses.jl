@@ -72,8 +72,8 @@ nothing # hide
 
 # Both parameters have to be positive definite, therefore we
 # define the constraints to be bounded below by zero.
-c1 = EKP.ParameterDistributionStorage.bounded_below(0.0)
-c2 = EKP.ParameterDistributionStorage.bounded_below(0.0)
+c1 = EKP.ParameterDistributions.bounded_below(0.0)
+c2 = EKP.ParameterDistributions.bounded_below(0.0)
 constraints = [[c1], [c2]]
 nothing # hide
 
@@ -82,13 +82,13 @@ nothing # hide
 # with the mean equal to zero and the standard deviation equal to one,
 # ensures that the default parameter values are well within the
 # assumed prior pdf.
-d1 = EKP.ParameterDistributionStorage.Parameterized(Distributions.Normal(0, 1))
-d2 = EKP.ParameterDistributionStorage.Parameterized(Distributions.Normal(0, 1))
+d1 = EKP.ParameterDistributions.Parameterized(Distributions.Normal(0, 1))
+d2 = EKP.ParameterDistributions.Parameterized(Distributions.Normal(0, 1))
 distributions = [d1, d2]
 nothing # hide
 
 # This concludes the setup of priors.
-priors = EKP.ParameterDistributionStorage.ParameterDistribution(distributions, constraints, parameter_names)
+priors = EKP.ParameterDistributions.ParameterDistribution(distributions, constraints, parameter_names)
 nothing # hide
 
 # Next we define the atmospheric conditions for which the calibration will take place,
@@ -165,7 +165,7 @@ for i in 1:n_samples
     y_t[:, i] = G_t .+ rand(Distributions.MvNormal(μ, Γy))
 end
 
-truth_array = EKP.Observations.Obs(y_t, Γy, observation_data_names)
+truth_array = EKP.Observations.Observation(y_t, Γy, observation_data_names)
 nothing # hide
 
 # One could try for the truth to be a mean of the generated array.
@@ -179,31 +179,21 @@ nothing # hide
 N_ens = 50
 N_iter = 10
 
-initial_par = EKP.EnsembleKalmanProcessModule.construct_initial_ensemble(priors, N_ens; rng_seed)
-ekiobj = EKP.EnsembleKalmanProcessModule.EnsembleKalmanProcess(
-    initial_par,
-    truth_sample,
-    truth_array.obs_noise_cov,
-    EKP.EnsembleKalmanProcessModule.Inversion(),
-    Δt = 1,
-)
+initial_par = EKP.construct_initial_ensemble(priors, N_ens; rng_seed)
+ekiobj = EKP.EnsembleKalmanProcess(initial_par, truth_sample, truth_array.obs_noise_cov, EKP.Inversion(), Δt = 1)
 nothing # hide
 
 # Finally, we can run the Ensemble Kalman Process calibration.
 ϕ_n_values = []
 for n in 1:N_iter
-    θ_n = EKP.EnsembleKalmanProcessModule.get_u_final(ekiobj)
+    θ_n = EKP.get_u_final(ekiobj)
 
-    ϕ_n = mapslices(
-        x -> EKP.ParameterDistributionStorage.transform_unconstrained_to_constrained(priors, x),
-        θ_n;
-        dims = 1,
-    )
+    ϕ_n = mapslices(x -> EKP.ParameterDistributions.transform_unconstrained_to_constrained(priors, x), θ_n; dims = 1)
 
     G_n = [run_activation_model(ϕ_n[:, i]...) for i in 1:N_ens]
 
     G_ens = hcat(G_n...)
-    EKP.EnsembleKalmanProcessModule.update_ensemble!(ekiobj, G_ens)
+    EKP.update_ensemble!(ekiobj, G_ens)
 
     global ϕ_n_values = vcat(ϕ_n_values, [ϕ_n])
 end

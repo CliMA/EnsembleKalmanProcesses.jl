@@ -15,10 +15,10 @@ using JLD2
 using Random
 
 # Import Calibrate-Emulate-Sample modules
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
+using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.Observations
-using EnsembleKalmanProcesses.ParameterDistributionStorage
-using EnsembleKalmanProcesses.DataStorage
+using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses.DataContainers
 
 # Import the module that runs Cloudy
 include("DynamicalModel.jl")
@@ -122,7 +122,7 @@ for i in 1:n_samples
     y_t[:, i] = G_t .+ rand(MvNormal(μ, Γy))
 end
 
-truth = Observations.Obs(y_t, Γy, data_names)
+truth = Observations.Observation(y_t, Γy, data_names)
 truth_sample = truth.mean
 
 
@@ -149,7 +149,7 @@ for n in 1:N_iter
     # Evaluate forward map
     G_n = [run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:N_ens]
     G_ens = hcat(G_n...)  # reformat
-    EnsembleKalmanProcessModule.update_ensemble!(ekiobj, G_ens)
+    EnsembleKalmanProcesses.update_ensemble!(ekiobj, G_ens)
 end
 
 # EKI results: Has the ensemble collapsed toward the truth?

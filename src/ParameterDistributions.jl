@@ -1,4 +1,4 @@
-module ParameterDistributionStorage
+module ParameterDistributions
 
 ## Imports
 using Distributions
