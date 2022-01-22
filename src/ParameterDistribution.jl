@@ -291,8 +291,7 @@ function sample_distribution(rng::AbstractRNG, d::Samples, n_draws::IT) where {I
 end
 
 # define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
-sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer} =
-    sample_distribution(Random.GLOBAL_RNG, d, n_draws)
+sample_distribution(d::Samples, n_draws::IT) where {IT <: Integer} = sample_distribution(Random.GLOBAL_RNG, d, n_draws)
 sample_distribution(rng::AbstractRNG, d::Samples) = sample_distribution(rng, d, 1)
 sample_distribution(d::Samples) = sample_distribution(Random.GLOBAL_RNG, d, 1)
 
