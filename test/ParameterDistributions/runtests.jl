@@ -199,11 +199,11 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test_throws DimensionMismatch get_logpdf(u3, [0.5, 0.5])
 
         #Test for get_cov, get_var        
-        block_cov = cat([get_cov(d1), get_var(d2), get_var(d3), get_cov(d4)]..., dims = (1, 2))
-        @test isapprox(get_cov(v) - block_cov, zeros(get_total_dimension(v), get_total_dimension(v)); atol = 1e-6)
-        #Test for get_mean
-        means = cat([get_mean(d1), get_mean(d2), get_mean(d3), get_mean(d4)]..., dims = 1)
-        @test isapprox(get_mean(v) - means, zeros(get_total_dimension(v)); atol = 1e-6)
+        block_cov = cat([cov(d1), var(d2), var(d3), cov(d4)]..., dims = (1, 2))
+        @test isapprox(cov(v) - block_cov, zeros(get_total_dimension(v), get_total_dimension(v)); atol = 1e-6)
+        #Test for mean
+        means = cat([mean(d1), mean(d2), mean(d3), mean(d4)]..., dims = 1)
+        @test isapprox(mean(v) - means, zeros(get_total_dimension(v)); atol = 1e-6)
 
     end
 

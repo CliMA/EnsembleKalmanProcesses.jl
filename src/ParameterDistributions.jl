@@ -1,10 +1,12 @@
 module ParameterDistributions
 
-## Imports
+## Usings
 using Distributions
 using Statistics
-using StatsBase
 using Random
+
+#import 
+import StatsBase
 
 ## Exports
 
@@ -21,8 +23,8 @@ export get_name, get_distribution, get_total_dimension, get_dimensions, get_all_
 export sample_distribution
 export no_constraint, bounded_below, bounded_above, bounded
 export transform_constrained_to_unconstrained, transform_unconstrained_to_constrained
-export get_logpdf, get_cov, get_var, get_mean, batch
-
+export get_logpdf, batch
+#export get_cov, get_var, get_mean
 ## Objects
 # for the Distribution
 abstract type ParameterDistributionType end
@@ -225,7 +227,7 @@ Returns the (flattened) array of constraints of the parameter distribution.
 get_all_constraints(pd::ParameterDistribution) = pd.constraints
 
 """
-    batch(pd:ParameterDistribution)
+    batch(pd::ParameterDistribution)
 
 Returns a list of contiguous `[collect(1:i), collect(i+1:j),... ]` used to split parameter arrays by distribution dimensions.
 """
@@ -343,36 +345,41 @@ function get_logpdf(pd::ParameterDistribution, xarray::Array{FT, 1}) where {FT <
     return sum(cat([get_logpdf(d, xarray[batches[i]]) for (i, d) in enumerate(pd.distributions)]..., dims = 1))
 end
 
+#extending StatsBase cov,var
 """
-    get_cov(pd::ParameterDistribution)
-
-Returns a blocked covariance of the distributions.
+    var(pd::ParameterDistribution)
+Returns a flattened variance of the distributions
 """
-get_cov(d::Parameterized) = cov(d.distribution)
-
-get_cov(d::Samples) = cov(d.distribution_samples, dims = 2) #parameters are columns
-
-function get_var(d::Parameterized)
-    return var(d.distribution)
-end
-
-function get_var(d::Samples)
-    return var(d.distribution_samples)
-end
-
-
-function get_cov(pd::ParameterDistribution)
-    #first check we don't have sampled distribution
-
+StatsBase.var(d::Parameterized) = var(d.distribution)
+StatsBase.var(d::Samples) = var(d.distribution_samples)
+function StatsBase.var(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
+    block_var = Array{Any}(size(d_dims)[1])
+    
+    for (i, dimension) in enumerate(d_dims)
+            block_var[i] = var(pd.distributions[i])
+    end
+    return cat(block_var..., dims = 1) #build the flattened vector
+    
+end
 
+"""
+    cov(pd::ParameterDistribution)
+
+Returns a dense blocked (co)variance of the distributions.
+"""
+StatsBase.cov(d::Parameterized) = cov(d.distribution)
+StatsBase.cov(d::Samples) = cov(d.distribution_samples, dims = 2) #parameters are columns
+function StatsBase.cov(pd::ParameterDistribution)
+    d_dims = get_dimensions(pd)
+    
     # create each block (co)variance
     block_cov = Array{Any}(undef, size(d_dims)[1])
     for (i, dimension) in enumerate(d_dims)
         if dimension == 1
-            block_cov[i] = get_var(pd.distributions[i])
+            block_cov[i] = var(pd.distributions[i])
         else
-            block_cov[i] = get_cov(pd.distributions[i])
+            block_cov[i] = cov(pd.distributions[i])
         end
     end
 
@@ -380,29 +387,17 @@ function get_cov(pd::ParameterDistribution)
 
 end
 
+#extending StatsBase.mean
 """
-    get_mean(pd::Parameterized)
+    mean(pd::ParameterDistribution)
 
-Returns a mean of parameterized distribution.
+Returns a concatenated mean of the parameter distributions. 
 """
-get_mean(d::Parameterized) = mean(d.distribution)
-
-"""
-    get_mean(pd::Samples)
-
-Returns a mean of the samples.
-"""
-get_mean(d::Samples) = mean(d.distribution_samples, dims = 2) #parameters are columns
-
-"""
-    get_mean(pd::ParameterDistribution)
-
-Returns a mean of the distributions.
-"""
-function get_mean(pd::ParameterDistribution)
-    return cat([get_mean(d) for d in pd.distributions]..., dims = 1)
+StatsBase.mean(d::Parameterized) = mean(d.distribution)
+StatsBase.mean(d::Samples) = mean(d.distribution_samples, dims = 2)
+function StatsBase.mean(pd::ParameterDistribution)
+    return cat([mean(d) for d in pd.distributions]..., dims = 1)
 end
-
 
 #apply transforms
 
