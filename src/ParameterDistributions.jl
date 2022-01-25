@@ -5,8 +5,8 @@ using Distributions
 using Statistics
 using Random
 
-#import 
-import StatsBase
+#import (to add definitions)
+import StatsBase: mean, var, cov,sample
 
 ## Exports
 
@@ -284,7 +284,7 @@ optional and defaults to 1.
 """
 function sample_distribution(rng::AbstractRNG, d::Samples, n_draws::IT) where {IT <: Integer}
     n_stored_samples = n_samples(d)
-    samples_idx = StatsBase.sample(rng, collect(1:n_stored_samples), n_draws)
+    samples_idx = sample(rng, collect(1:n_stored_samples), n_draws)
     if dimension(d) == 1
         return reshape(d.distribution_samples[:, samples_idx], :, n_draws) #columns are parameters
     else
@@ -350,9 +350,9 @@ end
     var(pd::ParameterDistribution)
 Returns a flattened variance of the distributions
 """
-StatsBase.var(d::Parameterized) = var(d.distribution)
-StatsBase.var(d::Samples) = var(d.distribution_samples)
-function StatsBase.var(pd::ParameterDistribution)
+var(d::Parameterized) = var(d.distribution)
+var(d::Samples) = var(d.distribution_samples)
+function var(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
     block_var = Array{Any}(size(d_dims)[1])
     
@@ -368,9 +368,9 @@ end
 
 Returns a dense blocked (co)variance of the distributions.
 """
-StatsBase.cov(d::Parameterized) = cov(d.distribution)
-StatsBase.cov(d::Samples) = cov(d.distribution_samples, dims = 2) #parameters are columns
-function StatsBase.cov(pd::ParameterDistribution)
+cov(d::Parameterized) = cov(d.distribution)
+cov(d::Samples) = cov(d.distribution_samples, dims = 2) #parameters are columns
+function cov(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
     
     # create each block (co)variance
@@ -387,15 +387,15 @@ function StatsBase.cov(pd::ParameterDistribution)
 
 end
 
-#extending StatsBase.mean
+#extending mean
 """
     mean(pd::ParameterDistribution)
 
 Returns a concatenated mean of the parameter distributions. 
 """
-StatsBase.mean(d::Parameterized) = mean(d.distribution)
-StatsBase.mean(d::Samples) = mean(d.distribution_samples, dims = 2)
-function StatsBase.mean(pd::ParameterDistribution)
+mean(d::Parameterized) = mean(d.distribution)
+mean(d::Samples) = mean(d.distribution_samples, dims = 2)
+function mean(pd::ParameterDistribution)
     return cat([mean(d) for d in pd.distributions]..., dims = 1)
 end
 

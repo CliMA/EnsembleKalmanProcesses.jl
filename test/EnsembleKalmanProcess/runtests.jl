@@ -51,10 +51,10 @@ const EKP = EnsembleKalmanProcesses
     prior_names = ["u1", "u2"]
     prior = ParameterDistribution(prior_distns, constraints, prior_names)
 
-    prior_mean = get_mean(prior)
+    prior_mean = mean(prior)
 
     # Assuming independence of u1 and u2
-    prior_cov = get_cov(prior) #convert(Array, Diagonal([sqrt(2.), sqrt(2.)]))
+    prior_cov = cov(prior) #convert(Array, Diagonal([sqrt(2.), sqrt(2.)]))
 
 
     @testset "EnsembleKalmanSampler" begin
