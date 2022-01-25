@@ -6,7 +6,7 @@ using Statistics
 using Random
 
 #import (to add definitions)
-import StatsBase: mean, var, cov,sample
+import StatsBase: mean, var, cov, sample
 
 ## Exports
 
@@ -355,12 +355,12 @@ var(d::Samples) = var(d.distribution_samples)
 function var(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
     block_var = Array{Any}(size(d_dims)[1])
-    
+
     for (i, dimension) in enumerate(d_dims)
-            block_var[i] = var(pd.distributions[i])
+        block_var[i] = var(pd.distributions[i])
     end
     return cat(block_var..., dims = 1) #build the flattened vector
-    
+
 end
 
 """
@@ -372,7 +372,7 @@ cov(d::Parameterized) = cov(d.distribution)
 cov(d::Samples) = cov(d.distribution_samples, dims = 2) #parameters are columns
 function cov(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
-    
+
     # create each block (co)variance
     block_cov = Array{Any}(undef, size(d_dims)[1])
     for (i, dimension) in enumerate(d_dims)
