@@ -351,10 +351,10 @@ end
 Returns a flattened variance of the distributions
 """
 var(d::Parameterized) = var(d.distribution)
-var(d::Samples) = var(d.distribution_samples)
+var(d::Samples) = var(d.distribution_samples, dims = 2)
 function var(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
-    block_var = Array{Any}(size(d_dims)[1])
+    block_var = Array{Any}(undef,size(d_dims)[1])
 
     for (i, dimension) in enumerate(d_dims)
         block_var[i] = var(pd.distributions[i])
