@@ -7,7 +7,7 @@ using Random
 
 #import (to add definitions)
 import StatsBase: mean, var, cov, sample
-
+import Base: size, length
 ## Exports
 
 #types
@@ -120,14 +120,21 @@ function bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real}
     return Constraint(c_to_u, u_to_c)
 end
 
+#extending Base.length
 """
-    len(c::Array{CType})
+    length(c<:ConstraintType)
 
-The number of constraints, each constraint has length 1.
+A constraint has length 1. 
 """
-len(c::CType) where {CType <: ConstraintType} = 1
+length(c::CType) where {CType <: ConstraintType} = length([c])
 
-len(carray::Array{CType}) where {CType <: ConstraintType} = size(carray)[1]
+#extending Base.size
+"""
+    size(c<:ConstraintType)
+
+A constraint has size 1.
+"""
+size(c::CType) where {CType <: ConstraintType} = size([c])
 
 """
     get_dimensions(d<:ParametrizedDistributionType)
@@ -139,7 +146,7 @@ dimension(d::Parameterized) = length(d.distribution)
 dimension(d::Samples) = size(d.distribution_samples)[1]
 
 """
-    n_samples(d::Samples)
+    n_samples(d<:Samples)
 
 The number of samples in the array.
 """
@@ -170,7 +177,7 @@ struct ParameterDistribution{PDType <: ParameterDistributionType, CType <: Const
         constraints = isa(constraints, Union{<:ConstraintType, Array{<:ConstraintType}}) ? [constraints] : constraints #to calc n_constraints_per_dist
         names = isa(names, ST) ? [names] : names
 
-        n_constraints_per_dist = [len(c) for c in constraints]
+        n_constraints_per_dist = [length(c) for c in constraints]
         n_dists = length(parameter_distributions)
         n_names = length(names)
         if !(n_parameters_per_dist == n_constraints_per_dist)

@@ -8,13 +8,14 @@ CurrentModule = EnsembleKalmanProcesses.ParameterDistributions
 Parameterized
 Samples
 Constraint
+ParameterDistribution
 no_constraint
 bounded_below
 bounded_above
 bounded
-len
+length(c::CType) where {CType <: ConstraintType}
+size(c::CType) where {CType <: ConstraintType}
 n_samples
-ParameterDistribution
 get_name
 get_dimensions
 get_n_samples

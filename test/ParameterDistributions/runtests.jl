@@ -48,6 +48,9 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test isapprox(c4.constrained_to_unconstrained(5.0) - c_to_u(5.0), 0)
         @test isapprox(c4.unconstrained_to_constrained(5.0) - u_to_c(5.0), 0)
 
+        #length, size
+        @test length(c1) == 1
+        @test size(c1) == (1,)
 
     end
 
