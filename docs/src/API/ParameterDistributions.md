@@ -23,8 +23,9 @@ batch
 get_distribution
 sample_distribution
 get_logpdf
-get_cov
-get_mean
+mean
+var
+cov
 transform_constrained_to_unconstrained
 transform_unconstrained_to_constrained
 ```
