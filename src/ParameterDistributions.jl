@@ -42,11 +42,11 @@ end
 A distribution comprised of only samples, stored as columns of parameters.
 """
 struct Samples{FT <: Real} <: ParameterDistributionType
-    distribution_samples::Array{FT, 2} #parameters are columns
-    Samples(distribution_samples::Array{FT, 2}; params_are_columns = true) where {FT <: Real} =
+    distribution_samples::AbstractMatrix{FT} #parameters are columns
+    Samples(distribution_samples::AbstractMatrix{FT}; params_are_columns = true) where {FT <: Real} =
         params_are_columns ? new{FT}(distribution_samples) : new{FT}(permutedims(distribution_samples, (2, 1)))
     #Distinguish 1 sample of an ND parameter or N samples of 1D parameter, and store as 2D array  
-    Samples(distribution_samples::Array{FT, 1}; params_are_columns = true) where {FT <: Real} =
+    Samples(distribution_samples::AbstractVector{FT}; params_are_columns = true) where {FT <: Real} =
         params_are_columns ? new{FT}(reshape(distribution_samples, 1, :)) : new{FT}(reshape(distribution_samples, :, 1))
 end
 
@@ -322,9 +322,9 @@ sample_distribution(d::Parameterized) = sample_distribution(Random.GLOBAL_RNG, d
 Obtains the independent logpdfs of the parameter distributions at `xarray`
 (non-Samples Distributions only), and returns their sum.
 """
-get_logpdf(d::Parameterized, xarray::Array{FT, 1}) where {FT <: Real} = logpdf.(d.distribution, xarray)
+get_logpdf(d::Parameterized, xarray::AbstractVector{FT}) where {FT <: Real} = logpdf.(d.distribution, xarray)
 
-function get_logpdf(pd::ParameterDistribution, xarray::Array{FT, 1}) where {FT <: Real}
+function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT <: Real}
     #first check we don't have sampled distribution
     for d in pd.distributions
         if typeof(d) <: Samples
@@ -411,7 +411,10 @@ end
 
 Apply the transformation to map (possibly constrained) parameters `xarray` into the unconstrained space.
 """
-function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{FT, 1}) where {FT <: Real}
+function transform_constrained_to_unconstrained(
+    pd::ParameterDistribution,
+    xarray::AbstractVector{FT},
+) where {FT <: Real}
     return cat([c.constrained_to_unconstrained(xarray[i]) for (i, c) in enumerate(pd.constraints)]..., dims = 1)
 end
 
@@ -421,7 +424,10 @@ end
 Apply the transformation to map (possibly constrained) parameter samples `xarray` into the unconstrained space.
 Here, `xarray` contains parameters as columns and samples as rows.
 """
-function transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{FT, 2}) where {FT <: Real}
+function transform_constrained_to_unconstrained(
+    pd::ParameterDistribution,
+    xarray::AbstractMatrix{FT},
+) where {FT <: Real}
     return Array(hcat([c.constrained_to_unconstrained.(xarray[i, :]) for (i, c) in enumerate(pd.constraints)]...)')
 end
 
@@ -430,7 +436,10 @@ end
 
 Apply the transformation to map parameters `xarray` from the unconstrained space into (possibly constrained) space.
 """
-function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{FT, 1}) where {FT <: Real}
+function transform_unconstrained_to_constrained(
+    pd::ParameterDistribution,
+    xarray::AbstractVector{FT},
+) where {FT <: Real}
     return cat([c.unconstrained_to_constrained(xarray[i]) for (i, c) in enumerate(pd.constraints)]..., dims = 1)
 end
 
@@ -440,7 +449,10 @@ end
 Apply the transformation to map parameter samples `xarray` from the unconstrained space into (possibly constrained) space.
 Here, `xarray` contains parameters as columns and samples as rows.
 """
-function transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{FT, 2}) where {FT <: Real}
+function transform_unconstrained_to_constrained(
+    pd::ParameterDistribution,
+    xarray::AbstractMatrix{FT},
+) where {FT <: Real}
     return Array(hcat([c.unconstrained_to_constrained.(xarray[i, :]) for (i, c) in enumerate(pd.constraints)]...)')
 end
 
@@ -448,11 +460,11 @@ end
     transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{Array{<:Real,2},1})
 
 Apply the transformation to map parameter sample ensembles `xarray` from the unconstrained space into (possibly constrained) space.
-Here, `xarray` contains parameters sample ensembles for different EKP iterations.
+Here, `xarray` is an iterable of parameters sample ensembles for different EKP iterations.
 """
 function transform_unconstrained_to_constrained(
     pd::ParameterDistribution,
-    xarray::Array{Array{FT, 2}, 1},
+    xarray, # ::Iterable{AbstractMatrix{FT}},
 ) where {FT <: Real}
     transf_xarray = []
     for elem in xarray

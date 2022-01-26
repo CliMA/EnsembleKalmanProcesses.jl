@@ -20,8 +20,10 @@ const EKP = EnsembleKalmanProcesses
     n_par = 2                  # Number of parameteres
     u_star = [-1.0, 2.0]          # True parameters
     noise_level = 0.05            # Defining the observation noise level (std) 
-    Γy = noise_level^2 * Matrix(I, n_obs, n_obs) # Independent noise for synthetic observations
-    noise = MvNormal(zeros(n_obs), Γy)
+    # Test different AbstractMatrices
+    Γy_vec =
+        [noise_level^2 * I, noise_level^2 * Matrix(I, n_obs, n_obs), noise_level^2 * Diagonal(Matrix(I, n_obs, n_obs))]
+    noise = MvNormal(zeros(n_obs), Γy_vec[1])
     C = [1 -.9; -.9 1]          # Correlation structure for linear operator
     A = rand(rng, MvNormal(zeros(2,), C), n_obs)'    # Linear operator in R^{n_par x n_obs}
 
@@ -68,28 +70,32 @@ const EKP = EnsembleKalmanProcesses
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         @test size(initial_ensemble) == (n_par, N_ens)
 
-        global eksobj =
-            EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov); rng = rng)
+        # Global scope to compare against EKI
+        global eks_final_result = nothing
+        global eksobj = nothing
+        for Γy in Γy_vec
+            eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov); rng = rng)
 
-        g_ens = G(get_u_final(eksobj))
-        @test size(g_ens) == (n_obs, N_ens)
-        # as the columns of g are the data, this should throw an error
-        g_ens_t = permutedims(g_ens, (2, 1))
+            g_ens = G(get_u_final(eksobj))
+            @test size(g_ens) == (n_obs, N_ens)
+            # as the columns of g are the data, this should throw an error
 
-        # EKS iterations
-        for i in 1:N_iter
-            params_i = get_u_final(eksobj)
-            g_ens = G(params_i)
-            if i == 1
-                g_ens_t = permutedims(g_ens, (2, 1))
-                @test_throws DimensionMismatch EKP.update_ensemble!(eksobj, g_ens_t)
+            # EKS iterations
+            for i in 1:N_iter
+                params_i = get_u_final(eksobj)
+                g_ens = G(params_i)
+                if i == 1
+                    g_ens_t = permutedims(g_ens, (2, 1))
+                    @test_throws DimensionMismatch EKP.update_ensemble!(eksobj, g_ens_t)
+                end
+
+                EKP.update_ensemble!(eksobj, g_ens)
             end
 
-            EKP.update_ensemble!(eksobj, g_ens)
+            eks_final_result = vec(mean(get_u_final(eksobj), dims = 2))
         end
-        # Plot evolution of the EKS particles
-        global eks_final_result = vec(mean(get_u_final(eksobj), dims = 2))
 
+        # Plot evolution of the EKS particles
         if TEST_PLOT_OUTPUT
             gr()
             p = plot(
@@ -124,47 +130,51 @@ const EKP = EnsembleKalmanProcesses
 
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
-        ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(); rng = rng)
+        ekiobj = nothing
+        eki_final_result = nothing
+        for Γy in Γy_vec
+            ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(); rng = rng)
 
-        # some checks 
-        g_ens = G(get_u_final(ekiobj))
-        @test size(g_ens) == (n_obs, N_ens)
-        # as the columns of g are the data, this should throw an error
-        g_ens_t = permutedims(g_ens, (2, 1))
-        @test_throws DimensionMismatch find_ekp_stepsize(ekiobj, g_ens_t)
-        Δ = find_ekp_stepsize(ekiobj, g_ens)
-        # huge collapse for linear problem so should find timestep should < 1
-        @test Δ < 1
-        # NOTE We don't use this info, this is just for the test.
+            # some checks 
+            g_ens = G(get_u_final(ekiobj))
+            @test size(g_ens) == (n_obs, N_ens)
+            # as the columns of g are the data, this should throw an error
+            g_ens_t = permutedims(g_ens, (2, 1))
+            @test_throws DimensionMismatch find_ekp_stepsize(ekiobj, g_ens_t)
+            Δ = find_ekp_stepsize(ekiobj, g_ens)
+            # huge collapse for linear problem so should find timestep should < 1
+            @test Δ < 1
+            # NOTE We don't use this info, this is just for the test.
 
-        # EKI iterations
-        params_i_vec = []
-        g_ens_vec = []
-        for i in 1:N_iter
-            params_i = get_u_final(ekiobj)
-            push!(params_i_vec, params_i)
-            g_ens = G(params_i)
-            push!(g_ens_vec, g_ens)
-            if i == 1
-                g_ens_t = permutedims(g_ens, (2, 1))
-                @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
+            # EKI iterations
+            params_i_vec = []
+            g_ens_vec = []
+            for i in 1:N_iter
+                params_i = get_u_final(ekiobj)
+                push!(params_i_vec, params_i)
+                g_ens = G(params_i)
+                push!(g_ens_vec, g_ens)
+                if i == 1
+                    g_ens_t = permutedims(g_ens, (2, 1))
+                    @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
+                end
+                EKP.update_ensemble!(ekiobj, g_ens)
+
             end
-            EKP.update_ensemble!(ekiobj, g_ens)
+            push!(params_i_vec, get_u_final(ekiobj))
 
+            @test get_u_prior(ekiobj) == params_i_vec[1]
+            @test get_u(ekiobj) == params_i_vec
+            @test get_g(ekiobj) == g_ens_vec
+            @test get_g_final(ekiobj) == g_ens_vec[end]
+            @test get_error(ekiobj) == ekiobj.err
+
+            # EKI results: Test if ensemble has collapsed toward the true parameter 
+            # values
+            eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
+            eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
+            @test norm(u_star - eki_final_result) < norm(u_star - eki_init_result)
         end
-        push!(params_i_vec, get_u_final(ekiobj))
-
-        @test get_u_prior(ekiobj) == params_i_vec[1]
-        @test get_u(ekiobj) == params_i_vec
-        @test get_g(ekiobj) == g_ens_vec
-        @test get_g_final(ekiobj) == g_ens_vec[end]
-        @test get_error(ekiobj) == ekiobj.err
-
-        # EKI results: Test if ensemble has collapsed toward the true parameter 
-        # values
-        eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
-        eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
-        @test norm(u_star - eki_final_result) < norm(u_star - eki_init_result)
 
         # Plot evolution of the EKI particles
         #eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
@@ -190,23 +200,24 @@ const EKP = EnsembleKalmanProcesses
             savefig(p, "EKI_test.png")
         end
 
+        for Γy in Γy_vec
+            posterior_cov_inv = (A' * (Γy \ A) + 1 * Matrix(I, n_par, n_par) / prior_cov)
+            ols_mean = (A' * (Γy \ A)) \ (A' * (Γy \ y_obs))
+            posterior_mean = posterior_cov_inv \ ((A' * (Γy \ A)) * ols_mean + (prior_cov \ prior_mean))
 
-        posterior_cov_inv = (A' * (Γy \ A) + 1 * Matrix(I, n_par, n_par) / prior_cov)
-        ols_mean = (A' * (Γy \ A)) \ (A' * (Γy \ y_obs))
-        posterior_mean = posterior_cov_inv \ ((A' * (Γy \ A)) * ols_mean + (prior_cov \ prior_mean))
+            #### This tests correspond to:
+            # NOTE THESE ARE VERY SENSITIVE TO THE CORRESPONDING N_iter
+            # EKI provides a solution closer to the ordinary Least Squares estimate
+            @test norm(ols_mean - eki_final_result) < norm(ols_mean - eks_final_result)
+            # EKS provides a solution closer to the posterior mean
+            @test norm(posterior_mean - eks_final_result) < norm(posterior_mean - eki_final_result)
 
-        #### This tests correspond to:
-        # NOTE THESE ARE VERY SENSITIVE TO THE CORRESPONDING N_iter
-        # EKI provides a solution closer to the ordinary Least Squares estimate
-        @test norm(ols_mean - eki_final_result) < norm(ols_mean - eks_final_result)
-        # EKS provides a solution closer to the posterior mean
-        @test norm(posterior_mean - eks_final_result) < norm(posterior_mean - eki_final_result)
-
-        ##### I expect this test to make sense:
-        # In words: the ensemble covariance is still a bit ill-dispersed since the
-        # algorithm employed still does not include the correction term for finite-sized
-        # ensembles.
-        @test abs(sum(diag(posterior_cov_inv \ cov(get_u_final(eksobj), dims = 2))) - n_par) > 1e-5
+            ##### I expect this test to make sense:
+            # In words: the ensemble covariance is still a bit ill-dispersed since the
+            # algorithm employed still does not include the correction term for finite-sized
+            # ensembles.
+            @test abs(sum(diag(posterior_cov_inv \ cov(get_u_final(eksobj), dims = 2))) - n_par) > 1e-5
+        end
     end
 
 
@@ -219,6 +230,10 @@ const EKP = EnsembleKalmanProcesses
         α_reg = 1.0
         update_freq = 0
         process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
+
+        ukiobj = nothing
+
+        Γy = Γy_vec[3]
         ukiobj = EKP.EnsembleKalmanProcess(y_star, Γy, process; rng = rng)
 
         # UKI iterations
@@ -253,6 +268,7 @@ const EKP = EnsembleKalmanProcesses
         uki_init_result = vec(mean(get_u_prior(ukiobj), dims = 2))
         uki_final_result = get_u_mean_final(ukiobj)
         @test norm(u_star - uki_final_result) < norm(u_star - uki_init_result)
+        # end
 
         if TEST_PLOT_OUTPUT
             gr()
@@ -308,18 +324,25 @@ const EKP = EnsembleKalmanProcesses
         rng_seed = 42
         rng = Random.MersenneTwister(rng_seed)
 
+        n_obs = 1
+        n_par = 2
         N_ens = 20 # number of ensemble members
         N_iter = 5 # number of EKI iterations
+        Γy_vec = [noise_level * Matrix(I, n_obs, n_obs), noise_level * I]
+
+        # Sparse EKI parameters
+        γ = 1.0
+        reg = 1e-4
+        uc_idx = [1, 2]
+
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         @test size(initial_ensemble) == (n_par, N_ens)
 
-        for (threshold_eki, threshold_value, test_name) in ((false, 1e-2, "test"), (true, 1e-2, "test_thresholded"))
+        thresholds_eki = [false, true]
+        threshold_values = [1e-2, 1e-2]
+        test_names = ["test", "test_thresholded"]
 
-            # Sparse EKI parameters
-            γ = 1.0
-            reg = 1e-4
-            uc_idx = [1, 2]
-
+        for (threshold_eki, threshold_value, test_name, Γy) in zip(thresholds_eki, threshold_values, test_names, Γy_vec)
             process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
 
             ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, process; rng = rng)

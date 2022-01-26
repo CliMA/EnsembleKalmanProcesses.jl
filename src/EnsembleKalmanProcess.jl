@@ -35,7 +35,7 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     "vector of the observed vector size [`N_obs`]"
     obs_mean::Vector{FT}
     "covariance matrix of the observational noise, of size [`N_obs × N_obs`]"
-    obs_noise_cov::Array{FT, 2}
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}}
     "ensemble size"
     N_ens::IT
     "Array of stores for forward model outputs, each of size  [`N_obs × N_ens`]"
@@ -53,9 +53,9 @@ end
 # outer constructors
 """
     EnsembleKalmanProcess(
-        params::Array{FT, 2},
+        params::AbstractMatrix{FT},
         obs_mean,
-        obs_noise_cov::Array{FT, 2},
+        obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
         process::P;
         Δt = FT(1),
         rng::AbstractRNG = Random.GLOBAL_RNG
@@ -64,9 +64,9 @@ end
 Ensemble Kalman process constructor.
 """
 function EnsembleKalmanProcess(
-    params::Array{FT, 2},
+    params::AbstractMatrix{FT},
     obs_mean,
-    obs_noise_cov::Array{FT, 2},
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
     process::P;
     Δt = FT(1),
     rng::AbstractRNG = Random.GLOBAL_RNG,

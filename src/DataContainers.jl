@@ -16,9 +16,9 @@ Container to store data samples as columns in an array.
 """
 struct DataContainer{FT <: Real}
     #stored data, each piece of data is a column [data dimension × number samples]
-    stored_data::Array{FT, 2}
+    stored_data::AbstractMatrix{FT}
     #constructor with 2D arrays
-    function DataContainer(stored_data::Array{FT, 2}; data_are_columns = true) where {FT <: Real}
+    function DataContainer(stored_data::AbstractMatrix{FT}; data_are_columns = true) where {FT <: Real}
 
         if data_are_columns
             new{FT}(stored_data)
@@ -41,8 +41,8 @@ struct PairedDataContainer{FT <: Real}
 
     #constructor with 2D Arrays
     function PairedDataContainer(
-        inputs::Array{FT, 2},
-        outputs::Array{FT, 2};
+        inputs::AbstractMatrix{FT},
+        outputs::AbstractMatrix{FT};
         data_are_columns = true,
     ) where {FT <: Real}
 
