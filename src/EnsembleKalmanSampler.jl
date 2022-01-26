@@ -9,12 +9,12 @@ struct Sampler{FT <: AbstractFloat} <: Process
     ""
     prior_mean::Vector{FT}
     ""
-    prior_cov::Array{FT, 2}
+    prior_cov::AbstractMatrix{FT}
 end
 
 
 
-function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}}, g_in::Array{FT, 2}) where {FT, IT}
+function update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}}, g_in::AbstractMatrix{FT}) where {FT, IT}
 
     #catch works when g_in non-square 
     if !(size(g_in)[2] == ekp.N_ens)
