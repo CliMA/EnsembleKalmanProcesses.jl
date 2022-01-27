@@ -7,7 +7,7 @@ using Random
 
 #import (to add definitions)
 import StatsBase: mean, var, cov, sample
-import Base: size, length
+import Base: size, length, ndims
 ## Exports
 
 #types
@@ -137,13 +137,13 @@ A constraint has size 1.
 size(c::CType) where {CType <: ConstraintType} = size([c])
 
 """
-    get_dimensions(d<:ParametrizedDistributionType)
+    ndims(d<:ParametrizedDistributionType)
 
 The number of dimensions of the parameter space
 """
-dimension(d::Parameterized) = length(d.distribution)
+ndims(d::Parameterized) = length(d.distribution)
 
-dimension(d::Samples) = size(d.distribution_samples)[1]
+ndims(d::Samples) = size(d.distribution_samples)[1]
 
 """
     n_samples(d<:Samples)
@@ -152,8 +152,7 @@ The number of samples in the array.
 """
 n_samples(d::Samples) = size(d.distribution_samples)[2]
 
-n_samples(d::Parameterized) =
-    "Distribution stored in Parameterized form, draw samples using `sample` function"
+n_samples(d::Parameterized) = "Distribution stored in Parameterized form, draw samples using `sample` function"
 
 """
     ParameterDistribution
@@ -173,7 +172,7 @@ struct ParameterDistribution{PDType <: ParameterDistributionType, CType <: Const
 
         parameter_distributions =
             isa(parameter_distributions, PDType) ? [parameter_distributions] : parameter_distributions
-        n_parameters_per_dist = [dimension(pd) for pd in parameter_distributions]
+        n_parameters_per_dist = [ndims(pd) for pd in parameter_distributions]
         constraints = isa(constraints, Union{<:ConstraintType, Array{<:ConstraintType}}) ? [constraints] : constraints #to calc n_constraints_per_dist
         names = isa(names, ST) ? [names] : names
 
@@ -210,11 +209,11 @@ get_name(pd::ParameterDistribution) = pd.names
 The number of dimensions of the parameter space.
 """
 function get_dimensions(pd::ParameterDistribution)
-    return [dimension(d) for d in pd.distributions]
+    return [ndims(d) for d in pd.distributions]
 end
 
 function get_total_dimension(pd::ParameterDistribution)
-    return sum(dimension(d) for d in pd.distributions)
+    return sum(get_dimensions(pd))
 end
 
 """
@@ -277,8 +276,7 @@ function sample(rng::AbstractRNG, pd::ParameterDistribution, n_draws::IT) where 
 end
 
 # define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
-sample(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer} =
-    sample(Random.GLOBAL_RNG, pd, n_draws)
+sample(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer} = sample(Random.GLOBAL_RNG, pd, n_draws)
 sample(rng::AbstractRNG, pd::ParameterDistribution) = sample(rng, pd, 1)
 sample(pd::ParameterDistribution) = sample(Random.GLOBAL_RNG, pd, 1)
 
@@ -292,7 +290,7 @@ optional and defaults to 1.
 function sample(rng::AbstractRNG, d::Samples, n_draws::IT) where {IT <: Integer}
     n_stored_samples = n_samples(d)
     samples_idx = sample(rng, collect(1:n_stored_samples), n_draws)
-    if dimension(d) == 1
+    if ndims(d) == 1
         return reshape(d.distribution_samples[:, samples_idx], :, n_draws) #columns are parameters
     else
         return d.distribution_samples[:, samples_idx]
@@ -312,7 +310,7 @@ parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n
 optional and defaults to 1. 
 """
 function sample(rng::AbstractRNG, d::Parameterized, n_draws::IT) where {IT <: Integer}
-    if dimension(d) == 1
+    if ndims(d) == 1
         return reshape(rand(rng, d.distribution, n_draws), :, n_draws) #columns are parameters
     else
         return rand(rng, d.distribution, n_draws)
@@ -320,8 +318,7 @@ function sample(rng::AbstractRNG, d::Parameterized, n_draws::IT) where {IT <: In
 end
 
 # define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
-sample(d::Parameterized, n_draws::IT) where {IT <: Integer} =
-    sample(Random.GLOBAL_RNG, d, n_draws)
+sample(d::Parameterized, n_draws::IT) where {IT <: Integer} = sample(Random.GLOBAL_RNG, d, n_draws)
 sample(rng::AbstractRNG, d::Parameterized) = sample(rng, d, 1)
 sample(d::Parameterized) = sample(Random.GLOBAL_RNG, d, 1)
 
