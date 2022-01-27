@@ -25,11 +25,11 @@ struct Observation{FT <: AbstractFloat}
     are the variances of the samples, or to a scalar variance in the case of 
     1d samples. `obs_noise_cov` is set to nothing if only a single sample is 
     provided."
-    obs_noise_cov::Union{Array{FT, 2}, FT, Nothing}
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}, FT, Nothing}
     "sample mean"
-    mean::Union{Vector{FT}, FT}
+    mean::Union{AbstractVector{FT}, FT}
     "names of the data"
-    data_names::Union{Vector{String}, String}
+    data_names::Union{AbstractVector{String}, String}
 end
 
 # Constructors
@@ -59,7 +59,10 @@ function Observation(samples::Vector{Vector{FT}}, data_names::Union{Vector{Strin
     Observation(samples, obs_noise_cov, samplemean, data_names)
 end
 
-function Observation(samples::Array{FT, 2}, data_names::Union{Vector{String}, String}) where {FT <: AbstractFloat}
+function Observation(
+    samples::AbstractMatrix{FT},
+    data_names::Union{AbstractVector{String}, String},
+) where {FT <: AbstractFloat}
 
     # samples is of size sample_dim x N_samples
     sample_dim, N_samples = size(samples)
@@ -89,8 +92,8 @@ end
 
 function Observation(
     samples::Vector{Vector{FT}},
-    obs_noise_cov::Array{FT, 2},
-    data_names::Union{Vector{String}, String},
+    obs_noise_cov::AbstractMatrix{FT},
+    data_names::Union{AbstractVector{String}, String},
 ) where {FT <: AbstractFloat}
 
     N_samples = length(samples)
@@ -126,9 +129,9 @@ function Observation(
 end
 
 function Observation(
-    samples::Array{FT, 2},
-    obs_noise_cov::Union{Array{FT, 2}, Nothing},
-    data_names::Union{Vector{String}, String},
+    samples::AbstractMatrix{FT},
+    obs_noise_cov::Union{AbstractMatrix{FT}, Nothing},
+    data_names::Union{AbstractVector{String}, String},
 ) where {FT <: AbstractFloat}
 
     # samples is of size sample_dim x N_samples

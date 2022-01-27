@@ -6,24 +6,24 @@
 An unscented Kalman Inversion process.
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
-    "a vector of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added)"
-    u_mean::Vector{Vector{FT}}
-    "a vector of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added)"
-    uu_cov::Vector{Matrix{FT}}
-    "a vector of arrays of size `N_y` containing the predicted observation (in each `uki` iteration a new array of predicted observation is added)"
-    obs_pred::Vector{Vector{FT}}
+    "an interable of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added)"
+    u_mean  # ::Iterable{AbtractVector{FT}}
+    "an iterable of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added)"
+    uu_cov  # ::Iterable{AbstractMatrix{FT}}
+    "an iterable of arrays of size `N_y` containing the predicted observation (in each `uki` iteration a new array of predicted observation is added)"
+    obs_pred # ::Iterable{AbstractVector{FT}}
     "weights in UKI"
-    c_weights::Vector{FT}
-    mean_weights::Vector{FT}
-    cov_weights::Vector{FT}
+    c_weights::AbstractVector{FT}
+    mean_weights::AbstractVector{FT}
+    cov_weights::AbstractVector{FT}
     "covariance of the artificial evolution error"
-    Σ_ω::Matrix{FT}
+    Σ_ω::AbstractMatrix{FT}
     "covariance of the artificial observation error"
     Σ_ν_scale::FT
     "regularization parameter"
     α_reg::FT
     "regularization vector"
-    r::Vector{FT}
+    r::AbstractVector{FT}
     "update frequency"
     update_freq::IT
     "current iteration number"
@@ -34,8 +34,8 @@ end
 
 # outer constructors
 function EnsembleKalmanProcess(
-    obs_mean::Vector{FT},
-    obs_noise_cov::Matrix{FT},
+    obs_mean::AbstractVector{FT},
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
     process::Unscented{FT, IT};
     Δt = FT(1),
     rng::AbstractRNG = Random.GLOBAL_RNG,
@@ -61,12 +61,12 @@ end
 
 """
     Unscented(
-        u0_mean::Vector{FT},
-        uu0_cov::Matrix{FT},
-        α_reg::FT = 1.0;
+        u0_mean::AbstractVector{FT},
+        uu0_cov::AbstractMatrix{FT};
+        α_reg::FT = 1.0,
         update_freq::IT = 1,
         modified_unscented_transform::Bool = true,
-        prior_mean::Union{Vector{FT}, Nothing} = nothing,
+        prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
     ) where {FT <: AbstractFloat, IT <: Int}
 
 Construct an Unscented Inversion EnsembleKalmanProcess.
@@ -90,12 +90,12 @@ Arguments
   - `prior_mean`: Prior mean used for regularization.
 """
 function Unscented(
-    u0_mean::Vector{FT},
-    uu0_cov::Matrix{FT};
+    u0_mean::AbstractVector{FT},
+    uu0_cov::AbstractMatrix{FT};
     α_reg::FT = 1.0,
     update_freq::IT = 1,
     modified_unscented_transform::Bool = true,
-    prior_mean::Union{Vector{FT}, Nothing} = nothing,
+    prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
 
     N_u = size(u0_mean, 1)
@@ -156,15 +156,15 @@ end
     construct_sigma_ensemble(
         process::Unscented,
         x_mean::Array{FT},
-        x_cov::Matrix{FT},
+        x_cov::AbstractMatrix{FT},
     ) where {FT <: AbstractFloat, IT <: Int}
 
 Construct the sigma ensemble based on the mean `x_mean` and covariance `x_cov`.
 """
 function construct_sigma_ensemble(
     process::Unscented,
-    x_mean::Array{FT},
-    x_cov::Matrix{FT},
+    x_mean::AbstractVector{FT},
+    x_cov::AbstractMatrix{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
 
     N_x = size(x_mean, 1)
@@ -189,10 +189,10 @@ construct_mean `x_mean` from ensemble `x`.
 """
 function construct_mean(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Union{Vector{FT}, Matrix{FT}},
+    x::AbstractVecOrMat{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
 
-    if isa(x, Matrix{FT})
+    if isa(x, AbstractMatrix{FT})
         _, N_ens = size(x)
         @assert(uki.N_ens == N_ens)
         return Array((uki.process.mean_weights' * x')')
@@ -208,16 +208,16 @@ construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Union{Matrix{FT}, Vector{FT}},
-    x_mean::Union{FT, Array{FT}, Nothing} = nothing,
+    x::AbstractVecOrMat{FT},
+    x_mean::Union{FT, AbstractVector{FT}, Nothing} = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
 
     cov_weights = uki.process.cov_weights
 
     x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
 
-    if isa(x, Matrix{FT})
-        @assert isa(x_mean, Vector{FT})
+    if isa(x, AbstractMatrix{FT})
+        @assert isa(x_mean, AbstractVector{FT})
         N_ens, N_x = uki.N_ens, size(x_mean, 1)
         xx_cov = zeros(FT, N_x, N_x)
 
@@ -240,10 +240,10 @@ construct_cov `xy_cov` from ensemble x and mean `x_mean`, ensemble `obs_mean` an
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Matrix{FT},
-    x_mean::Array{FT},
-    obs_mean::Matrix{FT},
-    y_mean::Array{FT},
+    x::AbstractMatrix{FT},
+    x_mean::AbstractVector{FT},
+    obs_mean::AbstractMatrix{FT},
+    y_mean::AbstractVector{FT},
 ) where {FT <: AbstractFloat, IT <: Int, P <: Process}
     N_ens, N_x, N_y = uki.N_ens, size(x_mean, 1), size(y_mean, 1)
 
@@ -294,8 +294,8 @@ g is the predicted observations  `Ny x N_ens` matrix
 """
 function update_ensemble_analysis!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    u_p::Matrix{FT},
-    g::Matrix{FT},
+    u_p::AbstractMatrix{FT},
+    g::AbstractMatrix{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
 
     obs_mean = uki.obs_mean
@@ -329,7 +329,7 @@ end
 
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    g_in::Matrix{FT},
+    g_in::AbstractMatrix{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
     #catch works when g_in non-square 
     if !(size(g_in)[2] == uki.N_ens)
@@ -368,8 +368,8 @@ end
 
 
 function Gaussian_2d(
-    u_mean::Vector{FT},
-    uu_cov::Matrix{FT},
+    u_mean::AbstractVector{FT},
+    uu_cov::AbstractMatrix{FT},
     Nx::IT,
     Ny::IT;
     xx = nothing,

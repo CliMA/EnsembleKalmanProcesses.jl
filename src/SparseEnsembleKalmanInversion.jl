@@ -17,14 +17,14 @@ struct SparseInversion{FT <: AbstractFloat, IT <: Int} <: Process
     "a small value for regularization to enhance robustness of convex optimization"
     reg::FT
     "a list of index to indicate the parameters included in the evaluation of l1-norm"
-    uc_idx::Vector{IT}
+    uc_idx::AbstractVector{IT}
 end
 
 """
     sparse_qp(
         ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT,IT}},
         v_j::Vector{FT},
-        cov_vv_inv::Array{FT, 2},
+        cov_vv_inv::AbstractMatrix{FT},
         H_u::SparseArrays.SparseMatrixCSC{FT},
         H_g::SparseArrays.SparseMatrixCSC{FT},
         y_j::Vector{FT};
@@ -36,11 +36,11 @@ Solving quadratic programming problem with sparsity constraint.
 function sparse_qp(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
     v_j::Vector{FT},
-    cov_vv_inv::Array{FT, 2},
-    H_u::SparseArrays.SparseMatrixCSC{FT},
-    H_g::SparseArrays.SparseMatrixCSC{FT},
+    cov_vv_inv::AbstractMatrix{FT},
+    H_u::AbstractMatrix{FT},
+    H_g::AbstractMatrix{FT},
     y_j::Vector{FT};
-    H_uc::SparseArrays.SparseMatrixCSC{FT} = H_u,
+    H_uc::AbstractMatrix{FT} = H_u,
 ) where {FT, IT}
 
     P = H_g' * (ekp.obs_noise_cov \ H_g) + cov_vv_inv
@@ -76,7 +76,7 @@ Updates the ensemble according to which type of Process we have. Model outputs `
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
-    g::Array{FT, 2};
+    g::AbstractMatrix{FT};
     cov_threshold::FT = 0.01,
     Δt_new = nothing,
     deterministic_forward_map = true,

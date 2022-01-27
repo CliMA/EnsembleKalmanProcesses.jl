@@ -8,14 +8,14 @@ An ensemble Kalman Inversion process
 struct Inversion <: Process end
 
 """
-    find_ekp_stepsize(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, g::Array{FT, 2}; cov_threshold::FT=0.01) where {FT}
+    find_ekp_stepsize(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, g::AbstractMatrix{FT}; cov_threshold::FT=0.01) where {FT}
 
 Find largest stepsize for the EK solver that leads to a reduction of the determinant of the sample
 covariance matrix no greater than cov_threshold. 
 """
 function find_ekp_stepsize(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
-    g::Array{FT, 2};
+    g::AbstractMatrix{FT};
     cov_threshold::FT = 0.01,
 ) where {FT, IT}
     accept_stepsize = false
@@ -48,7 +48,7 @@ Updates the ensemble according to which type of Process we have. Model outputs `
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
-    g::Array{FT, 2};
+    g::AbstractMatrix{FT};
     cov_threshold::FT = 0.01,
     Δt_new = nothing,
     deterministic_forward_map = true,
