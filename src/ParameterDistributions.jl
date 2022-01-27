@@ -143,7 +143,7 @@ The number of dimensions of the parameter space
 """
 ndims(d::Parameterized) = length(d.distribution)
 
-ndims(d::Samples) = size(d.distribution_samples)[1]
+ndims(d::Samples) = size(d.distribution_samples, 1)
 
 """
     n_samples(d<:Samples)
