@@ -22,7 +22,7 @@ get_n_samples
 get_all_constraints
 batch
 get_distribution
-sample_distribution
+sample
 get_logpdf
 mean
 var
