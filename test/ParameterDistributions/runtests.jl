@@ -242,6 +242,10 @@ using EnsembleKalmanProcesses.ParameterDistributions
         idx = StatsBase.sample(copy(rng1), collect(1:size(d2.distribution_samples)[2]), 1)
         s2 = d2.distribution_samples[:, idx]
         @test sample(copy(rng1), u2) == s2
+        @test sample(copy(rng1), u2, 1) == s2
+        @test sample(copy(rng1), d2) == s2
+        @test sample(copy(rng1), d2, 1) == s2
+
 
         # try it again with different RNG; use StableRNG since Random doesn't provide a 
         # second seedable algorithm on julia <=1.7
