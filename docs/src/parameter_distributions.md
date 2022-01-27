@@ -395,6 +395,6 @@ u = ParameterDistribution([d1, d2], [c1, c2], [name1, name2])
 These functions typically return a `Dict` with `ParameterDistribution.name` as a keys, or an `Array` if requested:
  - `get_name`: returns the names
  - `get_distribution`: returns the Julia Distribution object if it is `Parameterized`
- - `sample_distribution`: samples the Julia Distribution if `Parameterized`, or draws from the list of samples if `Samples`
+ - `mean, var, cov, sample`: mean,variance,covariance or samples the Julia Distribution if `Parameterized`, or draws from the list of samples if `Samples` extends the StatsBase definitions
  - `transform_unconstrained_to_constrained`: apply the constraint mappings
  - `transform_constrained_to_unconstrained`: apply the inverse constraint mappings

@@ -181,7 +181,7 @@ function construct_initial_ensemble(
     # Ensuring reproducibility of the sampled parameter values: re-seed GLOBAL_RNG if we're
     # given a seed, but if we got an explicit rng, we shouldn't re-seed it
     rng = isnothing(rng) ? Random.seed!(rng_seed) : rng
-    return sample_distribution(rng, prior, N_ens) #of size [dim(param space) N_ens]
+    return sample(rng, prior, N_ens) #of size [dim(param space) N_ens]
 end
 construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT) where {IT <: Int} =
     construct_initial_ensemble(prior, N_ens; rng = rng)

@@ -2,6 +2,7 @@ using Test
 using Distributions
 using StableRNGs
 using StatsBase
+using LinearAlgebra
 using Random
 
 using EnsembleKalmanProcesses.ParameterDistributions
@@ -47,6 +48,9 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test isapprox(c4.constrained_to_unconstrained(5.0) - c_to_u(5.0), 0)
         @test isapprox(c4.unconstrained_to_constrained(5.0) - u_to_c(5.0), 0)
 
+        #length, size
+        @test length(c1) == 1
+        @test size(c1) == (1,)
 
     end
 
@@ -104,9 +108,9 @@ using EnsembleKalmanProcesses.ParameterDistributions
         u = ParameterDistribution([d1, d2], [c1, c2], [name1, name2])
 
         # Test for get_dimension(s)
-        @test get_total_dimension(u1) == 4
-        @test get_total_dimension(u2) == 1
-        @test get_total_dimension(u) == 5
+        @test ndims(u1) == 4
+        @test ndims(u2) == 1
+        @test ndims(u) == 5
         @test get_dimensions(u1) == [4]
         @test get_dimensions(u2) == [1]
         @test get_dimensions(u) == [4, 1]
@@ -163,34 +167,34 @@ using EnsembleKalmanProcesses.ParameterDistributions
         Random.seed!(seed)
         s1 = rand(MvNormal(4, 0.1), 1)
         Random.seed!(seed)
-        @test sample_distribution(u1) == s1
+        @test sample(u1) == s1
 
         Random.seed!(seed)
         s1 = rand(MvNormal(4, 0.1), 3)
         Random.seed!(seed)
-        @test sample_distribution(u1, 3) == s1
+        @test sample(u1, 3) == s1
 
         Random.seed!(seed)
         idx = StatsBase.sample(collect(1:size(d2.distribution_samples)[2]), 1)
         s2 = d2.distribution_samples[:, idx]
         Random.seed!(seed)
-        @test sample_distribution(u2) == s2
+        @test sample(u2) == s2
 
         Random.seed!(seed)
         idx = StatsBase.sample(collect(1:size(d2.distribution_samples)[2]), 3)
         s2 = d2.distribution_samples[:, idx]
         Random.seed!(seed)
-        @test sample_distribution(u2, 3) == s2
+        @test sample(u2, 3) == s2
 
         Random.seed!(seed)
-        s1 = sample_distribution(u1, 3)
-        s2 = sample_distribution(u2, 3)
+        s1 = sample(u1, 3)
+        s2 = sample(u2, 3)
         Random.seed!(seed)
-        s = sample_distribution(u, 3)
+        s = sample(u, 3)
         @test s == cat([s1, s2]..., dims = 1)
 
         #Test for get_logpdf
-        @test_throws ErrorException get_logpdf(u, zeros(get_total_dimension(u)))
+        @test_throws ErrorException get_logpdf(u, zeros(ndims(u)))
         x_in_bd = [0.5]
         Random.seed!(seed)
         lpdf3 = logpdf.(Beta(2, 2), x_in_bd)[1] #throws deprecated warning without "."
@@ -198,12 +202,15 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test isapprox(get_logpdf(u3, x_in_bd) - lpdf3, 0.0; atol = 1e-6)
         @test_throws DimensionMismatch get_logpdf(u3, [0.5, 0.5])
 
-        #Test for get_cov, get_var        
-        block_cov = cat([get_cov(d1), get_var(d2), get_var(d3), get_cov(d4)]..., dims = (1, 2))
-        @test isapprox(get_cov(v) - block_cov, zeros(get_total_dimension(v), get_total_dimension(v)); atol = 1e-6)
-        #Test for get_mean
-        means = cat([get_mean(d1), get_mean(d2), get_mean(d3), get_mean(d4)]..., dims = 1)
-        @test isapprox(get_mean(v) - means, zeros(get_total_dimension(v)); atol = 1e-6)
+        #Test for cov, var        
+        block_cov = cat([cov(d1), var(d2), var(d3), cov(d4)]..., dims = (1, 2))
+        @test isapprox(cov(v) - block_cov, zeros(ndims(v), ndims(v)); atol = 1e-6)
+        block_var = [block_cov[i, i] for i in 1:size(block_cov)[1]]
+        @test isapprox(var(v) - block_var, zeros(ndims(v)); atol = 1e-6)
+
+        #Test for mean
+        means = cat([mean(d1), mean(d2), mean(d3), mean(d4)]..., dims = 1)
+        @test isapprox(mean(v) - means, zeros(ndims(v)); atol = 1e-6)
 
     end
 
@@ -226,54 +233,58 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         # Tests for sample distribution
         rng1 = Random.MersenneTwister(rng_seed)
-        @test sample_distribution(copy(rng1), d0) == rand(copy(rng1), test_d, 1)
-        @test sample_distribution(copy(rng1), d0, 3) == rand(copy(rng1), test_d, 3)
+        @test sample(copy(rng1), d0) == rand(copy(rng1), test_d, 1)
+        @test sample(copy(rng1), d0, 3) == rand(copy(rng1), test_d, 3)
 
-        @test sample_distribution(copy(rng1), u1) == rand(copy(rng1), test_d, 1)
-        @test sample_distribution(copy(rng1), u1, 3) == rand(copy(rng1), test_d, 3)
+        @test sample(copy(rng1), u1) == rand(copy(rng1), test_d, 1)
+        @test sample(copy(rng1), u1, 3) == rand(copy(rng1), test_d, 3)
 
         idx = StatsBase.sample(copy(rng1), collect(1:size(d2.distribution_samples)[2]), 1)
         s2 = d2.distribution_samples[:, idx]
-        @test sample_distribution(copy(rng1), u2) == s2
+        @test sample(copy(rng1), u2) == s2
+        @test sample(copy(rng1), u2, 1) == s2
+        @test sample(copy(rng1), d2) == s2
+        @test sample(copy(rng1), d2, 1) == s2
+
 
         # try it again with different RNG; use StableRNG since Random doesn't provide a 
         # second seedable algorithm on julia <=1.7
         rng2 = StableRNG(rng_seed)
-        @test sample_distribution(copy(rng2), d0) == rand(copy(rng2), test_d, 1)
-        @test sample_distribution(copy(rng2), d0, 3) == rand(copy(rng2), test_d, 3)
+        @test sample(copy(rng2), d0) == rand(copy(rng2), test_d, 1)
+        @test sample(copy(rng2), d0, 3) == rand(copy(rng2), test_d, 3)
 
-        @test sample_distribution(copy(rng2), u1) == rand(copy(rng2), test_d, 1)
-        @test sample_distribution(copy(rng2), u1, 3) == rand(copy(rng2), test_d, 3)
+        @test sample(copy(rng2), u1) == rand(copy(rng2), test_d, 1)
+        @test sample(copy(rng2), u1, 3) == rand(copy(rng2), test_d, 3)
 
         idx = StatsBase.sample(copy(rng2), collect(1:size(d2.distribution_samples)[2]), 1)
         s2 = d2.distribution_samples[:, idx]
-        @test sample_distribution(copy(rng2), u2) == s2
+        @test sample(copy(rng2), u2) == s2
 
         # test that optional parameter defaults to Random.GLOBAL_RNG, for all methods.
         # reset the global seed instead of copying the rng object's state
         rng_seed = 2468
         Random.seed!(rng_seed)
-        test_lhs = sample_distribution(d0)
+        test_lhs = sample(d0)
         Random.seed!(rng_seed)
         @test test_lhs == rand(test_d, 1)
 
         Random.seed!(rng_seed)
-        test_lhs = sample_distribution(d0, 3)
+        test_lhs = sample(d0, 3)
         Random.seed!(rng_seed)
         @test test_lhs == rand(test_d, 3)
 
         Random.seed!(rng_seed)
-        test_lhs = sample_distribution(u1)
+        test_lhs = sample(u1)
         Random.seed!(rng_seed)
         @test test_lhs == rand(test_d, 1)
 
         Random.seed!(rng_seed)
-        test_lhs = sample_distribution(u1, 3)
+        test_lhs = sample(u1, 3)
         Random.seed!(rng_seed)
         @test test_lhs == rand(test_d, 3)
 
         Random.seed!(rng_seed)
-        test_lhs = sample_distribution(d0)
+        test_lhs = sample(d0)
         Random.seed!(rng_seed)
         @test test_lhs == rand(test_d, 1)
 
@@ -281,7 +292,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         idx = StatsBase.sample(collect(1:size(d2.distribution_samples)[2]), 1)
         test_lhs = d2.distribution_samples[:, idx]
         Random.seed!(rng_seed)
-        @test test_lhs == sample_distribution(u2)
+        @test test_lhs == sample(u2)
     end
 
     @testset "transform functions" begin

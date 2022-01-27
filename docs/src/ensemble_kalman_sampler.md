@@ -79,8 +79,8 @@ using EnsembleKalmanProcesses.ParameterDistributions  # required to create the p
 
 # Construct prior (see `ParameterDistributions.jl` docs)
 prior = ParameterDistribution(...)
-prior_mean = get_mean(prior)
-prior_cov = get_cov(prior)
+prior_mean = mean(prior)
+prior_cov = cov(prior)
 
 # Construct initial ensemble
 N_ens = 50  # ensemble size

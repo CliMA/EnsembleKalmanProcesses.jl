@@ -88,12 +88,26 @@ Returns the sizes of the inputs and ouputs along dimension `idx` (if provided)
 """
 size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer} = size(pdc.inputs, idx), size(pdc.outputs, idx)
 
-get_data(dc::DataContainer) = deepcopy(dc.stored_data)
+"""
+    get_data(pdc::PairedDataContainer)
 
+Returns both input and output data stored in pdc
+"""
+get_data(dc::DataContainer) = deepcopy(dc.stored_data)
 get_data(pdc::PairedDataContainer) = get_inputs(pdc), get_outputs(pdc)
 
+"""
+    get_inputs(pdc::PairedDataContainer)
+
+Returns input data stored in pdc
+"""
 get_inputs(pdc::PairedDataContainer) = get_data(pdc.inputs)
 
+"""
+    get_outputs(pdc::PairedDataContainer)
+
+Returns output data stored in pdc
+"""
 get_outputs(pdc::PairedDataContainer) = get_data(pdc.outputs)
 
 end # module
