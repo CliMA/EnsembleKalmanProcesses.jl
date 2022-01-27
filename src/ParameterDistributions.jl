@@ -19,7 +19,7 @@ export ParameterDistribution
 export Constraint
 
 #functions
-export get_name, get_distribution, get_total_dimension, get_dimensions, get_all_constraints, get_n_samples
+export get_name, get_distribution, ndims, get_dimensions, get_all_constraints, get_n_samples
 export sample
 export no_constraint, bounded_below, bounded_above, bounded
 export transform_constrained_to_unconstrained, transform_unconstrained_to_constrained
@@ -212,7 +212,7 @@ function get_dimensions(pd::ParameterDistribution)
     return [ndims(d) for d in pd.distributions]
 end
 
-function get_total_dimension(pd::ParameterDistribution)
+function ndims(pd::ParameterDistribution)
     return sum(get_dimensions(pd))
 end
 
@@ -338,7 +338,7 @@ function get_logpdf(pd::ParameterDistribution, xarray::Array{FT, 1}) where {FT <
         end
     end
     #assert xarray correct dim/length
-    if size(xarray)[1] != get_total_dimension(pd)
+    if size(xarray)[1] != ndims(pd)
         throw(DimensionMismatch("xarray must have dimension equal to the parameter space"))
     end
 

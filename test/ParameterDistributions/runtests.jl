@@ -108,9 +108,9 @@ using EnsembleKalmanProcesses.ParameterDistributions
         u = ParameterDistribution([d1, d2], [c1, c2], [name1, name2])
 
         # Test for get_dimension(s)
-        @test get_total_dimension(u1) == 4
-        @test get_total_dimension(u2) == 1
-        @test get_total_dimension(u) == 5
+        @test ndims(u1) == 4
+        @test ndims(u2) == 1
+        @test ndims(u) == 5
         @test get_dimensions(u1) == [4]
         @test get_dimensions(u2) == [1]
         @test get_dimensions(u) == [4, 1]
@@ -194,7 +194,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test s == cat([s1, s2]..., dims = 1)
 
         #Test for get_logpdf
-        @test_throws ErrorException get_logpdf(u, zeros(get_total_dimension(u)))
+        @test_throws ErrorException get_logpdf(u, zeros(ndims(u)))
         x_in_bd = [0.5]
         Random.seed!(seed)
         lpdf3 = logpdf.(Beta(2, 2), x_in_bd)[1] #throws deprecated warning without "."
@@ -204,13 +204,13 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         #Test for cov, var        
         block_cov = cat([cov(d1), var(d2), var(d3), cov(d4)]..., dims = (1, 2))
-        @test isapprox(cov(v) - block_cov, zeros(get_total_dimension(v), get_total_dimension(v)); atol = 1e-6)
+        @test isapprox(cov(v) - block_cov, zeros(ndims(v), ndims(v)); atol = 1e-6)
         block_var = [block_cov[i, i] for i in 1:size(block_cov)[1]]
-        @test isapprox(var(v) - block_var, zeros(get_total_dimension(v)); atol = 1e-6)
+        @test isapprox(var(v) - block_var, zeros(ndims(v)); atol = 1e-6)
 
         #Test for mean
         means = cat([mean(d1), mean(d2), mean(d3), mean(d4)]..., dims = 1)
-        @test isapprox(mean(v) - means, zeros(get_total_dimension(v)); atol = 1e-6)
+        @test isapprox(mean(v) - means, zeros(ndims(v)); atol = 1e-6)
 
     end
 
