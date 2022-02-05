@@ -167,24 +167,27 @@ function get_N_iterations(ekp::EnsembleKalmanProcess)
 end
 
 """
-    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; rng_seed::IT = 42, rng::Union{Random.AbstractRNG,Nothing} = nothing) where {IT<:Int}
+    construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT; rng_seed::Union{IT, Nothing} = nothing)
 
 Construct the initial parameters, by sampling `N_ens` samples from specified
 prior distribution. Returned with parameters as columns.
 """
 function construct_initial_ensemble(
+    rng::AbstractRNG,
     prior::ParameterDistribution,
     N_ens::IT;
-    rng_seed::IT = 42,
-    rng::Union{AbstractRNG, Nothing} = nothing,
+    rng_seed::Union{IT, Nothing} = nothing
 ) where {IT <: Int}
-    # Ensuring reproducibility of the sampled parameter values: re-seed GLOBAL_RNG if we're
-    # given a seed, but if we got an explicit rng, we shouldn't re-seed it
-    rng = isnothing(rng) ? Random.seed!(rng_seed) : rng
+    # Ensuring reproducibility of the sampled parameter values: 
+    # re-seed the rng *only* if we're given a seed
+    if rng_seed !== nothing
+        rng = Random.seed!(rng, rng_seed)
+    end
     return sample(rng, prior, N_ens) #of size [dim(param space) N_ens]
 end
-construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT) where {IT <: Int} =
-    construct_initial_ensemble(prior, N_ens; rng = rng)
+# first arg optional; defaults to GLOBAL_RNG (as in Random, StatsBase)
+construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; kwargs...) where {IT <: Int} =
+    construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens; kwargs...)
 
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
