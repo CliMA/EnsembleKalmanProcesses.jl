@@ -176,7 +176,7 @@ function construct_initial_ensemble(
     rng::AbstractRNG,
     prior::ParameterDistribution,
     N_ens::IT;
-    rng_seed::Union{IT, Nothing} = nothing
+    rng_seed::Union{IT, Nothing} = nothing,
 ) where {IT <: Int}
     # Ensuring reproducibility of the sampled parameter values: 
     # re-seed the rng *only* if we're given a seed
