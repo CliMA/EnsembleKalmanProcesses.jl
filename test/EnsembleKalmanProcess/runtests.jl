@@ -14,6 +14,16 @@ const EKP = EnsembleKalmanProcesses
     rng_seed = 42
     rng = Random.MersenneTwister(rng_seed)
 
+    ### sanity check on rng:
+    d = Parameterized(Normal(0, 1))
+    u = ParameterDistribution(d, no_constraint(), "test")
+    draw_1 = construct_initial_ensemble(u, 1)
+    draw_2 = construct_initial_ensemble(u, 1)
+    @test !isapprox(draw_1, draw_2)
+
+    # Re-seed rng
+    rng = Random.MersenneTwister(rng_seed)
+
     ### Generate data from a linear model: a regression problem with n_par parameters
     ### and 1 observation of G(u) = A \times u, where A : R^n_par -> R^n_obs
     n_obs = 10                  # dimension of synthetic observation from G(u)
