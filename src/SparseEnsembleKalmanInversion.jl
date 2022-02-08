@@ -99,13 +99,7 @@ function update_ensemble!(
     cov_gg = cov(g, g, dims = 2, corrected = false) # [N_obs × N_obs]
     cov_uu = cov(u, u, dims = 2, corrected = false) # [N_par × N_par]
 
-    if !isnothing(Δt_new)
-        push!(ekp.Δt, Δt_new)
-    elseif isnothing(Δt_new) && isempty(ekp.Δt)
-        push!(ekp.Δt, FT(1))
-    else
-        push!(ekp.Δt, ekp.Δt[end])
-    end
+    set_Δt!(ekp, Δt_new)
 
     v = hcat(u', g')
 

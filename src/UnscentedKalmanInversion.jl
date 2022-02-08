@@ -42,7 +42,7 @@ function EnsembleKalmanProcess(
 ) where {FT <: AbstractFloat, IT <: Int}
 
     #initial parameters stored as columns
-    init_params = [DataContainer(update_ensemble_prediction!(process), data_are_columns = true)]
+    init_params = [DataContainer(update_ensemble_prediction!(process, Δt), data_are_columns = true)]
     # Number of parameter
     N_u = length(process.u_mean[1])
     # ensemble size
@@ -261,7 +261,7 @@ end
 """
 uki prediction step : generate sigma points
 """
-function update_ensemble_prediction!(process::Unscented) where {FT <: AbstractFloat, IT <: Int}
+function update_ensemble_prediction!(process::Unscented, Δt::FT) where {FT <: AbstractFloat}
 
     process.iter += 1
     # update evolution covariance matrix
@@ -280,7 +280,7 @@ function update_ensemble_prediction!(process::Unscented) where {FT <: AbstractFl
     ############# Prediction step:
 
     u_p_mean = α_reg * u_mean + (1 - α_reg) * r
-    uu_p_cov = α_reg^2 * uu_cov + Σ_ω
+    uu_p_cov = α_reg^2 * uu_cov + Σ_ω * Δt
 
     ############ Generate sigma points
     u_p = construct_sigma_ensemble(process, u_p_mean, uu_p_cov)
@@ -309,7 +309,7 @@ function update_ensemble_analysis!(
     ###########  Analysis step
 
     g_mean = construct_mean(uki, g)
-    gg_cov = construct_cov(uki, g, g_mean) + Σ_ν
+    gg_cov = construct_cov(uki, g, g_mean) + Σ_ν / uki.Δt[end]
     ug_cov = construct_cov(uki, u_p, u_p_mean, g, g_mean)
 
     tmp = ug_cov / gg_cov
@@ -330,6 +330,7 @@ end
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
     g_in::AbstractMatrix{FT},
+    Δt_new = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
     #catch works when g_in non-square 
     if !(size(g_in)[2] == uki.N_ens)
@@ -338,10 +339,12 @@ function update_ensemble!(
 
     u_p_old = get_u_final(uki)
 
+    set_Δt!(uki, Δt_new)
+
     #perform analysis on the model runs
     update_ensemble_analysis!(uki, u_p_old, g_in)
     #perform new prediction output to model parameters u_p
-    u_p = update_ensemble_prediction!(uki.process)
+    u_p = update_ensemble_prediction!(uki.process, uki.Δt[end])
 
     push!(uki.u, DataContainer(u_p, data_are_columns = true))
 
