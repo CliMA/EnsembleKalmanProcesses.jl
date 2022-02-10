@@ -70,13 +70,7 @@ function update_ensemble!(
     cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
     cov_gg = cov(g, g, dims = 2, corrected = false) # [N_obs × N_obs]
 
-    if !isnothing(Δt_new)
-        push!(ekp.Δt, Δt_new)
-    elseif isnothing(Δt_new) && isempty(ekp.Δt)
-        push!(ekp.Δt, FT(1))
-    else
-        push!(ekp.Δt, ekp.Δt[end])
-    end
+    set_Δt!(ekp, Δt_new)
 
     # Scale noise using Δt
     scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]

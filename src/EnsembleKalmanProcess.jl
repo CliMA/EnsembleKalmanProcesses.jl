@@ -199,6 +199,16 @@ end
 
 get_error(ekp::EnsembleKalmanProcess) = ekp.err
 
+function set_Δt!(ekp::EnsembleKalmanProcess, Δt_new::T) where {T}
+    if !isnothing(Δt_new)
+        push!(ekp.Δt, Δt_new)
+    elseif isnothing(Δt_new) && isempty(ekp.Δt)
+        push!(ekp.Δt, FT(1))
+    else
+        push!(ekp.Δt, ekp.Δt[end])
+    end
+end
+
 ## include the different types of Processes and their exports:
 
 # struct Inversion
