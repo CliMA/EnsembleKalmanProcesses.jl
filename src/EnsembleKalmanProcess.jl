@@ -12,13 +12,24 @@ export get_u, get_g
 export get_u_prior, get_u_final, get_u_mean_final, get_g_final, get_N_iterations, get_error
 export compute_error!
 export update_ensemble!
-
+export sample_empirical_gaussian, split_indices_by_success
+export SampleSuccGauss, IgnoreFailures, FailureHandler
 
 abstract type Process end
 #specific Processes and their exports are included after the general definitions
 
-## begin general constructor and function definitions
 
+# Failure handlers
+abstract type FailureHandlingMethod end
+
+struct IgnoreFailures <: FailureHandlingMethod end
+struct SampleSuccGauss <: FailureHandlingMethod end
+
+struct FailureHandler{P <: Process, FM <: FailureHandlingMethod}
+    failsafe_update::Function
+end
+
+## begin general constructor and function definitions
 
 """
     EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
@@ -48,6 +59,8 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     process::P
     "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility. Defaults to `Random.GLOBAL_RNG`."
     rng::AbstractRNG
+    "struct storing failsafe update directives"
+    failure_handler::FailureHandler
 end
 
 # outer constructors
@@ -70,7 +83,8 @@ function EnsembleKalmanProcess(
     process::P;
     Δt = FT(1),
     rng::AbstractRNG = Random.GLOBAL_RNG,
-) where {FT <: AbstractFloat, P <: Process}
+    failure_handler_method::FM = IgnoreFailures(),
+) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod}
 
     #initial parameters stored as columns
     init_params = DataContainer(params, data_are_columns = true)
@@ -83,8 +97,10 @@ function EnsembleKalmanProcess(
     err = FT[]
     # timestep store
     Δt = Array([Δt])
+    # failure handler
+    fh = FailureHandler(process, failure_handler_method)
 
-    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng)
+    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng, fh)
 end
 
 
@@ -207,6 +223,40 @@ function set_Δt!(ekp::EnsembleKalmanProcess, Δt_new::T) where {T}
     else
         push!(ekp.Δt, ekp.Δt[end])
     end
+end
+
+"""
+     sample_empirical_gaussian(u::AbstractMatrix{FT}, n::IT) where {FT <: Real, IT}
+
+Returns `n` samples from an empirical Gaussian based on point estimates `u`.
+"""
+function sample_empirical_gaussian(u::AbstractMatrix{FT}, n::IT; inflation::FT = eps(FT)) where {FT <: Real, IT}
+    cov_u_new = cov(u, u, dims = 2)
+    if det(cov_u_new) < eps(FT)
+        @warn string("Sample covariance matrix over ensemble is singular.", "\n Appplying variance inflation.")
+        cov_u_new = cov_u_new + inflation * I
+    end
+    mean_u_new = mean(u, dims = 2)
+    return rand(MvNormal(mean_u_new[:], cov_u_new), n)
+end
+
+"""
+     split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
+
+Returns the successful/failed particle indices given a matrix with output vectors stored as columns.
+Failures are defined for particles containing at least one NaN output element.
+"""
+function split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
+    failed_ens = [i for i = 1:size(g, 2) if any(isnan.(g[:, i]))]
+    successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
+    if length(failed_ens) > length(successful_ens)
+        @warn string(
+            "More than 50% of runs produced NaNs ($(length(failed_ens))/$(size(g, 2))).",
+            "\nIterating... but consider increasing model stability.",
+            "\nThis will affect optimization result.",
+        )
+    end
+    return successful_ens, failed_ens
 end
 
 ## include the different types of Processes and their exports:

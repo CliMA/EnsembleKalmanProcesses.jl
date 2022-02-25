@@ -137,13 +137,28 @@ const EKP = EnsembleKalmanProcesses
 
         N_ens = 50 # number of ensemble members (NB for @test throws, make different to N_ens)
         N_iter = 20
-
+        iters_with_failure = [5, 8, 9, 15]
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
         ekiobj = nothing
         eki_final_result = nothing
         for Γy in Γy_vec
-            ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(); rng = rng)
+            ekiobj = EKP.EnsembleKalmanProcess(
+                initial_ensemble,
+                y_obs,
+                Γy,
+                Inversion();
+                rng = rng,
+                failure_handler_method = SampleSuccGauss(),
+            )
+            ekiobj_unsafe = EKP.EnsembleKalmanProcess(
+                initial_ensemble,
+                y_obs,
+                Γy,
+                Inversion();
+                rng = rng,
+                failure_handler_method = IgnoreFailures(),
+            )
 
             # some checks 
             g_ens = G(get_u_final(ekiobj))
@@ -160,24 +175,44 @@ const EKP = EnsembleKalmanProcesses
             params_i_vec = []
             g_ens_vec = []
             for i in 1:N_iter
+                # Check SampleSuccGauss handler
                 params_i = get_u_final(ekiobj)
                 push!(params_i_vec, params_i)
                 g_ens = G(params_i)
+                # Add random failures
+                if i in iters_with_failure
+                    g_ens[:, 1] .= NaN
+                end
+
+                EKP.update_ensemble!(ekiobj, g_ens)
                 push!(g_ens_vec, g_ens)
                 if i == 1
                     g_ens_t = permutedims(g_ens, (2, 1))
                     @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
                 end
-                EKP.update_ensemble!(ekiobj, g_ens)
+                @test !any(isnan.(params_i))
 
+                # Check IgnoreFailures handler
+                if i <= iters_with_failure[1]
+                    params_i_unsafe = get_u_final(ekiobj_unsafe)
+                    g_ens_unsafe = G(params_i_unsafe)
+                    if i < iters_with_failure[1]
+                        EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
+                    elseif i == iters_with_failure[1]
+                        g_ens_unsafe[:, 1] .= NaN
+                        EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
+                        u_unsafe = get_u_final(ekiobj_unsafe)
+                        @test any(isnan.(u_unsafe))
+                    end
+                end
             end
             push!(params_i_vec, get_u_final(ekiobj))
 
             @test get_u_prior(ekiobj) == params_i_vec[1]
             @test get_u(ekiobj) == params_i_vec
-            @test get_g(ekiobj) == g_ens_vec
-            @test get_g_final(ekiobj) == g_ens_vec[end]
-            @test get_error(ekiobj) == ekiobj.err
+            @test isequal(get_g(ekiobj), g_ens_vec)
+            @test isequal(get_g_final(ekiobj), g_ens_vec[end])
+            @test isequal(get_error(ekiobj), ekiobj.err)
 
             # EKI results: Test if ensemble has collapsed toward the true parameter 
             # values
@@ -407,5 +442,21 @@ const EKP = EnsembleKalmanProcesses
                 savefig(p, string("SparseEKI_", test_name, ".png"))
             end
         end
+    end
+
+    @testset "EnsembleKalmanProcess utils" begin
+        g = rand(5, 10)
+        g[:, 1] .= NaN
+        successful_ens, failed_ens = split_indices_by_success(g)
+        @test length(failed_ens) == 1
+        @test length(successful_ens) == size(g, 2) - length(failed_ens)
+        for i in 2:7
+            g[:, i] .= NaN
+        end
+        @test_logs (:warn,) split_indices_by_success(g)
+
+        u = rand(10, 4)
+        @test_logs (:warn,) sample_empirical_gaussian(u, 2)
+        @test_throws PosDefException sample_empirical_gaussian(u, 2, inflation = 0.0)
     end
 end

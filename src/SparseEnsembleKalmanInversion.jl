@@ -20,6 +20,11 @@ struct SparseInversion{FT <: AbstractFloat, IT <: Int} <: Process
     uc_idx::AbstractVector{IT}
 end
 
+function FailureHandler(process::SparseInversion, method::IgnoreFailures)
+    failsafe_update(u, g, y, obs_noise_cov, failed_ens) = eki_update(u, g, y, obs_noise_cov)
+    return FailureHandler{SparseInversion, IgnoreFailures}(failsafe_update)
+end
+
 """
     sparse_qp(
         ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT,IT}},
@@ -80,6 +85,7 @@ function update_ensemble!(
     cov_threshold::FT = 0.01,
     Δt_new = nothing,
     deterministic_forward_map = true,
+    failed_ens = nothing,
 ) where {FT, IT}
 
     # Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
@@ -100,6 +106,7 @@ function update_ensemble!(
     cov_uu = cov(u, u, dims = 2, corrected = false) # [N_par × N_par]
 
     set_Δt!(ekp, Δt_new)
+    fh = ekp.failure_handler
 
     v = hcat(u', g')
 
@@ -111,10 +118,14 @@ function update_ensemble!(
     # G is deterministic
     y = deterministic_forward_map ? (ekp.obs_mean .+ noise) : (ekp.obs_mean .+ zero(noise))
 
-    # N_obs × N_obs \ [N_obs × N_ens]
-    # --> tmp is [N_obs × N_ens]
-    tmp = (cov_gg + scaled_obs_noise_cov) \ (y - g)
-    u += (cov_ug * tmp) # [N_par × N_ens]
+    if isnothing(failed_ens)
+        _, failed_ens = split_indices_by_success(g)
+    end
+    if !isempty(failed_ens)
+        @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
+    end
+
+    u = fh.failsafe_update(u, g, y, scaled_obs_noise_cov, failed_ens)
 
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns = true))

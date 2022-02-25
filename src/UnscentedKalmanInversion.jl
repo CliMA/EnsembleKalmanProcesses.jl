@@ -39,7 +39,8 @@ function EnsembleKalmanProcess(
     process::Unscented{FT, IT};
     Δt = FT(1),
     rng::AbstractRNG = Random.GLOBAL_RNG,
-) where {FT <: AbstractFloat, IT <: Int}
+    failure_handler_method::FM = IgnoreFailures(),
+) where {FT <: AbstractFloat, IT <: Int, FM <: FailureHandlingMethod}
 
     #initial parameters stored as columns
     init_params = [DataContainer(update_ensemble_prediction!(process, Δt), data_are_columns = true)]
@@ -53,11 +54,22 @@ function EnsembleKalmanProcess(
     err = FT[]
     # timestep store
     Δt = Array([Δt])
+    # failure handler
+    fh = FailureHandler(process, failure_handler_method)
 
-    EnsembleKalmanProcess{FT, IT, Unscented}(init_params, obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng)
+    EnsembleKalmanProcess{FT, IT, Unscented}(init_params, obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng, fh)
 end
 
-
+function FailureHandler(process::Unscented, method::IgnoreFailures)
+    function failsafe_update(uki, u, g, failed_ens)
+        #perform analysis on the model runs
+        update_ensemble_analysis!(uki, u, g)
+        #perform new prediction output to model parameters u_p
+        u = update_ensemble_prediction!(uki.process, uki.Δt[end])
+        return u
+    end
+    return FailureHandler{Unscented, IgnoreFailures}(failsafe_update)
+end
 
 """
     Unscented(
@@ -331,6 +343,7 @@ function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
     g_in::AbstractMatrix{FT},
     Δt_new = nothing,
+    failed_ens = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
     #catch works when g_in non-square 
     if !(size(g_in)[2] == uki.N_ens)
@@ -340,11 +353,16 @@ function update_ensemble!(
     u_p_old = get_u_final(uki)
 
     set_Δt!(uki, Δt_new)
+    fh = uki.failure_handler
 
-    #perform analysis on the model runs
-    update_ensemble_analysis!(uki, u_p_old, g_in)
-    #perform new prediction output to model parameters u_p
-    u_p = update_ensemble_prediction!(uki.process, uki.Δt[end])
+    if isnothing(failed_ens)
+        _, failed_ens = split_indices_by_success(g_in)
+    end
+    if !isempty(failed_ens)
+        @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
+    end
+
+    u_p = fh.failsafe_update(uki, u_p_old, g_in, failed_ens)
 
     push!(uki.u, DataContainer(u_p, data_are_columns = true))
 
