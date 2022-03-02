@@ -7,6 +7,32 @@ An ensemble Kalman Inversion process
 """
 struct Inversion <: Process end
 
+function FailureHandler(process::Inversion, method::IgnoreFailures)
+    failsafe_update(u, g, y, obs_noise_cov, failed_ens) = eki_update(u, g, y, obs_noise_cov)
+    return FailureHandler{Inversion, IgnoreFailures}(failsafe_update)
+end
+
+"""
+    FailureHandler(process::Inversion, method::SampleSuccGauss)
+
+Provides a failsafe update that
+ - updates the successful ensemble according to the EKI update,
+ - updates the failed ensemble by sampling from the updated successful ensemble.
+"""
+function FailureHandler(process::Inversion, method::SampleSuccGauss)
+    function failsafe_update(u, g, y, obs_noise_cov, failed_ens)
+        successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
+        n_failed = length(failed_ens)
+        u[:, successful_ens] =
+            eki_update(u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
+        if !isempty(failed_ens)
+            u[:, failed_ens] = sample_empirical_gaussian(u[:, successful_ens], n_failed)
+        end
+        return u
+    end
+    return FailureHandler{Inversion, SampleSuccGauss}(failsafe_update)
+end
+
 """
     find_ekp_stepsize(ekp::EnsembleKalmanProcess{FT, IT, Inversion}, g::AbstractMatrix{FT}; cov_threshold::FT=0.01) where {FT}
 
@@ -42,19 +68,62 @@ function find_ekp_stepsize(
 end
 
 """
-    update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, <:Inversion}, g::Array{FT,2} cov_threshold::FT=0.01, Δt_new=nothing) where {FT, IT}
+     eki_update(
+        u::AbstractMatrix{FT},
+        g::AbstractMatrix{FT},
+        y::AbstractMatrix{FT},
+        obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+    ) where {FT <: Real, IT}
 
-Updates the ensemble according to which type of Process we have. Model outputs `g` need to be a `N_obs × N_ens` array (i.e data are columms).
+Returns the updated parameter vectors given their current values and
+the corresponding forward model evaluations, using the inversion algorithm
+from eqns. (4) and (5) of Schillings and Stuart (2017).
+"""
+function eki_update(
+    u::AbstractMatrix{FT},
+    g::AbstractMatrix{FT},
+    y::AbstractMatrix{FT},
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+) where {FT <: Real, IT}
+
+    cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
+    cov_gg = cov(g, g, dims = 2, corrected = false) # [N_par × N_obs]
+
+    # N_obs × N_obs \ [N_obs × N_ens]
+    # --> tmp is [N_obs × N_ens]
+    tmp = (cov_gg + obs_noise_cov) \ (y - g)
+    return u + (cov_ug * tmp) # [N_par × N_ens]  
+end
+
+"""
+    update_ensemble!(
+        ekp::EnsembleKalmanProcess{FT, IT, Inversion},
+        g::AbstractMatrix{FT};
+        cov_threshold::FT = 0.01,
+        Δt_new::Union{Nothing, FT} = nothing,
+        deterministic_forward_map::Bool = true,
+        failed_ens = nothing,
+    ) where {FT, IT, FM <: FailureHandlingMethod}
+
+Updates the ensemble according to an Inversion process. 
+
+Inputs:
+ - ekp :: The EnsembleKalmanProcess to update.
+ - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - cov_threshold :: Threshold below which the reduction in covariance determinant results in a warning.
+ - Δt_new :: Time step to be used in the current update.
+ - deterministic_forward_map :: Whether output `g` comes from a deterministic model.
+ - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g`
+    with NaN entries.
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
     g::AbstractMatrix{FT};
     cov_threshold::FT = 0.01,
-    Δt_new = nothing,
-    deterministic_forward_map = true,
-) where {FT, IT}
-
-    # Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
+    Δt_new::Union{Nothing, FT} = nothing,
+    deterministic_forward_map::Bool = true,
+    failed_ens = nothing,
+) where {FT, IT, FM <: FailureHandlingMethod}
 
     #catch works when g non-square
     if !(size(g)[2] == ekp.N_ens)
@@ -65,12 +134,9 @@ function update_ensemble!(
     # g: N_obs × N_ens
     u = get_u_final(ekp)
     N_obs = size(g, 1)
-
     cov_init = cov(u, dims = 2)
-    cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
-    cov_gg = cov(g, g, dims = 2, corrected = false) # [N_obs × N_obs]
-
     set_Δt!(ekp, Δt_new)
+    fh = ekp.failure_handler
 
     # Scale noise using Δt
     scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
@@ -80,10 +146,14 @@ function update_ensemble!(
     # G is deterministic
     y = deterministic_forward_map ? (ekp.obs_mean .+ noise) : (ekp.obs_mean .+ zero(noise))
 
-    # N_obs × N_obs \ [N_obs × N_ens]
-    # --> tmp is [N_obs × N_ens]
-    tmp = (cov_gg + scaled_obs_noise_cov) \ (y - g)
-    u += (cov_ug * tmp) # [N_par × N_ens]
+    if isnothing(failed_ens)
+        _, failed_ens = split_indices_by_success(g)
+    end
+    if !isempty(failed_ens)
+        @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
+    end
+
+    u = fh.failsafe_update(u, g, y, scaled_obs_noise_cov, failed_ens)
 
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns = true))
