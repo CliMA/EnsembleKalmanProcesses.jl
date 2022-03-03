@@ -22,7 +22,8 @@ struct DataContainer{FT <: Real}
         if data_are_columns
             new{FT}(deepcopy(stored_data))
         else
-            new{FT}(permutedims(deepcopy(stored_data), (2, 1)))
+            #Note: permutedims contains a deepcopy
+            new{FT}(permutedims(stored_data, (2, 1)))
         end
     end
 end
