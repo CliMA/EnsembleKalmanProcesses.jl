@@ -275,33 +275,57 @@ const EKP = EnsembleKalmanProcesses
         α_reg = 1.0
         update_freq = 0
         process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
-
-        ukiobj = nothing
-
+        iters_with_failure = [5, 8, 9, 15]
+        failed_particle_index = [1, 2, 3, 1]
         Γy = Γy_vec[3]
-        ukiobj = EKP.EnsembleKalmanProcess(y_star, Γy, process; rng = rng)
-
+        ukiobj = EKP.EnsembleKalmanProcess(y_star, Γy, process; rng = rng, failure_handler_method = SampleSuccGauss())
+        ukiobj_unsafe =
+            EKP.EnsembleKalmanProcess(y_star, Γy, process; rng = rng, failure_handler_method = IgnoreFailures())
         # UKI iterations
         params_i_vec = []
         g_ens_vec = []
+        failed_index = 1
         for i in 1:N_iter
+            # Check SampleSuccGauss handler
             params_i = get_u_final(ukiobj)
             push!(params_i_vec, params_i)
             g_ens = G(params_i)
+            # Add random failures
+            if i in iters_with_failure
+                g_ens[:, failed_particle_index[failed_index]] .= NaN
+                failed_index += 1
+            end
+
+            EKP.update_ensemble!(ukiobj, g_ens)
             push!(g_ens_vec, g_ens)
             if i == 1
                 g_ens_t = permutedims(g_ens, (2, 1))
                 @test_throws DimensionMismatch EKP.update_ensemble!(ukiobj, g_ens_t)
             end
-            EKP.update_ensemble!(ukiobj, g_ens)
+            @test !any(isnan.(params_i))
+
+            # Check IgnoreFailures handler
+            if i <= iters_with_failure[1]
+                params_i_unsafe = get_u_final(ukiobj_unsafe)
+                g_ens_unsafe = G(params_i_unsafe)
+                if i < iters_with_failure[1]
+                    EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
+                elseif i == iters_with_failure[1]
+                    g_ens_unsafe[:, 1] .= NaN
+                    EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
+                    u_unsafe = get_u_final(ukiobj_unsafe)
+                    @test any(isnan.(u_unsafe))
+                end
+            end
+
         end
         push!(params_i_vec, get_u_final(ukiobj))
 
         @test get_u_prior(ukiobj) == params_i_vec[1]
         @test get_u(ukiobj) == params_i_vec
-        @test get_g(ukiobj) == g_ens_vec
-        @test get_g_final(ukiobj) == g_ens_vec[end]
-        @test get_error(ukiobj) == ukiobj.err
+        @test isequal(get_g(ukiobj), g_ens_vec)
+        @test isequal(get_g_final(ukiobj), g_ens_vec[end])
+        @test isequal(get_error(ukiobj), ukiobj.err)
 
         @test isa(construct_mean(ukiobj, rand(rng, 2 * n_par + 1)), Float64)
         @test isa(construct_mean(ukiobj, rand(rng, 5, 2 * n_par + 1)), Vector{Float64})
