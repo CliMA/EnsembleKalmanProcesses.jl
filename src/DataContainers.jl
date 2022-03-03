@@ -19,10 +19,10 @@ struct DataContainer{FT <: Real}
     stored_data::AbstractMatrix{FT}
     #constructor with 2D arrays
     function DataContainer(stored_data::AbstractMatrix{FT}; data_are_columns = true) where {FT <: Real}
-
         if data_are_columns
-            new{FT}(stored_data)
+            new{FT}(deepcopy(stored_data))
         else
+            #Note: permutedims contains a deepcopy
             new{FT}(permutedims(stored_data, (2, 1)))
         end
     end
