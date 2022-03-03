@@ -40,10 +40,10 @@ using EnsembleKalmanProcesses.DataContainers
     @test get_outputs(iopairs) == data_samples
 
     # test deep-copying
-    parameter_samples[1,1] += 1
-    @test !isequal(get_data(idata),parameter_samples)
+    parameter_samples[1, 1] += 1
+    @test !isequal(get_data(idata), parameter_samples)
     retrieved_samples = get_data(idata)
-    retrieved_samples[1,1] += 1
+    retrieved_samples[1, 1] += 1
     @test !isequal(retrieved_samples, get_data(idata))
-    
+
 end
