@@ -1,7 +1,7 @@
 name = "EnsembleKalmanProcesses"
 uuid = "aa8a2aa5-91d8-4396-bcef-d4f2ec43552d"
 authors = ["CLIMA contributors <clima-software@caltech.edu>"]
-version = "0.3.0"
+version = "0.4.0"
 
 [deps]
 Convex = "f65535da-76fb-5f13-bab9-19810c17039a"
