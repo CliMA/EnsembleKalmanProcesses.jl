@@ -21,7 +21,7 @@ struct SparseInversion{FT <: AbstractFloat, IT <: Int} <: Process
 end
 
 function FailureHandler(process::SparseInversion, method::IgnoreFailures)
-    failsafe_update(u, g, y, obs_noise_cov, failed_ens) = eki_update(u, g, y, obs_noise_cov)
+    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens) = sparse_eki_update(ekp, u, g, y, obs_noise_cov)
     return FailureHandler{SparseInversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -70,66 +70,36 @@ function sparse_qp(
 end
 
 """
-    update_ensemble!(
-        ekp::EnsembleKalmanProcess{FT, IT, <:SparseInversion{FT,IT}},
-        g::Array{FT,2};
-        cov_threshold::FT=0.01,
-        Δt_new=nothing
-    ) where {FT, IT}
+     sparse_eki_update(
+        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT,IT}},
+        u::AbstractMatrix{FT},
+        g::AbstractMatrix{FT},
+        y::AbstractMatrix{FT},
+        obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+    ) where {FT <: Real, IT}
 
-Updates the ensemble according to which type of Process we have. Model outputs `g` need to be a `N_obs × N_ens` array (i.e data are columms).
+Returns the sparse updated parameter vectors given their current values and
+the corresponding forward model evaluations, using the inversion algorithm
+from eqns. (3.7) and (3.14) of Schneider et al. (2021).
 """
-function update_ensemble!(
+function sparse_eki_update(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
-    g::AbstractMatrix{FT};
-    cov_threshold::FT = 0.01,
-    Δt_new = nothing,
-    deterministic_forward_map = true,
-    failed_ens = nothing,
-) where {FT, IT}
+    u::AbstractMatrix{FT},
+    g::AbstractMatrix{FT},
+    y::AbstractMatrix{FT},
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+) where {FT <: Real, IT}
 
-    # Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
-
-    #catch works when g non-square
-    if !(size(g)[2] == ekp.N_ens)
-        throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g do not match, try transposing g or check ensemble size"))
-    end
-
-    # u: N_par × N_ens 
-    # g: N_obs × N_ens
-    u = get_u_final(ekp)
-    N_obs = size(g, 1)
-
-    cov_init = cov(u, dims = 2)
     cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
-    cov_gg = cov(g, g, dims = 2, corrected = false) # [N_obs × N_obs]
+    cov_gg = cov(g, g, dims = 2, corrected = false) # [N_par × N_obs]
     cov_uu = cov(u, u, dims = 2, corrected = false) # [N_par × N_par]
-
-    set_Δt!(ekp, Δt_new)
-    fh = ekp.failure_handler
 
     v = hcat(u', g')
 
-    # Scale noise using Δt
-    scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
-    noise = rand(ekp.rng, MvNormal(zeros(N_obs), scaled_obs_noise_cov), ekp.N_ens)
-
-    # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
-    # G is deterministic
-    y = deterministic_forward_map ? (ekp.obs_mean .+ noise) : (ekp.obs_mean .+ zero(noise))
-
-    if isnothing(failed_ens)
-        _, failed_ens = split_indices_by_success(g)
-    end
-    if !isempty(failed_ens)
-        @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
-    end
-
-    u = fh.failsafe_update(u, g, y, scaled_obs_noise_cov, failed_ens)
-
-    # store new parameters (and model outputs)
-    push!(ekp.u, DataContainer(u, data_are_columns = true))
-    push!(ekp.g, DataContainer(g, data_are_columns = true))
+    # N_obs × N_obs \ [N_obs × N_ens]
+    # --> tmp is [N_obs × N_ens]
+    tmp = (cov_gg + obs_noise_cov) \ (y - g)
+    u = u + (cov_ug * tmp) # [N_par × N_ens]
 
     # Sparse EKI
     cov_vv = vcat(hcat(cov_uu, cov_ug), hcat(cov_ug', cov_gg))
@@ -157,6 +127,61 @@ function update_ensemble!(
             MvNormal(zeros(size(ekp.process.uc_idx)[1]), ekp.process.reg * I(size(ekp.process.uc_idx)[1])),
         )
     end
+    return u
+end
+
+"""
+    update_ensemble!(
+        ekp::EnsembleKalmanProcess{FT, IT, <:SparseInversion{FT,IT}},
+        g::Array{FT,2};
+        cov_threshold::FT=0.01,
+        Δt_new=nothing
+    ) where {FT, IT}
+
+Updates the ensemble according to which type of Process we have. Model outputs `g` need to be a `N_obs × N_ens` array (i.e data are columms).
+"""
+function update_ensemble!(
+    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
+    g::AbstractMatrix{FT};
+    cov_threshold::FT = 0.01,
+    Δt_new = nothing,
+    deterministic_forward_map = true,
+    failed_ens = nothing,
+) where {FT, IT}
+
+    #catch works when g non-square
+    if !(size(g)[2] == ekp.N_ens)
+        throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g do not match, try transposing g or check ensemble size"))
+    end
+
+    # u: N_par × N_ens 
+    # g: N_obs × N_ens
+    u = get_u_final(ekp)
+    N_obs = size(g, 1)
+    cov_init = cov(u, dims = 2)
+    set_Δt!(ekp, Δt_new)
+    fh = ekp.failure_handler
+
+    # Scale noise using Δt
+    scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
+    noise = rand(ekp.rng, MvNormal(zeros(N_obs), scaled_obs_noise_cov), ekp.N_ens)
+
+    # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
+    # G is deterministic
+    y = deterministic_forward_map ? (ekp.obs_mean .+ noise) : (ekp.obs_mean .+ zero(noise))
+
+    if isnothing(failed_ens)
+        _, failed_ens = split_indices_by_success(g)
+    end
+    if !isempty(failed_ens)
+        @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
+    end
+
+    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
+
+    # store new parameters (and model outputs)
+    push!(ekp.u, DataContainer(u, data_are_columns = true))
+    push!(ekp.g, DataContainer(g, data_are_columns = true))
 
     # Store error
     compute_error!(ekp)
