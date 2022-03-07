@@ -231,7 +231,17 @@ function construct_sigma_ensemble(
 
     c_weights = process.c_weights
 
-    chol_xx_cov = cholesky(Hermitian(x_cov)).L
+    # compute cholesky factor L of x_cov
+    local chol_xx_cov
+    try
+        chol_xx_cov = cholesky(Hermitian(x_cov)).L
+    catch
+        _, S, Ut = svd(x_cov)
+        # find the first singular value that is smaller than 1e-8
+        ind_0 = searchsortedfirst(S, 1e-8, rev = true)
+        S[ind_0:end] .= S[ind_0 - 1]
+        chol_xx_cov = (qr(sqrt.(S) .* Ut).R)'
+    end
 
     x = zeros(FT, N_x, 2 * N_x + 1)
     x[:, 1] = x_mean
