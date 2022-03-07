@@ -5,7 +5,7 @@ using Test
 
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
-import EnsembleKalmanProcesses: construct_mean, construct_cov
+import EnsembleKalmanProcesses: construct_mean, construct_cov, construct_sigma_ensemble
 const EKP = EnsembleKalmanProcesses
 
 @testset "EnsembleKalmanProcess" begin
@@ -331,6 +331,7 @@ const EKP = EnsembleKalmanProcesses
         @test isa(construct_mean(ukiobj, rand(rng, 5, 2 * n_par + 1)), Vector{Float64})
         @test isa(construct_cov(ukiobj, rand(rng, 2 * n_par + 1)), Float64)
         @test isa(construct_cov(ukiobj, rand(rng, 5, 2 * n_par + 1)), Matrix{Float64})
+        @test isposdef(construct_cov(ukiobj, construct_sigma_ensemble(ukiobj.process, [0.0; 0.0], [1.0 0; 0 0])))
 
         # UKI results: Test if ensemble has collapsed toward the true parameter 
         # values
