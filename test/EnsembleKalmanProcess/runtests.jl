@@ -402,18 +402,17 @@ const EKP = EnsembleKalmanProcesses
 
         # Sparse EKI parameters
         γ = 1.0
-        reg = 1e-4
-        uc_idx = [1, 2]
+        regs = [1e-4, 1e-3]
+        uc_idxs = [[1, 2], :]
 
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         @test size(initial_ensemble) == (n_par, N_ens)
 
-        thresholds_eki = [false, true]
-        threshold_values = [1e-2, 1e-2]
+        threshold_values = [0, 1e-2]
         test_names = ["test", "test_thresholded"]
 
-        for (threshold_eki, threshold_value, test_name, Γy) in zip(thresholds_eki, threshold_values, test_names, Γy_vec)
-            process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
+        for (threshold_value, reg, uc_idx, test_name, Γy) in zip(threshold_values, regs, uc_idxs, test_names, Γy_vec)
+            process = SparseInversion(γ, threshold_value, uc_idx, reg)
 
             ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, process; rng = rng)
 
@@ -466,6 +465,10 @@ const EKP = EnsembleKalmanProcesses
                 plot!([u_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
                 savefig(p, string("SparseEKI_", test_name, ".png"))
             end
+
+            # Test other constructors
+            @test isa(SparseInversion(γ), SparseInversion)
+
         end
     end
 

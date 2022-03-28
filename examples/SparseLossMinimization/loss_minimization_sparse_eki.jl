@@ -56,12 +56,11 @@ initial_ensemble = EKP.construct_initial_ensemble(prior, N_ensemble; rng_seed = 
 
 # Sparse EKI parameters
 γ = 1.0
-threshold_eki = false
 threshold_value = 1e-2
 reg = 1e-3
 uc_idx = [1, 2]
 
-process = SparseInversion(γ, threshold_eki, threshold_value, reg, uc_idx)
+process = SparseInversion(γ, threshold_value, uc_idx, reg)
 
 # We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
 # target, the stabilization and the process type (for sparse EKI this is `SparseInversion`). 
