@@ -7,17 +7,24 @@ using SparseArrays
 
 A sparse ensemble Kalman Inversion process
 """
-struct SparseInversion{FT <: AbstractFloat, IT <: Int} <: Process
+Base.@kwdef struct SparseInversion{FT <: AbstractFloat} <: Process
     "upper limit of l1-norm"
     γ::FT
-    "the flag to enable thresholding"
-    threshold_eki::Bool
-    "a small value to threshold results that are close to zero"
-    threshold_value::FT
-    "a small value for regularization to enhance robustness of convex optimization"
-    reg::FT
-    "a list of index to indicate the parameters included in the evaluation of l1-norm"
-    uc_idx::AbstractVector{IT}
+    "threshold below which the norm of parameters is pruned to zero"
+    threshold_value::FT = FT(0)
+    "indices of parameters included in the evaluation of l1-norm constraint"
+    uc_idx::Union{AbstractVector, Colon} = Colon()
+    "a small regularization value to enhance robustness of convex optimization"
+    reg::FT = FT(0)
+end
+
+function SparseInversion(
+    γ::FT;
+    threshold_value::FT = FT(0),
+    uc_idx::Union{AbstractVector, Colon} = Colon(),
+    reg::FT = FT(0),
+) where {FT <: AbstractFloat}
+    return SparseInversion{FT}(γ, threshold_value, uc_idx, reg)
 end
 
 function FailureHandler(process::SparseInversion, method::IgnoreFailures)
@@ -27,7 +34,7 @@ end
 
 """
     sparse_qp(
-        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT,IT}},
+        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
         v_j::Vector{FT},
         cov_vv_inv::AbstractMatrix{FT},
         H_u::SparseArrays.SparseMatrixCSC{FT},
@@ -39,7 +46,7 @@ end
 Solving quadratic programming problem with sparsity constraint.
 """
 function sparse_qp(
-    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
+    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
     v_j::Vector{FT},
     cov_vv_inv::AbstractMatrix{FT},
     H_u::AbstractMatrix{FT},
@@ -71,7 +78,7 @@ end
 
 """
      sparse_eki_update(
-        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT,IT}},
+        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
         u::AbstractMatrix{FT},
         g::AbstractMatrix{FT},
         y::AbstractMatrix{FT},
@@ -83,7 +90,7 @@ the corresponding forward model evaluations, using the inversion algorithm
 from eqns. (3.7) and (3.14) of Schneider et al. (2021).
 """
 function sparse_eki_update(
-    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
+    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
@@ -115,24 +122,22 @@ function sparse_eki_update(
         # Solve a quadratic programming problem
         u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], H_uc = H_uc)
 
-        # Threshold the results if needed
-        if ekp.process.threshold_eki
-            u[ekp.process.uc_idx, j] =
-                u[ekp.process.uc_idx, j] .* (abs.(u[ekp.process.uc_idx, j]) .> ekp.process.threshold_value)
-        end
+        # Prune parameters using threshold
+        u[ekp.process.uc_idx, j] =
+            u[ekp.process.uc_idx, j] .* (abs.(u[ekp.process.uc_idx, j]) .> ekp.process.threshold_value)
 
         # Add small noise to constrained elements of u
-        u[ekp.process.uc_idx, j] += rand(
-            ekp.rng,
-            MvNormal(zeros(size(ekp.process.uc_idx)[1]), ekp.process.reg * I(size(ekp.process.uc_idx)[1])),
-        )
+        if isposdef(ekp.process.reg)
+            len_u_sparse = length(u[ekp.process.uc_idx, j])
+            u[ekp.process.uc_idx, j] += rand(ekp.rng, MvNormal(zeros(len_u_sparse), ekp.process.reg * I(len_u_sparse)))
+        end
     end
     return u
 end
 
 """
     update_ensemble!(
-        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
+        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
         g::AbstractMatrix{FT};
         cov_threshold::FT = 0.01,
         Δt_new = nothing,
@@ -152,7 +157,7 @@ Inputs:
     with NaN entries.
 """
 function update_ensemble!(
-    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
+    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
     g::AbstractMatrix{FT};
     cov_threshold::FT = 0.01,
     Δt_new = nothing,
