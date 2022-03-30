@@ -14,6 +14,7 @@ export compute_error!
 export update_ensemble!
 export sample_empirical_gaussian, split_indices_by_success
 export SampleSuccGauss, IgnoreFailures, FailureHandler
+export NoLocalization, Delta, RBF, Localizer
 
 abstract type Process end
 #specific Processes and their exports are included after the general definitions
@@ -27,6 +28,45 @@ struct SampleSuccGauss <: FailureHandlingMethod end
 
 struct FailureHandler{P <: Process, FM <: FailureHandlingMethod}
     failsafe_update::Function
+end
+
+# Localizers
+abstract type LocalizationMethod end
+
+struct NoLocalization <: LocalizationMethod end
+struct Delta <: LocalizationMethod end
+
+struct RBF{FT <: Real} <: LocalizationMethod
+    "Length scale defining the RBF kernel"
+    lengthscale::FT
+end
+
+struct Localizer{LM <: LocalizationMethod, T}
+    kernel::Union{AbstractMatrix{T}, UniformScaling{T}}
+end
+
+"Uniform kernel constructor"
+function Localizer(localization::NoLocalization, p::IT, d::IT, T = Float64) where {IT <: Int}
+    kernel = ones(T, p, d)
+    return Localizer{NoLocalization, T}(kernel)
+end
+
+"Delta kernel localizer constructor"
+function Localizer(localization::Delta, p::IT, d::IT, T = Float64) where {IT <: Int}
+    kernel = T(1) * Matrix(I, p, d)
+    return Localizer{Delta, T}(kernel)
+end
+
+"RBF kernel localizer constructor"
+function Localizer(localization::RBF, p::IT, d::IT, T = Float64) where {IT <: Int}
+    l = localization.lengthscale
+    kernel = zeros(T, p, d)
+    for i in 1:p
+        for j in 1:d
+            @inbounds kernel[i, j] = exp(-(i - j) * (i - j) / (2 * l * l))
+        end
+    end
+    return Localizer{RBF, T}(kernel)
 end
 
 ## begin general constructor and function definitions
@@ -55,12 +95,14 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     err::Vector{FT}
     "vector of timesteps used in each EK iteration"
     Δt::Vector{FT}
-    "the particular EK process (`Inversion` or `Sampler` or `Unscented`)"
+    "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `SparseInversion`)"
     process::P
     "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility. Defaults to `Random.GLOBAL_RNG`."
     rng::AbstractRNG
-    "struct storing failsafe update directives"
+    "struct storing failsafe update directives, implemented for (`Inversion`, `SparseInversion`, `Unscented`)"
     failure_handler::FailureHandler
+    "Localization kernel, implemented for (`Inversion`, `SparseInversion`, `Unscented`)"
+    localizer::Localizer
 end
 
 # outer constructors
@@ -84,12 +126,16 @@ function EnsembleKalmanProcess(
     Δt = FT(1),
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
-) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod}
+    localization_method::LM = NoLocalization(),
+) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
 
     #initial parameters stored as columns
     init_params = DataContainer(params, data_are_columns = true)
-    # ensemble size
-    N_ens = size(init_params, 2) #stored with data as columns
+
+    # dimensionality
+    N_par, N_ens = size(init_params) #stored with data as columns
+    N_obs = length(obs_mean)
+
     IT = typeof(N_ens)
     #store for model evaluations
     g = []
@@ -99,8 +145,10 @@ function EnsembleKalmanProcess(
     Δt = Array([Δt])
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
+    # localizer
+    loc = Localizer(localization_method, N_par, N_obs, FT)
 
-    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng, fh)
+    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng, fh, loc)
 end
 
 
