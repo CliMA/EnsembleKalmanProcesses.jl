@@ -398,6 +398,7 @@ const EKP = EnsembleKalmanProcesses
         n_par = 2
         N_ens = 20 # number of ensemble members
         N_iter = 5 # number of EKI iterations
+        iters_with_failure = [1, 3]
         Γy_vec = [noise_level * Matrix(I, n_obs, n_obs), noise_level * I]
 
         # Sparse EKI parameters
@@ -414,15 +415,36 @@ const EKP = EnsembleKalmanProcesses
         for (threshold_value, reg, uc_idx, test_name, Γy) in zip(threshold_values, regs, uc_idxs, test_names, Γy_vec)
             process = SparseInversion(γ, threshold_value, uc_idx, reg)
 
-            ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, process; rng = rng)
+            ekiobj = EKP.EnsembleKalmanProcess(
+                initial_ensemble,
+                y_obs,
+                Γy,
+                process;
+                rng = rng,
+                failure_handler_method = SampleSuccGauss(),
+            )
+            ekiobj_unsafe = EKP.EnsembleKalmanProcess(
+                initial_ensemble,
+                y_obs,
+                Γy,
+                process;
+                rng = rng,
+                failure_handler_method = IgnoreFailures(),
+            )
 
             # EKI iterations
             params_i_vec = []
             g_ens_vec = []
             for i in 1:N_iter
+                # Check SammpleSuccGauss handler
                 params_i = get_u_final(ekiobj)
                 push!(params_i_vec, params_i)
                 g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ens]...)
+                # Add random failures
+                if i in iters_with_failure
+                    g_ens[:, 1] .= NaN
+                end
+
                 push!(g_ens_vec, g_ens)
                 if i == 1
                     g_ens_t = permutedims(g_ens, (2, 1))
@@ -431,14 +453,15 @@ const EKP = EnsembleKalmanProcesses
                 else
                     EKP.update_ensemble!(ekiobj, g_ens, Δt_new = ekiobj.Δt[1])
                 end
+                @test !any(isnan.(params_i))
             end
             push!(params_i_vec, get_u_final(ekiobj))
 
             @test get_u_prior(ekiobj) == params_i_vec[1]
             @test get_u(ekiobj) == params_i_vec
-            @test get_g(ekiobj) == g_ens_vec
-            @test get_g_final(ekiobj) == g_ens_vec[end]
-            @test get_error(ekiobj) == ekiobj.err
+            @test isequal(get_g(ekiobj), g_ens_vec)
+            @test isequal(get_g_final(ekiobj), g_ens_vec[end])
+            @test isequal(get_error(ekiobj), ekiobj.err)
 
             # EKI results: Test if ensemble has collapsed toward the true parameter
             # values

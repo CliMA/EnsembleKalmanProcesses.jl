@@ -33,6 +33,27 @@ function FailureHandler(process::SparseInversion, method::IgnoreFailures)
 end
 
 """
+    FailureHandler(process::SparseInversion, method::SampleSuccGauss)
+
+Provides a failsafe update that
+ - updates the successful ensemble according to the SparseEKI update,
+ - updates the failed ensemble by sampling from the updated successful ensemble.
+"""
+function FailureHandler(process::SparseInversion, method::SampleSuccGauss)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens)
+        successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
+        n_failed = length(failed_ens)
+        u[:, successful_ens] =
+            sparse_eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
+        if !isempty(failed_ens)
+            u[:, failed_ens] = sample_empirical_gaussian(u[:, successful_ens], n_failed)
+        end
+        return u
+    end
+    return FailureHandler{SparseInversion, SampleSuccGauss}(failsafe_update)
+end
+
+"""
     sparse_qp(
         ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
         v_j::Vector{FT},
@@ -118,7 +139,7 @@ function sparse_eki_update(
     cov_vv_inv = cov_vv \ (1.0 * I(size(cov_vv)[1]))
 
     # Loop over ensemble members to impose sparsity
-    Threads.@threads for j in 1:(ekp.N_ens)
+    Threads.@threads for j in 1:size(u, 2)
         # Solve a quadratic programming problem
         u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], H_uc = H_uc)
 
