@@ -174,17 +174,17 @@ Constructor taking in a Dict or array of Dicts. Each dict must contain the key-v
 - `"constraints"` - constraint(s) given as a `ConstraintType` or array of `ConstraintType`s with length equal to the dims of the distribution
 - `"name"` - a name of the distribution as a String.
 """
-function ParameterDistribution(param_dist_dict::Union{Dict,AbstractVector})
+function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
     #check type
-    if !isa(param_dist_dict,Dict)
-        if !isa(param_dist_dict,AbstractVector)
+    if !isa(param_dist_dict, Dict)
+        if !isa(param_dist_dict, AbstractVector)
             throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}"))
         elseif !(eltype(param_dist_dict) <: Dict)
             throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}"))
         end
     end
-    
+
     #make copy as array
     param_dist_dict_array = !isa(param_dist_dict, AbstractVector) ? [param_dist_dict] : param_dist_dict
     #perform checks on the individual distributions
@@ -197,7 +197,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict,AbstractVector})
         distribution = pdd["distribution"]
         name = pdd["name"]
         constraints = pdd["constraints"]
-        
+
         #check key types
         if !isa(distribution, ParameterDistributionType)
             throw(ArgumentError("Value of \"distribution\" must be a valid ParameterDistribution object: Parameterized or Samples"))
@@ -207,31 +207,31 @@ function ParameterDistribution(param_dist_dict::Union{Dict,AbstractVector})
                 throw(ArgumentError("Value of \"constraints\" must be a ConstraintType, or <:AbstractVector(ConstraintType)"))
             elseif !(eltype(constraints) <: ConstraintType) #it is a vector, but not of constraints
                 throw(ArgumentError("Value of \"constraints\" must be a ConstraintType, or <:AbstractVector(ConstraintType)"))
-            end                
-                
+            end
+
         end
         if !isa(name, String)
             throw(ArgumentError("Value of \"name\" must be a String"))
         end
 
         # 1 constraint per dimension check
-        constraints_array = isa(constraints, ConstraintType) ? [constraints] : constraints 
+        constraints_array = isa(constraints, ConstraintType) ? [constraints] : constraints
         pdd["constraints"] = constraints_array # make the copy constraints always an array
         n_parameters = ndims(distribution)
-        
+
         if !(n_parameters == length(constraints_array))
             throw(DimensionMismatch("There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required"))
         end
     end
 
     #flatten the structure
-    distributions = [ pdd["distribution"] for pdd in param_dist_dict_array ]
-    flat_constraints = cat([pdd["constraints"] for pdd in param_dist_dict_array ]...,dims=1)
-    names =  [ pdd["name"] for pdd in param_dist_dict_array ]
+    distributions = [pdd["distribution"] for pdd in param_dist_dict_array]
+    flat_constraints = cat([pdd["constraints"] for pdd in param_dist_dict_array]..., dims = 1)
+    names = [pdd["name"] for pdd in param_dist_dict_array]
 
     #build the object
     return ParameterDistribution(distributions, flat_constraints, names)
-        
+
 end
 
 ## Functions

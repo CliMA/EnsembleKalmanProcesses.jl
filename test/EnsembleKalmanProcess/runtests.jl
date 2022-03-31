@@ -16,12 +16,7 @@ const EKP = EnsembleKalmanProcesses
 
     ### sanity check on rng:
     d = Parameterized(Normal(0, 1))
-    u = ParameterDistribution(
-        Dict("distribution" => d,
-             "constraints" => no_constraint(),
-             "name" => "test",
-             )
-    )
+    u = ParameterDistribution(Dict("distribution" => d, "constraints" => no_constraint(), "name" => "test"))
     draw_1 = construct_initial_ensemble(u, 1)
     draw_2 = construct_initial_ensemble(u, 1)
     @test !isapprox(draw_1, draw_2)
@@ -63,15 +58,9 @@ const EKP = EnsembleKalmanProcesses
     @test isapprox(norm(y_obs .- G(u_star))^2 - n_obs * noise_level^2, 0; atol = 0.05)
 
     #### Define prior information on parameters
-    prior_u1 = Dict("distribution" => Parameterized(Normal(0.0, 0.5)),
-                    "constraints" => no_constraint(),
-                    "name" => "u1",
-                    )
-    prior_u2 = Dict("distribution" => Parameterized(Normal(3.0, 0.5)),
-                    "constraints" => no_constraint(),
-                    "name" => "u2",
-                    )    
-    prior = ParameterDistribution([prior_u1,prior_u2])
+    prior_u1 = Dict("distribution" => Parameterized(Normal(0.0, 0.5)), "constraints" => no_constraint(), "name" => "u1")
+    prior_u2 = Dict("distribution" => Parameterized(Normal(3.0, 0.5)), "constraints" => no_constraint(), "name" => "u2")
+    prior = ParameterDistribution([prior_u1, prior_u2])
 
     prior_mean = mean(prior)
 
@@ -365,15 +354,11 @@ const EKP = EnsembleKalmanProcesses
         @test size(y_star) == (n_obs,)
 
         #### Define prior information on parameters
-        prior_u1 = Dict("distribution" => Parameterized(Normal(0.0, 2)),
-                        "constraints" => no_constraint(),
-                        "name" => "u1",
-                        )
-        prior_u2 = Dict("distribution" => Parameterized(Normal(3.0, 2)),
-                        "constraints" => no_constraint(),
-                        "name" => "u2",
-                        )    
-        prior = ParameterDistribution([prior_u1,prior_u2])
+        prior_u1 =
+            Dict("distribution" => Parameterized(Normal(0.0, 2)), "constraints" => no_constraint(), "name" => "u1")
+        prior_u2 =
+            Dict("distribution" => Parameterized(Normal(3.0, 2)), "constraints" => no_constraint(), "name" => "u2")
+        prior = ParameterDistribution([prior_u1, prior_u2])
     end
 
     ###

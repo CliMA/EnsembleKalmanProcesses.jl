@@ -64,27 +64,27 @@ dist_true = ParticleDistributions.GammaPrimitiveParticleDistribution(ϕ_true...)
 # N0
 lbound_N0 = 0.4 * N0_true
 prior_N0 = Dict(
-"distribution" => Parameterized(Normal(4.5, 1.0)), #truth is 5.19
-"constraints" => bounded_below(lbound_N0),
-"name" => par_names[1],
+    "distribution" => Parameterized(Normal(4.5, 1.0)), #truth is 5.19
+    "constraints" => bounded_below(lbound_N0),
+    "name" => par_names[1],
 )
 
 # θ
 lbound_θ = 1.0e-1
 prior_θ = Dict(
-"distribution" => Parameterized(Normal(0.0, 2.0)),  #truth is 0.378
-"constraints" => bounded_below(lbound_θ),
-"name" => par_names[2],
+    "distribution" => Parameterized(Normal(0.0, 2.0)),  #truth is 0.378
+    "constraints" => bounded_below(lbound_θ),
+    "name" => par_names[2],
 )
 
 
 # k
 lbound_k = 1.0e-4
 prior_k = Dict(
-"distribution" =>  Parameterized(Normal(-1.0, 1.0)), #truth is -2.51 
-"constraints" => bounded_below(lbound_k),
-"name" => par_names[3],
-) 
+    "distribution" => Parameterized(Normal(-1.0, 1.0)), #truth is -2.51 
+    "constraints" => bounded_below(lbound_k),
+    "name" => par_names[3],
+)
 
 priors = ParameterDistribution([prior_N0, prior_θ, prior_k])
 prior_mean = [4.5; 0.0; -1.0]

@@ -10,11 +10,8 @@ include(joinpath(@__DIR__, "helper_funcs.jl"))
 param_names = ["C_smag", "C_drag"]
 
 # Set parameter priors
-prior_smag = Dict(
-    "distribution" => Parameterized(Normal(0.5, 0.05)),
-    "constraints" => no_constraint(),
-    "name" => param_names[1],
-)
+prior_smag =
+    Dict("distribution" => Parameterized(Normal(0.5, 0.05)), "constraints" => no_constraint(), "name" => param_names[1])
 prior_drag = Dict(
     "distribution" => Parameterized(Normal(0.001, 0.0001)),
     "constraints" => no_constraint(),
