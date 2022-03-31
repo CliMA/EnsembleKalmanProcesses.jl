@@ -178,9 +178,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
     #check type
     if !isa(param_dist_dict, Dict)
-        if !isa(param_dist_dict, AbstractVector)
-            throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}"))
-        elseif !(eltype(param_dist_dict) <: Dict)
+        if !(eltype(param_dist_dict) <: Dict)
             throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}"))
         end
     end

@@ -60,6 +60,12 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d = Parameterized(Normal(0, 1))
         c = no_constraint()
         name = "unconstrained_normal"
+
+        param_dict_fail = [Dict("a" => 1), 1]
+        @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not an array of Dicts
+
+        @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not a Dict
+
         param_dict_fail = Dict("distribution" => d)
         @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not all the keys
         param_dict_fail = Dict("distribution" => 1, "constraints" => c, "name" => name)
