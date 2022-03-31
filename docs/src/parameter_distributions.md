@@ -3,11 +3,15 @@
 We provide a flexible setup for storing prior distribution with the `ParameterDistributions` module found in `src/ParameterDistributions.jl`.
 
 One can create a full parameter distribution using three inputs:
- 1. A Distribution, given as a `ParameterDistributionType` object,
- 2. An array of Constraints, given as a `Array{ConstraintType}` object,
- 3. A Name, given as a `String`.
+ 1. A distribution, given as a `ParameterDistributionType` object,
+ 2. A constraint, or array of constraints, given as a `Array{ConstraintType}` object,
+ 3. A name, given as a `String`.
 
-One can also provide arrays of the triple (1., 2., 3.) to create more complex distributions.
+These are combined as a
+```julia
+Dict("distribution" => ..., "constraints" => ..., "name" => ...)
+```
+One can also provide arrays of these dicts to create more complex distributions.
 
 # A simple example:
 Task: We wish to create a prior for a one-dimensional parameter. Our problem dictates that this parameter is bounded between 0 and 1. Prior knowledge dictates it is around 0.7. The parameter is called `point_seven`.
@@ -16,7 +20,7 @@ Solution: We should use a Normal distribution with the predefined "bounded" cons
 
 Let's initialize the constraint first,
 ```julia
-constraint = [bounded(0, 1)]
+constraint = bounded(0, 1)
 ```
 This **automatically** sets up the following transformation to the  constrained space (and also its inverse)
 ```julia
@@ -32,7 +36,8 @@ name = "point_seven"
 ```
 and the distribution is created by:
 ```julia
-prior = ParameterDistribution(distribution, constraint, name)
+prior_dict = Dict("distribution" => distribution, "constraints" => constraint, "name" => name)
+prior = ParameterDistribution(prior_dict)
 ```
 
 ```@setup zero_point_seven
@@ -91,13 +96,12 @@ We provide some `ConstraintType`s, which apply different transformations interna
 
 Users can also define their own transformations by directly creating a `ConstraintType` object with their own mappings.
 
-!!! note
+!!! warn
     It is up to the user to ensure any custom mappings `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained` are inverses of each other.
-
 
 ## 3. The name
 
-This is simply an identifier for the parameters later on.
+This is simply a `String` identifier for the parameters later on.
 
 ## 4. The power of the normal distribution
 
@@ -114,7 +118,7 @@ where:
 1. we fix the mean value to 0, and range over the standard deviation,
 2. we fix the standard deviation to 1 and range over the mean value.
 
-### Without constraints: `constraint = [no_constraints()]`
+### Without constraints: `"constraints" => no_constraints()`
 
 ```@setup no_constraints
 using Distributions
@@ -164,17 +168,20 @@ The following generates the transformed `Normal(0.5, 1)` distribution
 using EnsembleKalmanProcesses.ParameterDistributions
 using Distributions 
 
-distribution = Parameterized(Normal(0.5, 1)) 
-constraint = [no_constraint()]
-name = "unbounded_parameter"
-prior = ParameterDistribution(distribution, constraint, name)
+param_dict = Dict(
+"distribution" => Parameterized(Normal(0.5, 1)),
+"constraints" => no_constraint(),
+"name" => "unbounded_parameter",
+)
+
+prior = ParameterDistribution(param_dict)
 ```
 where `no_constraint()` automatically defines the identity constraint map
 ```julia
 transform_unconstrained_to_constrained(x) = x
 ```
 
-### Bounded below by 0: `constraint = [bounded_below(0)]`
+### Bounded below by 0: `"constraints" => bounded_below(0)`
 
 ```@setup bounded_below
 using Distributions
@@ -223,17 +230,20 @@ The following generates the transformed `Normal(0.5, 1)` distribution
 using EnsembleKalmanProcesses.ParameterDistributions
 using Distributions 
 
-distribution = Parameterized(Normal(0.5, 1)) 
-constraint = [bounded_below(0)]
-name = "bounded_below_parameter"
-prior = ParameterDistribution(distribution, constraint, name)
+param_dict = Dict(
+"distribution" => Parameterized(Normal(0.5, 1)),
+"constraints" = bounded_below(0),
+"name" => "bounded_below_parameter",
+)
+
+prior = ParameterDistribution(param_dict)
 ```
 where `bounded_below(0)` automatically defines the constraint map
 ```julia
 transform_unconstrained_to_constrained(x) = exp(x)
 ```
 
-### Bounded above by 10.0: `constraint = [bounded_above(10)]`
+### Bounded above by 10.0: `"constraints" => bounded_above(10)`
 
 ```@setup bounded_above
 using Distributions
@@ -282,17 +292,19 @@ The following generates the transformed `Normal(0.5, 1)` distribution
 using EnsembleKalmanProcesses.ParameterDistributions
 using Distributions
 
-distribution = Parameterized(Normal(0.5, 1))
-constraint = [bounded_above(10)]
-name = "bounded_above_parameter"
-prior = ParameterDistribution(distribution, constraint, name)
+param_dict = Dict(
+"distribution" => Parameterized(Normal(0.5, 1)),
+"constraints" => bounded_above(10),
+"name" => "bounded_above_parameter",
+)
+prior = ParameterDistribution(param_dict)
 ```
 where `bounded_above(10)` automatically defines the constraint map
 ```julia
 transform_unconstrained_to_constrained(x) = 10 - exp(x)
 ```
 
-### Bounded in  between 5 and 10: `constraint = [bounded(5, 10)]`
+### Bounded in  between 5 and 10: `"constraints" => bounded(5, 10)`
 
 ```@setup bounded
 using Distributions
@@ -341,10 +353,13 @@ The following generates the transformed `Normal(0.5, 1)` distribution
 using EnsembleKalmanProcesses.ParameterDistributions
 using Distributions
 
-distribution = Parameterized(Normal(0.5, 1)) 
-constraint = [bounded(5, 10)]
-name = "bounded_parameter"
-prior = ParameterDistribution(distribution, constraint, name)
+param_dict = Dict(
+"distribution" => Parameterized(Normal(0.5, 1)),
+"constraints" => bounded(5, 10),
+"name" => "bounded_parameter",
+)
+
+prior = ParameterDistribution(param_dict)
 ```
 where `bounded(5, 10)` automatically defines the constraint map
 ```julia
@@ -353,9 +368,9 @@ transform_unconstrained_to_constrained(x) = (10 * exp(x) + 5) / (exp(x) + 1)
 
 ## A more involved example:
 
-We create a 6-dimensional parameter distribution from 2 triples.
+We create a 6-dimensional parameter distribution from two dictionaries.
 
-The first triple is a 4-dimensional distribution with the following constraints on parameters in physical space:
+The first parameter is a 4-dimensional distribution with the following constraints on parameters in physical space:
 ```julia
 c1 = [no_constraint(),     # no constraints
       bounded_below(-1.0), # provide lower bound
@@ -375,7 +390,7 @@ We also provide a name
 name1 = "constrained_mvnormal"
 ```
 
-The second triple is a 2-dimensional one. It is only given by 4 samples in the transformed space - (where one will typically generate samples). It is bounded in the first dimension by the constraint shown, there is a user provided transform for the second dimension - using the default constructor.
+The second parameter is a 2-dimensional one. It is only given by 4 samples in the transformed space - (where one will typically generate samples). It is bounded in the first dimension by the constraint shown, there is a user provided transform for the second dimension - using the default constructor.
 
 ```julia
 d2 = Samples([1.0 3.0; 5.0 7.0; 9.0 11.0; 13.0 15.0]) # 4 samples of 2D parameter space
@@ -385,10 +400,12 @@ c2 = [bounded(10, 15),
       Constraint(transform, inverse_transform)]
 name2 = "constrained_sampled"
 ```
-The full prior distribution for this setting is created with arrays of our two triples.
+The full prior distribution for this setting is created from the array of the parameter specifications as dictionaries.
 
 ```julia
-u = ParameterDistribution([d1, d2], [c1, c2], [name1, name2])
+param_dict1 = Dict("distribution" => d1, "constraints" => c1, "name" => name1)
+param_dict2 = Dict("distribution" => d2, "constraints" => c2, "name" => name2)
+u = ParameterDistribution([param_dict1, param_dict2])
 ```
 
 ## Other functions
