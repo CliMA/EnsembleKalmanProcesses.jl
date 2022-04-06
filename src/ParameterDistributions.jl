@@ -181,7 +181,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
     if !(isa(param_dist_dict, Dict) || eltype(param_dist_dict) <: Dict)
         throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}"))
     end
-    
+
     #make copy as array
     param_dist_dict_array = !isa(param_dist_dict, AbstractVector) ? [param_dist_dict] : param_dist_dict
     #perform checks on the individual distributions
