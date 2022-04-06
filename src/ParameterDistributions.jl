@@ -166,6 +166,7 @@ struct ParameterDistribution{PDType <: ParameterDistributionType, CType <: Const
     names::AbstractVector{ST}
 end
 
+
 """
     ParameterDistribution(param_dist_dict::Union{Dict,AbstractVector})
 
@@ -186,7 +187,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
     #perform checks on the individual distributions
     for pdd in param_dist_dict_array
         #check all keys are present
-        if !all(k in collect(keys(pdd)) for k in ["distribution", "name", "constraints"])
+        if !all(["distribution", "name", "constraints"] .∈ [collect(keys(pdd))])
             throw(ArgumentError("input dictionaries must contain the keys: \"distribution\", \"name\", \"constraints\" "))
         end
 
