@@ -158,12 +158,12 @@ n_samples(d::Parameterized) = "Distribution stored in Parameterized form, draw s
 """
     ParameterDistribution
 
-Structure to hold a parameter distribution, always stored as an array of distributions.
+Structure to hold a parameter distribution, always stored as an array internally.
 """
 struct ParameterDistribution{PDType <: ParameterDistributionType, CType <: ConstraintType, ST <: AbstractString}
-    distributions::AbstractVector{PDType}
-    constraints::AbstractVector{CType}
-    names::AbstractVector{ST}
+    distribution::AbstractVector{PDType}
+    constraint::AbstractVector{CType}
+    name::AbstractVector{ST}
 end
 
 
@@ -172,7 +172,7 @@ end
 
 Constructor taking in a Dict or array of Dicts. Each dict must contain the key-val pairs:
 - `"distribution"` - a distribution of `ParameterDistributionType`
-- `"constraints"` - constraint(s) given as a `ConstraintType` or array of `ConstraintType`s with length equal to the dims of the distribution
+- `"constraint"` - constraint(s) given as a `ConstraintType` or array of `ConstraintType`s with length equal to the dims of the distribution
 - `"name"` - a name of the distribution as a String.
 """
 function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
@@ -181,29 +181,29 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
     if !(isa(param_dist_dict, Dict) || eltype(param_dist_dict) <: Dict)
         throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}"))
     end
-
-    #make copy as array
+    
+    # make copy as array
     param_dist_dict_array = !isa(param_dist_dict, AbstractVector) ? [param_dist_dict] : param_dist_dict
-    #perform checks on the individual distributions
+    # perform checks on the individual distributions
     for pdd in param_dist_dict_array
-        #check all keys are present
-        if !all(["distribution", "name", "constraints"] .∈ [collect(keys(pdd))])
-            throw(ArgumentError("input dictionaries must contain the keys: \"distribution\", \"name\", \"constraints\" "))
+        # check all keys are present
+        if !all(["distribution", "name", "constraint"] .∈ [collect(keys(pdd))])
+            throw(ArgumentError("input dictionaries must contain the keys: \"distribution\", \"name\", \"constraint\" "))
         end
 
         distribution = pdd["distribution"]
         name = pdd["name"]
-        constraints = pdd["constraints"]
+        constraint = pdd["constraint"]
 
-        #check key types
+        # check key types
         if !isa(distribution, ParameterDistributionType)
             throw(ArgumentError("Value of \"distribution\" must be a valid ParameterDistribution object: Parameterized or Samples"))
         end
-        if !isa(constraints, ConstraintType)
-            if !isa(constraints, AbstractVector) #it's not a vector either
-                throw(ArgumentError("Value of \"constraints\" must be a ConstraintType, or <:AbstractVector(ConstraintType)"))
-            elseif !(eltype(constraints) <: ConstraintType) #it is a vector, but not of constraints
-                throw(ArgumentError("Value of \"constraints\" must be a ConstraintType, or <:AbstractVector(ConstraintType)"))
+        if !isa(constraint, ConstraintType)
+            if !isa(constraint, AbstractVector) #it's not a vector either
+                throw(ArgumentError("Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType)"))
+            elseif !(eltype(constraint) <: ConstraintType) #it is a vector, but not of constraint
+                throw(ArgumentError("Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType)"))
             end
         end
         if !isa(name, String)
@@ -211,22 +211,22 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
         end
 
         # 1 constraint per dimension check
-        constraints_array = isa(constraints, ConstraintType) ? [constraints] : constraints
-        pdd["constraints"] = constraints_array # make the copy constraints always an array
+        constraint_array = isa(constraint, ConstraintType) ? [constraint] : constraint
+        pdd["constraint"] = constraint_array # make the copy constraint always an array
         n_parameters = ndims(distribution)
 
-        if !(n_parameters == length(constraints_array))
+        if !(n_parameters == length(constraint_array))
             throw(DimensionMismatch("There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required"))
         end
     end
 
-    #flatten the structure
-    distributions = getindex.(param_dist_dict_array, "distribution")
-    flat_constraints = cat(getindex.(param_dist_dict_array, "constraints")..., dims = 1)
-    names = getindex.(param_dist_dict_array, "name")
+    # flatten the structure
+    distribution = getindex.(param_dist_dict_array, "distribution")
+    flat_constraint = cat(getindex.(param_dist_dict_array, "constraint")..., dims = 1)
+    name = getindex.(param_dist_dict_array, "name")
 
-    #build the object
-    return ParameterDistribution(distributions, flat_constraints, names)
+    # build the object
+    return ParameterDistribution(distribution, flat_constraint, name)
 
 end
 
@@ -237,7 +237,7 @@ end
 
 Returns a list of ParameterDistribution names.
 """
-get_name(pd::ParameterDistribution) = pd.names
+get_name(pd::ParameterDistribution) = pd.name
 
 """
     get_dimensions(pd::ParameterDistribution)
@@ -245,7 +245,7 @@ get_name(pd::ParameterDistribution) = pd.names
 The number of dimensions of the parameter space.
 """
 function get_dimensions(pd::ParameterDistribution)
-    return [ndims(d) for d in pd.distributions]
+    return [ndims(d) for d in pd.distribution]
 end
 
 function ndims(pd::ParameterDistribution)
@@ -258,7 +258,7 @@ end
 The number of samples in a Samples distribution
 """
 function get_n_samples(pd::ParameterDistribution)
-    return Dict{String, Any}(pd.names[i] => n_samples(d) for (i, d) in enumerate(pd.distributions))
+    return Dict{String, Any}(pd.name[i] => n_samples(d) for (i, d) in enumerate(pd.distribution))
 end
 
 """
@@ -266,7 +266,7 @@ end
 
 Returns the (flattened) array of constraints of the parameter distribution.
 """
-get_all_constraints(pd::ParameterDistribution) = pd.constraints
+get_all_constraints(pd::ParameterDistribution) = pd.constraint
 
 """
     batch(pd::ParameterDistribution)
@@ -293,7 +293,7 @@ as dictionary keys. For parameters represented by `Samples`, the samples are ret
 as a 2D (`parameter_dimension x n_samples`) array.
 """
 function get_distribution(pd::ParameterDistribution)
-    return Dict{String, Any}(pd.names[i] => get_distribution(d) for (i, d) in enumerate(pd.distributions))
+    return Dict{String, Any}(pd.name[i] => get_distribution(d) for (i, d) in enumerate(pd.distribution))
 end
 
 get_distribution(d::Samples) = d.distribution_samples
@@ -308,7 +308,7 @@ parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n
 optional and defaults to 1. 
 """
 function sample(rng::AbstractRNG, pd::ParameterDistribution, n_draws::IT) where {IT <: Integer}
-    return cat([sample(rng, d, n_draws) for d in pd.distributions]..., dims = 1)
+    return cat([sample(rng, d, n_draws) for d in pd.distribution]..., dims = 1)
 end
 
 # define methods that dispatch to the above with Random.GLOBAL_RNG as a default value for rng
@@ -368,7 +368,7 @@ get_logpdf(d::Parameterized, xarray::AbstractVector{FT}) where {FT <: Real} = lo
 
 function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT <: Real}
     #first check we don't have sampled distribution
-    for d in pd.distributions
+    for d in pd.distribution
         if typeof(d) <: Samples
             throw(ErrorException("Cannot compute get_logpdf of Samples distribution. Consider using a Parameterized type for your prior."))
         end
@@ -382,7 +382,7 @@ function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where
     batches = batch(pd)
 
     # perform the logpdf of each of the distributions, and returns their sum    
-    return sum(cat([get_logpdf(d, xarray[batches[i]]) for (i, d) in enumerate(pd.distributions)]..., dims = 1))
+    return sum(cat([get_logpdf(d, xarray[batches[i]]) for (i, d) in enumerate(pd.distribution)]..., dims = 1))
 end
 
 #extending StatsBase cov,var
@@ -397,7 +397,7 @@ function var(pd::ParameterDistribution)
     block_var = Array{Any}(undef, size(d_dims)[1])
 
     for (i, dimension) in enumerate(d_dims)
-        block_var[i] = var(pd.distributions[i])
+        block_var[i] = var(pd.distribution[i])
     end
     return cat(block_var..., dims = 1) #build the flattened vector
 
@@ -417,9 +417,9 @@ function cov(pd::ParameterDistribution)
     block_cov = Array{Any}(undef, size(d_dims)[1])
     for (i, dimension) in enumerate(d_dims)
         if dimension == 1
-            block_cov[i] = var(pd.distributions[i])
+            block_cov[i] = var(pd.distribution[i])
         else
-            block_cov[i] = cov(pd.distributions[i])
+            block_cov[i] = cov(pd.distribution[i])
         end
     end
 
@@ -436,7 +436,7 @@ Returns a concatenated mean of the parameter distributions.
 mean(d::Parameterized) = mean(d.distribution)
 mean(d::Samples) = mean(d.distribution_samples, dims = 2)
 function mean(pd::ParameterDistribution)
-    return cat([mean(d) for d in pd.distributions]..., dims = 1)
+    return cat([mean(d) for d in pd.distribution]..., dims = 1)
 end
 
 #apply transforms
@@ -450,7 +450,7 @@ function transform_constrained_to_unconstrained(
     pd::ParameterDistribution,
     xarray::AbstractVector{FT},
 ) where {FT <: Real}
-    return cat([c.constrained_to_unconstrained(xarray[i]) for (i, c) in enumerate(pd.constraints)]..., dims = 1)
+    return cat([c.constrained_to_unconstrained(xarray[i]) for (i, c) in enumerate(pd.constraint)]..., dims = 1)
 end
 
 """
@@ -463,7 +463,7 @@ function transform_constrained_to_unconstrained(
     pd::ParameterDistribution,
     xarray::AbstractMatrix{FT},
 ) where {FT <: Real}
-    return Array(hcat([c.constrained_to_unconstrained.(xarray[i, :]) for (i, c) in enumerate(pd.constraints)]...)')
+    return Array(hcat([c.constrained_to_unconstrained.(xarray[i, :]) for (i, c) in enumerate(pd.constraint)]...)')
 end
 
 """
@@ -475,7 +475,7 @@ function transform_unconstrained_to_constrained(
     pd::ParameterDistribution,
     xarray::AbstractVector{FT},
 ) where {FT <: Real}
-    return cat([c.unconstrained_to_constrained(xarray[i]) for (i, c) in enumerate(pd.constraints)]..., dims = 1)
+    return cat([c.unconstrained_to_constrained(xarray[i]) for (i, c) in enumerate(pd.constraint)]..., dims = 1)
 end
 
 """
@@ -488,7 +488,7 @@ function transform_unconstrained_to_constrained(
     pd::ParameterDistribution,
     xarray::AbstractMatrix{FT},
 ) where {FT <: Real}
-    return Array(hcat([c.unconstrained_to_constrained.(xarray[i, :]) for (i, c) in enumerate(pd.constraints)]...)')
+    return Array(hcat([c.unconstrained_to_constrained.(xarray[i, :]) for (i, c) in enumerate(pd.constraint)]...)')
 end
 
 """

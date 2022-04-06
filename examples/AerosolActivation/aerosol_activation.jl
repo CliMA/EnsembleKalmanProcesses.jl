@@ -86,8 +86,8 @@ d2 = EKP.ParameterDistributions.Parameterized(Distributions.Normal(0, 1))
 nothing # hide
 
 # This concludes the setup of priors.
-prior1 = Dict("distribution" => d1, "constraints" => c1, "name" => parameter_names[1])
-prior2 = Dict("distribution" => d2, "constraints" => c2, "name" => parameter_names[2])
+prior1 = Dict("distribution" => d1, "constraint" => c1, "name" => parameter_names[1])
+prior2 = Dict("distribution" => d2, "constraint" => c2, "name" => parameter_names[2])
 priors = EKP.ParameterDistributions.ParameterDistribution([prior1, prior2])
 nothing # hide
 

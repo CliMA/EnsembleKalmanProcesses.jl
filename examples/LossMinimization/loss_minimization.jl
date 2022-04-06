@@ -38,8 +38,8 @@ nothing # hide
 #
 # As we work with a Bayesian method, we define a prior. This will behave like an "initial guess"
 # for the likely region of parameter space we expect the solution to live in.
-prior_u1 = Dict("distribution" => Parameterized(Normal(0, 1)), "constraints" => no_constraint(), "name" => "u1")
-prior_u2 = Dict("distribution" => Parameterized(Normal(0, 1)), "constraints" => no_constraint(), "name" => "u2")
+prior_u1 = Dict("distribution" => Parameterized(Normal(0, 1)), "constraint" => no_constraint(), "name" => "u1")
+prior_u2 = Dict("distribution" => Parameterized(Normal(0, 1)), "constraint" => no_constraint(), "name" => "u2")
 
 prior = ParameterDistribution([prior_u1, prior_u2])
 
@@ -138,8 +138,8 @@ G_target = [0]
 # that ``u₁`` is more likely to be negative. This can be implemented by setting a bias in the
 # mean of its prior distribution to e.g., ``-0.5``:
 prior_u1 =
-    Dict("distribution" => Parameterized(Normal(-0.5, sqrt(2))), "constraints" => no_constraint(), "name" => "u1")
-prior_u2 = Dict("distribution" => Parameterized(Normal(0, sqrt(2))), "constraints" => no_constraint(), "name" => "u2")
+    Dict("distribution" => Parameterized(Normal(-0.5, sqrt(2))), "constraint" => no_constraint(), "name" => "u1")
+prior_u2 = Dict("distribution" => Parameterized(Normal(0, sqrt(2))), "constraint" => no_constraint(), "name" => "u2")
 
 prior = ParameterDistribution([prior_u1, prior_u2])
 

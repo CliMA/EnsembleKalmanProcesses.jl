@@ -68,58 +68,58 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         param_dict_fail = Dict("distribution" => d)
         @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not all the keys
-        param_dict_fail = Dict("distribution" => 1, "constraints" => c, "name" => name)
+        param_dict_fail = Dict("distribution" => 1, "constraint" => c, "name" => name)
         @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not right distribution type
-        param_dict_fail = Dict("distribution" => d, "constraints" => 1, "name" => name)
+        param_dict_fail = Dict("distribution" => d, "constraint" => 1, "name" => name)
         @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not right constraint type
-        param_dict_fail = Dict("distribution" => d, "constraints" => [1, no_constraint(), 3], "name" => name)
+        param_dict_fail = Dict("distribution" => d, "constraint" => [1, no_constraint(), 3], "name" => name)
         @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not right constraint type
-        param_dict_fail = Dict("distribution" => d, "constraints" => c, "name" => 1)
+        param_dict_fail = Dict("distribution" => d, "constraint" => c, "name" => 1)
         @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not right name type
-        param_dict_fail = Dict("distribution" => d, "constraints" => [no_constraint(), no_constraint()], "name" => name)
+        param_dict_fail = Dict("distribution" => d, "constraint" => [no_constraint(), no_constraint()], "name" => name)
         @test_throws DimensionMismatch ParameterDistribution(param_dict_fail) # wrong number of constraints
 
-        param_dict = Dict("distribution" => d, "constraints" => c, "name" => name)
+        param_dict = Dict("distribution" => d, "constraint" => c, "name" => name)
         u = ParameterDistribution(param_dict)
-        @test u.distributions == [d]
-        @test u.constraints == [c]
-        @test u.names == [name]
+        @test u.distribution == [d]
+        @test u.constraint == [c]
+        @test u.name == [name]
 
         c_arr = [no_constraint()]
-        param_dict = Dict("distribution" => d, "constraints" => c_arr, "name" => name)
+        param_dict = Dict("distribution" => d, "constraint" => c_arr, "name" => name)
         u = ParameterDistribution(param_dict)
-        @test u.constraints == [c]
+        @test u.constraint == [c]
 
         # Tests for the ParameterDistribution
         d = Parameterized(MvNormal(4, 0.1))
         c = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name = "constrained_mvnormal"
-        param_dict = Dict("distribution" => d, "constraints" => c, "name" => name)
+        param_dict = Dict("distribution" => d, "constraint" => c, "name" => name)
 
         u = ParameterDistribution(param_dict)
-        @test u.distributions == [d]
-        @test u.constraints == c
-        @test u.names == [name]
+        @test u.distribution == [d]
+        @test u.constraint == c
+        @test u.name == [name]
         param_dict_fail = param_dict
-        param_dict_fail["constraints"] = c[1]
+        param_dict_fail["constraint"] = c[1]
         @test_throws DimensionMismatch ParameterDistribution(param_dict_fail) # wrong number of constraints
 
         # Tests for the ParameterDistribution
         d1 = Parameterized(MvNormal(4, 0.1))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
-        param_dict1 = Dict("distribution" => d1, "constraints" => c1, "name" => name1)
+        param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
 
         d2 = Samples([1.0 3.0 5.0 7.0; 9.0 11.0 13.0 15.0])
         c2 = [bounded(10, 15), no_constraint()]
         name2 = "constrained_sampled"
-        param_dict2 = Dict("distribution" => d2, "constraints" => c2, "name" => name2)
+        param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => name2)
 
         param_dict_array = [param_dict1, param_dict2]
         u = ParameterDistribution(param_dict_array)
-        @test u.distributions == [d1, d2]
-        @test u.constraints == cat([c1, c2]..., dims = 1)
-        @test u.names == [name1, name2]
+        @test u.distribution == [d1, d2]
+        @test u.constraint == cat([c1, c2]..., dims = 1)
+        @test u.name == [name1, name2]
 
     end
 
@@ -128,13 +128,13 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d1 = Parameterized(MvNormal(4, 0.1))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
-        param_dict1 = Dict("distribution" => d1, "constraints" => c1, "name" => name1)
+        param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
         u1 = ParameterDistribution(param_dict1)
 
         d2 = Samples([1 2 3 4])
         c2 = [bounded(10, 15)]
         name2 = "constrained_sampled"
-        param_dict2 = Dict("distribution" => d2, "constraints" => c2, "name" => name2)
+        param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => name2)
 
         u2 = ParameterDistribution(param_dict2)
 
@@ -177,20 +177,20 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d1 = Parameterized(MvNormal(4, 0.1))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
-        param_dict1 = Dict("distribution" => d1, "constraints" => c1, "name" => name1)
+        param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
 
         u1 = ParameterDistribution(param_dict1)
 
         d2 = Samples([1 2 3 4])
         c2 = [bounded(10, 15)]
         name2 = "constrained_sampled"
-        param_dict2 = Dict("distribution" => d2, "constraints" => c2, "name" => name2)
+        param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => name2)
         u2 = ParameterDistribution(param_dict2)
 
         d3 = Parameterized(Beta(2, 2))
         c3 = [no_constraint()]
         name3 = "unconstrained_beta"
-        param_dict3 = Dict("distribution" => d3, "constraints" => c3, "name" => name3)
+        param_dict3 = Dict("distribution" => d3, "constraint" => c3, "name" => name3)
         u3 = ParameterDistribution(param_dict3)
 
         param_dict12 = [param_dict1, param_dict2]
@@ -199,7 +199,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d4 = Samples([1 2 3 4 5 6 7 8; 8 7 6 5 4 3 2 1])
         c4 = [no_constraint(), no_constraint()]
         name4 = "constrained_MVsampled"
-        param_dict4 = Dict("distribution" => d4, "constraints" => c4, "name" => name4)
+        param_dict4 = Dict("distribution" => d4, "constraint" => c4, "name" => name4)
         param_dict1234 = [param_dict1, param_dict2, param_dict3, param_dict4]
 
         v = ParameterDistribution(param_dict1234)
@@ -266,13 +266,13 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d1 = Parameterized(test_d)
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
-        param_dict1 = Dict("distribution" => d1, "constraints" => c1, "name" => name1)
+        param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
         u1 = ParameterDistribution(param_dict1)
 
         d2 = Samples([1 2 3 4])
         c2 = [bounded(10, 15)]
         name2 = "constrained_sampled"
-        param_dict2 = Dict("distribution" => d2, "constraints" => c2, "name" => name2)
+        param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => name2)
         u2 = ParameterDistribution(param_dict2)
 
         # Tests for sample distribution
@@ -345,13 +345,13 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d1 = Parameterized(MvNormal(4, 0.1))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
-        param_dict1 = Dict("distribution" => d1, "constraints" => c1, "name" => name1)
+        param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
         u1 = ParameterDistribution(param_dict1)
 
         d2 = Samples([1.0 3.0 5.0 7.0; 9.0 11.0 13.0 15.0])
         c2 = [bounded(10, 15), no_constraint()]
         name2 = "constrained_sampled"
-        param_dict2 = Dict("distribution" => d2, "constraints" => c2, "name" => name2)
+        param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => name2)
         u2 = ParameterDistribution(param_dict2)
 
         param_dict = [param_dict1, param_dict2]

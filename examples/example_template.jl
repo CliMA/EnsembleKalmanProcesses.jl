@@ -36,7 +36,7 @@ truth_sample = truth.samples[1]
 ##
 ## Now define the priors:
 ##
-prior_dict = Dict("distribution" => Parameterized(Normal(0, 1)), "constraints" => bounded(1, 2), "name" => "")
+prior_dict = Dict("distribution" => Parameterized(Normal(0, 1)), "constraint" => bounded(1, 2), "name" => "")
 priors = ParameterDistribution(prior_dict)
 
 ##

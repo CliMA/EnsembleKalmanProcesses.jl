@@ -9,7 +9,7 @@ One can create a full parameter distribution using three inputs:
 
 These are combined as a
 ```julia
-Dict("distribution" => ..., "constraints" => ..., "name" => ...)
+Dict("distribution" => ..., "constraint" => ..., "name" => ...)
 ```
 One can also provide arrays of these dicts to create more complex distributions.
 
@@ -36,7 +36,7 @@ name = "point_seven"
 ```
 and the distribution is created by:
 ```julia
-prior_dict = Dict("distribution" => distribution, "constraints" => constraint, "name" => name)
+prior_dict = Dict("distribution" => distribution, "constraint" => constraint, "name" => name)
 prior = ParameterDistribution(prior_dict)
 ```
 
@@ -118,7 +118,7 @@ where:
 1. we fix the mean value to 0, and range over the standard deviation,
 2. we fix the standard deviation to 1 and range over the mean value.
 
-### Without constraints: `"constraints" => no_constraints()`
+### Without constraints: `"constraint" => no_constraints()`
 
 ```@setup no_constraints
 using Distributions
@@ -170,7 +170,7 @@ using Distributions
 
 param_dict = Dict(
 "distribution" => Parameterized(Normal(0.5, 1)),
-"constraints" => no_constraint(),
+"constraint" => no_constraint(),
 "name" => "unbounded_parameter",
 )
 
@@ -181,7 +181,7 @@ where `no_constraint()` automatically defines the identity constraint map
 transform_unconstrained_to_constrained(x) = x
 ```
 
-### Bounded below by 0: `"constraints" => bounded_below(0)`
+### Bounded below by 0: `"constraint" => bounded_below(0)`
 
 ```@setup bounded_below
 using Distributions
@@ -232,7 +232,7 @@ using Distributions
 
 param_dict = Dict(
 "distribution" => Parameterized(Normal(0.5, 1)),
-"constraints" = bounded_below(0),
+"constraint" = bounded_below(0),
 "name" => "bounded_below_parameter",
 )
 
@@ -243,7 +243,7 @@ where `bounded_below(0)` automatically defines the constraint map
 transform_unconstrained_to_constrained(x) = exp(x)
 ```
 
-### Bounded above by 10.0: `"constraints" => bounded_above(10)`
+### Bounded above by 10.0: `"constraint" => bounded_above(10)`
 
 ```@setup bounded_above
 using Distributions
@@ -294,7 +294,7 @@ using Distributions
 
 param_dict = Dict(
 "distribution" => Parameterized(Normal(0.5, 1)),
-"constraints" => bounded_above(10),
+"constraint" => bounded_above(10),
 "name" => "bounded_above_parameter",
 )
 prior = ParameterDistribution(param_dict)
@@ -304,7 +304,7 @@ where `bounded_above(10)` automatically defines the constraint map
 transform_unconstrained_to_constrained(x) = 10 - exp(x)
 ```
 
-### Bounded in  between 5 and 10: `"constraints" => bounded(5, 10)`
+### Bounded in  between 5 and 10: `"constraint" => bounded(5, 10)`
 
 ```@setup bounded
 using Distributions
@@ -355,7 +355,7 @@ using Distributions
 
 param_dict = Dict(
 "distribution" => Parameterized(Normal(0.5, 1)),
-"constraints" => bounded(5, 10),
+"constraint" => bounded(5, 10),
 "name" => "bounded_parameter",
 )
 
@@ -403,8 +403,8 @@ name2 = "constrained_sampled"
 The full prior distribution for this setting is created from the array of the parameter specifications as dictionaries.
 
 ```julia
-param_dict1 = Dict("distribution" => d1, "constraints" => c1, "name" => name1)
-param_dict2 = Dict("distribution" => d2, "constraints" => c2, "name" => name2)
+param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
+param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => name2)
 u = ParameterDistribution([param_dict1, param_dict2])
 ```
 
