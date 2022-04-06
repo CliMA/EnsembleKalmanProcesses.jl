@@ -177,12 +177,10 @@ Constructor taking in a Dict or array of Dicts. Each dict must contain the key-v
 function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
     #check type
-    if !isa(param_dist_dict, Dict)
-        if !(eltype(param_dist_dict) <: Dict)
-            throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}"))
-        end
+    if !(isa(param_dist_dict, Dict) || eltype(param_dist_dict) <: Dict)
+        throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}"))
     end
-
+    
     #make copy as array
     param_dist_dict_array = !isa(param_dist_dict, AbstractVector) ? [param_dist_dict] : param_dist_dict
     #perform checks on the individual distributions
@@ -206,7 +204,6 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
             elseif !(eltype(constraints) <: ConstraintType) #it is a vector, but not of constraints
                 throw(ArgumentError("Value of \"constraints\" must be a ConstraintType, or <:AbstractVector(ConstraintType)"))
             end
-
         end
         if !isa(name, String)
             throw(ArgumentError("Value of \"name\" must be a String"))
@@ -223,9 +220,9 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
     end
 
     #flatten the structure
-    distributions = [pdd["distribution"] for pdd in param_dist_dict_array]
-    flat_constraints = cat([pdd["constraints"] for pdd in param_dist_dict_array]..., dims = 1)
-    names = [pdd["name"] for pdd in param_dist_dict_array]
+    distributions = getindex.(param_dist_dict_array, "distribution")
+    flat_constraints = cat(getindex.(param_dist_dict_array, "constraints")..., dims = 1)
+    names = getindex.(param_dist_dict_array, "name")
 
     #build the object
     return ParameterDistribution(distributions, flat_constraints, names)
