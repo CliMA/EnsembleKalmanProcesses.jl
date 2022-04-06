@@ -137,8 +137,7 @@ G_target = [0]
 # We define the prior. We can place prior information on e.g., ``u₁``, demonstrating a belief
 # that ``u₁`` is more likely to be negative. This can be implemented by setting a bias in the
 # mean of its prior distribution to e.g., ``-0.5``:
-prior_u1 =
-    Dict("distribution" => Parameterized(Normal(-0.5, sqrt(2))), "constraint" => no_constraint(), "name" => "u1")
+prior_u1 = Dict("distribution" => Parameterized(Normal(-0.5, sqrt(2))), "constraint" => no_constraint(), "name" => "u1")
 prior_u2 = Dict("distribution" => Parameterized(Normal(0, sqrt(2))), "constraint" => no_constraint(), "name" => "u2")
 
 prior = ParameterDistribution([prior_u1, prior_u2])
