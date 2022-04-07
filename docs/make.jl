@@ -32,6 +32,7 @@ api = [
     "ParameterDistributions" => "API/ParameterDistributions.md",
     "Observations" => "API/Observations.md",
     "DataContainers" => "API/DataContainers.md",
+    "Localizers" => "API/Localizers.md",
 ]
 
 examples = [
