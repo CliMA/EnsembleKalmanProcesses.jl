@@ -42,9 +42,10 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         #an example with user defined invertible transforms
         c_to_u = (x -> 3 * x + 14)
+        jacobian = (x -> 3)
         u_to_c = (x -> (x - 14) / 3)
 
-        c4 = Constraint(c_to_u, u_to_c)
+        c4 = Constraint(c_to_u, jacobian, u_to_c)
         @test isapprox(c4.constrained_to_unconstrained(5.0) - c_to_u(5.0), 0)
         @test isapprox(c4.unconstrained_to_constrained(5.0) - u_to_c(5.0), 0)
 

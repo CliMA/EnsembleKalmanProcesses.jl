@@ -63,6 +63,7 @@ Contains two functions to map between constrained and unconstrained spaces.
 """
 struct Constraint <: ConstraintType
     constrained_to_unconstrained::Function
+    c_to_u_jacobian::Function
     unconstrained_to_constrained::Function
 end
 
@@ -74,8 +75,9 @@ Constructs a Constraint with no constraints, enforced by maps x -> x and x -> x.
 """
 function no_constraint()
     c_to_u = (x -> x)
+    jacobian = (x -> x)
     u_to_c = (x -> x)
-    return Constraint(c_to_u, u_to_c)
+    return Constraint(c_to_u, jacobian, u_to_c)
 end
 
 """
@@ -86,8 +88,9 @@ and `x -> exp(x) + lower_bound`.
 """
 function bounded_below(lower_bound::FT) where {FT <: Real}
     c_to_u = (x -> log(x - lower_bound))
+    jacobian = (x -> 1/(x - lower_bound))
     u_to_c = (x -> exp(x) + lower_bound)
-    return Constraint(c_to_u, u_to_c)
+    return Constraint(c_to_u, jacobian, u_to_c)
 end
 
 """
@@ -98,8 +101,9 @@ and `x -> upper_bound - exp(x)`.
 """
 function bounded_above(upper_bound::FT) where {FT <: Real}
     c_to_u = (x -> log(upper_bound - x))
+    jacobian = (x -> -1/(upper_bound - x))
     u_to_c = (x -> upper_bound - exp(x))
-    return Constraint(c_to_u, u_to_c)
+    return Constraint(c_to_u, jacobian, u_to_c)
 end
 
 
@@ -116,8 +120,9 @@ function bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real}
         throw(DomainError("upper bound must be greater than lower bound"))
     end
     c_to_u = (x -> log((x - lower_bound) / (upper_bound - x)))
+    jacobian = (x -> 1/(upper_bound - x) + 1/(x - lower_bound))
     u_to_c = (x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1))
-    return Constraint(c_to_u, u_to_c)
+    return Constraint(c_to_u, jacobian, u_to_c)
 end
 
 #extending Base.length
