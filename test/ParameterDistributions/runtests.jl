@@ -61,7 +61,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         c_mismatch = [no_constraint(), no_constraint()]
         c_wrongtype = [3.0]
         c = no_constraint()
-        name = "normal_and_gamma"
+        name = "unconstrained_Gamma"
 
         @test_throws ArgumentError ParameterDistribution(d, c_wrongtype, name) #wrong type of constraint
         @test_throws DimensionMismatch ParameterDistribution(d, c_mismatch, name) #wrong number of constraints
@@ -232,7 +232,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         d3 = Parameterized(Beta(2, 2))
         c3 = no_constraint()
-        name3 = "unconstrained_beta_and_MvN"
+        name3 = "unconstrained_beta"
         u3 = ParameterDistribution(d3, c3, name3)
 
         u = combine_distributions([u1, u2])

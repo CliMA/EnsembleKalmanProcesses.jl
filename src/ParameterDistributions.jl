@@ -407,14 +407,6 @@ sample(d::Parameterized, n_draws::IT) where {IT <: Integer} = sample(Random.GLOB
 sample(rng::AbstractRNG, d::Parameterized) = sample(rng, d, 1)
 sample(d::Parameterized) = sample(Random.GLOBAL_RNG, d, 1)
 
-function sample(rng::AbstractRNG, d::Parameterized, n_draws::IT) where {IT <: Integer}
-    if ndims(d) == 1
-        return reshape(rand(rng, d.distribution, n_draws), :, n_draws) #columns are parameters
-    else
-        return rand(rng, d.distribution, n_draws)
-    end
-end
-
 """
     logpdf(pd::ParameterDistribution, xarray::Array{<:Real,1})
 
