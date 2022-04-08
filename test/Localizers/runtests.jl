@@ -26,14 +26,8 @@ const EKP = EnsembleKalmanProcesses
 
     #### Define prior information on parameters
     priors = ParameterDistribution[] #empty PD-array
-    for i = 1:p
-        push!(priors,
-              ParameterDistribution(
-                  Parameterized(Normal(0.0, 0.5)),
-                  no_constraint(),
-                  string("u",i),
-              )
-              )
+    for i in 1:p
+        push!(priors, ParameterDistribution(Parameterized(Normal(0.0, 0.5)), no_constraint(), string("u", i)))
     end
     prior = combine_distributions(priors)
     #prior_distns = repeat([Parameterized(Normal(0.0, 0.5))], p)
