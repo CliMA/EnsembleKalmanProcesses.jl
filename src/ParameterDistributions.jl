@@ -25,6 +25,8 @@ export no_constraint, bounded_below, bounded_above, bounded
 export transform_constrained_to_unconstrained, transform_unconstrained_to_constrained
 export get_logpdf, batch
 
+include("TransformedPriors.jl")
+
 ## Objects
 # for the Distribution
 abstract type ParameterDistributionType end
