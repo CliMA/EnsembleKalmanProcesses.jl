@@ -72,6 +72,54 @@ function FailureHandler(process::Unscented, method::IgnoreFailures)
 end
 
 """
+    FailureHandler(process::Unscented, method::SampleSuccGauss)
+
+Provides a failsafe update that
+ - computes all means and covariances over the successful sigma points,
+ - rescales the mean weights and the off-center covariance weights of the
+    successful particles to sum to the same value as the original weight sums.
+"""
+function FailureHandler(process::Unscented, method::SampleSuccGauss)
+    function succ_gauss_analysis!(uki, u_p, g, failed_ens)
+
+        obs_mean = uki.obs_mean
+        Σ_ν = uki.process.Σ_ν_scale * uki.obs_noise_cov
+        successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
+
+        ############# Prediction step
+        u_p_mean = construct_successful_mean(uki, u_p, successful_ens)
+        uu_p_cov = construct_successful_cov(uki, u_p, u_p_mean, successful_ens)
+
+        ###########  Analysis step
+        g_mean = construct_successful_mean(uki, g, successful_ens)
+        gg_cov = construct_successful_cov(uki, g, g_mean, successful_ens) + Σ_ν / uki.Δt[end]
+        ug_cov = construct_successful_cov(uki, u_p, u_p_mean, g, g_mean, successful_ens)
+
+        tmp = ug_cov / gg_cov
+
+        u_mean = u_p_mean + tmp * (obs_mean - g_mean)
+        uu_cov = uu_p_cov - tmp * ug_cov'
+
+        ########### Save results
+        push!(uki.process.obs_pred, g_mean) # N_ens x N_data
+        push!(uki.process.u_mean, u_mean) # N_ens x N_params
+        push!(uki.process.uu_cov, uu_cov) # N_ens x N_data
+
+        push!(uki.g, DataContainer(g, data_are_columns = true))
+
+        compute_error!(uki)
+    end
+    function failsafe_update(uki, u, g, failed_ens)
+        #perform analysis on the model runs
+        succ_gauss_analysis!(uki, u, g, failed_ens)
+        #perform new prediction output to model parameters u_p
+        u = update_ensemble_prediction!(uki.process, uki.Δt[end])
+        return u
+    end
+    return FailureHandler{Unscented, SampleSuccGauss}(failsafe_update)
+end
+
+"""
     Unscented(
         u0_mean::AbstractVector{FT},
         uu0_cov::AbstractMatrix{FT};
@@ -183,7 +231,17 @@ function construct_sigma_ensemble(
 
     c_weights = process.c_weights
 
-    chol_xx_cov = cholesky(Hermitian(x_cov)).L
+    # compute cholesky factor L of x_cov
+    local chol_xx_cov
+    try
+        chol_xx_cov = cholesky(Hermitian(x_cov)).L
+    catch
+        _, S, Ut = svd(x_cov)
+        # find the first singular value that is smaller than 1e-8
+        ind_0 = searchsortedfirst(S, 1e-8, rev = true)
+        S[ind_0:end] .= S[ind_0 - 1]
+        chol_xx_cov = (qr(sqrt.(S) .* Ut).R)'
+    end
 
     x = zeros(FT, N_x, 2 * N_x + 1)
     x[:, 1] = x_mean
@@ -201,18 +259,46 @@ construct_mean `x_mean` from ensemble `x`.
 """
 function construct_mean(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::AbstractVecOrMat{FT},
+    x::AbstractVecOrMat{FT};
+    mean_weights = uki.process.mean_weights,
 ) where {FT <: AbstractFloat, IT <: Int}
 
     if isa(x, AbstractMatrix{FT})
-        _, N_ens = size(x)
-        @assert(uki.N_ens == N_ens)
-        return Array((uki.process.mean_weights' * x')')
+        @assert size(x, 2) == length(mean_weights)
+        return Array((mean_weights' * x')')
     else
-        N_ens = length(x)
-        @assert(uki.N_ens == N_ens)
-        return uki.process.mean_weights' * x
+        @assert length(mean_weights) == length(x)
+        return mean_weights' * x
     end
+end
+
+"""
+    construct_successful_mean(
+        uki::EnsembleKalmanProcess{FT, IT, Unscented},
+        x::AbstractVecOrMat{FT},
+        successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
+    ) where {FT <: AbstractFloat, IT <: Int}
+
+Constructs mean over successful particles by rescaling the quadrature
+weights over the successful particles. If the central particle fails
+in a modified unscented transform, the mean is computed as the
+ensemble mean over all successful particles.
+"""
+function construct_successful_mean(
+    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    x::AbstractVecOrMat{FT},
+    successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
+) where {FT <: AbstractFloat, IT <: Int}
+
+    mean_weights = deepcopy(uki.process.mean_weights)
+    # Check if modified
+    if sum(mean_weights[2:end]) ≈ 0 && !(1 in successful_indices)
+        mean_weights .= 1 / length(successful_indices)
+    else
+        mean_weights = mean_weights ./ sum(mean_weights[successful_indices])
+    end
+    x_succ = isa(x, AbstractMatrix) ? x[:, successful_indices] : x[successful_indices]
+    return construct_mean(uki, x_succ; mean_weights = mean_weights[successful_indices])
 end
 
 """
@@ -221,16 +307,15 @@ construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
     x::AbstractVecOrMat{FT},
-    x_mean::Union{FT, AbstractVector{FT}, Nothing} = nothing,
+    x_mean::Union{FT, AbstractVector{FT}, Nothing} = nothing;
+    cov_weights = uki.process.cov_weights,
 ) where {FT <: AbstractFloat, IT <: Int}
-
-    cov_weights = uki.process.cov_weights
 
     x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
 
     if isa(x, AbstractMatrix{FT})
         @assert isa(x_mean, AbstractVector{FT})
-        N_ens, N_x = uki.N_ens, size(x_mean, 1)
+        N_x, N_ens = size(x)
         xx_cov = zeros(FT, N_x, N_x)
 
         for i in 1:N_ens
@@ -238,13 +323,44 @@ function construct_cov(
         end
     else
         @assert isa(x_mean, FT)
+        N_ens = length(x)
         xx_cov = FT(0)
 
-        for i in 1:(uki.N_ens)
+        for i in 1:N_ens
             xx_cov += cov_weights[i] * (x[i] - x_mean) * (x[i] - x_mean)
         end
     end
     return xx_cov
+end
+
+"""
+    construct_successful_cov(
+        uki::EnsembleKalmanProcess{FT, IT, Unscented},
+        x::AbstractVecOrMat{FT},
+        x_mean::Union{AbstractVector{FT}, FT},
+        successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
+    ) where {FT <: AbstractFloat, IT <: Int}
+
+Constructs variance of `x` over successful particles by rescaling the
+off-center weights over the successful off-center particles.
+"""
+function construct_successful_cov(
+    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    x::AbstractVecOrMat{FT},
+    x_mean::Union{FT, AbstractVector{FT}, Nothing},
+    successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
+) where {FT <: AbstractFloat, IT <: Int}
+
+    cov_weights = deepcopy(uki.process.cov_weights)
+
+    # Rescale non-center sigma weights to sum to original value
+    orig_weight_sum = sum(cov_weights[2:end])
+    sum_indices = filter(x -> x > 1, successful_indices)
+    succ_weight_sum = sum(cov_weights[sum_indices])
+    cov_weights[2:end] = cov_weights[2:end] .* (orig_weight_sum / succ_weight_sum)
+
+    x_succ = isa(x, AbstractMatrix) ? x[:, successful_indices] : x[successful_indices]
+    return construct_cov(uki, x_succ, x_mean; cov_weights = cov_weights[successful_indices])
 end
 
 """
@@ -255,12 +371,12 @@ function construct_cov(
     x::AbstractMatrix{FT},
     x_mean::AbstractVector{FT},
     obs_mean::AbstractMatrix{FT},
-    y_mean::AbstractVector{FT},
+    y_mean::AbstractVector{FT};
+    cov_weights = uki.process.cov_weights,
 ) where {FT <: AbstractFloat, IT <: Int, P <: Process}
-    N_ens, N_x, N_y = uki.N_ens, size(x_mean, 1), size(y_mean, 1)
 
-    cov_weights = uki.process.cov_weights
-
+    N_x, N_ens = size(x)
+    N_y = length(y_mean)
     xy_cov = zeros(FT, N_x, N_y)
 
     for i in 1:N_ens
@@ -268,6 +384,42 @@ function construct_cov(
     end
 
     return xy_cov
+end
+
+"""
+    construct_successful_cov(
+        uki::EnsembleKalmanProcess{FT, IT, Unscented},
+        x::AbstractMatrix{FT},
+        x_mean::AbstractArray{FT},
+        obs_mean::AbstractMatrix{FT},
+        y_mean::AbstractArray{FT},
+        successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
+    ) where {FT <: AbstractFloat, IT <: Int}
+
+Constructs covariance of `x` and `obs_mean - y_mean` over successful particles by rescaling
+the off-center weights over the successful off-center particles.
+"""
+function construct_successful_cov(
+    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    x::AbstractMatrix{FT},
+    x_mean::AbstractVector{FT},
+    obs_mean::AbstractMatrix{FT},
+    y_mean::AbstractVector{FT},
+    successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
+) where {FT <: AbstractFloat, IT <: Int}
+    N_ens, N_x, N_y = uki.N_ens, length(x_mean), length(y_mean)
+
+    cov_weights = deepcopy(uki.process.cov_weights)
+
+    # Rescale non-center sigma weights to sum to original value
+    orig_weight_sum = sum(cov_weights[2:end])
+    sum_indices = filter(x -> x > 1, successful_indices)
+    succ_weight_sum = sum(cov_weights[sum_indices])
+    cov_weights[2:end] = cov_weights[2:end] .* (orig_weight_sum / succ_weight_sum)
+
+    x_succ = isa(x, AbstractMatrix) ? x[:, successful_indices] : x[successful_indices]
+    obs_mean_succ = isa(x, AbstractMatrix) ? obs_mean[:, successful_indices] : obs_mean[successful_indices]
+    return construct_cov(uki, x_succ, x_mean, obs_mean_succ, y_mean; cov_weights = cov_weights[successful_indices])
 end
 
 """
@@ -339,9 +491,26 @@ function update_ensemble_analysis!(
     compute_error!(uki)
 end
 
+"""
+    update_ensemble!(
+        uki::EnsembleKalmanProcess{FT, IT, Unscented},
+        g_in::AbstractMatrix{FT};
+        Δt_new = nothing,
+        failed_ens = nothing,
+    ) where {FT <: AbstractFloat, IT <: Int}
+
+Updates the ensemble according to an Unscented process. 
+
+Inputs:
+ - uki :: The EnsembleKalmanProcess to update.
+ - g_in :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - Δt_new :: Time step to be used in the current update.
+ - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g`
+    with NaN entries.
+"""
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    g_in::AbstractMatrix{FT},
+    g_in::AbstractMatrix{FT};
     Δt_new = nothing,
     failed_ens = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}

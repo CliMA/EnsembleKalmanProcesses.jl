@@ -7,27 +7,55 @@ using SparseArrays
 
 A sparse ensemble Kalman Inversion process
 """
-struct SparseInversion{FT <: AbstractFloat, IT <: Int} <: Process
+Base.@kwdef struct SparseInversion{FT <: AbstractFloat} <: Process
     "upper limit of l1-norm"
     γ::FT
-    "the flag to enable thresholding"
-    threshold_eki::Bool
-    "a small value to threshold results that are close to zero"
-    threshold_value::FT
-    "a small value for regularization to enhance robustness of convex optimization"
-    reg::FT
-    "a list of index to indicate the parameters included in the evaluation of l1-norm"
-    uc_idx::AbstractVector{IT}
+    "threshold below which the norm of parameters is pruned to zero"
+    threshold_value::FT = FT(0)
+    "indices of parameters included in the evaluation of l1-norm constraint"
+    uc_idx::Union{AbstractVector, Colon} = Colon()
+    "a small regularization value to enhance robustness of convex optimization"
+    reg::FT = FT(0)
+end
+
+function SparseInversion(
+    γ::FT;
+    threshold_value::FT = FT(0),
+    uc_idx::Union{AbstractVector, Colon} = Colon(),
+    reg::FT = FT(0),
+) where {FT <: AbstractFloat}
+    return SparseInversion{FT}(γ, threshold_value, uc_idx, reg)
 end
 
 function FailureHandler(process::SparseInversion, method::IgnoreFailures)
-    failsafe_update(u, g, y, obs_noise_cov, failed_ens) = eki_update(u, g, y, obs_noise_cov)
+    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens) = sparse_eki_update(ekp, u, g, y, obs_noise_cov)
     return FailureHandler{SparseInversion, IgnoreFailures}(failsafe_update)
 end
 
 """
+    FailureHandler(process::SparseInversion, method::SampleSuccGauss)
+
+Provides a failsafe update that
+ - updates the successful ensemble according to the SparseEKI update,
+ - updates the failed ensemble by sampling from the updated successful ensemble.
+"""
+function FailureHandler(process::SparseInversion, method::SampleSuccGauss)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens)
+        successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
+        n_failed = length(failed_ens)
+        u[:, successful_ens] =
+            sparse_eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
+        if !isempty(failed_ens)
+            u[:, failed_ens] = sample_empirical_gaussian(u[:, successful_ens], n_failed)
+        end
+        return u
+    end
+    return FailureHandler{SparseInversion, SampleSuccGauss}(failsafe_update)
+end
+
+"""
     sparse_qp(
-        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT,IT}},
+        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
         v_j::Vector{FT},
         cov_vv_inv::AbstractMatrix{FT},
         H_u::SparseArrays.SparseMatrixCSC{FT},
@@ -39,7 +67,7 @@ end
 Solving quadratic programming problem with sparsity constraint.
 """
 function sparse_qp(
-    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
+    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
     v_j::Vector{FT},
     cov_vv_inv::AbstractMatrix{FT},
     H_u::AbstractMatrix{FT},
@@ -70,25 +98,93 @@ function sparse_qp(
 end
 
 """
+     sparse_eki_update(
+        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
+        u::AbstractMatrix{FT},
+        g::AbstractMatrix{FT},
+        y::AbstractMatrix{FT},
+        obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+    ) where {FT <: Real, IT}
+
+Returns the sparse updated parameter vectors given their current values and
+the corresponding forward model evaluations, using the inversion algorithm
+from eqns. (3.7) and (3.14) of Schneider et al. (2021).
+"""
+function sparse_eki_update(
+    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
+    u::AbstractMatrix{FT},
+    g::AbstractMatrix{FT},
+    y::AbstractMatrix{FT},
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+) where {FT <: Real, IT}
+
+    cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
+    cov_gg = cov(g, g, dims = 2, corrected = false) # [N_par × N_obs]
+    cov_uu = cov(u, u, dims = 2, corrected = false) # [N_par × N_par]
+
+    v = hcat(u', g')
+
+    # N_obs × N_obs \ [N_obs × N_ens]
+    # --> tmp is [N_obs × N_ens]
+    tmp = (cov_gg + obs_noise_cov) \ (y - g)
+    u = u + (cov_ug * tmp) # [N_par × N_ens]
+
+    # Sparse EKI
+    cov_vv = vcat(hcat(cov_uu, cov_ug), hcat(cov_ug', cov_gg))
+    H_u = hcat(1.0 * I(size(u)[1]), fill(FT(0), size(u)[1], size(g)[1]))
+    H_g = hcat(fill(FT(0), size(g)[1], size(u)[1]), 1.0 * I(size(g)[1]))
+
+    H_uc = H_u[ekp.process.uc_idx, :]
+
+    cov_vv_inv = cov_vv \ (1.0 * I(size(cov_vv)[1]))
+
+    # Loop over ensemble members to impose sparsity
+    Threads.@threads for j in 1:size(u, 2)
+        # Solve a quadratic programming problem
+        u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], H_uc = H_uc)
+
+        # Prune parameters using threshold
+        u[ekp.process.uc_idx, j] =
+            u[ekp.process.uc_idx, j] .* (abs.(u[ekp.process.uc_idx, j]) .> ekp.process.threshold_value)
+
+        # Add small noise to constrained elements of u
+        if isposdef(ekp.process.reg)
+            len_u_sparse = length(u[ekp.process.uc_idx, j])
+            u[ekp.process.uc_idx, j] += rand(ekp.rng, MvNormal(zeros(len_u_sparse), ekp.process.reg * I(len_u_sparse)))
+        end
+    end
+    return u
+end
+
+"""
     update_ensemble!(
-        ekp::EnsembleKalmanProcess{FT, IT, <:SparseInversion{FT,IT}},
-        g::Array{FT,2};
-        cov_threshold::FT=0.01,
-        Δt_new=nothing
+        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
+        g::AbstractMatrix{FT};
+        cov_threshold::FT = 0.01,
+        Δt_new = nothing,
+        deterministic_forward_map = true,
+        failed_ens = nothing,
     ) where {FT, IT}
 
-Updates the ensemble according to which type of Process we have. Model outputs `g` need to be a `N_obs × N_ens` array (i.e data are columms).
+Updates the ensemble according to a SparseInversion process. 
+
+Inputs:
+ - ekp :: The EnsembleKalmanProcess to update.
+ - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - cov_threshold :: Threshold below which the reduction in covariance determinant results in a warning.
+ - Δt_new :: Time step to be used in the current update.
+ - deterministic_forward_map :: Whether output `g` comes from a deterministic model.
+ - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g`
+    with NaN entries.
 """
 function update_ensemble!(
-    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT, IT}},
+    ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
     g::AbstractMatrix{FT};
     cov_threshold::FT = 0.01,
     Δt_new = nothing,
     deterministic_forward_map = true,
     failed_ens = nothing,
 ) where {FT, IT}
-
-    # Update follows eqns. (4) and (5) of Schillings and Stuart (2017)
 
     #catch works when g non-square
     if !(size(g)[2] == ekp.N_ens)
@@ -99,16 +195,9 @@ function update_ensemble!(
     # g: N_obs × N_ens
     u = get_u_final(ekp)
     N_obs = size(g, 1)
-
     cov_init = cov(u, dims = 2)
-    cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
-    cov_gg = cov(g, g, dims = 2, corrected = false) # [N_obs × N_obs]
-    cov_uu = cov(u, u, dims = 2, corrected = false) # [N_par × N_par]
-
     set_Δt!(ekp, Δt_new)
     fh = ekp.failure_handler
-
-    v = hcat(u', g')
 
     # Scale noise using Δt
     scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
@@ -125,38 +214,11 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(u, g, y, scaled_obs_noise_cov, failed_ens)
+    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
 
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns = true))
     push!(ekp.g, DataContainer(g, data_are_columns = true))
-
-    # Sparse EKI
-    cov_vv = vcat(hcat(cov_uu, cov_ug), hcat(cov_ug', cov_gg))
-    H_u = hcat(1.0 * I(size(u)[1]), fill(FT(0), size(u)[1], size(g)[1]))
-    H_g = hcat(fill(FT(0), size(g)[1], size(u)[1]), 1.0 * I(size(g)[1]))
-
-    H_uc = H_u[ekp.process.uc_idx, :]
-
-    cov_vv_inv = cov_vv \ (1.0 * I(size(cov_vv)[1]))
-
-    # Loop over ensemble members to impose sparsity
-    Threads.@threads for j in 1:(ekp.N_ens)
-        # Solve a quadratic programming problem
-        u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], H_uc = H_uc)
-
-        # Threshold the results if needed
-        if ekp.process.threshold_eki
-            u[ekp.process.uc_idx, j] =
-                u[ekp.process.uc_idx, j] .* (abs.(u[ekp.process.uc_idx, j]) .> ekp.process.threshold_value)
-        end
-
-        # Add small noise to constrained elements of u
-        u[ekp.process.uc_idx, j] += rand(
-            ekp.rng,
-            MvNormal(zeros(size(ekp.process.uc_idx)[1]), ekp.process.reg * I(size(ekp.process.uc_idx)[1])),
-        )
-    end
 
     # Store error
     compute_error!(ekp)

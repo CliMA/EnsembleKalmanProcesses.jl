@@ -228,12 +228,21 @@ end
 """
      sample_empirical_gaussian(u::AbstractMatrix{FT}, n::IT) where {FT <: Real, IT}
 
-Returns `n` samples from an empirical Gaussian based on point estimates `u`.
+Returns `n` samples from an empirical Gaussian based on point estimates `u`, adding inflation
+if the covariance is singular.
 """
-function sample_empirical_gaussian(u::AbstractMatrix{FT}, n::IT; inflation::FT = eps(FT)) where {FT <: Real, IT}
+function sample_empirical_gaussian(
+    u::AbstractMatrix{FT},
+    n::IT;
+    inflation::Union{FT, Nothing} = nothing,
+) where {FT <: Real, IT}
     cov_u_new = cov(u, u, dims = 2)
     if det(cov_u_new) < eps(FT)
         @warn string("Sample covariance matrix over ensemble is singular.", "\n Appplying variance inflation.")
+        if isnothing(inflation)
+            # Reduce condition number to 1/sqrt(eps(FT))
+            inflation = eigmax(cov_u_new) * sqrt(eps(FT))
+        end
         cov_u_new = cov_u_new + inflation * I
     end
     mean_u_new = mean(u, dims = 2)

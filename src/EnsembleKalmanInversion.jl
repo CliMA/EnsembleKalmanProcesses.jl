@@ -103,7 +103,7 @@ end
         Δt_new::Union{Nothing, FT} = nothing,
         deterministic_forward_map::Bool = true,
         failed_ens = nothing,
-    ) where {FT, IT, FM <: FailureHandlingMethod}
+    ) where {FT, IT}
 
 Updates the ensemble according to an Inversion process. 
 
@@ -123,7 +123,7 @@ function update_ensemble!(
     Δt_new::Union{Nothing, FT} = nothing,
     deterministic_forward_map::Bool = true,
     failed_ens = nothing,
-) where {FT, IT, FM <: FailureHandlingMethod}
+) where {FT, IT}
 
     #catch works when g non-square
     if !(size(g)[2] == ekp.N_ens)
