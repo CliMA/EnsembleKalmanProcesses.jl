@@ -25,6 +25,7 @@ export sample
 export no_constraint, bounded_below, bounded_above, bounded
 export transform_constrained_to_unconstrained, transform_unconstrained_to_constrained
 export get_logpdf, batch
+export combine_distributions
 
 ## Objects
 # for the Distribution
@@ -52,7 +53,6 @@ struct Samples{FT <: Real} <: ParameterDistributionType
     Samples(distribution_samples::AbstractVector{FT}; params_are_columns = true) where {FT <: Real} =
         params_are_columns ? new{FT}(reshape(distribution_samples, 1, :)) : new{FT}(reshape(distribution_samples, :, 1))
 end
-
 
 # For the transforms
 abstract type ConstraintType end
@@ -155,6 +155,8 @@ n_samples(d::Samples) = size(d.distribution_samples)[2]
 
 n_samples(d::Parameterized) = "Distribution stored in Parameterized form, draw samples using `sample` function"
 
+
+
 """
     ParameterDistribution
 
@@ -229,6 +231,52 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
 end
 
+"""
+    function ParameterDistribution(distribution::ParameterDistributionType,
+                                   constraint::Union{ConstraintType,AbstractVector{ConstraintType}},
+                                   name::AbstractString)
+
+constructor of a ParameterDistribution from a single `distribution`, (array of) `constraint`, `name`.
+these can used to build another ParameterDistribution
+"""
+function ParameterDistribution(distribution::ParameterDistributionType,
+                               constraint::Union{ConstraintType,AbstractVector},
+                               name::AbstractString)
+
+    if !(typeof(constraint) <: ConstraintType || eltype(constraint) <: ConstraintType) # if it is a vector, but not of constraint
+        throw(ArgumentError("`constraint` must be a ConstraintType, or Vector of ConstraintType's "))
+    end
+    # 1 constraint per dimension check
+    constraint_vec = isa(constraint, ConstraintType) ? [constraint] : constraint
+    n_parameters = ndims(distribution)
+    
+    if !(n_parameters == length(constraint_vec))
+        throw(DimensionMismatch("There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required"))
+    end
+
+    # flatten the structure
+    distribution_vec = [distribution]
+    flat_constraint_vec = cat(constraint_vec..., dims = 1)
+    name_vec = [name]
+    
+    # build the object
+    return ParameterDistribution(distribution_vec, flat_constraint_vec, name_vec)
+
+end
+
+"""
+    combine_distributions(pd_vec::AbstractVector{ParameterDistribution}...; dims = 1)
+
+concatenate from vector of single ParameterDistributions, dims keyword is unused
+"""
+function combine_distributions(pd_vec::AbstractVector{PD};dims=1) where {PD <: ParameterDistribution}
+    # flatten the structure
+    distribution = cat([d.distribution for d in pd_vec]..., dims = 1)
+    constraint = cat([d.constraint for d in pd_vec]..., dims = 1)
+    name = cat([d.name for d in pd_vec]..., dims = 1)
+    return ParameterDistribution(distribution, constraint, name)
+end
+
 ## Functions
 
 """
@@ -282,7 +330,7 @@ function batch(pd::ParameterDistribution)
     end
 
     return [collect((d_dim_tmp[i] + 1):d_dim_tmp[i + 1]) for i in 1:size(d_dim)[1]] # e.g [1:4, 5:5, 6:7]
-end
+end    
 
 """
     get_distribution(pd::ParameterDistribution)
@@ -357,6 +405,14 @@ sample(d::Parameterized, n_draws::IT) where {IT <: Integer} = sample(Random.GLOB
 sample(rng::AbstractRNG, d::Parameterized) = sample(rng, d, 1)
 sample(d::Parameterized) = sample(Random.GLOBAL_RNG, d, 1)
 
+function sample(rng::AbstractRNG, d::Parameterized, n_draws::IT) where {IT <: Integer}
+    if ndims(d) == 1
+        return reshape(rand(rng, d.distribution, n_draws), :, n_draws) #columns are parameters
+    else
+        return rand(rng, d.distribution, n_draws)
+    end
+end
+
 """
     logpdf(pd::ParameterDistribution, xarray::Array{<:Real,1})
 
@@ -379,7 +435,7 @@ function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where
 
     # get the index of xarray chunks to give to the different distributions.
     batches = batch(pd)
-
+    
     # perform the logpdf of each of the distributions, and returns their sum    
     return sum(cat([get_logpdf(d, xarray[batches[i]]) for (i, d) in enumerate(pd.distribution)]..., dims = 1))
 end
@@ -391,6 +447,7 @@ Returns a flattened variance of the distributions
 """
 var(d::Parameterized) = var(d.distribution)
 var(d::Samples) = var(d.distribution_samples, dims = 2)
+
 function var(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
     block_var = Array{Any}(undef, size(d_dims)[1])
@@ -399,8 +456,8 @@ function var(pd::ParameterDistribution)
         block_var[i] = var(pd.distribution[i])
     end
     return cat(block_var..., dims = 1) #build the flattened vector
-
 end
+
 
 """
     cov(pd::ParameterDistribution)
@@ -409,6 +466,7 @@ Returns a dense blocked (co)variance of the distributions.
 """
 cov(d::Parameterized) = cov(d.distribution)
 cov(d::Samples) = cov(d.distribution_samples, dims = 2) #parameters are columns
+
 function cov(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
 
