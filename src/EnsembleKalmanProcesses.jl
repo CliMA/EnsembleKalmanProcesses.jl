@@ -6,6 +6,7 @@ using Distributions, Statistics, LinearAlgebra, DocStringExtensions
 include("ParameterDistributions.jl")
 include("DataContainers.jl")
 include("Observations.jl")
+include("Localizers.jl")
 
 # algorithmic updates
 include("EnsembleKalmanProcess.jl")

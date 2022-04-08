@@ -40,14 +40,16 @@ function EnsembleKalmanProcess(
     Δt = FT(1),
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
-) where {FT <: AbstractFloat, IT <: Int, FM <: FailureHandlingMethod}
+    localization_method::LM = NoLocalization(),
+) where {FT <: AbstractFloat, IT <: Int, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
 
     #initial parameters stored as columns
     init_params = [DataContainer(update_ensemble_prediction!(process, Δt), data_are_columns = true)]
-    # Number of parameter
-    N_u = length(process.u_mean[1])
+    # Dimensionality
+    N_par = length(process.u_mean[1])
+    N_obs = length(obs_mean)
     # ensemble size
-    N_ens = 2N_u + 1 #stored with data as columns
+    N_ens = 2N_par + 1 #stored with data as columns
     #store for model evaluations
     g = []
     # error store
@@ -56,8 +58,22 @@ function EnsembleKalmanProcess(
     Δt = Array([Δt])
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
+    # localizer
+    loc = Localizer(localization_method, N_par, N_obs, FT)
 
-    EnsembleKalmanProcess{FT, IT, Unscented}(init_params, obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng, fh)
+    EnsembleKalmanProcess{FT, IT, Unscented}(
+        init_params,
+        obs_mean,
+        obs_noise_cov,
+        N_ens,
+        g,
+        err,
+        Δt,
+        process,
+        rng,
+        fh,
+        loc,
+    )
 end
 
 function FailureHandler(process::Unscented, method::IgnoreFailures)
@@ -94,6 +110,9 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         g_mean = construct_successful_mean(uki, g, successful_ens)
         gg_cov = construct_successful_cov(uki, g, g_mean, successful_ens) + Σ_ν / uki.Δt[end]
         ug_cov = construct_successful_cov(uki, u_p, u_p_mean, g, g_mean, successful_ens)
+
+        # Localize
+        ug_cov = ug_cov .* uki.localizer.kernel
 
         tmp = ug_cov / gg_cov
 
@@ -158,24 +177,24 @@ function Unscented(
     prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
 
-    N_u = size(u0_mean, 1)
+    N_par = size(u0_mean, 1)
     # ensemble size
-    N_ens = 2 * N_u + 1
+    N_ens = 2 * N_par + 1
 
-    c_weights = zeros(FT, N_u)
+    c_weights = zeros(FT, N_par)
     mean_weights = zeros(FT, N_ens)
     cov_weights = zeros(FT, N_ens)
 
     # set parameters λ, α
-    α = min(sqrt(4 / N_u), 1.0)
-    λ = α^2 * N_u - N_u
+    α = min(sqrt(4 / N_par), 1.0)
+    λ = α^2 * N_par - N_par
 
 
-    c_weights[1:N_u] .= sqrt(N_u + λ)
-    mean_weights[1] = λ / (N_u + λ)
-    mean_weights[2:N_ens] .= 1 / (2 * (N_u + λ))
-    cov_weights[1] = λ / (N_u + λ) + 1 - α^2 + 2.0
-    cov_weights[2:N_ens] .= 1 / (2 * (N_u + λ))
+    c_weights[1:N_par] .= sqrt(N_par + λ)
+    mean_weights[1] = λ / (N_par + λ)
+    mean_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
+    cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
+    cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
 
     if modified_unscented_transform
         mean_weights[1] = 1.0
@@ -440,7 +459,7 @@ function update_ensemble_prediction!(process::Unscented, Δt::FT) where {FT <: A
     r = process.r
     Σ_ω = process.Σ_ω
 
-    N_u = length(process.u_mean[1])
+    N_par = length(process.u_mean[1])
     ############# Prediction step:
 
     u_p_mean = α_reg * u_mean + (1 - α_reg) * r
@@ -475,6 +494,9 @@ function update_ensemble_analysis!(
     g_mean = construct_mean(uki, g)
     gg_cov = construct_cov(uki, g, g_mean) + Σ_ν / uki.Δt[end]
     ug_cov = construct_cov(uki, u_p, u_p_mean, g, g_mean)
+
+    # Localize
+    ug_cov = ug_cov .* uki.localizer.kernel
 
     tmp = ug_cov / gg_cov
 

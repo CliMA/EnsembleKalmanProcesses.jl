@@ -5,6 +5,7 @@ using Test
 
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses.Localizers
 import EnsembleKalmanProcesses: construct_mean, construct_cov, construct_sigma_ensemble
 const EKP = EnsembleKalmanProcesses
 
@@ -26,13 +27,16 @@ const EKP = EnsembleKalmanProcesses
 
     ### Generate data from a linear model: a regression problem with n_par parameters
     ### and 1 observation of G(u) = A \times u, where A : R^n_par -> R^n_obs
-    n_obs = 10                  # dimension of synthetic observation from G(u)
+    n_obs = 30                  # dimension of synthetic observation from G(u)
     n_par = 2                  # Number of parameteres
     u_star = [-1.0, 2.0]          # True parameters
-    noise_level = 0.05            # Defining the observation noise level (std) 
+    noise_level = 0.1             # Defining the observation noise level (std) 
     # Test different AbstractMatrices
     Γy_vec =
         [noise_level^2 * I, noise_level^2 * Matrix(I, n_obs, n_obs), noise_level^2 * Diagonal(Matrix(I, n_obs, n_obs))]
+    # Test different localizers
+    loc_methods = [RBF(2.0), Delta(), NoLocalization()]
+
     noise = MvNormal(zeros(n_obs), Γy_vec[1])
     C = [1 -.9; -.9 1]          # Correlation structure for linear operator
     A = rand(rng, MvNormal(zeros(2,), C), n_obs)'    # Linear operator in R^{n_par x n_obs}
@@ -141,7 +145,7 @@ const EKP = EnsembleKalmanProcesses
 
         ekiobj = nothing
         eki_final_result = nothing
-        for Γy in Γy_vec
+        for (Γy, loc_method) in zip(Γy_vec, loc_methods)
             ekiobj = EKP.EnsembleKalmanProcess(
                 initial_ensemble,
                 y_obs,
@@ -149,6 +153,7 @@ const EKP = EnsembleKalmanProcesses
                 Inversion();
                 rng = rng,
                 failure_handler_method = SampleSuccGauss(),
+                localization_method = loc_method,
             )
             ekiobj_unsafe = EKP.EnsembleKalmanProcess(
                 initial_ensemble,
@@ -157,6 +162,7 @@ const EKP = EnsembleKalmanProcesses
                 Inversion();
                 rng = rng,
                 failure_handler_method = IgnoreFailures(),
+                localization_method = loc_method,
             )
 
             # some checks 
@@ -167,7 +173,9 @@ const EKP = EnsembleKalmanProcesses
             @test_throws DimensionMismatch find_ekp_stepsize(ekiobj, g_ens_t)
             Δ = find_ekp_stepsize(ekiobj, g_ens)
             # huge collapse for linear problem so should find timestep should < 1
-            @test Δ < 1
+            if isa(loc_method, NoLocalization)
+                @test Δ < 1
+            end
             # NOTE We don't use this info, this is just for the test.
 
             # EKI iterations
@@ -217,7 +225,9 @@ const EKP = EnsembleKalmanProcesses
             # values
             eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
             eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
-            @test norm(u_star - eki_final_result) < norm(u_star - eki_init_result)
+            if isa(loc_method, NoLocalization)
+                @test norm(u_star - eki_final_result) < norm(u_star - eki_init_result)
+            end
         end
 
         # Plot evolution of the EKI particles
@@ -400,7 +410,7 @@ const EKP = EnsembleKalmanProcesses
         N_iter = 5 # number of EKI iterations
         iters_with_failure = [1, 3]
         Γy_vec = [noise_level * Matrix(I, n_obs, n_obs), noise_level * I]
-
+        loc_methods = [NoLocalization(), RBF(2.0)]
         # Sparse EKI parameters
         γ = 1.0
         regs = [1e-4, 1e-3]
@@ -412,7 +422,8 @@ const EKP = EnsembleKalmanProcesses
         threshold_values = [0, 1e-2]
         test_names = ["test", "test_thresholded"]
 
-        for (threshold_value, reg, uc_idx, test_name, Γy) in zip(threshold_values, regs, uc_idxs, test_names, Γy_vec)
+        for (threshold_value, reg, uc_idx, test_name, Γy, loc_method) in
+            zip(threshold_values, regs, uc_idxs, test_names, Γy_vec, loc_methods)
             process = SparseInversion(γ, threshold_value, uc_idx, reg)
 
             ekiobj = EKP.EnsembleKalmanProcess(
@@ -422,6 +433,7 @@ const EKP = EnsembleKalmanProcesses
                 process;
                 rng = rng,
                 failure_handler_method = SampleSuccGauss(),
+                localization_method = loc_method,
             )
             ekiobj_unsafe = EKP.EnsembleKalmanProcess(
                 initial_ensemble,
@@ -510,4 +522,5 @@ const EKP = EnsembleKalmanProcesses
         @test_logs (:warn,) sample_empirical_gaussian(u, 2)
         @test_throws PosDefException sample_empirical_gaussian(u, 2, inflation = 0.0)
     end
+
 end

@@ -8,7 +8,7 @@ An ensemble Kalman Inversion process
 struct Inversion <: Process end
 
 function FailureHandler(process::Inversion, method::IgnoreFailures)
-    failsafe_update(u, g, y, obs_noise_cov, failed_ens) = eki_update(u, g, y, obs_noise_cov)
+    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens) = eki_update(ekp, u, g, y, obs_noise_cov)
     return FailureHandler{Inversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -20,11 +20,11 @@ Provides a failsafe update that
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::Inversion, method::SampleSuccGauss)
-    function failsafe_update(u, g, y, obs_noise_cov, failed_ens)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
         u[:, successful_ens] =
-            eki_update(u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
+            eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(u[:, successful_ens], n_failed)
         end
@@ -69,6 +69,7 @@ end
 
 """
      eki_update(
+        ekp::EnsembleKalmanProcess{FT, IT, Inversion},
         u::AbstractMatrix{FT},
         g::AbstractMatrix{FT},
         y::AbstractMatrix{FT},
@@ -78,8 +79,11 @@ end
 Returns the updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the inversion algorithm
 from eqns. (4) and (5) of Schillings and Stuart (2017).
+
+Localization is applied following Tong and Morzfeld (2022).
 """
 function eki_update(
+    ekp::EnsembleKalmanProcess{FT, IT, Inversion},
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
@@ -88,6 +92,9 @@ function eki_update(
 
     cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
     cov_gg = cov(g, g, dims = 2, corrected = false) # [N_par × N_obs]
+
+    # Localization following Tong and Morzfeld (2022)
+    cov_ug = cov_ug .* ekp.localizer.kernel
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
@@ -153,7 +160,7 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(u, g, y, scaled_obs_noise_cov, failed_ens)
+    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
 
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns = true))

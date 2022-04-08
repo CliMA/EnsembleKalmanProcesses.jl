@@ -1,5 +1,6 @@
 using ..ParameterDistributions
 using ..DataContainers
+using ..Localizers
 
 using Random
 using Statistics
@@ -17,7 +18,6 @@ export SampleSuccGauss, IgnoreFailures, FailureHandler
 
 abstract type Process end
 #specific Processes and their exports are included after the general definitions
-
 
 # Failure handlers
 abstract type FailureHandlingMethod end
@@ -55,12 +55,14 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     err::Vector{FT}
     "vector of timesteps used in each EK iteration"
     Δt::Vector{FT}
-    "the particular EK process (`Inversion` or `Sampler` or `Unscented`)"
+    "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `SparseInversion`)"
     process::P
     "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility. Defaults to `Random.GLOBAL_RNG`."
     rng::AbstractRNG
-    "struct storing failsafe update directives"
+    "struct storing failsafe update directives, implemented for (`Inversion`, `SparseInversion`, `Unscented`)"
     failure_handler::FailureHandler
+    "Localization kernel, implemented for (`Inversion`, `SparseInversion`, `Unscented`)"
+    localizer::Localizer
 end
 
 # outer constructors
@@ -84,12 +86,16 @@ function EnsembleKalmanProcess(
     Δt = FT(1),
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
-) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod}
+    localization_method::LM = NoLocalization(),
+) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
 
     #initial parameters stored as columns
     init_params = DataContainer(params, data_are_columns = true)
-    # ensemble size
-    N_ens = size(init_params, 2) #stored with data as columns
+
+    # dimensionality
+    N_par, N_ens = size(init_params) #stored with data as columns
+    N_obs = length(obs_mean)
+
     IT = typeof(N_ens)
     #store for model evaluations
     g = []
@@ -99,8 +105,10 @@ function EnsembleKalmanProcess(
     Δt = Array([Δt])
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
+    # localizer
+    loc = Localizer(localization_method, N_par, N_obs, FT)
 
-    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng, fh)
+    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng, fh, loc)
 end
 
 

@@ -109,6 +109,8 @@ end
 Returns the sparse updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the inversion algorithm
 from eqns. (3.7) and (3.14) of Schneider et al. (2021).
+
+Localization is applied following Tong and Morzfeld (2022).
 """
 function sparse_eki_update(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
@@ -121,6 +123,9 @@ function sparse_eki_update(
     cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
     cov_gg = cov(g, g, dims = 2, corrected = false) # [N_par × N_obs]
     cov_uu = cov(u, u, dims = 2, corrected = false) # [N_par × N_par]
+
+    # Localization following Tong and Morzfeld (2022)
+    cov_ug = cov_ug .* ekp.localizer.kernel
 
     v = hcat(u', g')
 
