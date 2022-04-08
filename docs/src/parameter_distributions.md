@@ -4,14 +4,26 @@ We provide a flexible setup for storing prior distribution with the `ParameterDi
 
 One can create a full parameter distribution using three inputs:
  1. A distribution, given as a `ParameterDistributionType` object,
- 2. A constraint, or array of constraints, given as a `Array{ConstraintType}` object,
+ 2. A constraint, or array of constraints, given as a `ConstraintType` or `Array{ConstraintType}` object,
  3. A name, given as a `String`.
 
-These are combined as a
+In complex settings, one should build a `ParameterDistribution`-per-distribution, and then combine together. 
+
+We provide two similar forms of constructor:
 ```julia
-Dict("distribution" => ..., "constraint" => ..., "name" => ...)
+prior_1 = ParameterDistribution(distribution_1, constraint_1, name_1)
+prior_2 = ParameterDistribution(distribution_2, constraint_2, name_2)
+prior = combine_distributions( [prior_1, prior_2])
 ```
-One can also provide arrays of these dicts to create more complex distributions.
+
+One can also use the `Dict` based constructor
+```julia
+dict_1 = Dict("distribution" => distribution_1, "constraint" => constraint_1, "name" => name_1)
+dict_2 = Dict("distribution" => distribution_2, "constraint" => constraint_2, "name" => name_2)
+prior = ParameterDistribution( [dict_1, dict_2] )
+```
+
+We provide many examples in the package, and the unit tests found in `test/ParameterDistributions/runtests.jl`.
 
 # A simple example:
 Task: We wish to create a prior for a one-dimensional parameter. Our problem dictates that this parameter is bounded between 0 and 1. Prior knowledge dictates it is around 0.7. The parameter is called `point_seven`.
@@ -34,7 +46,11 @@ Finally we attach the name
 ```julia
 name = "point_seven"
 ```
-and the distribution is created by:
+and the distribution is created by either:
+```julia
+prior = ParameterDistribution(distribution, constraint, name)
+```
+or
 ```julia
 prior_dict = Dict("distribution" => distribution, "constraint" => constraint, "name" => name)
 prior = ParameterDistribution(prior_dict)
@@ -400,8 +416,13 @@ c2 = [bounded(10, 15),
       Constraint(transform, inverse_transform)]
 name2 = "constrained_sampled"
 ```
-The full prior distribution for this setting is created from the array of the parameter specifications as dictionaries.
-
+The full prior distribution for this setting is created either through building simple distributions and combining
+```julia
+u1 = ParameterDistribution(d1, c1, name1)
+u2 = ParameterDistribution(d2, c2, name2)
+u = combine_distributions( [prior_1, prior_2])
+```
+or an array of the parameter specifications as dictionaries.
 ```julia
 param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
 param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => name2)
@@ -412,6 +433,6 @@ u = ParameterDistribution([param_dict1, param_dict2])
 These functions typically return a `Dict` with `ParameterDistribution.name` as a keys, or an `Array` if requested:
  - `get_name`: returns the names
  - `get_distribution`: returns the Julia Distribution object if it is `Parameterized`
- - `mean, var, cov, sample`: mean,variance,covariance or samples the Julia Distribution if `Parameterized`, or draws from the list of samples if `Samples` extends the StatsBase definitions
+ - `mean, var, cov, sample, logpdf`: mean,variance,covariance,logpdf or samples the Julia Distribution if `Parameterized`, or draws from the list of samples if `Samples` extends the StatsBase definitions
  - `transform_unconstrained_to_constrained`: apply the constraint mappings
  - `transform_constrained_to_unconstrained`: apply the inverse constraint mappings
