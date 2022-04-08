@@ -87,6 +87,9 @@ Constructs a Constraint with provided lower bound, enforced by maps `x -> log(x 
 and `x -> exp(x) + lower_bound`.
 """
 function bounded_below(lower_bound::FT) where {FT <: Real}
+    if isinf(lower_bound)
+        return no_constraint()
+    end
     c_to_u = (x -> log(x - lower_bound))
     jacobian = (x -> 1/(x - lower_bound))
     u_to_c = (x -> exp(x) + lower_bound)
@@ -100,6 +103,9 @@ Constructs a Constraint with provided upper bound, enforced by maps `x -> log(up
 and `x -> upper_bound - exp(x)`.
 """
 function bounded_above(upper_bound::FT) where {FT <: Real}
+    if isinf(upper_bound)
+        return no_constraint()
+    end
     c_to_u = (x -> log(upper_bound - x))
     jacobian = (x -> -1/(upper_bound - x))
     u_to_c = (x -> upper_bound - exp(x))
@@ -119,10 +125,22 @@ function bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real}
     if (upper_bound <= lower_bound)
         throw(DomainError("upper bound must be greater than lower bound"))
     end
-    c_to_u = (x -> log((x - lower_bound) / (upper_bound - x)))
-    jacobian = (x -> 1/(upper_bound - x) + 1/(x - lower_bound))
-    u_to_c = (x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1))
-    return Constraint(c_to_u, jacobian, u_to_c)
+    if isinf(lower_bound)
+        if isinf(upper_bound)
+            return no_constraint()
+        else
+            return bounded_above(upper_bound)
+        end
+    else
+        if isinf(upper_bound)
+            return bounded_below(lower_bound)
+        else
+            c_to_u = (x -> log((x - lower_bound) / (upper_bound - x)))
+            jacobian = (x -> 1/(upper_bound - x) + 1/(x - lower_bound))
+            u_to_c = (x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1))
+            return Constraint(c_to_u, jacobian, u_to_c)
+        end
+    end
 end
 
 #extending Base.length
