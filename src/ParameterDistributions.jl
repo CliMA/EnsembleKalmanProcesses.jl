@@ -252,9 +252,11 @@ end
 constructor of a ParameterDistribution from a single `distribution`, (array of) `constraint`, `name`.
 these can used to build another ParameterDistribution
 """
-function ParameterDistribution(distribution::ParameterDistributionType,
-                               constraint::Union{ConstraintType,AbstractVector},
-                               name::AbstractString)
+function ParameterDistribution(
+    distribution::ParameterDistributionType,
+    constraint::Union{ConstraintType, AbstractVector},
+    name::AbstractString,
+)
 
     if !(typeof(constraint) <: ConstraintType || eltype(constraint) <: ConstraintType) # if it is a vector, but not of constraint
         throw(ArgumentError("`constraint` must be a ConstraintType, or Vector of ConstraintType's "))
@@ -262,7 +264,7 @@ function ParameterDistribution(distribution::ParameterDistributionType,
     # 1 constraint per dimension check
     constraint_vec = isa(constraint, ConstraintType) ? [constraint] : constraint
     n_parameters = ndims(distribution)
-    
+
     if !(n_parameters == length(constraint_vec))
         throw(DimensionMismatch("There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required"))
     end
@@ -271,7 +273,7 @@ function ParameterDistribution(distribution::ParameterDistributionType,
     distribution_vec = [distribution]
     flat_constraint_vec = cat(constraint_vec..., dims = 1)
     name_vec = [name]
-    
+
     # build the object
     return ParameterDistribution(distribution_vec, flat_constraint_vec, name_vec)
 
@@ -282,7 +284,7 @@ end
 
 concatenate from vector of single ParameterDistributions, dims keyword is unused
 """
-function combine_distributions(pd_vec::AbstractVector{PD};dims=1) where {PD <: ParameterDistribution}
+function combine_distributions(pd_vec::AbstractVector{PD}; dims = 1) where {PD <: ParameterDistribution}
     # flatten the structure
     distribution = cat([d.distribution for d in pd_vec]..., dims = 1)
     constraint = cat([d.constraint for d in pd_vec]..., dims = 1)
@@ -346,7 +348,7 @@ function batch(pd::Union{ParameterDistribution, VectorOfParameterized})
     end
 
     return [collect((d_dim_tmp[i] + 1):d_dim_tmp[i + 1]) for i in 1:size(d_dim)[1]] # e.g [1:4, 5:5, 6:7]
-end    
+end
 
 """
     get_distribution(pd::ParameterDistribution)
@@ -431,11 +433,11 @@ parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n
 optional and defaults to 1. 
 """
 function sample(rng::AbstractRNG, d::VectorOfParameterized, n_draws::IT) where {IT <: Integer}
-    samples = zeros(ndims(d),n_draws)
+    samples = zeros(ndims(d), n_draws)
     batches = batch(d)
     dimensions = get_dimensions(d)
-    for (i,dd) in enumerate(d.distribution)
-        samples[batches[i],:] = rand(rng, dd, n_draws) #columns are parameters
+    for (i, dd) in enumerate(d.distribution)
+        samples[batches[i], :] = rand(rng, dd, n_draws) #columns are parameters
     end
     return samples
 end
@@ -458,7 +460,7 @@ function get_logpdf(d::VectorOfParameterized, xarray::AbstractVector{FT}) where 
     dimensions = get_dimensions(d)
     lpdfsum = 0.0
     # perform the logpdf of each of the distributions, and returns their sum    
-    for (i,dd) in enumerate(d.distribution)
+    for (i, dd) in enumerate(d.distribution)
         if dimensions[i] == 1
             lpdfsum += logpdf.(dd, xarray[batches[i]])[1]
         else
@@ -482,7 +484,7 @@ function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where
 
     # get the index of xarray chunks to give to the different distributions.
     batches = batch(pd)
-    
+
     # perform the logpdf of each of the distributions, and returns their sum    
     return sum(cat([get_logpdf(d, xarray[batches[i]]) for (i, d) in enumerate(pd.distribution)]..., dims = 1))
 end

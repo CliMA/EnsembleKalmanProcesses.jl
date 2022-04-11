@@ -23,8 +23,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test d.distribution_samples == reshape([1, 2, 3, 4, 5, 6], :, 1)
 
         # Vector container - 
-        d = VectorOfParameterized(repeat([Normal(0,1)],5))
-        @test d.distribution == repeat([Normal(0,1)],5)
+        d = VectorOfParameterized(repeat([Normal(0, 1)], 5))
+        @test d.distribution == repeat([Normal(0, 1)], 5)
     end
     @testset "ConstraintType" begin
         # Tests for the ConstraintType
@@ -60,64 +60,64 @@ using EnsembleKalmanProcesses.ParameterDistributions
     @testset "ParameterDistribution: Build and combine" begin
 
         # create single ParameterDistribution
-        d = VectorOfParameterized([Normal(0, 1),Gamma(2.0,0.8)])
+        d = VectorOfParameterized([Normal(0, 1), Gamma(2.0, 0.8)])
         c_mismatch = no_constraint()
-        c_wrongtype = [no_constraint(),3.0]
+        c_wrongtype = [no_constraint(), 3.0]
         c = [no_constraint(), no_constraint()]
         name = "normal_and_gamma"
 
-        @test_throws ArgumentError ParameterDistribution(d,c_wrongtype,name) #wrong type of constraint
-        @test_throws DimensionMismatch ParameterDistribution(d,c_mismatch,name) #wrong number of constraints
-        
+        @test_throws ArgumentError ParameterDistribution(d, c_wrongtype, name) #wrong type of constraint
+        @test_throws DimensionMismatch ParameterDistribution(d, c_mismatch, name) #wrong number of constraints
+
         # test checks on stored information
-        u = ParameterDistribution(d,c,name)
+        u = ParameterDistribution(d, c, name)
         @test u.distribution == [d]
         @test u.constraint == c #as c is already a vector
         @test u.name == [name]
 
         d = Parameterized(Normal(0, 1))
         c = [no_constraint()]
-        u = ParameterDistribution(d,c,name)
+        u = ParameterDistribution(d, c, name)
         @test u.constraint == c #as c is already a vector
 
         # test concatenation
         d1 = Parameterized(Normal(0, 1))
         c1 = no_constraint()
         name1 = "unconstrained_normal"
-        u1 = ParameterDistribution(d1,c1,name1)
-        @test u1.constraint == [c1] 
-        
-        d2 = VectorOfParameterized(repeat([MvNormal(3,0.2)],4))
-        c2 = repeat([no_constraint()],12) #3D distribution repeated 4 times has 12 constraints
+        u1 = ParameterDistribution(d1, c1, name1)
+        @test u1.constraint == [c1]
+
+        d2 = VectorOfParameterized(repeat([MvNormal(3, 0.2)], 4))
+        c2 = repeat([no_constraint()], 12) #3D distribution repeated 4 times has 12 constraints
         name2 = "three_unconstrained_MvNs"
-        u2 = ParameterDistribution(d2,c2,name2)
+        u2 = ParameterDistribution(d2, c2, name2)
 
         d3 = Samples([1.0 3.0 5.0 7.0; 9.0 11.0 13.0 15.0])
         c3 = [bounded(10, 15), no_constraint()]
         name3 = "constrained_sampled"
-        u3 = ParameterDistribution(d3,c3,name3)
-        
-        @test_throws ArgumentError ParameterDistribution([u1,u2])
+        u3 = ParameterDistribution(d3, c3, name3)
 
-        u = combine_distributions([u1,u2,u3])
-        @test u.distribution == [d1,d2,d3]
-        @test u.constraint == cat([[c1],c2,c3]...,dims=1) 
+        @test_throws ArgumentError ParameterDistribution([u1, u2])
+
+        u = combine_distributions([u1, u2, u3])
+        @test u.distribution == [d1, d2, d3]
+        @test u.constraint == cat([[c1], c2, c3]..., dims = 1)
         @test u.name == [name1, name2, name3]
-        
+
     end
-    
+
     @testset "ParameterDistribution: Dictionary interface" begin
 
         # dictionary - testing test checks on the distribution elements
         d = Parameterized(Normal(0, 1))
         c = no_constraint()
         name = "unconstrained_normal"
-        
+
         param_dict_fail = [Dict("a" => 1), 1]
         @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not an array of Dicts
-        
+
         @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not a Dict
-        
+
         param_dict_fail = Dict("distribution" => d)
         @test_throws ArgumentError ParameterDistribution(param_dict_fail) # not all the keys
         param_dict_fail = Dict("distribution" => 1, "constraint" => c, "name" => name)
@@ -172,7 +172,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test u.distribution == [d1, d2]
         @test u.constraint == cat([c1, c2]..., dims = 1)
         @test u.name == [name1, name2]
-        
+
     end
 
     @testset "getter functions" begin
@@ -180,14 +180,14 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d1 = Parameterized(MvNormal(4, 0.1))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
-        u1 = ParameterDistribution(d1,c1,name1)
+        u1 = ParameterDistribution(d1, c1, name1)
 
         d2 = Samples([1 2 3 4])
         c2 = [bounded(10, 15)]
         name2 = "constrained_sampled"
-        u2 = ParameterDistribution(d2,c2,name2)
+        u2 = ParameterDistribution(d2, c2, name2)
 
-        u = combine_distributions([u1,u2])
+        u = combine_distributions([u1, u2])
 
         # Test for get_dimension(s)
         @test ndims(u1) == 4
@@ -225,27 +225,27 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d1 = Parameterized(MvNormal(4, 0.1))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
-        
-        u1 = ParameterDistribution(d1,c1,name1)
+
+        u1 = ParameterDistribution(d1, c1, name1)
 
         d2 = Samples([1 2 3 4])
         c2 = [bounded(10, 15)]
         name2 = "constrained_sampled"
-        u2 = ParameterDistribution(d2,c2,name2)
+        u2 = ParameterDistribution(d2, c2, name2)
 
-        d3 = VectorOfParameterized([Beta(2, 2),MvNormal(2,0.1)])
-        c3 = [no_constraint(),no_constraint(),no_constraint()] # d3 has 3 dimensions
+        d3 = VectorOfParameterized([Beta(2, 2), MvNormal(2, 0.1)])
+        c3 = [no_constraint(), no_constraint(), no_constraint()] # d3 has 3 dimensions
         name3 = "unconstrained_beta_and_MvN"
-        u3 = ParameterDistribution(d3,c3,name3)
+        u3 = ParameterDistribution(d3, c3, name3)
 
-        u = combine_distributions([u1,u2])
+        u = combine_distributions([u1, u2])
 
         d4 = Samples([1 2 3 4 5 6 7 8; 8 7 6 5 4 3 2 1])
         c4 = [no_constraint(), no_constraint()]
         name4 = "constrained_MVsampled"
-        u4 = ParameterDistribution(d4,c4,name4)
-        
-        v = combine_distributions([u1,u2,u3,u4])
+        u4 = ParameterDistribution(d4, c4, name4)
+
+        v = combine_distributions([u1, u2, u3, u4])
 
         # Tests for sample distribution
         seed = 2020
@@ -284,8 +284,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test_throws ErrorException get_logpdf(u, zeros(ndims(u)))
         x_in_bd = [0.5, 0.5, 0.5]
         Random.seed!(seed)
-        lpdf3 = sum([logpdf(Beta(2, 2), x_in_bd[1])[1], logpdf(MvNormal(2,0.1), x_in_bd[2:3])[1]]) #throws deprecated warning without "."
-        
+        lpdf3 = sum([logpdf(Beta(2, 2), x_in_bd[1])[1], logpdf(MvNormal(2, 0.1), x_in_bd[2:3])[1]]) #throws deprecated warning without "."
+
         Random.seed!(seed)
         @test isapprox(get_logpdf(u3, x_in_bd) - lpdf3, 0.0; atol = 1e-6)
         @test_throws DimensionMismatch get_logpdf(u3, [0.5, 0.5])
@@ -307,25 +307,25 @@ using EnsembleKalmanProcesses.ParameterDistributions
         # setup for the tests:
         rng_seed = 1234
         test_d = MvNormal(4, 0.1)
-        test_d3a = Beta(2,2)
-        test_d3b = MvNormal(2,0.1)
+        test_d3a = Beta(2, 2)
+        test_d3b = MvNormal(2, 0.1)
         d0 = Parameterized(test_d)
 
         d1 = Parameterized(test_d)
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
-        u1 = ParameterDistribution(d1,c1,name1)
+        u1 = ParameterDistribution(d1, c1, name1)
 
         d2 = Samples([1 2 3 4])
         c2 = [bounded(10, 15)]
         name2 = "constrained_sampled"
-        u2 = ParameterDistribution(d2,c2,name2)
+        u2 = ParameterDistribution(d2, c2, name2)
 
-        d3 = VectorOfParameterized([Beta(2,2),MvNormal(2,0.1)])
-        c3 = repeat([no_constraint()],3)
+        d3 = VectorOfParameterized([Beta(2, 2), MvNormal(2, 0.1)])
+        c3 = repeat([no_constraint()], 3)
         name3 = "beta_and_normal"
-        u3 = ParameterDistribution(d3,c3,name3)
-        
+        u3 = ParameterDistribution(d3, c3, name3)
+
         # Tests for sample distribution
         rng1 = Random.MersenneTwister(rng_seed)
         @test sample(copy(rng1), d0) == rand(copy(rng1), test_d, 1)
@@ -333,7 +333,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         @test sample(copy(rng1), u1) == rand(copy(rng1), test_d, 1)
         @test sample(copy(rng1), u1, 3) == rand(copy(rng1), test_d, 3)
-        
+
         idx = StatsBase.sample(copy(rng1), collect(1:size(d2.distribution_samples)[2]), 1)
         s2 = d2.distribution_samples[:, idx]
         @test sample(copy(rng1), u2) == s2
@@ -342,10 +342,11 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test sample(copy(rng1), d2, 1) == s2
 
         rng1_new = copy(rng1) # (copy here, as internally u3 samples rng1 sequentially)
-        @test sample(copy(rng1), u3) == cat([rand(rng1_new, test_d3a, 1),rand(rng1_new, test_d3b, 1)]...,dims=1)
+        @test sample(copy(rng1), u3) == cat([rand(rng1_new, test_d3a, 1), rand(rng1_new, test_d3b, 1)]..., dims = 1)
 
         rng1_new = copy(rng1)
-        @test sample(copy(rng1), u3, 3) == cat([reshape(rand(rng1_new, test_d3a, 3),:,3), rand(rng1_new, test_d3b, 3)]...,dims=1)    
+        @test sample(copy(rng1), u3, 3) ==
+              cat([reshape(rand(rng1_new, test_d3a, 3), :, 3), rand(rng1_new, test_d3b, 3)]..., dims = 1)
         # try it again with different RNG; use StableRNG since Random doesn't provide a 
         # second seedable algorithm on julia <=1.7
         rng2 = StableRNG(rng_seed)
@@ -360,10 +361,11 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test sample(copy(rng2), u2) == s2
 
         rng2_new = copy(rng2)
-        @test sample(copy(rng2), u3) == cat([rand(rng2_new, test_d3a, 1),rand(rng2_new, test_d3b, 1)]...,dims=1)
+        @test sample(copy(rng2), u3) == cat([rand(rng2_new, test_d3a, 1), rand(rng2_new, test_d3b, 1)]..., dims = 1)
         rng2_new = copy(rng2)
-        @test sample(copy(rng2), u3, 3) == cat([reshape(rand(rng2_new, test_d3a, 3),:,3),rand(rng2_new, test_d3b, 3)]...,dims=1)    
-        
+        @test sample(copy(rng2), u3, 3) ==
+              cat([reshape(rand(rng2_new, test_d3a, 3), :, 3), rand(rng2_new, test_d3b, 3)]..., dims = 1)
+
         # test that optional parameter defaults to Random.GLOBAL_RNG, for all methods.
         # reset the global seed instead of copying the rng object's state
         rng_seed = 2468
