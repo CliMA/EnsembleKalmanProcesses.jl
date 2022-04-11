@@ -245,7 +245,7 @@ function sample_empirical_gaussian(
     inflation::Union{FT, Nothing} = nothing,
 ) where {FT <: Real, IT}
     cov_u_new = cov(u, u, dims = 2)
-    if det(cov_u_new) < eps(FT)
+    if !isposdef(cov_u_new)
         @warn string("Sample covariance matrix over ensemble is singular.", "\n Appplying variance inflation.")
         if isnothing(inflation)
             # Reduce condition number to 1/sqrt(eps(FT))
