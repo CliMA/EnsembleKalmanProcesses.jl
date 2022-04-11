@@ -1,6 +1,8 @@
 #Sparse Ensemble Kalman Inversion: specific structures and function definitions
-using Convex, SCS
+using Convex, SCS, MathOptInterface
 using SparseArrays
+
+const MOI = MathOptInterface
 
 """
     SparseInversion <: Process
@@ -100,7 +102,7 @@ function sparse_qp(
     h1 = vcat(h, ekp.process.γ)
     x = Variable(size(P1)[1])
     problem = minimize(0.5 * quadform(x, P1; assume_psd = true) + q1' * x, [G1 * x <= h1])
-    solve!(problem, () -> SCS.Optimizer(verbose = false))
+    solve!(problem, MOI.OptimizerWithAttributes(SCS.Optimizer, "verbose" => 0))
 
     return hcat(H_u, fill(FT(0), size(H_u)[1], N_params)) * evaluate(x)
 end
