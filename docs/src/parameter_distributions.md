@@ -9,21 +9,19 @@ One can create a full parameter distribution using three inputs:
 
 In complex settings, one should build a `ParameterDistribution`-per-distribution, and then combine together. 
 
-We provide two similar forms of constructor:
+A basic construction:
 ```julia
 prior_1 = ParameterDistribution(distribution_1, constraint_1, name_1)
 prior_2 = ParameterDistribution(distribution_2, constraint_2, name_2)
 prior = combine_distributions( [prior_1, prior_2])
 ```
-
-One can also use the `Dict` based constructor
+A `Dict`-based construction:
 ```julia
 dict_1 = Dict("distribution" => distribution_1, "constraint" => constraint_1, "name" => name_1)
 dict_2 = Dict("distribution" => distribution_2, "constraint" => constraint_2, "name" => name_2)
 prior = ParameterDistribution( [dict_1, dict_2] )
 ```
-
-We provide many examples in the package, and the unit tests found in `test/ParameterDistributions/runtests.jl`.
+We provide many example in the package `examples/`, the unit tests found in `test/ParameterDistributions/runtests.jl`, and in the documentation below.
 
 # A simple example:
 Task: We wish to create a prior for a one-dimensional parameter. Our problem dictates that this parameter is bounded between 0 and 1. Prior knowledge dictates it is around 0.7. The parameter is called `point_seven`.
@@ -85,11 +83,10 @@ p = plot(p1, p2, legend=false, size = (900, 450)) #hide
 
 ## 1. The ParameterDistributionType
 
-The `ParameterDistributionType` has two flavours for building a distribution:
+The `ParameterDistributionType` has three flavors for building a distribution:
  - The `Parameterized` type is initialized using a Julia `Distributions.jl` object. Samples are drawn randomly from the distribution object
+ - The `VectorOfParameterized` type is initialized with a vector of distributions.
  - The `Samples` type is initialized using a two dimensional array. Samples are drawn randomly (with replacement) from the columns of the provided array.
-
-One can use combinations of these distributions to construct a full parameter distribution.
 
 !!! note
     We recommend these distributions be unbounded (see about constraints below), as our methods do not preserve constraints directly.
@@ -99,7 +96,8 @@ One can use combinations of these distributions to construct a full parameter di
 Our implemented algorithms do not work in constrained parameter space directly. Therefore, constraints are tackled by the mappings
 `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained`. The mappings are built from either predefined or user-defined constraint functions held in the `ConstraintType`. 
 
-In this section we call parameters are one-dimensional. Every parameter must have an associated independent `ConstraintType`, therefore we for each `ParameterDistributionType` of dimension `p` the user must provide a `p-`dimensional `Array{ConstraintType}`.
+In this section every parameter dimension must have an associated independent `ConstraintType`, therefore we for each `ParameterDistributionType` of dimension `p` the user must provide a `p-`dimensional `Array{ConstraintType}`. A `VectorOfParameterized` distribution built with distributions of dimension `p` and `q`, has dimension `p+q`.
+
 
 ### Predefined ConstraintTypes
 
@@ -121,7 +119,7 @@ This is simply a `String` identifier for the parameters later on.
 
 ## 4. The power of the normal distribution
 
-The combination of different normal distributions with these predefined constraints, provides a surprising breadth of prior distributions.
+The combination of different normal distributions with these predefined constraints, provides a surprising breadth of prior distributions. 
 
 !!! note
     We **highly** recommend users start with Normal distribution and predefined `ConstraintType`: these offer the best computational benefits and clearest interpretation of the methods.
@@ -384,19 +382,18 @@ transform_unconstrained_to_constrained(x) = (10 * exp(x) + 5) / (exp(x) + 1)
 
 ## A more involved example:
 
-We create a 6-dimensional parameter distribution from two dictionaries.
+We create a 25-dimensional parameter distribution from three dictionaries.
 
-The first parameter is a 4-dimensional distribution with the following constraints on parameters in physical space:
+The first parameter is a 3-dimensional distribution, with the following bound constraints on parameters in physical space:
 ```julia
-c1 = [no_constraint(),     # no constraints
-      bounded_below(-1.0), # provide lower bound
-      bounded_above(0.4),  # provide upper bound
-      bounded(-0.1, 0.2)]  # provide lower and upper bound
+c1 = [bounded_below(0.0),
+      bounded_below(0.0),
+      bounded_below(0.0)]  
 ```
-We choose to use a multivariate normal to represent its distribution in the transformed (unbounded) space. Here we take a tridiagonal covariance matrix.
+We know that a multivariate normal represents its distribution in the transformed (unbounded) space. Here we take a tridiagonal covariance matrix.
 ```julia
-diag_val = 0.5 * ones(4)
-udiag_val = 0.25 * ones(3)
+diag_val = 0.5 * ones(3)
+udiag_val = 0.25 * ones(1)
 mean = ones(4)
 covariance = SymTridiagonal(diagonal_val, udiag_val)
 d1 = Parameterized(MvNormal(mean, covariance)) # 4D multivariate normal
@@ -416,17 +413,28 @@ c2 = [bounded(10, 15),
       Constraint(transform, inverse_transform)]
 name2 = "constrained_sampled"
 ```
+
+The final parameter is 20-dimensional, defined as a list of i.i.d univariate distributions we make use of the `VectorOfParameterized` type
+```julia
+d3 = VectorOfParameterized(repeat([Beta(2,2)],20))
+c3 = repeat([no_constraint()],20)
+name3 = "Beta"
+```
+
 The full prior distribution for this setting is created either through building simple distributions and combining
 ```julia
 u1 = ParameterDistribution(d1, c1, name1)
 u2 = ParameterDistribution(d2, c2, name2)
-u = combine_distributions( [prior_1, prior_2])
+u3 = ParameterDistribution(d3, c3, name3)
+u = combine_distributions( [u1, u2, u3])
 ```
+
 or an array of the parameter specifications as dictionaries.
 ```julia
 param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
 param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => name2)
-u = ParameterDistribution([param_dict1, param_dict2])
+param_dict3 = Dict("distribution" => d3, "constraint" => c3, "name" => name3)
+u = ParameterDistribution([param_dict1, param_dict2, param_dict3])
 ```
 
 ## Other functions
