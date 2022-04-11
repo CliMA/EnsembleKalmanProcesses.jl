@@ -14,3 +14,8 @@ Observations.jl                             | Structure to hold observational da
 ParameterDistributions.jl                   | Structures to hold prior and posterior distributions
 DataContainers.jl                           | Structure to hold model parameters and outputs
 Localizers.jl                               | Covariance localization kernels
+
+## Authors
+
+`EnsembleKalmanProcesses.jl` is being developed by the [Climate Modeling
+Alliance](https://clima.caltech.edu).
