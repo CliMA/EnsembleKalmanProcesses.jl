@@ -408,7 +408,8 @@ const EKP = EnsembleKalmanProcesses
         n_par = 2
         N_ens = 20 # number of ensemble members
         N_iter = 5 # number of EKI iterations
-        iters_with_failure = [1, 3]
+        #iters_with_failure = [1, 3]
+        iters_with_failure = []
         Γy_vec = [noise_level * Matrix(I, n_obs, n_obs), noise_level * I]
         loc_methods = [NoLocalization(), RBF(2.0)]
         # Sparse EKI parameters
