@@ -74,7 +74,6 @@ nothing # hide
 # define the constraints to be bounded below by zero.
 c1 = EKP.ParameterDistributions.bounded_below(0.0)
 c2 = EKP.ParameterDistributions.bounded_below(0.0)
-constraints = [[c1], [c2]]
 nothing # hide
 
 # We don't have any other prior knowledge about the calibrated parameters.
@@ -84,11 +83,12 @@ nothing # hide
 # assumed prior pdf.
 d1 = EKP.ParameterDistributions.Parameterized(Distributions.Normal(0, 1))
 d2 = EKP.ParameterDistributions.Parameterized(Distributions.Normal(0, 1))
-distributions = [d1, d2]
 nothing # hide
 
 # This concludes the setup of priors.
-priors = EKP.ParameterDistributions.ParameterDistribution(distributions, constraints, parameter_names)
+prior1 = Dict("distribution" => d1, "constraint" => c1, "name" => parameter_names[1])
+prior2 = Dict("distribution" => d2, "constraint" => c2, "name" => parameter_names[2])
+priors = EKP.ParameterDistributions.ParameterDistribution([prior1, prior2])
 nothing # hide
 
 # Next we define the atmospheric conditions for which the calibration will take place,

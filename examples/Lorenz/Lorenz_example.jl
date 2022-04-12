@@ -85,19 +85,20 @@ end
 if dynamics == 2
     prior_means = [F_true + 1.0, A_true + 0.5]
     prior_stds = [2.0, 0.5 * A_true]
-    d1 = Parameterized(Normal(prior_means[1], prior_stds[1]))
-    d2 = Parameterized(Normal(prior_means[2], prior_stds[2]))
-    prior_distns = [d1, d2]
-    c1 = no_constraint()
-    c2 = no_constraint()
-    constraints = [[c1], [c2]]
-    prior_names = param_names
-    priors = ParameterDistribution(prior_distns, constraints, prior_names)
+    prior_F = Dict(
+        "distribution" => Parameterized(Normal(prior_means[1], prior_stds[1])),
+        "constraint" => no_constraint(),
+        "name" => param_names[1],
+    )
+    prior_A = Dict(
+        "distribution" => Parameterized(Normal(prior_means[2], prior_stds[2])),
+        "constraint" => no_constraint(),
+        "name" => param_names[2],
+    )
+    priors = ParameterDistribution([prior_F, prior_A])
 else
-    prior_distns = [Parameterized(Normal(F_true, 1))]
-    constraints = [[no_constraint()]]
-    prior_names = ["F"]
-    priors = ParameterDistribution(prior_distns, constraints, prior_names)
+    prior_F = Dict("distribution" => Parameterized(Normal(F_true, 1)), "constraint" => no_constraint(), "name" => "F")
+    priors = ParameterDistribution(prior_F)
 end
 
 

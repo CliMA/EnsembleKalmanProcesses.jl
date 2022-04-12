@@ -36,13 +36,10 @@ nothing # hide
 #
 # As we work with a Bayesian method, we define a prior. This will behave like an "initial guess"
 # for the likely region of parameter space we expect the solution to live in.
-prior_distributions = [Parameterized(Normal(0, 2)), Parameterized(Normal(0, 2))]
+prior_u1 = Dict("distribution" => Parameterized(Normal(0, 2)), "constraint" => no_constraint(), "name" => "u1")
+prior_u2 = Dict("distribution" => Parameterized(Normal(0, 2)), "constraint" => no_constraint(), "name" => "u2")
 
-constraints = [[no_constraint()], [no_constraint()]]
-
-parameter_names = ["u1", "u2"]
-
-prior = ParameterDistribution(prior_distributions, constraints, parameter_names)
+prior = ParameterDistribution([prior_u1, prior_u2])
 
 # ### Calibration
 #

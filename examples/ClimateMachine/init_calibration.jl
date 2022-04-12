@@ -6,12 +6,19 @@ using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributions
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
-# Set parameter priors
+
 param_names = ["C_smag", "C_drag"]
-n_param = length(param_names)
-prior_dist = [Parameterized(Normal(0.5, 0.05)), Parameterized(Normal(0.001, 0.0001))]
-constraints = [[no_constraint()], [no_constraint()]]
-priors = ParameterDistribution(prior_dist, constraints, param_names)
+
+# Set parameter priors
+prior_smag =
+    Dict("distribution" => Parameterized(Normal(0.5, 0.05)), "constraint" => no_constraint(), "name" => param_names[1])
+prior_drag = Dict(
+    "distribution" => Parameterized(Normal(0.001, 0.0001)),
+    "constraint" => no_constraint(),
+    "name" => param_names[2],
+)
+
+priors = ParameterDistribution([prior_smag, prior_drag])
 
 # Construct initial ensemble
 N_ens = 10

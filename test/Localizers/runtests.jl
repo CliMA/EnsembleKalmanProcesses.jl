@@ -25,10 +25,15 @@ const EKP = EnsembleKalmanProcesses
     Γ = 1.0 * I
 
     #### Define prior information on parameters
-    prior_distns = repeat([Parameterized(Normal(0.0, 0.5))], p)
-    constraints = repeat([[no_constraint()]], p)
-    prior_names = [string("u_", i) for i in 1:p]
-    prior = ParameterDistribution(prior_distns, constraints, prior_names)
+    priors = ParameterDistribution[] #empty PD-array
+    for i in 1:p
+        push!(priors, ParameterDistribution(Parameterized(Normal(0.0, 0.5)), no_constraint(), string("u", i)))
+    end
+    prior = combine_distributions(priors)
+    #prior_distns = repeat([Parameterized(Normal(0.0, 0.5))], p)
+    #constraints = repeat([[no_constraint()]], p)
+    #prior_names = [string("u_", i) for i in 1:p]
+    #prior = ParameterDistribution(prior_distns, constraints, prior_names)
 
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 

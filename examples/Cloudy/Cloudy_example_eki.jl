@@ -58,24 +58,35 @@ dist_true = ParticleDistributions.GammaPrimitiveParticleDistribution(ϕ_true...)
 ###
 ###  Define priors for the parameters we want to learn
 ###
-
-# Define constraints
-lbound_N0 = 0.4 * N0_true
-lbound_θ = 1.0e-1
-lbound_k = 1.0e-4
-c1 = bounded_below(lbound_N0)
-c2 = bounded_below(lbound_θ)
-c3 = bounded_below(lbound_k)
-constraints = [[c1], [c2], [c3]]
-
 # We choose to use normal distributions to represent the prior distributions of
 # the parameters in the transformed (unconstrained) space. i.e log coordinates
-d1 = Parameterized(Normal(4.5, 1.0))  #truth is 5.19
-d2 = Parameterized(Normal(0.0, 2.0))  #truth is 0.378
-d3 = Parameterized(Normal(-1.0, 1.0)) #truth is -2.51
-distributions = [d1, d2, d3]
 
-priors = ParameterDistribution(distributions, constraints, par_names)
+# N0
+lbound_N0 = 0.4 * N0_true
+prior_N0 = Dict(
+    "distribution" => Parameterized(Normal(4.5, 1.0)), #truth is 5.19
+    "constraint" => bounded_below(lbound_N0),
+    "name" => par_names[1],
+)
+
+# θ
+lbound_θ = 1.0e-1
+prior_θ = Dict(
+    "distribution" => Parameterized(Normal(0.0, 2.0)),  #truth is 0.378
+    "constraint" => bounded_below(lbound_θ),
+    "name" => par_names[2],
+)
+
+
+# k
+lbound_k = 1.0e-4
+prior_k = Dict(
+    "distribution" => Parameterized(Normal(-1.0, 1.0)), #truth is -2.51 
+    "constraint" => bounded_below(lbound_k),
+    "name" => par_names[3],
+)
+
+priors = ParameterDistribution([prior_N0, prior_θ, prior_k])
 
 
 ###
