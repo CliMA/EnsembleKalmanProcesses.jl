@@ -187,22 +187,28 @@ using EnsembleKalmanProcesses.ParameterDistributions
         name2 = "constrained_sampled"
         u2 = ParameterDistribution(d2, c2, name2)
 
-        u = combine_distributions([u1, u2])
+        d3 = VectorOfParameterized(repeat([Beta(2, 2)], 3))
+        c3 = repeat([no_constraint()], 3)
+        name3 = "vector_beta"
+        u3 = ParameterDistribution(d3, c3, name3)
+
+        u = combine_distributions([u1, u2, u3])
 
         # Test for get_dimension(s)
         @test ndims(u1) == 4
         @test ndims(u2) == 1
-        @test ndims(u) == 5
+        @test ndims(u) == 8
         @test get_dimensions(u1) == [4]
         @test get_dimensions(u2) == [1]
-        @test get_dimensions(u) == [4, 1]
+        @test get_dimensions(u) == [4, 1, 3]
 
         # Tests for get_name
         @test get_name(u1) == [name1]
-        @test get_name(u) == [name1, name2]
+        @test get_name(u) == [name1, name2, name3]
 
         # Tests for get_n_samples
         @test typeof(get_n_samples(u)[name1]) <: String
+        @test typeof(get_n_samples(u)[name3]) <: String
         @test get_n_samples(u)[name2] == 4
 
         # Tests for get_distribution
@@ -211,12 +217,16 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test typeof(get_distribution(d2)) == Array{Int64, 2}
         @test typeof(get_distribution(u2)[name2]) == Array{Int64, 2}
 
+        @test get_distribution(d3) == repeat([Beta(2, 2)], 3)
+        @test get_distribution(u3)[name3] == repeat([Beta(2, 2)], 3)
+
+
         d = get_distribution(u)
         @test d[name1] == MvNormal(4, 0.1)
         @test typeof(d[name2]) == Array{Int64, 2}
 
         # Test for get_all_constraints
-        @test get_all_constraints(u) == cat([c1, c2]..., dims = 1)
+        @test get_all_constraints(u) == cat([c1, c2, c3]..., dims = 1)
     end
 
     @testset "statistics functions" begin
