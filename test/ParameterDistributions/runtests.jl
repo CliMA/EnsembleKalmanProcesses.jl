@@ -198,6 +198,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test ndims(u1) == 4
         @test ndims(u2) == 1
         @test ndims(u) == 8
+
         @test get_dimensions(u1) == [4]
         @test get_dimensions(u2) == [1]
         @test get_dimensions(u) == [4, 1, 3]
@@ -219,7 +220,6 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         @test get_distribution(d3) == repeat([Beta(2, 2)], 3)
         @test get_distribution(u3)[name3] == repeat([Beta(2, 2)], 3)
-
 
         d = get_distribution(u)
         @test d[name1] == MvNormal(4, 0.1)
@@ -280,6 +280,13 @@ using EnsembleKalmanProcesses.ParameterDistributions
         s2 = d2.distribution_samples[:, idx]
         Random.seed!(seed)
         @test sample(u2, 3) == s2
+
+        Random.seed!(seed)
+        s3 = zeros(3, 1)
+        s3[1] = rand(Beta(2, 2))
+        s3[2:3] = rand(MvNormal(2, 0.1))
+        Random.seed!(seed)
+        @test sample(u3) == s3
 
         Random.seed!(seed)
         s1 = sample(u1, 3)
