@@ -226,7 +226,6 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
         # 1 constraint per dimension check
         constraint_array = isa(constraint, ConstraintType) ? [constraint] : constraint
-        pdd["constraint"] = constraint_array # make the copy constraint always an array
         n_parameters = ndims(distribution)
 
         if !(n_parameters == length(constraint_array))
