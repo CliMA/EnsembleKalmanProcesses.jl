@@ -360,10 +360,14 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         rng1_new = copy(rng1) # (copy here, as internally u3 samples rng1 sequentially)
         @test sample(copy(rng1), u3) == cat([rand(rng1_new, test_d3a, 1), rand(rng1_new, test_d3b, 1)]..., dims = 1)
-
         rng1_new = copy(rng1)
         @test sample(copy(rng1), u3, 3) ==
               cat([reshape(rand(rng1_new, test_d3a, 3), :, 3), rand(rng1_new, test_d3b, 3)]..., dims = 1)
+        rng1_new = copy(rng1)
+        @test sample(copy(rng1), d3) == cat([rand(rng1_new, test_d3a, 1), rand(rng1_new, test_d3b, 1)]..., dims = 1)
+        rng1_new = copy(rng1)
+        @test sample(copy(rng1), d3, 1) == cat([rand(rng1_new, test_d3a, 1), rand(rng1_new, test_d3b, 1)]..., dims = 1)
+
         # try it again with different RNG; use StableRNG since Random doesn't provide a 
         # second seedable algorithm on julia <=1.7
         rng2 = StableRNG(rng_seed)
@@ -416,6 +420,12 @@ using EnsembleKalmanProcesses.ParameterDistributions
         test_lhs = d2.distribution_samples[:, idx]
         Random.seed!(rng_seed)
         @test test_lhs == sample(u2)
+
+        Random.seed!(rng_seed)
+        test_lhs = sample(d3)
+        Random.seed!(rng_seed)
+        @test test_lhs == cat([rand(test_d3a, 1), rand(test_d3b, 1)]..., dims = 1)
+
     end
 
     @testset "transform functions" begin
