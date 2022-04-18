@@ -15,7 +15,7 @@ export ParameterDistributionType
 export ConstraintType
 
 #objects
-export Parameterized, Samples
+export Parameterized, Samples, VectorOfParameterized
 export ParameterDistribution
 export Constraint
 
@@ -25,8 +25,8 @@ export sample
 export no_constraint, bounded_below, bounded_above, bounded
 export transform_constrained_to_unconstrained, transform_unconstrained_to_constrained
 export get_logpdf, batch
-export combine_distributions
 
+export combine_distributions
 ## Objects
 # for the Distribution
 abstract type ParameterDistributionType end
@@ -53,6 +53,17 @@ struct Samples{FT <: Real} <: ParameterDistributionType
     Samples(distribution_samples::AbstractVector{FT}; params_are_columns = true) where {FT <: Real} =
         params_are_columns ? new{FT}(reshape(distribution_samples, 1, :)) : new{FT}(reshape(distribution_samples, :, 1))
 end
+
+"""
+    VectorOfParameterized <: ParameterDistributionType
+
+A distribution built from an array of Parametrized distributions.
+A utility to help stacking of distributions where a multivariate equivalent doesn't exist
+"""
+struct VectorOfParameterized{DT <: Distribution} <: ParameterDistributionType
+    distribution::AbstractVector{DT}
+end
+
 
 # For the transforms
 abstract type ConstraintType end
@@ -146,6 +157,7 @@ ndims(d::Parameterized) = length(d.distribution)
 
 ndims(d::Samples) = size(d.distribution_samples, 1)
 
+ndims(d::VectorOfParameterized) = sum(length.(d.distribution))
 """
     n_samples(d<:Samples)
 
@@ -155,6 +167,7 @@ n_samples(d::Samples) = size(d.distribution_samples)[2]
 
 n_samples(d::Parameterized) = "Distribution stored in Parameterized form, draw samples using `sample` function"
 
+n_samples(d::VectorOfParameterized) = "Distribution stored in Parameterized form, draw samples using `sample` function"
 
 
 """
@@ -213,7 +226,6 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
         # 1 constraint per dimension check
         constraint_array = isa(constraint, ConstraintType) ? [constraint] : constraint
-        pdd["constraint"] = constraint_array # make the copy constraint always an array
         n_parameters = ndims(distribution)
 
         if !(n_parameters == length(constraint_array))
@@ -296,6 +308,9 @@ The number of dimensions of the parameter space.
 function get_dimensions(pd::ParameterDistribution)
     return [ndims(d) for d in pd.distribution]
 end
+function get_dimensions(d::VectorOfParameterized)
+    return [length(dd) for dd in d.distribution]
+end
 
 function ndims(pd::ParameterDistribution)
     return sum(get_dimensions(pd))
@@ -322,7 +337,7 @@ get_all_constraints(pd::ParameterDistribution) = pd.constraint
 
 Returns a list of contiguous `[collect(1:i), collect(i+1:j),... ]` used to split parameter arrays by distribution dimensions.
 """
-function batch(pd::ParameterDistribution)
+function batch(pd::Union{ParameterDistribution, VectorOfParameterized})
     #chunk xarray to give to the different distributions.
     d_dim = get_dimensions(pd) #e.g [4,1,2]
     d_dim_tmp = Array{Int64}(undef, size(d_dim)[1] + 1)
@@ -348,6 +363,8 @@ end
 get_distribution(d::Samples) = d.distribution_samples
 
 get_distribution(d::Parameterized) = d.distribution
+
+get_distribution(d::VectorOfParameterized) = d.distribution
 
 """
     sample([rng], pd::ParameterDistribution, [n_draws])
@@ -408,12 +425,49 @@ sample(rng::AbstractRNG, d::Parameterized) = sample(rng, d, 1)
 sample(d::Parameterized) = sample(Random.GLOBAL_RNG, d, 1)
 
 """
+    sample([rng], d::VectorOfParameterized, [n_draws])
+
+Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
+parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
+optional and defaults to 1. 
+"""
+function sample(rng::AbstractRNG, d::VectorOfParameterized, n_draws::IT) where {IT <: Integer}
+    samples = zeros(ndims(d), n_draws)
+    batches = batch(d)
+    dimensions = get_dimensions(d)
+    for (i, dd) in enumerate(d.distribution)
+        samples[batches[i], :] = rand(rng, dd, n_draws) #columns are parameters
+    end
+    return samples
+end
+
+sample(d::VectorOfParameterized, n_draws::IT) where {IT <: Integer} = sample(Random.GLOBAL_RNG, d, n_draws)
+sample(rng::AbstractRNG, d::VectorOfParameterized) = sample(rng, d, 1)
+sample(d::VectorOfParameterized) = sample(Random.GLOBAL_RNG, d, 1)
+
+"""
     logpdf(pd::ParameterDistribution, xarray::Array{<:Real,1})
 
 Obtains the independent logpdfs of the parameter distributions at `xarray`
 (non-Samples Distributions only), and returns their sum.
 """
 get_logpdf(d::Parameterized, xarray::AbstractVector{FT}) where {FT <: Real} = logpdf.(d.distribution, xarray)
+
+function get_logpdf(d::VectorOfParameterized, xarray::AbstractVector{FT}) where {FT <: Real}
+    # get the index of xarray chunks to give to the different distributions.
+    batches = batch(d)
+    dimensions = get_dimensions(d)
+    lpdfsum = 0.0
+    # perform the logpdf of each of the distributions, and returns their sum    
+    for (i, dd) in enumerate(d.distribution)
+        if dimensions[i] == 1
+            lpdfsum += logpdf.(dd, xarray[batches[i]])[1]
+        else
+            lpdfsum += logpdf(dd, xarray[batches[i]])
+        end
+    end
+    return lpdfsum
+end
 
 function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT <: Real}
     #first check we don't have sampled distribution
@@ -441,6 +495,15 @@ Returns a flattened variance of the distributions
 """
 var(d::Parameterized) = var(d.distribution)
 var(d::Samples) = var(d.distribution_samples, dims = 2)
+function var(d::VectorOfParameterized)
+    d_dims = get_dimensions(d)
+    block_var = Array{Any}(undef, size(d_dims)[1])
+
+    for (i, dimension) in enumerate(d_dims)
+        block_var[i] = var(d.distribution[i])
+    end
+    return cat(block_var..., dims = 1)
+end
 
 function var(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
@@ -460,6 +523,22 @@ Returns a dense blocked (co)variance of the distributions.
 """
 cov(d::Parameterized) = cov(d.distribution)
 cov(d::Samples) = cov(d.distribution_samples, dims = 2) #parameters are columns
+function cov(d::VectorOfParameterized)
+    d_dims = get_dimensions(d)
+
+    # create each block (co)variance
+    block_cov = Array{Any}(undef, size(d_dims)[1])
+    for (i, dimension) in enumerate(d_dims)
+        if dimension == 1
+            block_cov[i] = var(d.distribution[i])
+        else
+            block_cov[i] = cov(d.distribution[i])
+        end
+    end
+
+    return cat(block_cov..., dims = (1, 2)) #build the block diagonal (dense) matrix
+
+end
 
 function cov(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
@@ -486,6 +565,9 @@ Returns a concatenated mean of the parameter distributions.
 """
 mean(d::Parameterized) = mean(d.distribution)
 mean(d::Samples) = mean(d.distribution_samples, dims = 2)
+function mean(d::VectorOfParameterized)
+    return cat([mean(dd) for dd in d.distribution]..., dims = 1)
+end
 function mean(pd::ParameterDistribution)
     return cat([mean(d) for d in pd.distribution]..., dims = 1)
 end
