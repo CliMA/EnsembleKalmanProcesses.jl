@@ -23,15 +23,15 @@ julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
 julia --project -e 'using Pkg; Pkg.precompile()'
 
 # First call to calibrate.jl will create the ensemble files from the priors
-id_init_ens=$(sbatch --parsable -A esm ekp_init_calibration.sbatch)
+id_init_ens=$(sbatch --parsable ekp_init_calibration.sbatch)
 for it in $(seq 1 1 $n_it)
 do
 # Parallel runs of forward model
 if [ "$it" = "1" ]; then
-    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_init_ens --array=1-$n ekp_single_cm_run.sbatch $it)
+    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n ekp_single_cm_run.sbatch $it)
 else
-    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ek_upd --array=1-$n ekp_single_cm_run.sbatch $it)
+    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_ek_upd --array=1-$n ekp_single_cm_run.sbatch $it)
 fi
-id_ek_upd=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ens_array --export=n=$n ekp_cont_calibration.sbatch $it)
+id_ek_upd=$(sbatch --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_ens_array --export=n=$n ekp_cont_calibration.sbatch $it)
 done
 
