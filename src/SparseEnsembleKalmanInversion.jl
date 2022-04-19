@@ -6,6 +6,14 @@ using SparseArrays
     SparseInversion <: Process
 
 A sparse ensemble Kalman Inversion process
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 Base.@kwdef struct SparseInversion{FT <: AbstractFloat} <: Process
     "upper limit of l1-norm"
