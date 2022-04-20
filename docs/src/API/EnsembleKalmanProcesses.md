@@ -16,8 +16,6 @@ IgnoreFailures
 get_u
 get_g
 get_u_final
-get_u_prior
-get_g_final
 compute_error!
 get_error
 get_N_iterations
