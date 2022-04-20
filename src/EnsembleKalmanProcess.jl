@@ -22,10 +22,32 @@ abstract type Process end
 # Failure handlers
 abstract type FailureHandlingMethod end
 
+"Failure handling method that ignores forward model failures"
 struct IgnoreFailures <: FailureHandlingMethod end
+
+""""
+    SampleSuccGauss <: FailureHandlingMethod
+
+Failure handling method that substitutes failed ensemble members by new samples from
+the empirical Gaussian distribution defined by the updated successful ensemble.
+"""
 struct SampleSuccGauss <: FailureHandlingMethod end
 
+"""
+    FailureHandler{P <: Process, FM <: FailureHandlingMethod}
+
+Structure defining the failure handler method used in the EnsembleKalmanProcess.
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
+"""
 struct FailureHandler{P <: Process, FM <: FailureHandlingMethod}
+    "Failsafe algorithmic update equation"
     failsafe_update::Function
 end
 
@@ -39,6 +61,28 @@ Structure that is used in Ensemble Kalman processes.
 # Fields
 
 $(TYPEDFIELDS)
+
+# Constructors
+
+    EnsembleKalmanProcess(
+        params::AbstractMatrix{FT},
+        obs_mean,
+        obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+        process::P;
+        Δt = FT(1),
+        rng::AbstractRNG = Random.GLOBAL_RNG
+    ) where {FT <: AbstractFloat, P <: Process}
+
+Inputs:
+
+ - `params`         :: Initial parameter ensemble
+ - `obs_mean`       :: Vector of observations
+ - `obs_noise_cov`  :: Noise covariance associated with the observations `obs_mean`
+ - `process`        :: Algorithm used to evolve the ensemble
+ - `Δt`             :: Initial time step or learning rate
+ - `rng`            :: Random number generator
+
+$(METHODLIST)
 """
 struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     "array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
@@ -65,19 +109,6 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     localizer::Localizer
 end
 
-# outer constructors
-"""
-    EnsembleKalmanProcess(
-        params::AbstractMatrix{FT},
-        obs_mean,
-        obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
-        process::P;
-        Δt = FT(1),
-        rng::AbstractRNG = Random.GLOBAL_RNG
-    ) where {FT <: AbstractFloat, P <: Process}
-
-Ensemble Kalman process constructor.
-"""
 function EnsembleKalmanProcess(
     params::AbstractMatrix{FT},
     obs_mean,
@@ -191,7 +222,13 @@ function get_N_iterations(ekp::EnsembleKalmanProcess)
 end
 
 """
-    construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT; rng_seed::Union{IT, Nothing} = nothing)
+    construct_initial_ensemble(
+        rng::AbstractRNG,
+        prior::ParameterDistribution,
+        N_ens::IT;
+        rng_seed::Union{IT, Nothing} = nothing,
+    ) where {IT <: Int}
+    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; kwargs...) where {IT <: Int}
 
 Construct the initial parameters, by sampling `N_ens` samples from specified
 prior distribution. Returned with parameters as columns.
@@ -213,6 +250,12 @@ end
 construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; kwargs...) where {IT <: Int} =
     construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens; kwargs...)
 
+"""
+    compute_error!(ekp::EnsembleKalmanProcess)
+
+Computes the covariance-weighted error of the mean forward model output, `(ḡ - y)'Γ_inv(ḡ - y)`.
+The error is stored within the `EnsembleKalmanProcess`.
+"""
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
     diff = ekp.obs_mean - mean_g
@@ -221,6 +264,11 @@ function compute_error!(ekp::EnsembleKalmanProcess)
     push!(ekp.err, newerr)
 end
 
+"""
+    get_error(ekp::EnsembleKalmanProcess)
+
+Returns the mean forward model output error as a function of algorithmic time.
+"""
 get_error(ekp::EnsembleKalmanProcess) = ekp.err
 
 function set_Δt!(ekp::EnsembleKalmanProcess, Δt_new::T) where {T}
@@ -234,7 +282,11 @@ function set_Δt!(ekp::EnsembleKalmanProcess, Δt_new::T) where {T}
 end
 
 """
-     sample_empirical_gaussian(u::AbstractMatrix{FT}, n::IT) where {FT <: Real, IT}
+    sample_empirical_gaussian(
+        u::AbstractMatrix{FT},
+        n::IT;
+        inflation::Union{FT, Nothing} = nothing,
+    ) where {FT <: Real, IT <: Int}
 
 Returns `n` samples from an empirical Gaussian based on point estimates `u`, adding inflation
 if the covariance is singular.
@@ -243,7 +295,7 @@ function sample_empirical_gaussian(
     u::AbstractMatrix{FT},
     n::IT;
     inflation::Union{FT, Nothing} = nothing,
-) where {FT <: Real, IT}
+) where {FT <: Real, IT <: Int}
     cov_u_new = cov(u, u, dims = 2)
     if !isposdef(cov_u_new)
         @warn string("Sample covariance matrix over ensemble is singular.", "\n Appplying variance inflation.")

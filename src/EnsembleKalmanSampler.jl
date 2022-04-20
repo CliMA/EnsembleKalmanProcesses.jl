@@ -4,11 +4,19 @@
     Sampler{FT<:AbstractFloat,IT<:Int} <: Process
 
 An ensemble Kalman Sampler process.
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 struct Sampler{FT <: AbstractFloat} <: Process
-    ""
+    "Mean of Gaussian parameter prior in unconstrained space"
     prior_mean::Vector{FT}
-    ""
+    "Covariance of Gaussian parameter prior in unconstrained space"
     prior_cov::AbstractMatrix{FT}
 end
 

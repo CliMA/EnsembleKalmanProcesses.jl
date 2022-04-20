@@ -4,6 +4,42 @@
     Unscented{FT<:AbstractFloat, IT<:Int} <: Process
 
 An unscented Kalman Inversion process.
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+    Unscented(
+        u0_mean::AbstractVector{FT},
+        uu0_cov::AbstractMatrix{FT};
+        α_reg::FT = 1.0,
+        update_freq::IT = 1,
+        modified_unscented_transform::Bool = true,
+        prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
+    ) where {FT <: AbstractFloat, IT <: Int}
+
+Construct an Unscented Inversion Process.
+
+Inputs:
+
+  - `u0_mean`: Mean at initialization.
+  - `uu0_cov`: Covariance at initialization.
+  - `α_reg`: Hyperparameter controlling regularization toward the prior mean (0 < `α_reg` ≤ 1),
+  default should be 1, without regulariazion.
+  - `update_freq`: Set to 0 when the inverse problem is not identifiable, 
+  namely the inverse problem has multiple solutions, the covariance matrix
+  will represent only the sensitivity of the parameters, instead of
+  posterior covariance information; set to 1 (or anything > 0) when
+  the inverse problem is identifiable, and the covariance matrix will
+  converge to a good approximation of the posterior covariance with an
+  uninformative prior.
+  - `modified_unscented_transform`: Modification of the UKI quadrature given
+    in Huang et al (2021).
+  - `prior_mean`: Prior mean used for regularization.
+
+$(METHODLIST)
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
     "an interable of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added)"
@@ -30,7 +66,67 @@ mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
     iter::IT
 end
 
+function Unscented(
+    u0_mean::AbstractVector{FT},
+    uu0_cov::AbstractMatrix{FT};
+    α_reg::FT = 1.0,
+    update_freq::IT = 1,
+    modified_unscented_transform::Bool = true,
+    prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
+) where {FT <: AbstractFloat, IT <: Int}
 
+    N_par = size(u0_mean, 1)
+    # ensemble size
+    N_ens = 2 * N_par + 1
+
+    c_weights = zeros(FT, N_par)
+    mean_weights = zeros(FT, N_ens)
+    cov_weights = zeros(FT, N_ens)
+
+    # set parameters λ, α
+    α = min(sqrt(4 / N_par), 1.0)
+    λ = α^2 * N_par - N_par
+
+
+    c_weights[1:N_par] .= sqrt(N_par + λ)
+    mean_weights[1] = λ / (N_par + λ)
+    mean_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
+    cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
+    cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
+
+    if modified_unscented_transform
+        mean_weights[1] = 1.0
+        mean_weights[2:N_ens] .= 0.0
+    end
+
+    u_mean = Vector{FT}[]  # array of Vector{FT}'s
+    push!(u_mean, u0_mean) # insert parameters at end of array (in this case just 1st entry)
+    uu_cov = Matrix{FT}[]  # array of Matrix{FT}'s
+    push!(uu_cov, uu0_cov) # insert parameters at end of array (in this case just 1st entry)
+
+    obs_pred = Vector{FT}[]  # array of Vector{FT}'s
+
+    Σ_ω = (2 - α_reg^2) * uu0_cov
+    Σ_ν_scale = 2.0
+
+    r = isnothing(prior_mean) ? u0_mean : prior_mean
+    iter = 0
+
+    Unscented(
+        u_mean,
+        uu_cov,
+        obs_pred,
+        c_weights,
+        mean_weights,
+        cov_weights,
+        Σ_ω,
+        Σ_ν_scale,
+        α_reg,
+        r,
+        update_freq,
+        iter,
+    )
+end
 
 # outer constructors
 function EnsembleKalmanProcess(
@@ -137,99 +233,6 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
     end
     return FailureHandler{Unscented, SampleSuccGauss}(failsafe_update)
 end
-
-"""
-    Unscented(
-        u0_mean::AbstractVector{FT},
-        uu0_cov::AbstractMatrix{FT};
-        α_reg::FT = 1.0,
-        update_freq::IT = 1,
-        modified_unscented_transform::Bool = true,
-        prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
-    ) where {FT <: AbstractFloat, IT <: Int}
-
-Construct an Unscented Inversion EnsembleKalmanProcess.
-
-Arguments
-=========
-
-  - `u0_mean`: Mean at initialization.
-  - `uu0_cov`: Covariance at initialization.
-  - `α_reg`: Hyperparameter controlling regularization toward the prior mean (0 < `α_reg` ≤ 1),
-  default should be 1, without regulariazion.
-  - `update_freq`: Set to 0 when the inverse problem is not identifiable, 
-  namely the inverse problem has multiple solutions, the covariance matrix
-  will represent only the sensitivity of the parameters, instead of
-  posterior covariance information; set to 1 (or anything > 0) when
-  the inverse problem is identifiable, and the covariance matrix will
-  converge to a good approximation of the posterior covariance with an
-  uninformative prior.
-  - `modified_unscented_transform`: Modification of the UKI quadrature given
-    in Huang et al (2021).
-  - `prior_mean`: Prior mean used for regularization.
-"""
-function Unscented(
-    u0_mean::AbstractVector{FT},
-    uu0_cov::AbstractMatrix{FT};
-    α_reg::FT = 1.0,
-    update_freq::IT = 1,
-    modified_unscented_transform::Bool = true,
-    prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
-) where {FT <: AbstractFloat, IT <: Int}
-
-    N_par = size(u0_mean, 1)
-    # ensemble size
-    N_ens = 2 * N_par + 1
-
-    c_weights = zeros(FT, N_par)
-    mean_weights = zeros(FT, N_ens)
-    cov_weights = zeros(FT, N_ens)
-
-    # set parameters λ, α
-    α = min(sqrt(4 / N_par), 1.0)
-    λ = α^2 * N_par - N_par
-
-
-    c_weights[1:N_par] .= sqrt(N_par + λ)
-    mean_weights[1] = λ / (N_par + λ)
-    mean_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
-    cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
-    cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
-
-    if modified_unscented_transform
-        mean_weights[1] = 1.0
-        mean_weights[2:N_ens] .= 0.0
-    end
-
-    u_mean = Vector{FT}[]  # array of Vector{FT}'s
-    push!(u_mean, u0_mean) # insert parameters at end of array (in this case just 1st entry)
-    uu_cov = Matrix{FT}[]  # array of Matrix{FT}'s
-    push!(uu_cov, uu0_cov) # insert parameters at end of array (in this case just 1st entry)
-
-    obs_pred = Vector{FT}[]  # array of Vector{FT}'s
-
-    Σ_ω = (2 - α_reg^2) * uu0_cov
-    Σ_ν_scale = 2.0
-
-    r = isnothing(prior_mean) ? u0_mean : prior_mean
-    iter = 0
-
-    Unscented(
-        u_mean,
-        uu_cov,
-        obs_pred,
-        c_weights,
-        mean_weights,
-        cov_weights,
-        Σ_ω,
-        Σ_ν_scale,
-        α_reg,
-        r,
-        update_freq,
-        iter,
-    )
-end
-
 
 """
     construct_sigma_ensemble(
