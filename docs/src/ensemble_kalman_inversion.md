@@ -61,7 +61,7 @@ An ensemble Kalman inversion object can be created using the `EnsembleKalmanProc
 Creating an ensemble Kalman inversion object requires as arguments:
  1. An initial parameter ensemble, `Array{Float, 2}` of size `[p × J]`;
  2. The mean value of the observed outputs, a vector of size `[d]`;
- 3. The covariance of the observational noise, a matrix of size `[d × d]`
+ 3. The covariance of the observational noise, a matrix of size `[d × d]`;
  4. The `Inversion()` process type.
 
 A typical initialization of the `Inversion()` process takes a user-defined `prior`, a summary of the observation statistics given by the mean `y` and covariance `obs_noise_cov`, and a desired number of members in the ensemble,

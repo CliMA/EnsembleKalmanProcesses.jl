@@ -61,7 +61,7 @@ where ``\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation m
 
 An EKS object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Sampler` type. The constructor takes two arguments, the prior mean `prior_mean` and the prior covariance `prior_cov`.
 
-Creating an EKI object requires as arguments:
+Creating an EKS object requires as arguments:
 
  1. An initial parameter ensemble -- an array of size `p × N_ens`, where `N_ens` is the  ensemble size;
 
@@ -69,7 +69,7 @@ Creating an EKI object requires as arguments:
 
  3. The covariance matrix of the observational noise -- an array of size `d × d`;
 
- 4. The `Sampler(prior_mean, prior_cov)` process type, with the mean (a vector of length `p`) and the covariance (an array of size `p x p`) of the parameter's prior distribution
+ 4. The `Sampler(prior_mean, prior_cov)` process type, with the mean (a vector of length `p`) and the covariance (an array of size `p x p`) of the parameter's prior distribution.
 
 The following example shows how an EKS object is instantiated. The mean of the observational data (`obs_mean`) and the covariance of the observational noise (`obs_cov`) are assumed to be defined previously in the code.
 

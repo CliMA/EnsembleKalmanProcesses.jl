@@ -1,5 +1,5 @@
 # EnsembleKalmanProcesses.jl
-Implements Optimization and approximate uncertainty quantification algorithms, Ensemble Kalman Inversion, and Ensemble Kalman Processes.
+Implements optimization and approximate uncertainty quantification algorithms, Ensemble Kalman Inversion, and Ensemble Kalman Processes.
 
 
 | **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]       |

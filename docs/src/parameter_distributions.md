@@ -21,7 +21,7 @@ dict_1 = Dict("distribution" => distribution_1, "constraint" => constraint_1, "n
 dict_2 = Dict("distribution" => distribution_2, "constraint" => constraint_2, "name" => name_2)
 prior = ParameterDistribution( [dict_1, dict_2] )
 ```
-We provide many example in the package `examples/`, the unit tests found in `test/ParameterDistributions/runtests.jl`, and in the documentation below.
+We provide many examples in the package `examples/`, the unit tests found in `test/ParameterDistributions/runtests.jl`, and in the documentation below.
 
 # A simple example:
 Task: We wish to create a prior for a one-dimensional parameter. Our problem dictates that this parameter is bounded between 0 and 1. Prior knowledge dictates it is around 0.7. The parameter is called `point_seven`.
@@ -84,7 +84,7 @@ p = plot(p1, p2, legend=false, size = (900, 450)) #hide
 ## 1. The ParameterDistributionType
 
 The `ParameterDistributionType` has three flavors for building a distribution:
- - The `Parameterized` type is initialized using a Julia `Distributions.jl` object. Samples are drawn randomly from the distribution object
+ - The `Parameterized` type is initialized using a Julia `Distributions.jl` object. Samples are drawn randomly from the distribution object.
  - The `VectorOfParameterized` type is initialized with a vector of distributions.
  - The `Samples` type is initialized using a two dimensional array. Samples are drawn randomly (with replacement) from the columns of the provided array.
 
@@ -441,6 +441,6 @@ u = ParameterDistribution([param_dict1, param_dict2, param_dict3])
 These functions typically return a `Dict` with `ParameterDistribution.name` as a keys, or an `Array` if requested:
  - `get_name`: returns the names
  - `get_distribution`: returns the Julia Distribution object if it is `Parameterized`
- - `mean, var, cov, sample, logpdf`: mean,variance,covariance,logpdf or samples the Julia Distribution if `Parameterized`, or draws from the list of samples if `Samples` extends the StatsBase definitions
+ - `mean, var, cov, sample, logpdf`: mean, variance, covariance, logpdf or samples the Julia Distribution if `Parameterized`, or draws from the list of samples if `Samples` extends the StatsBase definitions
  - `transform_unconstrained_to_constrained`: apply the constraint mappings
  - `transform_constrained_to_unconstrained`: apply the inverse constraint mappings
