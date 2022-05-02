@@ -64,7 +64,7 @@ And ``[\sqrt{C}]_j`` is the ``j``-th column of the Cholesky factor of ``C``.
     
 
 
-## Choosing of free parameters
+## Choice of free parameters
 The free parameters in the unscented Kalman inversion are ``\alpha, r, \Sigma_{\nu}, \Sigma_{\omega}``, which are chosen based on theorems developed in [Huang et al, 2021](https://arxiv.org/abs/2102.01580)
 
 * the vector ``r`` is set to be the prior mean
