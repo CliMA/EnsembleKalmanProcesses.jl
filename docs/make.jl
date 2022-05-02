@@ -48,6 +48,7 @@ examples = [
 pages = [
     "Home" => "index.md",
     "Installation instructions" => "installation_instructions.md",
+    "Contributing" => "contributing.md",
     "Prior distributions" => "parameter_distributions.md",
     "Observations" => "observations.md",
     "Ensemble Kalman Inversion" => "ensemble_kalman_inversion.md",
