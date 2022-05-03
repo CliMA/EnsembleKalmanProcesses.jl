@@ -43,11 +43,11 @@ $(METHODLIST)
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
     "an interable of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added)"
-    u_mean  # ::Iterable{AbtractVector{FT}}
+    u_mean::Any  # ::Iterable{AbtractVector{FT}}
     "an iterable of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added)"
-    uu_cov  # ::Iterable{AbstractMatrix{FT}}
+    uu_cov::Any  # ::Iterable{AbstractMatrix{FT}}
     "an iterable of arrays of size `N_y` containing the predicted observation (in each `uki` iteration a new array of predicted observation is added)"
-    obs_pred # ::Iterable{AbstractVector{FT}}
+    obs_pred::Any # ::Iterable{AbstractVector{FT}}
     "weights in UKI"
     c_weights::AbstractVector{FT}
     mean_weights::AbstractVector{FT}
@@ -541,7 +541,11 @@ function update_ensemble!(
 ) where {FT <: AbstractFloat, IT <: Int}
     #catch works when g_in non-square 
     if !(size(g_in)[2] == uki.N_ens)
-        throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g_in do not match, try transposing or check ensemble size"))
+        throw(
+            DimensionMismatch(
+                "ensemble size in EnsembleKalmanProcess and g_in do not match, try transposing or check ensemble size",
+            ),
+        )
     end
 
     u_p_old = get_u_final(uki)

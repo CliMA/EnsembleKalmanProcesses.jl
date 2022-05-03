@@ -138,7 +138,11 @@ function update_ensemble!(
 
     #catch works when g non-square
     if !(size(g)[2] == ekp.N_ens)
-        throw(DimensionMismatch("ensemble size $(ekp.N_ens) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size"))
+        throw(
+            DimensionMismatch(
+                "ensemble size $(ekp.N_ens) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
+            ),
+        )
     end
 
     # u: N_par × N_ens 
