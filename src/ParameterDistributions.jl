@@ -202,7 +202,9 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
     for pdd in param_dist_dict_array
         # check all keys are present
         if !all(["distribution", "name", "constraint"] .∈ [collect(keys(pdd))])
-            throw(ArgumentError("input dictionaries must contain the keys: \"distribution\", \"name\", \"constraint\" "))
+            throw(
+                ArgumentError("input dictionaries must contain the keys: \"distribution\", \"name\", \"constraint\" "),
+            )
         end
 
         distribution = pdd["distribution"]
@@ -211,13 +213,25 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
         # check key types
         if !isa(distribution, ParameterDistributionType)
-            throw(ArgumentError("Value of \"distribution\" must be a valid ParameterDistribution object: Parameterized or Samples"))
+            throw(
+                ArgumentError(
+                    "Value of \"distribution\" must be a valid ParameterDistribution object: Parameterized or Samples",
+                ),
+            )
         end
         if !isa(constraint, ConstraintType)
             if !isa(constraint, AbstractVector) #it's not a vector either
-                throw(ArgumentError("Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType)"))
+                throw(
+                    ArgumentError(
+                        "Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType)",
+                    ),
+                )
             elseif !(eltype(constraint) <: ConstraintType) #it is a vector, but not of constraint
-                throw(ArgumentError("Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType)"))
+                throw(
+                    ArgumentError(
+                        "Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType)",
+                    ),
+                )
             end
         end
         if !isa(name, String)
@@ -229,7 +243,11 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
         n_parameters = ndims(distribution)
 
         if !(n_parameters == length(constraint_array))
-            throw(DimensionMismatch("There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required"))
+            throw(
+                DimensionMismatch(
+                    "There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required",
+                ),
+            )
         end
     end
 
@@ -265,7 +283,11 @@ function ParameterDistribution(
     n_parameters = ndims(distribution)
 
     if !(n_parameters == length(constraint_vec))
-        throw(DimensionMismatch("There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required"))
+        throw(
+            DimensionMismatch(
+                "There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required",
+            ),
+        )
     end
 
     # flatten the structure
@@ -473,7 +495,11 @@ function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where
     #first check we don't have sampled distribution
     for d in pd.distribution
         if typeof(d) <: Samples
-            throw(ErrorException("Cannot compute get_logpdf of Samples distribution. Consider using a Parameterized type for your prior."))
+            throw(
+                ErrorException(
+                    "Cannot compute get_logpdf of Samples distribution. Consider using a Parameterized type for your prior.",
+                ),
+            )
         end
     end
     #assert xarray correct dim/length

@@ -38,8 +38,8 @@ const EKP = EnsembleKalmanProcesses
     loc_methods = [RBF(2.0), Delta(), NoLocalization()]
 
     noise = MvNormal(zeros(n_obs), Γy_vec[1])
-    C = [1 -.9; -.9 1]          # Correlation structure for linear operator
-    A = rand(rng, MvNormal(zeros(2,), C), n_obs)'    # Linear operator in R^{n_par x n_obs}
+    C = [1 -0.9; -0.9 1]          # Correlation structure for linear operator
+    A = rand(rng, MvNormal(zeros(2), C), n_obs)'    # Linear operator in R^{n_par x n_obs}
 
     @test size(A) == (n_obs, n_par)
 
