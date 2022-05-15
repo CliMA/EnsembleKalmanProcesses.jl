@@ -27,29 +27,35 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test d.distribution == repeat([Normal(0, 1)], 5)
     end
     @testset "ConstraintType" begin
+        tol = 10 * eps(Float64)
         # Tests for the ConstraintType
         # The predefined transforms
         c1 = bounded_below(0.2)
-        @test isapprox(c1.constrained_to_unconstrained(1.0) - (log(1.0 - 0.2)), 0)
-        @test isapprox(c1.unconstrained_to_constrained(0.0) - (exp(0.0) + 0.2), 0)
+        @test isapprox(c1.constrained_to_unconstrained(1.0) - (log(1.0 - 0.2)), 0.0, atol = tol)
+        @test isapprox(c1.unconstrained_to_constrained(0.0) - (exp(0.0) + 0.2), 0.0, atol = tol)
 
         c2 = bounded_above(0.2)
-        @test isapprox(c2.constrained_to_unconstrained(-1.0) - (log(0.2 - -1.0)), 0)
-        @test isapprox(c2.unconstrained_to_constrained(10.0) - (0.2 - exp(10.0)), 0)
+        @test isapprox(c2.constrained_to_unconstrained(-1.0) - (-log(0.2 - -1.0)), 0.0, atol = tol)
+        @test isapprox(c2.unconstrained_to_constrained(10.0) - (0.2 - exp(-10.0)), 0.0, atol = tol)
 
 
         c3 = bounded(-0.1, 0.2)
-        @test isapprox(c3.constrained_to_unconstrained(0.0) - (log((0.0 - -0.1) / (0.2 - 0.0))), 0)
-        @test isapprox(c3.unconstrained_to_constrained(1.0) - ((0.2 * exp(1.0) + -0.1) / (exp(1.0) + 1)), 0)
+        @test isapprox(c3.constrained_to_unconstrained(0.0) - (log((0.0 - -0.1) / (0.2 - 0.0))), 0.0, atol = tol)
+        @test isapprox(
+            c3.unconstrained_to_constrained(1.0) - ((0.2 * exp(1.0) + -0.1) / (exp(1.0) + 1)),
+            0.0,
+            atol = tol,
+        )
         @test_throws DomainError bounded(0.2, -0.1)
 
         #an example with user defined invertible transforms
         c_to_u = (x -> 3 * x + 14)
+        jacobian = (x -> 3)
         u_to_c = (x -> (x - 14) / 3)
 
-        c4 = Constraint(c_to_u, u_to_c)
-        @test isapprox(c4.constrained_to_unconstrained(5.0) - c_to_u(5.0), 0)
-        @test isapprox(c4.unconstrained_to_constrained(5.0) - u_to_c(5.0), 0)
+        c4 = Constraint(c_to_u, jacobian, u_to_c)
+        @test isapprox(c4.constrained_to_unconstrained(5.0) - c_to_u(5.0), 0.0, atol = tol)
+        @test isapprox(c4.unconstrained_to_constrained(5.0) - u_to_c(5.0), 0.0, atol = tol)
 
         #length, size
         @test length(c1) == 1
@@ -428,6 +434,56 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
     end
 
+    @testset "transform definitions" begin
+        tol = 1e-8
+        cons = [
+            no_constraint(),
+            bounded_below(-1.0),
+            bounded_below(2.0),
+            bounded_above(-1.0),
+            bounded_above(2.0),
+            bounded(-1.0, 2.0),
+        ]
+        for con in cons
+            for u0 in [-Inf, -5.0, -1.0, 0.0, 1.0, 2.0, 5.0, Inf]
+                c0 = con.unconstrained_to_constrained(u0)
+                @test ~isnan(c0)
+                u1 = con.constrained_to_unconstrained(c0)
+                @test ~isnan(u1)
+                if isinf(u0)
+                    @test u0 == u1
+                else
+                    @test isapprox(u0, u1, atol = tol)
+                end
+            end
+        end
+        cons = [no_constraint(), bounded_below(-1.0), bounded_above(2.0), bounded(-1.0, 2.0)]
+        for con in cons
+            for c0 in [-1.0, 0.0, 1.0, 2.0]
+                @test ~isnan(con.c_to_u_jacobian(c0))
+                @test con.c_to_u_jacobian(c0) >= 0.0
+                u0 = con.constrained_to_unconstrained(c0)
+                @test ~isnan(u0)
+                c1 = con.unconstrained_to_constrained(u0)
+                @test ~isnan(c1)
+                @test isapprox(c0, c1, atol = tol)
+            end
+        end
+
+        @testset "transform definitions: handle +/-Inf" begin
+            for cons in (bounded(-Inf, Inf), bounded_below(-Inf), bounded_above(Inf))
+                @test cons.constrained_to_unconstrained(5.0) == 5.0
+                @test cons.unconstrained_to_constrained(5.0) == 5.0
+            end
+            c_hi = bounded_above(5.0)
+            cons = bounded(-Inf, 5.0)
+            @test cons.unconstrained_to_constrained(10.0) == c_hi.unconstrained_to_constrained(10.0)
+            c_lo = bounded_below(-5.0)
+            cons = bounded(-5.0, Inf)
+            @test cons.unconstrained_to_constrained(-10.0) == c_lo.unconstrained_to_constrained(-10.0)
+        end
+    end
+
     @testset "transform functions" begin
         #setup for the tests
         tol = 1e-8
@@ -486,5 +542,106 @@ using EnsembleKalmanProcesses.ParameterDistributions
             [x_real_constrained2, x_real_constrained2];
             atol = tol,
         )
+    end
+
+    @testset "constrained_gaussian" begin
+        @testset "constrained_gaussian: bounds" begin
+            @test_throws DomainError constrained_gaussian("test", 0.0, 1.0, 5.0, -5.0)
+            @test_throws DomainError constrained_gaussian("test", -10.0, 1.0, -5.0, 5.0)
+            @test_throws DomainError constrained_gaussian("test", 10.0, 1.0, -5.0, 5.0)
+            # σ too wide relative to constraint interval
+            @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1.0, 1000.0)
+            @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1000.0, 1.0)
+            @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1.0, 1.0)
+            # optimization failure
+            @test_logs (:warn,) match_mode = :any ParameterDistributions._constrained_gaussian(
+                "test",
+                0.99999,
+                0.000006,
+                0.0,
+                1.0,
+            )
+        end
+        @testset "constrained_gaussian: closed form" begin
+            μ_c = -5.0
+            σ_c = 2.0
+            pd = constrained_gaussian("test", μ_c, σ_c, -Inf, Inf)
+            d = pd.distribution[1].distribution
+            @test mean(d) == μ_c
+            @test std(d) == σ_c
+            pd = constrained_gaussian("test", μ_c, σ_c, -Inf, 10.0)
+            d = pd.distribution[1].distribution
+            μ_u, σ_u = ParameterDistributions._inverse_lognormal_mean_std(10.0 - μ_c, σ_c)
+            @test mean(d) == μ_u
+            @test std(d) == σ_u
+            pd = constrained_gaussian("test", μ_c, σ_c, -20.0, Inf)
+            d = pd.distribution[1].distribution
+            μ_u, σ_u = ParameterDistributions._inverse_lognormal_mean_std(μ_c + 20.0, σ_c)
+            @test mean(d) == μ_u
+            @test std(d) == σ_u
+        end
+        @testset "constrained_gaussian: integration" begin
+            # verify analytic solutions
+            μ_0 = -5.0
+            σ_0 = 2.0
+            μ_c, σ_c = ParameterDistributions._lognormal_mean_std(μ_0, σ_0)
+            μ_u, σ_u = ParameterDistributions._inverse_lognormal_mean_std(μ_c, σ_c)
+            @test isapprox(μ_0, μ_u, atol = 1e-7, rtol = 1e-7)
+            @test isapprox(σ_0, σ_u, atol = 1e-7, rtol = 1e-7)
+            μ_0 = 1.0
+            σ_0 = 2.0
+            μ_u, σ_u = ParameterDistributions._inverse_lognormal_mean_std(μ_0, σ_0)
+            μ_c, σ_c = ParameterDistributions._lognormal_mean_std(μ_u, σ_u)
+            @test isapprox(μ_0, μ_c, atol = 1e-7, rtol = 1e-7)
+            @test isapprox(σ_0, σ_c, atol = 1e-7, rtol = 1e-7)
+
+            # lognormal case
+            cons = bounded(0.0, Inf)
+            μ, σ = ParameterDistributions._lognormal_mean_std(0.0, 1.0)
+            m, s = ParameterDistributions._mean_std(0.0, 1.0, cons)
+            @test isapprox(μ, m, atol = 1e-6, rtol = 1e-6)
+            @test isapprox(σ, s, atol = 1e-6, rtol = 1e-6)
+            μ, σ = ParameterDistributions._lognormal_mean_std(1.0, 2.0)
+            m, s = ParameterDistributions._mean_std(1.0, 2.0, cons)
+            @test isapprox(μ, m, atol = 1e-6, rtol = 1e-6)
+            @test isapprox(σ, s, atol = 1e-6, rtol = 1e-6)
+
+            # logitnormal
+            cons = bounded(0.0, 1.0)
+            m, s = ParameterDistributions._mean_std(0.0, 1.0, cons)
+            @test isapprox(m, 0.5, atol = 1e-5, rtol = 1e-5)
+            @test isapprox(s, 0.20827630, atol = 1e-5, rtol = 1e-5)
+            m, s = ParameterDistributions._mean_std(1.0, 2.0, cons)
+            @test isapprox(m, 0.64772644, atol = 1e-5, rtol = 1e-5)
+            @test isapprox(s, 0.29610580, atol = 1e-5, rtol = 1e-5)
+        end
+
+        @testset "constrained_gaussian: optimization" begin
+            # Analytic form for inital guess
+            μ_u, σ_u = ParameterDistributions._constrained_gaussian_guess(0.2, 0.1, 0.0, 1.0)
+            @test isapprox(μ_u, -1.54518, atol = 1e-5, rtol = 1e-5)
+            @test isapprox(σ_u, 0.69622, atol = 1e-5, rtol = 1e-5)
+
+            # lognormal - analytic
+            μ_u = 1.0
+            σ_u = 2.0
+            μ_c, σ_c = ParameterDistributions._lognormal_mean_std(μ_u, σ_u)
+            pd = constrained_gaussian("test", μ_c, σ_c, 0.0, Inf)
+            d = pd.distribution[1].distribution
+            @test isapprox(μ_u, mean(d), atol = 1e-5, rtol = 1e-5)
+            @test isapprox(σ_u, std(d), atol = 1e-5, rtol = 1e-5)
+
+            # logitnormal
+            μ_c = 0.2
+            σ_c = 0.1
+            pd = constrained_gaussian("test", μ_c, σ_c, 0.0, 1.0)
+            d = pd.distribution[1].distribution
+            c = pd.constraint[1]
+            m_c, s_c = ParameterDistributions._mean_std(mean(d), std(d), c)
+            @test isapprox(m_c, μ_c, atol = 1e-4, rtol = 1e-3)
+            @test isapprox(s_c, σ_c, atol = 1e-4, rtol = 1e-3)
+            @test isapprox(-1.5047670627292984, mean(d), atol = 1e-4, rtol = 1e-3)
+            @test isapprox(0.6474290829043071, std(d), atol = 1e-4, rtol = 1e-3)
+        end
     end
 end

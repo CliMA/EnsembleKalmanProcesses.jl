@@ -4,6 +4,7 @@ module ParameterDistributions
 using Distributions
 using Statistics
 using Random
+using Optim, QuadGK
 
 #import (to add definitions)
 import StatsBase: mean, var, cov, sample
@@ -27,6 +28,7 @@ export transform_constrained_to_unconstrained, transform_unconstrained_to_constr
 export get_logpdf, batch
 
 export combine_distributions
+export constrained_gaussian
 ## Objects
 # for the Distribution
 abstract type ParameterDistributionType end
@@ -71,10 +73,11 @@ abstract type ConstraintType end
 """
     Constraint <: ConstraintType
 
-Contains two functions to map between constrained and unconstrained spaces.
+Class describing a 1D bijection between constrained and unconstrained spaces.
 """
 struct Constraint <: ConstraintType
     constrained_to_unconstrained::Function
+    c_to_u_jacobian::Function
     unconstrained_to_constrained::Function
 end
 
@@ -86,8 +89,9 @@ Constructs a Constraint with no constraints, enforced by maps x -> x and x -> x.
 """
 function no_constraint()
     c_to_u = (x -> x)
+    jacobian = (x -> 1.0)
     u_to_c = (x -> x)
-    return Constraint(c_to_u, u_to_c)
+    return Constraint(c_to_u, jacobian, u_to_c)
 end
 
 """
@@ -97,9 +101,13 @@ Constructs a Constraint with provided lower bound, enforced by maps `x -> log(x 
 and `x -> exp(x) + lower_bound`.
 """
 function bounded_below(lower_bound::FT) where {FT <: Real}
+    if isinf(lower_bound)
+        return no_constraint()
+    end
     c_to_u = (x -> log(x - lower_bound))
+    jacobian = (x -> 1.0 / (x - lower_bound))
     u_to_c = (x -> exp(x) + lower_bound)
-    return Constraint(c_to_u, u_to_c)
+    return Constraint(c_to_u, jacobian, u_to_c)
 end
 
 """
@@ -109,9 +117,13 @@ Constructs a Constraint with provided upper bound, enforced by maps `x -> log(up
 and `x -> upper_bound - exp(x)`.
 """
 function bounded_above(upper_bound::FT) where {FT <: Real}
-    c_to_u = (x -> log(upper_bound - x))
-    u_to_c = (x -> upper_bound - exp(x))
-    return Constraint(c_to_u, u_to_c)
+    if isinf(upper_bound)
+        return no_constraint()
+    end
+    c_to_u = (x -> -log(upper_bound - x))
+    jacobian = (x -> 1.0 / (upper_bound - x))
+    u_to_c = (x -> upper_bound - exp(-x))
+    return Constraint(c_to_u, jacobian, u_to_c)
 end
 
 
@@ -127,9 +139,24 @@ function bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real}
     if (upper_bound <= lower_bound)
         throw(DomainError("upper bound must be greater than lower bound"))
     end
-    c_to_u = (x -> log((x - lower_bound) / (upper_bound - x)))
-    u_to_c = (x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1))
-    return Constraint(c_to_u, u_to_c)
+    # As far as I know, only way to dispatch method based on isinf() would be to bring in 
+    # Traits as another dependency, which would be overkill
+    if isinf(lower_bound)
+        if isinf(upper_bound)
+            return no_constraint()
+        else
+            return bounded_above(upper_bound)
+        end
+    else
+        if isinf(upper_bound)
+            return bounded_below(lower_bound)
+        else
+            c_to_u = (x -> log((x - lower_bound) / (upper_bound - x)))
+            jacobian = (x -> 1.0 / (upper_bound - x) + 1.0 / (x - lower_bound))
+            u_to_c = (x -> upper_bound - (upper_bound - lower_bound) / (exp(x) + 1))
+            return Constraint(c_to_u, jacobian, u_to_c)
+        end
+    end
 end
 
 #extending Base.length
@@ -665,6 +692,177 @@ function transform_unconstrained_to_constrained(
         push!(transf_xarray, transform_unconstrained_to_constrained(pd, elem))
     end
     return transf_xarray
+end
+
+# -------------------------------------------------------------------------------------
+# constructor for numerically optimized constrained distributions
+
+function _moment(m::Integer, d::UnivariateDistribution, c::Constraint)
+    # Rough (hopefully fast) 1D numerical integration of constrained distribution expectation
+    # values. Integrate in constrained space, although constraints can give singular behavior 
+    # near bounds.
+    # Intended use is only on bounded integrals; otherwise run into 
+    # https://github.com/JuliaMath/QuadGK.jl/issues/38
+    min = c.unconstrained_to_constrained(minimum(d))
+    max = c.unconstrained_to_constrained(maximum(d))
+    function integrand(x)
+        log_pdf = logpdf(d, c.constrained_to_unconstrained(x))
+        # jacobian always >= 0; use logs to avoid over/underflow
+        return isinf(log_pdf) ? 0.0 : x^m * exp(log(c.c_to_u_jacobian(x)) + log_pdf)
+    end
+    return quadgk(integrand, min, max, order = 9, rtol = 1e-5, atol = 1e-6)[1]
+end
+function _mean_std(μ::FT, σ::FT, c::Constraint) where {FT <: Real}
+    d = Normal(μ, σ)
+    m = [_moment(k, d, c) for k in 1:2]
+    return (m[1], sqrt(m[2] - m[1]^2))
+end
+function _lognormal_mean_std(μ_u::FT, σ_u::FT) where {FT <: Real}
+    # known analytic solution for lognormal distribution
+    return (exp(μ_u + σ_u^2 / 2.0), exp(μ_u + σ_u^2 / 2.0) * sqrt(expm1(σ_u^2)))
+end
+function _inverse_lognormal_mean_std(μ_c::FT, σ_c::FT) where {FT <: Real}
+    # known analytic solution for lognormal distribution
+    return (log(μ_c) - 0.5 * log1p((σ_c / μ_c)^2), sqrt(log1p((σ_c / μ_c)^2)))
+end
+
+"""
+    constrained_gaussian(name::AbstractString, μ_c::FT, σ_c::FT, lower_bound::FT, upper_bound::FT)
+
+Constructor for a 1D ParameterDistribution consisting of a transformed Gaussian, constrained
+to have support on [`lower_bound`, `upper_bound`], with first two moments μ_c and σ_c^2. The 
+moment integrals can't be done in closed form, so we set the parameters of the distribution
+with numerical optimization.
+
+!!! note
+    The intended use case is defining priors set from user expertise for use in inference 
+    with adequate data, so for the sake of performance we only require that the optimization
+    reproduce μ_c, σ_c to a loose tolerance (1e-5). Warnings are logged when the optimization
+    fails.
+
+!!! note
+    The distribution may be bimodal for σ_c large relative to the width of the bound interval.
+    In extreme cases the distribution becomes concentrated at the bound endpoints. We regard
+    this as a feature, not a bug, and do not warn the user when bimodality occurs.
+"""
+function constrained_gaussian(
+    name::AbstractString,
+    μ_c::FT,
+    σ_c::FT,
+    lower_bound::FT,
+    upper_bound::FT;
+    optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
+    optim_kwargs...,
+) where {FT <: Real}
+    if (upper_bound <= lower_bound)
+        throw(
+            DomainError(
+                "`$(name)`: Upper bound must be greater than lower bound (got [$(lower_bound), $(upper_bound)])",
+            ),
+        )
+    end
+    if (μ_c <= lower_bound) || (μ_c >= upper_bound)
+        throw(DomainError("`$(name)`: Target mean $(μ_c) must be within constraint [$(lower_bound), $(upper_bound)]"))
+    end
+
+    if isinf(lower_bound)
+        if isinf(upper_bound)
+            μ_u, σ_u = (μ_c, σ_c)
+        else
+            # linear change of variables in integral, std unchanged
+            μ_u, σ_u = _inverse_lognormal_mean_std(upper_bound - μ_c, σ_c)
+        end
+    else
+        if isinf(upper_bound)
+            # linear change of variables in integral, std unchanged
+            μ_u, σ_u = _inverse_lognormal_mean_std(μ_c - lower_bound, σ_c)
+        else
+            # finite interval case; need to solve numerically
+            if (μ_c - 0.7 * σ_c <= lower_bound)
+                throw(DomainError("`$(name)`: Target std $(σ_c) puts μ - σ too close to lower bound $(lower_bound)"))
+            end
+            if (μ_c + 0.7 * σ_c >= upper_bound)
+                throw(DomainError("`$(name)`: Target std $(σ_c) puts μ + σ too close to upper bound $(upper_bound)"))
+            end
+            μ_u, σ_u = _constrained_gaussian(
+                name,
+                μ_c,
+                σ_c,
+                lower_bound,
+                upper_bound;
+                optim_algorithm = optim_algorithm,
+                optim_kwargs...,
+            )
+        end
+    end
+    cons = bounded(lower_bound, upper_bound)
+    return ParameterDistribution(Parameterized(Normal(μ_u, σ_u)), cons, name)
+end
+
+function _constrained_gaussian_guess(μ_c::FT, σ_c::FT, lower_bound::FT, upper_bound::FT) where {FT <: Real}
+    # Initial guess for μ_c, σ_c in _constrained_gaussian optimization.
+    # Equations result from inverting the system 
+    # μ_c = f^{-1}(μ_u / sqrt(1 + σ_u^2/2))
+    # σ_c = f^{-1}((μ_u + σ_u/2) / sqrt(1 + σ_u^2/2)) - f^{-1}((μ_u - σ_u/2) / sqrt(1 + σ_u^2/2))
+    # where f^{-1} is the specific form of cons.unconstrained_to_constrained().
+
+    cons = bounded(lower_bound, upper_bound)
+    _Δul = upper_bound - lower_bound
+    _Δum = upper_bound - μ_c
+    _Δml = μ_c - lower_bound
+    init_σ_u =
+        0.5 * (
+            -σ_c * (_Δum^2 + _Δml^2) / (_Δum * _Δml * (σ_c - 1.0)) +
+            hypot(2 * _Δum * _Δml, _Δul * σ_c * (_Δum - _Δml)) / (_Δum * _Δml * abs(σ_c - 1.0))
+        )
+    init_σ_u = 2.0 * log(init_σ_u) / sqrt(1.0 - 2 * log(init_σ_u)^2)
+    init_μ_u = sqrt(1.0 + init_σ_u^2 / 2.0) * cons.constrained_to_unconstrained(μ_c)
+    return (init_μ_u, init_σ_u)
+end
+
+function _constrained_gaussian(
+    name::AbstractString,
+    μ_c::FT,
+    σ_c::FT,
+    lower_bound::FT,
+    upper_bound::FT;
+    optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
+    optim_kwargs...,
+) where {FT <: Real}
+    optim_opts_defaults = (; x_tol = 1e-5, f_tol = 1e-5)
+    optim_opts = merge(optim_opts_defaults, optim_kwargs)
+    optim_opts = Optim.Options(; optim_opts...)
+
+    # Numerically estimate μ_u, σ_u for unbounded distribution which reproduce desired
+    # μ_c, σ_c in constrained, transformed coordinates. Unlike other cases, can't be solved
+    # for analytically.
+
+    cons = bounded(lower_bound, upper_bound)
+    init_μ_u, init_σ_u = _constrained_gaussian_guess(μ_c, σ_c, lower_bound, upper_bound)
+    # optimize in log σ to avoid constraint σ>0
+    init_logσ_u = log(init_σ_u)
+
+    # Optimize parameters; by default this is done in a quick-and-dirty way, without gradient
+    # info (simplex method), since we only optimize 2 parameters.
+    # Optimization is finicky since problem becomes singular for large |μ_u|, σ_u: the 
+    # distribution becomes collapsed against the bounds of the interval.
+    function _optim_fn(μlogσ::Vector{Float64})
+        m, s = _mean_std(μlogσ[1], exp(μlogσ[2]), cons)
+        return (m - μ_c)^2 + (s - σ_c)^2
+    end
+
+    opt = optimize(_optim_fn, [init_μ_u, init_logσ_u], optim_algorithm, optim_opts)
+    μ_u = Optim.minimizer(opt)[1]
+    σ_u = exp(Optim.minimizer(opt)[2])
+
+    m_c, s_c = _mean_std(μ_u, σ_u, cons)
+    if ~isapprox(μ_c, m_c, atol = 1e-3, rtol = 1e-2)
+        @warn "Unable to set constrained mean for `$(name)`: target = $(μ_c), got $(m_c)"
+    end
+    if ~isapprox(σ_c, s_c, atol = 1e-3, rtol = 1e-2)
+        @warn "Unable to set constrained std for `$(name)`: target = $(σ_c), got $(s_c)"
+    end
+    return (μ_u, σ_u)
 end
 
 end # of module
