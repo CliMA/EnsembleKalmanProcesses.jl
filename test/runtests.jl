@@ -30,3 +30,10 @@ end
         end
     end
 end
+
+
+@testset "UQ Parameters" begin
+
+    include("UQ_Parameters/runtests.jl")
+
+end
