@@ -24,16 +24,9 @@ end
         end
     end
 
-    for submodule in ["DataContainers", "ParameterDistributions", "Observations", "EnsembleKalmanProcess", "Localizers"]
+    for submodule in ["DataContainers", "ParameterDistributions", "Observations", "EnsembleKalmanProcess", "Localizers", "UQParameters"]
         if all_tests || has_submodule(submodule) || "EnsembleKalmanProcesses" in ARGS
             include_test(submodule)
         end
     end
-end
-
-
-@testset "UQ Parameters" begin
-
-    include("UQ_Parameters/runtests.jl")
-
 end
