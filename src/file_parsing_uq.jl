@@ -69,15 +69,10 @@ Args:
 Returns a `ParameterDistribution` 
 """
 function get_parameter_distribution(param_dict::Dict, names::AbstractVector{String})
-
-    param_dist_arr = Array{ParameterDistribution}(undef, length(names))
-
-    for (i, name) in enumerate(names)
-        param_dist_arr[i] = get_parameter_distribution(param_dict, name)
+    param_dist_arr = map(names) do name
+        get_parameter_distribution(param_dict, name)
     end
-
     return combine_distributions(param_dist_arr)
-
 end
 
 
