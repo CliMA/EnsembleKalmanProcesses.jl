@@ -1,4 +1,5 @@
 using Test
+using TOML
 using Distributions
 using Random
 using LinearAlgebra
@@ -13,7 +14,7 @@ const EKP = EnsembleKalmanProcesses
 
     # Load parameters
     toml_path = joinpath(@__DIR__,"toml","uq_test_parameters.toml")
-    param_dict = read_parameters(toml_path)
+    param_dict = TOML.parsefile(toml_path)
 
     # True `ParameterDistribution`s. This is what `get_parameter_distribution`
     # should return
@@ -103,7 +104,7 @@ const EKP = EnsembleKalmanProcesses
         write_log_file(param_dict, logfile_path)
 
         # Read in log file as new parameter file and rerun test.
-        read_parameters(logfile_path)
+        TOML.parsefile(logfile_path)
     end
 
     for param_name in uq_param_names
@@ -118,7 +119,7 @@ const EKP = EnsembleKalmanProcesses
 
     # Read parameters
     toml_path = joinpath(@__DIR__,"toml","uq_test_parameters.toml")
-    param_dict = read_parameters(toml_path)
+    param_dict = TOML.parsefile(toml_path)
 
     # Extract the UQ parameters
     uq_param_names = get_UQ_parameters(param_dict)

@@ -14,28 +14,6 @@ export get_UQ_parameters
 export get_regularization
 export write_log_file
 
-"""
-    read_parameters(path_to_toml_file)
-
-Read parameters from toml file
-
-Args:
-`path_to_toml_file` - path of the toml file containing the parameters to be
-                      read.
-                      See 
-                         `test/UQ_Parameters/toml/uq_test_parameters.toml` 
-                      for an example toml file that illustrates the expected
-                      format of the parameter information.
-
-Returns a nested dictionary whose keys are the parameter names (= headers of
-the toml tables) and whose values are dictionaries containing the corresponding
-parameter information (e.g., "prior", "constraint", "value", etc.)
-"""
-function read_parameters(path_to_toml_file::AbstractString)
-    param_dict = TOML.parsefile(path_to_toml_file)
-    return param_dict
-end
-
 
 """
     get_parameter_distribution(param_dict, name)
