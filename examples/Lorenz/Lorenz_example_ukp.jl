@@ -210,7 +210,10 @@ N_iter = 20 # number of UKI iterations
 #             0 : weighted average between posterior covariance matrix with an uninformative prior and prior
 update_freq = 0
 
-process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
+# N_ens 2n_param+1 : sample 2n_param+1 sigma points
+#       n_param+2  : sample n_param+2 sigma points
+N_ens = 2n_param + 1
+process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq, sigma_points = "symmetric")
 ukiobj = EKP.EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
 
 

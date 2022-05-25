@@ -283,13 +283,31 @@ const EKP = EnsembleKalmanProcesses
         N_iter = 20 # number of UKI iterations
         α_reg = 1.0
         update_freq = 0
-        process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
+        process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq, sigma_points = "symmetric")
         iters_with_failure = [5, 8, 9, 15]
         failed_particle_index = [1, 2, 3, 1]
         Γy = Γy_vec[3]
         ukiobj = EKP.EnsembleKalmanProcess(y_star, Γy, process; rng = rng, failure_handler_method = SampleSuccGauss())
         ukiobj_unsafe =
             EKP.EnsembleKalmanProcess(y_star, Γy, process; rng = rng, failure_handler_method = IgnoreFailures())
+        # test simplex sigma points
+        process_simplex =
+            Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq, sigma_points = "simplex")
+        ukiobj_simplex = EKP.EnsembleKalmanProcess(
+            y_star,
+            Γy,
+            process_simplex;
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+        )
+        @test_throws ArgumentError Unscented(
+            prior_mean,
+            prior_cov;
+            α_reg = α_reg,
+            update_freq = update_freq,
+            sigma_points = "unknowns",
+        )
+
         # UKI iterations
         params_i_vec = []
         g_ens_vec = []
@@ -327,6 +345,8 @@ const EKP = EnsembleKalmanProcesses
                 end
             end
 
+            # Update simplex sigma points
+            EKP.update_ensemble!(ukiobj_simplex, G(get_u_final(ukiobj_simplex)))
         end
         push!(params_i_vec, get_u_final(ukiobj))
 
@@ -347,6 +367,7 @@ const EKP = EnsembleKalmanProcesses
         uki_init_result = vec(mean(get_u_prior(ukiobj), dims = 2))
         uki_final_result = get_u_mean_final(ukiobj)
         @test norm(u_star - uki_final_result) < norm(u_star - uki_init_result)
+        @test norm(u_star - get_u_mean_final(ukiobj_simplex)) < norm(u_star - uki_init_result)
         # end
 
         if TEST_PLOT_OUTPUT
