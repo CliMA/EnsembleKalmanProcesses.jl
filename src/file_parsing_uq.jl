@@ -96,11 +96,11 @@ function construct_constraint(param_info::Dict)
     if c.args[1] == Symbol("repeat")
         # Constraints are given as a `repeat` expression defining a vector of
         # constraints of the same kind
-        constr = collect_from_expr(c.args[2], "c", repeat=true)
+        constr = collect_from_expr(c.args[2], "c", repeat = true)
         n_constr = c.args[3] # number of repeated constraints
         return repeat([constr], n_constr)
 
-    else 
+    else
         return collect_from_expr(c, "c")
     end
 end
@@ -153,7 +153,7 @@ function get_vector_of_parameterized(d::Expr)
     if d.args[2].args[1] == Symbol("repeat")
         # Distributions are given as a `repeat` expression defining a vector of
         # distributions of the same kind
-        dist = collect_from_expr(d.args[2].args[2], "d", repeat=true)
+        dist = collect_from_expr(d.args[2].args[2], "d", repeat = true)
         n_dist = d.args[2].args[3] # number of repeated distributions
         return VectorOfParameterized(repeat([dist], n_dist))
 
@@ -182,7 +182,7 @@ Args:
 Returns an array of distributions / constraints, or a single distribution /
 constraint if only one is present
 """
-function collect_from_expr(e::Expr, eltype::AbstractString; repeat::Bool=false)
+function collect_from_expr(e::Expr, eltype::AbstractString; repeat::Bool = false)
 
     if e.head == Symbol("vect")
         # There are multiple distributions / constraints 
@@ -290,13 +290,12 @@ function save_parameter_ensemble(
     default_param_data::Dict,
     save_path::AbstractString,
     save_file::AbstractString,
-    iter::Union{Int, Nothing}=nothing) where {FT}
+    iter::Union{Int, Nothing} = nothing,
+) where {FT}
 
     # The parameter values are currently in the unconstrained space
     # where the ensemble Kalman algorithm takes place
-    save_array = transform_unconstrained_to_constrained(
-        param_distribution,
-        param_array)
+    save_array = transform_unconstrained_to_constrained(param_distribution, param_array)
 
     # The number of rows in param_array represent the sum of all parameter
     # dimensions. We need to determine the slices of rows that belong to
@@ -325,13 +324,7 @@ function save_parameter_ensemble(
         # corresponding value in param_array
         param_dict = deepcopy(default_param_data)
 
-        param_dict_updated = assign_values!(
-            i,
-            save_array,
-            param_distribution,
-            param_slices,
-            param_dict,
-            param_names)
+        param_dict_updated = assign_values!(i, save_array, param_distribution, param_slices, param_dict, param_names)
 
         open(joinpath(save_dir, subdir_names[i], toml_file), "w") do io
             TOML.print(io, param_dict_updated)
@@ -359,12 +352,13 @@ Returns the updated `param_dict`
 """
 function assign_values!(
     member::Int,
-    param_array::Array{FT,2},
+    param_array::Array{FT, 2},
     param_distribution::ParameterDistribution,
-    param_slices::Array{Array{Int64,1},1},
+    param_slices::Array{Array{Int64, 1}, 1},
     param_dict::Dict,
-    names::AbstractVector{String}) where {FT}
-    
+    names::AbstractVector{String},
+) where {FT}
+
     param_names_vec = typeof(names) <: AbstractVector ? names : [names]
 
     for (j, slice) in enumerate(param_slices)
@@ -387,7 +381,7 @@ Args:
 
 Returns a list of directory names
 """
-function generate_subdir_names(N_ens::Int, prefix::AbstractString="member")
+function generate_subdir_names(N_ens::Int, prefix::AbstractString = "member")
 
     member(j) = join([prefix, lpad(j, ndigits(N_ens), "0")], "_")
 
@@ -455,11 +449,10 @@ a float. Returns (nothing, nothing) if parameter has no regularization
 information.
 """
 function get_regularization(param_dict::Dict, name::AbstractString)
-    
+
     if haskey(param_dict[name], "L1") && haskey(param_dict[name], "L2")
         # There can't be more than one regularization flag
-        throw(ErrorException("Only one regularization flag (either 'L1' or " *
-            "'L2') is allowed"))
+        throw(ErrorException("Only one regularization flag (either 'L1' or " * "'L2') is allowed"))
     elseif haskey(param_dict[name], "L1")
         # L1 regularization
         return ("L1", param_dict[name]["L1"])
@@ -499,4 +492,3 @@ function get_regularization(param_dict::Dict, names::AbstractVector{String})
 
     return regularr
 end
-
