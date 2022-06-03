@@ -94,11 +94,12 @@ function eki_update(
     obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
 ) where {FT <: Real, IT}
 
-    cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
-    cov_gg = cov(g, g, dims = 2, corrected = false) # [N_par × N_obs]
+    cov_est = cov([u; g], [u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
-    # Localization following Tong and Morzfeld (2022)
-    cov_ug = cov_ug .* ekp.localizer.kernel
+    # Localization
+    cov_localized = ekp.localizer.localize(cov_est)
+    cov_ug = cov_localized[1:size(u)[1], size(u)[1]+1:end]
+    cov_gg = cov_localized[size(u)[1]+1:end, size(u)[1]+1:end]
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]

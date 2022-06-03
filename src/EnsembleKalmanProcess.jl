@@ -137,7 +137,7 @@ function EnsembleKalmanProcess(
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
     # localizer
-    loc = Localizer(localization_method, N_par, N_obs, FT)
+    loc = Localizer(localization_method, N_par, N_obs, N_ens, FT)
 
     EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng, fh, loc)
 end
