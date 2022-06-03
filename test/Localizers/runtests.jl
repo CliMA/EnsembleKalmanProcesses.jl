@@ -30,10 +30,6 @@ const EKP = EnsembleKalmanProcesses
         push!(priors, ParameterDistribution(Parameterized(Normal(0.0, 0.5)), no_constraint(), string("u", i)))
     end
     prior = combine_distributions(priors)
-    #prior_distns = repeat([Parameterized(Normal(0.0, 0.5))], p)
-    #constraints = repeat([[no_constraint()]], p)
-    #prior_names = [string("u_", i) for i in 1:p]
-    #prior = ParameterDistribution(prior_distns, constraints, prior_names)
 
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
@@ -46,7 +42,7 @@ const EKP = EnsembleKalmanProcesses
     nonlocalized_error = get_error(ekiobj_vanilla)[end]
 
     # Test different localizers
-    loc_methods = [Delta(), RBF(1.0), RBF(0.1), BernoulliDropout(0.1)]
+    loc_methods = [Delta(), RBF(1.0), RBF(0.1), BernoulliDropout(0.1), SEC(10.0), SECFisher()]
 
     for loc_method in loc_methods
         ekiobj =
@@ -64,9 +60,9 @@ const EKP = EnsembleKalmanProcesses
         # Test Schur product theorem
         u_final = get_u_final(ekiobj)
         g_final = get_g_final(ekiobj)
-        cov_ug = cov(u_final, g_final, dims = 2, corrected = false)
-        kernel = ekiobj.localizer.kernel
-        @test rank(cov_ug) < rank(kernel .* cov_ug)
+        cov_est = cov([u_final; g_final], [u_final; g_final], dims = 2, corrected = false)
+        cov_localized = ekiobj.localizer.localize(cov_est)
+        @test rank(cov_est) < rank(cov_localized)
     end
 
 end
