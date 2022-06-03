@@ -133,8 +133,8 @@ function sparse_eki_update(
     # Localization
     cov_localized = ekp.localizer.localize(cov_est)
     cov_uu = cov_localized[1:size(u)[1], 1:size(u)[1]]
-    cov_ug = cov_localized[1:size(u)[1], size(u)[1]+1:end]
-    cov_gg = cov_localized[size(u)[1]+1:end, size(u)[1]+1:end]
+    cov_ug = cov_localized[1:size(u)[1], (size(u)[1] + 1):end]
+    cov_gg = cov_localized[(size(u)[1] + 1):end, (size(u)[1] + 1):end]
 
     v = hcat(u', g')
 

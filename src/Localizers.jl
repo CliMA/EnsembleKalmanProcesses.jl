@@ -90,9 +90,9 @@ Localize using a Schur product with a kernel matrix. Only the u–G(u) block is 
 """
 function kernel_function(kernel_ug, T, p, d)
     kernel = ones(T, p + d, p + d)
-    kernel[1:p, p+1:end] = kernel_ug
-    kernel[p+1:end, 1:p] = kernel_ug'
-    return (cov)->kernel.*cov
+    kernel[1:p, (p + 1):end] = kernel_ug
+    kernel[(p + 1):end, 1:p] = kernel_ug'
+    return (cov) -> kernel .* cov
 end
 
 "Uniform kernel constructor"
@@ -147,14 +147,14 @@ function sec(cov, alpha)
     v = sqrt.(diag(cov))
     V = diagm(v)
     V_inv = diagm(1 ./ v)
-    R = V_inv*cov*V_inv
-    R_sec = R .* (abs.(R).^alpha)
-    return V*R_sec*V
+    R = V_inv * cov * V_inv
+    R_sec = R .* (abs.(R) .^ alpha)
+    return V * R_sec * V
 end
 
 "Sampling error correction (Lee, 2021) constructor"
 function Localizer(localization::SEC, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    return Localizer{SEC, T}((cov)->sec(cov, localization.alpha))
+    return Localizer{SEC, T}((cov) -> sec(cov, localization.alpha))
 end
 
 """
@@ -168,32 +168,32 @@ function sec_fisher(cov, N_ens)
     v = sqrt.(diag(cov))
     V = diagm(v)
     V_inv = diagm(1 ./ v)
-    R = V_inv*cov*V_inv
+    R = V_inv * cov * V_inv
 
     R_sec = zeros(size(R))
-    for i=1:size(R)[1]
-        for j=1:i
+    for i in 1:size(R)[1]
+        for j in 1:i
             r = R[i, j]
             if (i == j) | (r >= 1)
                 R_sec[i, j] = R_sec[j, i] = 1
             else
                 # Apply Fisher transformation
                 s = atanh(r)
-                σ_s = 1/sqrt(N_ens - 3)
+                σ_s = 1 / sqrt(N_ens - 3)
                 # Estimate σ_r as half of (s + σ_s) - (s - σ_s), transformed back into r space
-                σ_r = (tanh(s + σ_s) - tanh(s - σ_s))/2
+                σ_r = (tanh(s + σ_s) - tanh(s - σ_s)) / 2
                 Q = r / σ_r
                 alpha = (Q^2) / (1 + Q^2)
-                R_sec[i, j] = R_sec[j, i] = alpha*r
+                R_sec[i, j] = R_sec[j, i] = alpha * r
             end
         end
     end
-    return V*R_sec*V
+    return V * R_sec * V
 end
 
 "Sampling error correction (Flowerdew, 2015) constructor"
 function Localizer(localization::SECFisher, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    return Localizer{SECFisher, T}((cov)->sec_fisher(cov, J))
+    return Localizer{SECFisher, T}((cov) -> sec_fisher(cov, J))
 end
 
 end # module

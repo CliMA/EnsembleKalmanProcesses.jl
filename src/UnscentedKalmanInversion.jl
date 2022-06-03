@@ -207,14 +207,16 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         gg_cov = construct_successful_cov(uki, g, g_mean, successful_ens) + Σ_ν / uki.Δt[end]
         ug_cov = construct_successful_cov(uki, u_p, u_p_mean, g, g_mean, successful_ens)
 
-        cov_est = [uu_p_cov ug_cov;
-                   ug_cov' gg_cov]
+        cov_est = [
+            uu_p_cov ug_cov
+            ug_cov' gg_cov
+        ]
 
         # Localization
         cov_localized = uki.localizer.localize(cov_est)
         uu_cov = cov_localized[1:size(u_p)[1], 1:size(u_p)[1]]
-        ug_cov = cov_localized[1:size(u_p)[1], size(u_p)[1]+1:end]
-        gg_cov = cov_localized[size(u_p)[1]+1:end, size(u_p)[1]+1:end]
+        ug_cov = cov_localized[1:size(u_p)[1], (size(u_p)[1] + 1):end]
+        gg_cov = cov_localized[(size(u_p)[1] + 1):end, (size(u_p)[1] + 1):end]
 
         tmp = ug_cov / gg_cov
 
@@ -504,13 +506,15 @@ function update_ensemble_analysis!(
     gg_cov = construct_cov(uki, g, g_mean) + Σ_ν / uki.Δt[end]
     ug_cov = construct_cov(uki, u_p, u_p_mean, g, g_mean)
 
-    cov_est = [uu_p_cov ug_cov;
-               ug_cov' gg_cov]
+    cov_est = [
+        uu_p_cov ug_cov
+        ug_cov' gg_cov
+    ]
     # Localization
     cov_localized = uki.localizer.localize(cov_est)
     uu_cov = cov_localized[1:size(u_p)[1], 1:size(u_p)[1]]
-    ug_cov = cov_localized[1:size(u_p)[1], size(u_p)[1]+1:end]
-    gg_cov = cov_localized[size(u_p)[1]+1:end, size(u_p)[1]+1:end]
+    ug_cov = cov_localized[1:size(u_p)[1], (size(u_p)[1] + 1):end]
+    gg_cov = cov_localized[(size(u_p)[1] + 1):end, (size(u_p)[1] + 1):end]
 
     tmp = ug_cov / gg_cov
 
