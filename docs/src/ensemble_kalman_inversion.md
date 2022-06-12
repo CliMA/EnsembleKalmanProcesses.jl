@@ -10,7 +10,7 @@ to find the optimal parameters ``\theta \in \mathbb{R}^p`` in the inverse proble
 ```
 
 where ``\mathcal{G}`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations
-and ``\eta  \in \mathbb{R}^d`` is additive noise encompassing observational and representation (i.e., model) errors. Note that ``p`` is the
+and ``\eta  \in \mathbb{R}^d`` is additive noise. Note that ``p`` is the
 size of the parameter vector ``\theta`` and ``d`` the size of the observation vector ``y``. Here, we take ``\eta \sim \mathcal{N}(0, \Gamma_y)`` from a ``d``-dimensional Gaussian with zero mean and covariance matrix ``\Gamma_y``.  This noise structure aims to represent the correlations between observations.
 
 The optimal parameters ``\theta^* \in \mathbb{R}^p`` given relation (1) minimize the loss
@@ -46,7 +46,7 @@ mean at the final iteration,
 \bar{\theta}_{N_{\rm it}} = \dfrac{1}{J}\sum_{k=1}^J\theta_{N_{\rm it}}^{(k)}.
 ```
 
-For typical applications, a near-optimal solution ``\theta`` can be found after as few as 10 iterations of the algorithm, or ``10\cdot J`` evaluations of the forward model ``\mathcal{G}``. The algorithm performs better with larger ensembles. As a rule of thumb, if the number of parameters ``p`` is small, the number of ensemble members should be larger than ``10p``, although the optimal ensemble size may depend on the problem setting and the computational power available. For more complex models with a larger number of parameters, ``J`` can be chosen to be smaller than ``p``. Localizers can be used to maintain performance in these situations (see the `Localizers.jl` module).
+For typical applications, a near-optimal solution ``\theta`` can be found after as few as 10 iterations of the algorithm, or ``10\cdot J`` evaluations of the forward model ``\mathcal{G}``. The basic algorithm requires ``J \geq p``, and better performance is often seen with larger ensembles; a good rule of thumb is to start with ``J=10p``. The algorithm also extends to ``J < p`` , using localizers to maintain performance in these situations (see the Localizers.jl module).
 
 ## Constructing the Forward Map
 
@@ -120,7 +120,7 @@ using Statistics
 
 ## Handling forward model failures
 
-In situations where the forward model ``\mathcal{G}`` represents a diagnostic of a complex computational model, there might be cases where for some parameter combinations ``\theta``, attempting to evaluate ``\mathcal{G}(\theta)`` may result in model failure ( defined as returning a `NaN` from the point of view of this package). In such cases, the EKI update equation (2) must be modified to handle model failures.
+In situations where the forward model ``\mathcal{G}`` represents a diagnostic of a complex computational model, there might be cases where for some parameter combinations ``\theta``, attempting to evaluate ``\mathcal{G}(\theta)`` may result in model failure (defined as returning a `NaN` from the point of view of this package). In such cases, the EKI update equation (2) must be modified to handle model failures.
 
 `EnsembleKalmanProcesses.jl` implements such modifications through the `FailureHandler` structure, an input to the `EnsembleKalmanProcess` constructor. Currently, the only failsafe modification available is `SampleSuccGauss()`, described in [Lopez-Gomez et al (2022)](https://doi.org/10.1002/essoar.10510937.1).
 
@@ -142,7 +142,7 @@ ekiobj = EnsembleKalmanProcess(
 ```
 
 !!! info "Forward model requirements when using FailureHandlers"
-    In order for this modification to enable optimization of the parameters ``\theta`` regardless of model failures, it is up to the user to handle model errors such that ``\mathcal{G}(\theta)`` returns a `NaN`. The `FailureHandler` takes care of the rest.
+    The user must determine if a model run has "failed", and replace the output ``\mathcal{G}(\theta)`` with `NaN`. The `FailureHandler` takes care of the rest.
 
 A description of the algorithmic modification is included below.
 
@@ -160,4 +160,4 @@ where
     {m}_{s, {n+1}} = \dfrac{1}{J_s}\sum_{j=1}^{J_s} \theta_{s,n+1}^{(j)}, \qquad \Sigma_{s, n+1} = \mathrm{Cov}(\theta_{s, n+1}, \theta_{s, n+1}) + \kappa_*^{-1}\mu_{s,1}I_p.
 ```
 
-Here, ``\kappa_*`` is a limiting condition number, ``\mu_{s,1}`` is the largest eigenvalue of the sample covariance ``\mathrm{Cov}(\theta_{s, n+1}, \theta_{s, n+1})`` and ``I_p`` is the identity matrix of size `p\times p`.
+Here, ``\kappa_*`` is a limiting condition number, ``\mu_{s,1}`` is the largest eigenvalue of the sample covariance ``\mathrm{Cov}(\theta_{s, n+1}, \theta_{s, n+1})`` and ``I_p`` is the identity matrix of size ``p\times p``.
