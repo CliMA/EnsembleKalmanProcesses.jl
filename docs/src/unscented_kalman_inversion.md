@@ -1,17 +1,17 @@
 # Unscented Kalman Inversion
 
-One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the unscented Kalman inversion ([Huang et al, 2021](https://arxiv.org/abs/2102.01580)). The unscented Kalman inversion (UKI) is a derivative-free ensemble optimization method that seeks to find the optimal parameters ``\theta \in \mathbb{R}^p`` in the inverse problem
+One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the unscented Kalman inversion ([Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)). The unscented Kalman inversion (UKI) is a derivative-free approximate Bayesian inference method that seeks to find the maximum a posteriori parameters ``\theta \in \mathbb{R}^p`` in the inverse problem
 ```math
  y = \mathcal{G}(\theta) + \eta
 ```
-where ``\mathcal{G}`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations and ``\eta \sim \mathcal{N}(0, \Gamma_y)`` is additive Gaussian observational noise. Note that ``p`` is the size of the parameter vector ``\theta`` and ``d`` is taken to be the size of the observation vector ``y``. The UKI algorithm has the following properties
+where ``\mathcal{G}`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations and ``\eta \sim \mathcal{N}(0, \Gamma_y)`` is additive Gaussian noise. Note that ``p`` is the size of the parameter vector ``\theta`` and ``d`` is taken to be the size of the observation vector ``y``. The UKI algorithm has the following properties
 
-* UKI has a given ensemble size and requires only ``2p + 1`` particles in general.
-* UKI has uncertainty quantification capability, it gives both mean and covariance approximation (no ensemble collapse and no empirical variance inflation) of the posterior distribution, the 3-sigma confidence interval covers the truth parameters for perfect models.
+* UKI has a fixed ensemble size and requires only ``2p + 1`` particles in general.
+* UKI has uncertainty quantification capabilities, it gives both mean and covariance approximation (no ensemble collapse and no empirical variance inflation) of the posterior distribution, the 3-sigma confidence interval covers the truth parameters for perfect models.
 
 ## Algorithm
  
-The UKI applies unscented Kalman filter for the following stochastic dynamical system 
+The UKI applies the unscented Kalman filter to the following stochastic dynamical system 
 
 ```math
 \begin{aligned}
@@ -154,7 +154,7 @@ for n in 1:N_iter
 end
 ```
 
-### Solution
+## Solution
 
 The solution of the unscented Kalman inversion algorithm is a Gaussian distribution whose mean and covariance can be extracted from the ''last ensemble'' (i.e., the ensemble after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter (`θ_optim`) for the given calibration problem. These statistics can be accessed as follows: 
 
@@ -166,3 +166,66 @@ sigma = ukiobj.process.uu_cov[end]
 ```
 
 There are two examples: [Lorenz96](../examples/Lorenz_example) and [Cloudy](../examples/Cloudy_example).
+
+## Handling forward model failures
+
+In situations where the forward model ``\mathcal{G}`` represents a diagnostic of a complex computational model, there might be cases where for some parameter combinations ``\theta``, attempting to evaluate ``\mathcal{G}(\theta)`` may result in model failure (defined as returning a `NaN` from the point of view of this package). In such cases, the UKI update equations must be modified to handle model failures.
+
+`EnsembleKalmanProcesses.jl` implements such modifications through the `FailureHandler` structure, an input to the `EnsembleKalmanProcess` constructor. Currently, the only failsafe modification available is `SampleSuccGauss()`, described in [Lopez-Gomez et al (2022)](https://doi.org/10.1002/essoar.10510937.1).
+
+To employ this modification, construct the EKI object as
+
+```julia
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+
+
+# need to choose regularization factor α ∈ (0,1],  
+# when you have enough observation data α=1: no regularization
+α_reg =  1.0
+# update_freq 1 : approximate posterior covariance matrix with an uninformative prior
+#             0 : weighted average between posterior covariance matrix with an uninformative prior and prior
+update_freq = 0
+
+process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
+ukiobj = EnsembleKalmanProcess(
+    truth_sample,
+    truth.obs_noise_cov,
+    process,
+    failure_handler_method = SampleSuccGauss())
+
+```
+
+!!! info "Forward model requirements when using FailureHandlers"
+    The user must determine if a model run has "failed", and replace the output ``\mathcal{G}(\theta)`` with `NaN`. The `FailureHandler` takes care of the rest.
+
+A description of the algorithmic modification is included below.
+
+### SampleSuccGauss modification
+
+The `SampleSuccGauss()` modification is based on performing the UKI quadratures over the successful sigma points.
+Consider the set of off-center sigma points ``\{\hat{\theta}\} = \{\hat{\theta}_s\} \cup \{\hat{\theta}_f\}`` where ``\hat{\theta}_{s}^{(j)}``,  ``j=1, \dots, J_s`` are successful members and ``\hat{\theta}_{f}^{(k)}`` are not. For ease of notation, consider an ordering of ``\{\hat{\theta}\}`` such that ``\{\hat{\theta}_s\}`` are its first ``J_s`` elements, and note that we deal with the central point ``\hat{\theta}^{(0)}`` separately. We estimate the covariances ``\mathrm{Cov}_q(\mathcal{G}_n, \mathcal{G}_n)`` and ``\mathrm{Cov}_q(\theta_{n}, \mathcal{G}_n)`` from the successful ensemble,
+
+```math
+   \tag{1} \mathrm{Cov}_q(\theta_n, \mathcal{G}_n) \approx \sum_{j=1}^{J_s}w_{s,j} (\hat{\theta}_{s, n}^{(j)} - \bar{\theta}_{s,n})(\mathcal{G}(\hat{\theta}_{s, n}^{(j)}) - \bar{\mathcal{G}}_{s,n})^T,
+```
+
+```math
+   \tag{2} \mathrm{Cov}_q(\mathcal{G}_n, \mathcal{G}_n) \approx \sum_{j=1}^{J_s}w_{s,j} (\mathcal{G}(\hat{\theta}_{s, n}^{(j)}) - \bar{\mathcal{G}}_{s,n})(\mathcal{G}(\hat{\theta}_{s, n}^{(j)}) - \bar{\mathcal{G}}_{s,n})^T,
+```
+where the weights at each successful sigma point are scaled up, to preserve the sum of weights,
+```math
+    w_{s,j} = \left(\dfrac{\sum_{i=1}^{2p} w_i}{\sum_{k=1}^{J_s} w_k}\right)w_j.
+```
+
+In equations (1) and (2), the means ``\bar{\theta}_{s,n}`` and ``\bar{\mathcal{G}}_{s,n}`` must be modified from the original formulation if the central point ``\hat{\theta}^{(0)}=m_n`` results in model failure. If this is the case, then
+
+```math
+   \bar{\theta}_{s,n} =
+\dfrac{1}{J_s}\sum_{j=1}^{J_s}\hat{\theta}_{s, n}^{(j)} \qquad \text{if failure},
+```
+
+```math
+   \bar{\mathcal{G}}_{s,n} =
+\dfrac{1}{J_s}\sum_{j=1}^{J_s}\mathcal{G}(\hat{\theta}_{s, n}^{(j)}) \qquad \text{if failure}.
+```
