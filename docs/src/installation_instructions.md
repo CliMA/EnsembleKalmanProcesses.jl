@@ -6,8 +6,8 @@ command prompt and
 
 ```julia
 julia> ]
-(v1.5) pkg> add EnsembleKalmanProcesses
-(v1.5) pkg> instantiate
+(v1.7) pkg> add EnsembleKalmanProcesses
+(v1.7) pkg> instantiate
 ```
 
 This will install the latest tagged release of the package.
@@ -17,15 +17,15 @@ This will install the latest tagged release of the package.
     
     ```julia
     julia> ]
-    (v1.5) pkg> add EnsembleKalmanProcesses#main
-    (v1.5) pkg> instantiate
+    (v1.7) pkg> add EnsembleKalmanProcesses#main
+    (v1.7) pkg> instantiate
     ```
     
 You can run the tests via the package manager by:
 
 ```julia
 julia> ]
-(v1.5) pkg> test EnsembleKalmanProcesses
+(v1.7) pkg> test EnsembleKalmanProcesses
 ```
 
 ### Cloning the repository
@@ -38,16 +38,23 @@ clone the repository and then instantiate, e.g.,
 > julia --project -e 'using Pkg; Pkg.instantiate()'
 ```
 
+!!! info "Do I need to clone the repository?"
+    Most times, cloning the repository in not necessary. If you only want to use the package's
+    functionality, adding the packages as a dependency on your project is enough.
+
+### Running the test suite
+
 You can run the package's tests:
 
 ```
 > julia --project -e 'using Pkg; Pkg.test()'
 ```
-
-!!! info "Do I need to clone the repository?"
-    Most times, cloning the repository in not a necessity. If you only wanna use the package's
-    functionality then merely adding the packages as a dependency on your project will do the
-    job.
+Alternatively, you can do this from within the repository:
+```
+> julia --project
+julia> ]
+(EnsembleKalmanProcesses) pkg> test
+```
 
 ### Building the documentation locally
 
@@ -59,3 +66,28 @@ Once the project is built, you can build the project documentation under the `do
 ```
 
 The locally rendered HTML documentation can be viewed at `docs/build/index.html`
+
+### Running repository examples
+
+We have a selection of examples, found within the `examples/` directory to demonstrate different use of our toolbox.
+Each example directory contains a `Project.toml`
+
+To build with the latest `EnsembleKalmanProcesses.jl` release:
+```
+> cd examples/example-name/
+> julia --project -e 'using Pkg; Pkg.instantiate()'
+> julia --project example-file-name.jl
+```
+If you wish to run a local modified version of `EnsembleKalmanProcesses.jl` then try the following (starting from the `EnsembleKalmanProcesses.jl` package root)
+```
+> cd examples/example-name/
+> julia --project 
+> julia> ]
+> (example-name)> rm EnsembleKalmanProcesses.jl
+> (example-name)> dev ../..
+> (example-name)> instantiate
+```
+followed by
+```
+> julia --project example-file-name.jl
+```
