@@ -143,7 +143,7 @@ end
 Function that performs sampling error correction as per
 Lee (2021).
 """
-function sec(cov, alpha)
+function sec(cov, α)
     v = sqrt.(diag(cov))
     V = diagm(v)
     V_inv = diagm(1 ./ v)
