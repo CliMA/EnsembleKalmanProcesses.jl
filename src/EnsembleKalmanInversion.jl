@@ -98,7 +98,7 @@ function eki_update(
 
     # Localization
     cov_localized = ekp.localizer.localize(cov_est)
-    cov_ug = cov_localized[1:size(u)[1], (size(u)[1] + 1):end]
+    cov_ug = cov_localized[1:size(u, 1), (size(u, 1) + 1):end]
     cov_gg = cov_localized[(size(u)[1] + 1):end, (size(u)[1] + 1):end]
 
     # N_obs × N_obs \ [N_obs × N_ens]
