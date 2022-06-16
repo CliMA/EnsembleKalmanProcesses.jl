@@ -10,7 +10,7 @@ using EnsembleKalmanProcesses.Localizers
 import EnsembleKalmanProcesses: construct_mean, construct_cov, construct_sigma_ensemble
 const EKP = EnsembleKalmanProcesses
 
-function rk4(f::Function, y0::Array{Float64, 1}, t0::Float64, t1::Float64, h::Float64; inplace::Bool = true)
+function rk4(f::F, y0::Array{Float64, 1}, t0::Float64, t1::Float64, h::Float64; inplace::Bool = true) where {F}
     y = y0
     n = round(Int, (t1 - t0) / h)
     t = t0
