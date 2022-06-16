@@ -69,9 +69,8 @@ y = y0 + randn(D)
 Γ = 1.0 * I
 
 #### Define prior information on parameters
-priors = ParameterDistribution[] #empty PD-array
-for i in 1:p
-    push!(priors, ParameterDistribution(Parameterized(Normal(0.0, 1)), no_constraint(), string("u", i)))
+priors = map(1:p) do i
+    ParameterDistribution(Parameterized(Normal(0.0, 1)), no_constraint(), string("u", i))
 end
 prior = combine_distributions(priors)
 
