@@ -47,7 +47,7 @@ end
     SEC{FT <: Real} <: LocalizationMethod
 
 Sampling error correction that shrinks correlations by a
-factor of |r|^alpha, as per Lee (2021).
+factor of |r|^α, as per Lee (2021).
 
 Lee, Y. (2021). Sampling error correction in ensemble
 Kalman inversion. arXiv:2105.11341 [cs, math].
