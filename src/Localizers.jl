@@ -148,7 +148,7 @@ function sec(cov, α)
     V = diagm(v)
     V_inv = diagm(1 ./ v)
     R = V_inv * cov * V_inv
-    R_sec = R .* (abs.(R) .^ alpha)
+    R_sec = R .* (abs.(R) .^ α)
     return V * R_sec * V
 end
 
