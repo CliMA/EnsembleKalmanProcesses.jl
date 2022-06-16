@@ -166,8 +166,8 @@ function sec_fisher(cov, N_ens)
     # correlation matrix and V is a diagonal matrix holding the
     # standard deviations.
     v = sqrt.(diag(cov))
-    V = diagm(v)
-    V_inv = diagm(1 ./ v)
+    V = Diagonal(v)
+    V_inv = inv(V)
     R = V_inv * cov * V_inv
 
     R_sec = zeros(size(R))
