@@ -145,8 +145,8 @@ Lee (2021).
 """
 function sec(cov, α)
     v = sqrt.(diag(cov))
-    V = diagm(v)
-    V_inv = diagm(1 ./ v)
+    V = Diagonal(v)
+    V_inv = inv(V)
     R = V_inv * cov * V_inv
     R_sec = R .* (abs.(R) .^ α)
     return V * R_sec * V
