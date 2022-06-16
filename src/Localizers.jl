@@ -60,7 +60,7 @@ $(TYPEDFIELDS)
 """
 struct SEC{FT <: Real} <: LocalizationMethod
     "Controls degree of sampling error correction"
-    alpha::FT
+    α::FT
 end
 
 """
