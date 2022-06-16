@@ -512,9 +512,9 @@ function update_ensemble_analysis!(
     ]
     # Localization
     cov_localized = uki.localizer.localize(cov_est)
-    uu_cov = cov_localized[1:size(u_p)[1], 1:size(u_p)[1]]
-    ug_cov = cov_localized[1:size(u_p)[1], (size(u_p)[1] + 1):end]
-    gg_cov = cov_localized[(size(u_p)[1] + 1):end, (size(u_p)[1] + 1):end]
+    uu_cov = cov_localized[1:size(u_p, 1), 1:size(u_p, 1)]
+    ug_cov = cov_localized[1:size(u_p, 1), (size(u_p, 1) + 1):end]
+    gg_cov = cov_localized[(size(u_p, 1) + 1):end, (size(u_p, 1) + 1):end]
 
     tmp = ug_cov / gg_cov
 
