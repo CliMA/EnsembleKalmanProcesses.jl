@@ -296,7 +296,7 @@ function sample_empirical_gaussian(
     n::IT;
     inflation::Union{FT, Nothing} = nothing,
 ) where {FT <: Real, IT <: Int}
-    cov_u_new = cov(u, u, dims = 2)
+    cov_u_new = Symmetric(cov(u, u, dims = 2))
     if !isposdef(cov_u_new)
         @warn string("Sample covariance matrix over ensemble is singular.", "\n Appplying variance inflation.")
         if isnothing(inflation)
