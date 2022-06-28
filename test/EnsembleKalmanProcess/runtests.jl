@@ -516,10 +516,13 @@ const EKP = EnsembleKalmanProcesses
         for i in 2:7
             g[:, i] .= NaN
         end
-        @test_logs (:warn,) split_indices_by_success(g)
+        @test_logs (:warn, r"More than 50% of runs produced NaNs") match_mode = :any split_indices_by_success(g)
 
         u = rand(10, 4)
-        @test_logs (:warn,) sample_empirical_gaussian(u, 2)
+        @test_logs (:warn, r"Sample covariance matrix over ensemble is singular.") match_mode = :any sample_empirical_gaussian(
+            u,
+            2,
+        )
         @test_throws PosDefException sample_empirical_gaussian(u, 2, inflation = 0.0)
     end
 
