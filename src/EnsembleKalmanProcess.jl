@@ -10,7 +10,7 @@ using DocStringExtensions
 
 export EnsembleKalmanProcess
 export get_u, get_g
-export get_u_prior, get_u_final, get_u_mean_final, get_g_final, get_N_iterations, get_error
+export get_u_prior, get_u_final, get_u_mean_final, get_g_final, get_N_iterations, get_error, get_cov_blocks
 export compute_error!
 export update_ensemble!
 export sample_empirical_gaussian, split_indices_by_success
@@ -326,6 +326,19 @@ function split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
         )
     end
     return successful_ens, failed_ens
+end
+
+"""
+    get_cov_blocks(cov::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <: Integer}
+
+Given a covariance matrix `cov` and number of parameters `p`, returns the matrix blocks corresponding to the u–u
+covariance, the u–G(u) covariance, and the G(u)–G(u) covariance.
+"""
+function get_cov_blocks(cov::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <: Integer}
+    uu_cov = cov[1:p, 1:p]
+    ug_cov = cov[1:p, (p + 1):end]
+    gg_cov = cov[(p + 1):end, (p + 1):end]
+    return uu_cov, ug_cov, gg_cov
 end
 
 ## include the different types of Processes and their exports:

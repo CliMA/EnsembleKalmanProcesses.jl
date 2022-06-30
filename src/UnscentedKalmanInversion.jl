@@ -214,9 +214,7 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
 
         # Localization
         cov_localized = uki.localizer.localize(cov_est)
-        uu_cov = cov_localized[1:size(u_p, 1), 1:size(u_p, 1)]
-        ug_cov = cov_localized[1:size(u_p, 1), (size(u_p, 1) + 1):end]
-        gg_cov = cov_localized[(size(u_p, 1) + 1):end, (size(u_p, 1) + 1):end]
+        uu_cov, ug_cov, gg_cov = get_cov_blocks(cov_localized, size(u_p)[1])
 
         tmp = ug_cov / gg_cov
 

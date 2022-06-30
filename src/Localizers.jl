@@ -140,8 +140,8 @@ function Localizer(localization::BernoulliDropout, p::IT, d::IT, J::IT, T = Floa
 end
 
 """
-Function that performs sampling error correction as per
-Lee (2021).
+Function that performs sampling error correction as per Lee (2021).
+The input is assumed to be a covariance matrix, hence square.
 """
 function sec(cov, α)
     v = sqrt.(diag(cov))
@@ -154,12 +154,12 @@ end
 
 "Sampling error correction (Lee, 2021) constructor"
 function Localizer(localization::SEC, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    return Localizer{SEC, T}((cov) -> sec(cov, localization.alpha))
+    return Localizer{SEC, T}((cov) -> sec(cov, localization.α))
 end
 
 """
-Function that performs sampling error correction as per
-Flowerdew (2015).
+Function that performs sampling error correction as per Flowerdew (2015).
+The input is assumed to be a covariance matrix, hence square.
 """
 function sec_fisher(cov, N_ens)
     # Decompose covariance matrix C = V*R*V, where R is the
