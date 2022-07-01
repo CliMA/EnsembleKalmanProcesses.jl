@@ -20,9 +20,25 @@ examples_for_literation = [
     "AerosolActivation/aerosol_activation.jl",
 ]
 
+if isempty(get(ENV, "CI", ""))
+    # only needed when building docs locally; set automatically when built under CI
+    # https://fredrikekre.github.io/Literate.jl/v2/outputformats/#Configuration
+    extra_literate_config = Dict(
+        "repo_root_path" => abspath(joinpath(@__DIR__, "..")),
+        "repo_root_url" => "file://" * abspath(joinpath(@__DIR__, "..")),
+    )
+else
+    extra_literate_config = Dict()
+end
+
 for example in examples_for_literation
     example_filepath = joinpath(EXAMPLES_DIR, example)
-    Literate.markdown(example_filepath, OUTPUT_DIR; flavor = Literate.DocumenterFlavor())
+    Literate.markdown(
+        example_filepath,
+        OUTPUT_DIR;
+        flavor = Literate.DocumenterFlavor(),
+        config = extra_literate_config,
+    )
 end
 
 #----------
