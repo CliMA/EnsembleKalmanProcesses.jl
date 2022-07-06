@@ -98,13 +98,13 @@ end
 "Uniform kernel constructor"
 function Localizer(localization::NoLocalization, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
     kernel_ug = ones(T, p, d)
-    return return Localizer{NoLocalization, T}(kernel_function(kernel_ug, T, p, d))
+    return Localizer{NoLocalization, T}(kernel_function(kernel_ug, T, p, d))
 end
 
 "Delta kernel localizer constructor"
 function Localizer(localization::Delta, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
     kernel_ug = T(1) * Matrix(I, p, d)
-    return return Localizer{Delta, T}(kernel_function(kernel_ug, T, p, d))
+    return Localizer{Delta, T}(kernel_function(kernel_ug, T, p, d))
 end
 
 "RBF kernel localizer constructor"
@@ -116,18 +116,18 @@ function Localizer(localization::RBF, p::IT, d::IT, J::IT, T = Float64) where {I
             @inbounds kernel_ug[i, j] = exp(-(i - j) * (i - j) / (2 * l * l))
         end
     end
-    return return Localizer{RBF, T}(kernel_function(kernel_ug, T, p, d))
+    return Localizer{RBF, T}(kernel_function(kernel_ug, T, p, d))
 end
 
-"Randomized Bernoulli dropout kernel localizer constructor"
-function Localizer(localization::BernoulliDropout, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
+"Localization kernel with Bernoulli trials as off-diagonal terms (symmetric)"
+function bernoulli_kernel(prob, T, p, d)
     kernel_ug = T(1) * Matrix(I, p, d)
-
     # Transpose
     kernel_ug = p < d ? kernel_ug' : kernel_ug
+    # Add correlations as Bernoulli events
     for i in 2:size(kernel_ug, 1)
         for j in 1:min(i - 1, size(kernel_ug, 2))
-            @inbounds kernel_ug[i, j] = T(rand(Bernoulli(localization.prob)))
+            @inbounds kernel_ug[i, j] = T(rand(Bernoulli(prob)))
             if i <= size(kernel_ug, 2)
                 kernel_ug[j, i] = kernel_ug[i, j]
             end
@@ -135,8 +135,26 @@ function Localizer(localization::BernoulliDropout, p::IT, d::IT, J::IT, T = Floa
     end
     # Transpose back
     kernel_ug = p < d ? kernel_ug' : kernel_ug
+    return kernel_ug
+end
 
-    return return Localizer{BernoulliDropout, T}(kernel_function(kernel_ug, T, p, d))
+"""
+Localize using a Schur product with a random draw of a Bernoulli kernel matrix. Only the u–G(u) block is localized.
+"""
+function bernoulli_kernel_function(prob, T, p, d)
+    function get_kernel()
+        kernel = ones(T, p + d, p + d)
+        kernel_ug = bernoulli_kernel(prob, T, p, d)
+        kernel[1:p, (p + 1):end] = kernel_ug
+        kernel[(p + 1):end, 1:p] = kernel_ug'
+        return kernel
+    end
+    return (cov) -> get_kernel() .* cov
+end
+
+"Randomized Bernoulli dropout kernel localizer constructor"
+function Localizer(localization::BernoulliDropout, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
+    return Localizer{BernoulliDropout, T}(bernoulli_kernel_function(localization.prob, T, p, d))
 end
 
 """
