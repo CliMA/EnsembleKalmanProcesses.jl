@@ -1,4 +1,28 @@
-include("GModel.jl") # Contains Lorenz 96 source code
+# Demo distributed processing uncomment for the following behaviour
+# case = "multithread" # solve with multithread (must call code with `-t <n_threads>` flag)
+case = "pmap" # solve with pmap across <n_workers> processes 
+# case="distfor" #solve with @distributed for across <n_workers> processes 
+
+# To run code, uncomment desired `case`, open a terminal window in this folder and execute:
+#   `julia --project distributed_lorenz_example.jl`
+# Note: For `multithread` you need to add -t <n_threads> to the call, i.e.:
+#   `julia --project -t 4 distributed_lorenz_example.jl`
+
+if case == "multithread"
+    include("GModel_multithread.jl") # Contains Lorenz 96 source code
+elseif case == "pmap"
+    using Distributed
+    n_workers = 4
+    addprocs(n_workers; exeflags = "--project")
+    include("GModel_pmap.jl") # use for pmap example
+elseif case == "distfor"
+    using Distributed
+    n_workers = 4
+    addprocs(n_workers; exeflags = "--project")
+    include("GModel_distfor.jl") # use for distributed for example
+else
+    throw(ArgumentError("Case ", case, " invalid. Please choose from \"multithread\", \"pmap\" or \"distfor\"."))
+end
 
 # Import modules
 using Distributions  # probability distributions and associated functions
