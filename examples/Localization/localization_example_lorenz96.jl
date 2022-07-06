@@ -91,7 +91,7 @@ ekiobj_bernoulli = EKP.EnsembleKalmanProcess(
     Γ,
     Inversion();
     rng = rng,
-    localization_method = BernoulliDropout(0.9),
+    localization_method = BernoulliDropout(0.98),
 )
 
 for i in 1:N_iter
@@ -121,9 +121,10 @@ g_final = get_g_final(ekiobj_sec)
 cov_est = cov([u_final; g_final], [u_final; g_final], dims = 2, corrected = false)
 cov_localized = ekiobj_sec.localizer.localize(cov_est)
 
-plot(get_error(ekiobj_vanilla), label = "No localization")
+fig = plot(get_error(ekiobj_vanilla), label = "No localization")
 plot!(get_error(ekiobj_bernoulli), label = "Bernoulli")
 plot!(get_error(ekiobj_sec), label = "SEC (Lee, 2021)")
 plot!(get_error(ekiobj_sec_fisher), label = "SEC (Flowerdew, 2015)")
 xlabel!("Iterations")
 ylabel!("Error")
+savefig(fig, "result.png")
