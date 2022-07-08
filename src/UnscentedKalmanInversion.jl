@@ -18,6 +18,7 @@ $(TYPEDFIELDS)
         update_freq::IT = 1,
         modified_unscented_transform::Bool = true,
         prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
+        sigma_points::String = symmetric
     ) where {FT <: AbstractFloat, IT <: Int}
 
 Construct an Unscented Inversion Process.
@@ -38,7 +39,9 @@ Inputs:
   - `modified_unscented_transform`: Modification of the UKI quadrature given
     in Huang et al (2021).
   - `prior_mean`: Prior mean used for regularization.
-
+  - `sigma_points`: String of sigma point type, it can be `symmetric` with 2N_par+1 
+     ensemble members or `simplex` with N_par+2 ensemble members.
+  
 $(METHODLIST)
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
@@ -49,9 +52,11 @@ mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
     "an iterable of arrays of size `N_y` containing the predicted observation (in each `uki` iteration a new array of predicted observation is added)"
     obs_pred::Any # ::Iterable{AbstractVector{FT}}
     "weights in UKI"
-    c_weights::AbstractVector{FT}
+    c_weights::Union{AbstractVector{FT}, AbstractMatrix{FT}}
     mean_weights::AbstractVector{FT}
     cov_weights::AbstractVector{FT}
+    "number of particles 2N+1 or N+2"
+    N_ens::IT
     "covariance of the artificial evolution error"
     Σ_ω::AbstractMatrix{FT}
     "covariance of the artificial observation error"
@@ -73,26 +78,64 @@ function Unscented(
     update_freq::IT = 1,
     modified_unscented_transform::Bool = true,
     prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
+    sigma_points::String = "symmetric",
 ) where {FT <: AbstractFloat, IT <: Int}
+
+    if sigma_points == "symmetric"
+        N_ens = 2 * size(u0_mean, 1) + 1
+    elseif sigma_points == "simplex"
+        N_ens = size(u0_mean, 1) + 2
+    else
+        throw(ArgumentError("sigma_points (symmetric/simplex) type is not recognized"))
+    end
+
 
     N_par = size(u0_mean, 1)
     # ensemble size
-    N_ens = 2 * N_par + 1
 
-    c_weights = zeros(FT, N_par)
     mean_weights = zeros(FT, N_ens)
     cov_weights = zeros(FT, N_ens)
 
-    # set parameters λ, α
-    α = min(sqrt(4 / N_par), 1.0)
-    λ = α^2 * N_par - N_par
+    if sigma_points == "symmetric"
+        c_weights = zeros(FT, N_par)
+
+        # set parameters λ, α
+        α = min(sqrt(4 / N_par), 1.0)
+        λ = α^2 * N_par - N_par
 
 
-    c_weights[1:N_par] .= sqrt(N_par + λ)
-    mean_weights[1] = λ / (N_par + λ)
-    mean_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
-    cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
-    cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
+        c_weights[1:N_par] .= sqrt(N_par + λ)
+        mean_weights[1] = λ / (N_par + λ)
+        mean_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
+        cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
+        cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
+
+
+
+    elseif sigma_points == "simplex"
+        c_weights = zeros(FT, N_par, N_ens)
+
+        # set parameters λ, α
+        α = N_par / (4 * (N_par + 1))
+
+        IM = zeros(FT, N_par, N_par + 1)
+        IM[1, 1], IM[1, 2] = -1 / sqrt(2α), 1 / sqrt(2α)
+        for i in 2:N_par
+            for j in 1:i
+                IM[i, j] = 1 / sqrt(α * i * (i + 1))
+            end
+            IM[i, i + 1] = -i / sqrt(α * i * (i + 1))
+        end
+        c_weights[:, 2:end] .= IM
+
+        mean_weights .= 1 / (N_par + 1)
+        mean_weights[1] = 0.0
+        cov_weights .= α
+        cov_weights[1] = 0.0
+
+    else
+        throw(ArgumentError("sigma_points (symmetric/simplex) type is not recognized"))
+    end
 
     if modified_unscented_transform
         mean_weights[1] = 1.0
@@ -119,6 +162,7 @@ function Unscented(
         c_weights,
         mean_weights,
         cov_weights,
+        N_ens,
         Σ_ω,
         Σ_ν_scale,
         α_reg,
@@ -145,7 +189,7 @@ function EnsembleKalmanProcess(
     N_par = length(process.u_mean[1])
     N_obs = length(obs_mean)
     # ensemble size
-    N_ens = 2N_par + 1 #stored with data as columns
+    N_ens = process.N_ens #stored with data as columns
     #store for model evaluations
     g = []
     # error store
@@ -256,7 +300,7 @@ function construct_sigma_ensemble(
 ) where {FT <: AbstractFloat, IT <: Int}
 
     N_x = size(x_mean, 1)
-
+    N_ens = process.N_ens
     c_weights = process.c_weights
 
     # compute cholesky factor L of x_cov
@@ -271,11 +315,18 @@ function construct_sigma_ensemble(
         chol_xx_cov = (qr(sqrt.(S) .* Ut).R)'
     end
 
-    x = zeros(FT, N_x, 2 * N_x + 1)
+    x = zeros(FT, N_x, N_ens)
     x[:, 1] = x_mean
-    for i in 1:N_x
-        x[:, i + 1] = x_mean + c_weights[i] * chol_xx_cov[:, i]
-        x[:, i + 1 + N_x] = x_mean - c_weights[i] * chol_xx_cov[:, i]
+
+    if isa(c_weights, AbstractVector{FT})
+        for i in 1:N_x
+            x[:, i + 1] = x_mean + c_weights[i] * chol_xx_cov[:, i]
+            x[:, i + 1 + N_x] = x_mean - c_weights[i] * chol_xx_cov[:, i]
+        end
+    elseif isa(c_weights, AbstractMatrix{FT})
+        for i in 2:(N_x + 2)
+            x[:, i] = x_mean + chol_xx_cov * c_weights[:, i]
+        end
     end
 
     return x
