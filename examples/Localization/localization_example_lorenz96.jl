@@ -107,6 +107,15 @@ for i in 1:N_iter
     EKP.update_ensemble!(ekiobj_sec, g_ens, deterministic_forward_map = true)
 end
 
+# Test SEC with cutoff
+ekiobj_sec_cutoff =
+    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SEC(1.0, 0.1))
+
+for i in 1:N_iter
+    g_ens = G(get_u_final(ekiobj_sec_cutoff))
+    EKP.update_ensemble!(ekiobj_sec_cutoff, g_ens, deterministic_forward_map = true)
+end
+
 # Test SECFisher
 ekiobj_sec_fisher =
     EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SECFisher())
@@ -124,7 +133,9 @@ cov_localized = ekiobj_sec.localizer.localize(cov_est)
 fig = plot(get_error(ekiobj_vanilla), label = "No localization")
 plot!(get_error(ekiobj_bernoulli), label = "Bernoulli")
 plot!(get_error(ekiobj_sec), label = "SEC (Lee, 2021)")
-plot!(get_error(ekiobj_sec_fisher), label = "SEC (Flowerdew, 2015)")
+plot!(get_error(ekiobj_sec_fisher), label = "SECFisher (Flowerdew, 2015)")
+plot!(get_error(ekiobj_sec_cutoff), label = "SEC with cutoff")
+
 xlabel!("Iterations")
 ylabel!("Error")
 savefig(fig, "result.png")

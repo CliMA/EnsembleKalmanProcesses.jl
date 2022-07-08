@@ -47,7 +47,9 @@ end
     SEC{FT <: Real} <: LocalizationMethod
 
 Sampling error correction that shrinks correlations by a
-factor of |r|^α, as per Lee (2021).
+factor of |r|^α, as per Lee (2021). Sparsity of the
+resulting correlations can be imposed through the parameter
+r_0.
 
 Lee, Y. (2021). Sampling error correction in ensemble
 Kalman inversion. arXiv:2105.11341 [cs, math].
@@ -61,7 +63,10 @@ $(TYPEDFIELDS)
 struct SEC{FT <: Real} <: LocalizationMethod
     "Controls degree of sampling error correction"
     α::FT
+    "Cutoff correlation"
+    r_0::FT
 end
+SEC(α) = SEC{eltype(α)}(α, eltype(α)(0))
 
 """
     SECFisher <: LocalizationMethod
@@ -161,18 +166,20 @@ end
 Function that performs sampling error correction as per Lee (2021).
 The input is assumed to be a covariance matrix, hence square.
 """
-function sec(cov, α)
+function sec(cov, α, r_0)
     v = sqrt.(diag(cov))
     V = Diagonal(v)
     V_inv = inv(V)
     R = V_inv * cov * V_inv
     R_sec = R .* (abs.(R) .^ α)
+    # Apply cutoff
+    R_sec = R_sec .* (abs.(R_sec) .> r_0)
     return V * R_sec * V
 end
 
 "Sampling error correction (Lee, 2021) constructor"
 function Localizer(localization::SEC, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    return Localizer{SEC, T}((cov) -> sec(cov, localization.α))
+    return Localizer{SEC, T}((cov) -> sec(cov, localization.α, localization.r_0))
 end
 
 """
