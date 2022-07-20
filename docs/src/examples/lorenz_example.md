@@ -1,4 +1,4 @@
-# Lorenz 96 example
+# [Lorenz 96 example](@id Lorenz-example)
 
 ## Overview
 

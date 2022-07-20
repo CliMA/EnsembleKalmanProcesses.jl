@@ -1,4 +1,4 @@
-# Prior distributions
+# [Prior distributions](@id parameter-distributions)
 
 Bayesian inference begins with an explicit prior distribution. This page describes the interface EnsembleKalmanProcesses provides for specifying priors on parameters, via the ParameterDistributions module (`src/ParameterDistributions.jl`).
 

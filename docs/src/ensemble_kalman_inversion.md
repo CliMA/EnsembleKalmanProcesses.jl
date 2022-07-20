@@ -79,7 +79,7 @@ initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble fr
 ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion())
 ```
 
-See the [Prior distributions](../parameter_distributions/) section to learn about the construction of priors in EnsembleKalmanProcesses.jl. The prior is assumed to be over the unconstrained parameter space where ``\theta`` is defined. For applications where enforcing parameter bounds is necessary, the `ParameterDistributions` module provides functions to map from constrained to unconstrained space and vice versa. 
+See the [Prior distributions](@ref parameter-distributions) section to learn about the construction of priors in EnsembleKalmanProcesses.jl. The prior is assumed to be over the unconstrained parameter space where ``\theta`` is defined. For applications where enforcing parameter bounds is necessary, the `ParameterDistributions` module provides functions to map from constrained to unconstrained space and vice versa. 
 
 ## Updating the Ensemble
 
@@ -106,7 +106,7 @@ Gaussian space where the EKI algorithm is performed. The map ``\mathcal{T}^{-1}`
 space and the (possibly constrained) physical space of parameters is encoded in the `prior` object. The
 dynamical model `Ψ` accepts as inputs the parameters in (possibly constrained) physical space, so it is
 necessary to apply `transform_unconstrained_to_constrained` before evaluations. See the
-[Prior distributions](../parameter_distributions/) section for more details on parameter transformations.
+[Prior distributions](@ref parameter-distributions) section for more details on parameter transformations.
 
 ## Solution
 
