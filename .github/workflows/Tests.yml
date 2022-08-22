@@ -15,7 +15,7 @@ jobs:
        matrix:
         version:
           - '1.6' # Long-Term Support release
-          - '1' # Latest 1.x release of julia
+          - '1.7.3' # Latest 1.x release of julia
         os:
           - ubuntu-latest
           - windows-latest
