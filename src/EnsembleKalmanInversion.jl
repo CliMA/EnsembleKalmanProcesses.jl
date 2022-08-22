@@ -37,7 +37,7 @@ end
     find_ekp_stepsize(
         ekp::EnsembleKalmanProcess{FT, IT, Inversion},
         g::AbstractMatrix{FT};
-        cov_threshold::FT = 0.01,
+        cov_threshold::Real = 0.01,
     ) where {FT, IT}
 
 Find largest stepsize for the EK solver that leads to a reduction of the determinant of the sample
@@ -46,14 +46,13 @@ covariance matrix no greater than cov_threshold.
 function find_ekp_stepsize(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
     g::AbstractMatrix{FT};
-    cov_threshold::FT = 0.01,
+    cov_threshold::Real = 0.01,
 ) where {FT, IT}
+    @assert cov_threshold > -eps(FT) "The limiting covariance reduction threshold cannot be negative."
     accept_stepsize = false
-    if !isempty(ekp.Δt)
-        Δt = deepcopy(ekp.Δt[end])
-    else
-        Δt = FT(1)
-    end
+
+    Δt = !isempty(ekp.Δt) ? deepcopy(ekp.Δt[end]) : FT(1)
+
     # final_params [N_par × N_ens]
     cov_init = cov(get_u_final(ekp), dims = 2)
     while accept_stepsize == false
@@ -77,8 +76,8 @@ end
         u::AbstractMatrix{FT},
         g::AbstractMatrix{FT},
         y::AbstractMatrix{FT},
-        obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
-    ) where {FT <: Real, IT}
+        obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
+    ) where {FT <: Real, IT, CT <: Real}
 
 Returns the updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the inversion algorithm
@@ -91,8 +90,8 @@ function eki_update(
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
-    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
-) where {FT <: Real, IT}
+    obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
+) where {FT <: Real, IT, CT <: Real}
 
     cov_est = cov([u; g], [u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
@@ -102,7 +101,7 @@ function eki_update(
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
-    tmp = (cov_gg + obs_noise_cov) \ (y - g)
+    tmp = FT.((cov_gg + obs_noise_cov) \ (y - g))
     return u + (cov_ug * tmp) # [N_par × N_ens]  
 end
 
@@ -110,7 +109,7 @@ end
     update_ensemble!(
         ekp::EnsembleKalmanProcess{FT, IT, Inversion},
         g::AbstractMatrix{FT};
-        cov_threshold::FT = 0.01,
+        cov_threshold::Real = 0.01,
         Δt_new::Union{Nothing, FT} = nothing,
         deterministic_forward_map::Bool = true,
         failed_ens = nothing,
@@ -130,7 +129,7 @@ Inputs:
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
     g::AbstractMatrix{FT};
-    cov_threshold::FT = 0.01,
+    cov_threshold::Real = 0.01,
     Δt_new::Union{Nothing, FT} = nothing,
     deterministic_forward_map::Bool = true,
     failed_ens = nothing,

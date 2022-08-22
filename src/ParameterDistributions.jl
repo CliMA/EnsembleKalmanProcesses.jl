@@ -128,14 +128,14 @@ end
 
 
 """
-    bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real} 
+    bounded(lower_bound::Real, upper_bound::Real)
 
 Constructs a Constraint with provided upper and lower bounds, enforced by maps
 `x -> log((x - lower_bound) / (upper_bound - x))`
 and `x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1)`.
 
 """
-function bounded(lower_bound::FT, upper_bound::FT) where {FT <: Real}
+function bounded(lower_bound::Real, upper_bound::Real)
     if (upper_bound <= lower_bound)
         throw(DomainError("upper bound must be greater than lower bound"))
     end
@@ -712,22 +712,22 @@ function _moment(m::Integer, d::UnivariateDistribution, c::Constraint)
     end
     return quadgk(integrand, min, max, order = 9, rtol = 1e-5, atol = 1e-6)[1]
 end
-function _mean_std(μ::FT, σ::FT, c::Constraint) where {FT <: Real}
+function _mean_std(μ::Real, σ::Real, c::Constraint)
     d = Normal(μ, σ)
     m = [_moment(k, d, c) for k in 1:2]
     return (m[1], sqrt(m[2] - m[1]^2))
 end
-function _lognormal_mean_std(μ_u::FT, σ_u::FT) where {FT <: Real}
+function _lognormal_mean_std(μ_u::Real, σ_u::Real)
     # known analytic solution for lognormal distribution
     return (exp(μ_u + σ_u^2 / 2.0), exp(μ_u + σ_u^2 / 2.0) * sqrt(expm1(σ_u^2)))
 end
-function _inverse_lognormal_mean_std(μ_c::FT, σ_c::FT) where {FT <: Real}
+function _inverse_lognormal_mean_std(μ_c::Real, σ_c::Real)
     # known analytic solution for lognormal distribution
     return (log(μ_c) - 0.5 * log1p((σ_c / μ_c)^2), sqrt(log1p((σ_c / μ_c)^2)))
 end
 
 """
-    constrained_gaussian(name::AbstractString, μ_c::FT, σ_c::FT, lower_bound::FT, upper_bound::FT)
+    constrained_gaussian(name::AbstractString, μ_c::Real, σ_c::Real, lower_bound::Real, upper_bound::Real)
 
 Constructor for a 1D ParameterDistribution consisting of a transformed Gaussian, constrained
 to have support on [`lower_bound`, `upper_bound`], with first two moments μ_c and σ_c^2. The 
@@ -747,13 +747,13 @@ with numerical optimization.
 """
 function constrained_gaussian(
     name::AbstractString,
-    μ_c::FT,
-    σ_c::FT,
-    lower_bound::FT,
-    upper_bound::FT;
+    μ_c::Real,
+    σ_c::Real,
+    lower_bound::Real,
+    upper_bound::Real;
     optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
     optim_kwargs...,
-) where {FT <: Real}
+)
     if (upper_bound <= lower_bound)
         throw(
             DomainError(
@@ -799,7 +799,7 @@ function constrained_gaussian(
     return ParameterDistribution(Parameterized(Normal(μ_u, σ_u)), cons, name)
 end
 
-function _constrained_gaussian_guess(μ_c::FT, σ_c::FT, lower_bound::FT, upper_bound::FT) where {FT <: Real}
+function _constrained_gaussian_guess(μ_c::Real, σ_c::Real, lower_bound::Real, upper_bound::Real)
     # Initial guess for μ_c, σ_c in _constrained_gaussian optimization.
     # Equations result from inverting the system 
     # μ_c = f^{-1}(μ_u / sqrt(1 + σ_u^2/2))
@@ -822,13 +822,13 @@ end
 
 function _constrained_gaussian(
     name::AbstractString,
-    μ_c::FT,
-    σ_c::FT,
-    lower_bound::FT,
-    upper_bound::FT;
+    μ_c::Real,
+    σ_c::Real,
+    lower_bound::Real,
+    upper_bound::Real;
     optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
     optim_kwargs...,
-) where {FT <: Real}
+)
     optim_opts_defaults = (; x_tol = 1e-5, f_tol = 1e-5)
     optim_opts = merge(optim_opts_defaults, optim_kwargs)
     optim_opts = Optim.Options(; optim_opts...)
