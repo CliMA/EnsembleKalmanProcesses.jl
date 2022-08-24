@@ -9,15 +9,18 @@ export LocalizationMethod, Localizer
 
 abstract type LocalizationMethod end
 
+"Idempotent localization method."
 struct NoLocalization <: LocalizationMethod end
+
+"Dirac delta localization method, with an identity matrix as the kernel."
 struct Delta <: LocalizationMethod end
 
 """
     RBF{FT <: Real} <: LocalizationMethod
 
 Radial basis function localization method. Covariance
-terms are damped as d(i,j)= |i-j|/l increases, following
-a Gaussian.
+terms ``C_{i,j}`` are damped through multiplication with a
+centered Gaussian with standardized deviation ``d(i,j)= \\vert i-j \\vert / l``.
 
 # Fields
 
@@ -32,7 +35,7 @@ end
     BernoulliDropout{FT <: Real} <: LocalizationMethod
 
 Localization method that drops cross-covariance terms with
-probability 1-p, retaining a Hermitian structure.
+probability ``1-p``, retaining a Hermitian structure.
 
 # Fields
 
@@ -47,9 +50,9 @@ end
     SEC{FT <: Real} <: LocalizationMethod
 
 Sampling error correction that shrinks correlations by a
-factor of |r|^α, as per Lee (2021). Sparsity of the
+factor of ``\\vert r \\vert ^\\alpha``, as per Lee (2021). Sparsity of the
 resulting correlations can be imposed through the parameter
-r_0.
+`r_0`.
 
 Lee, Y. (2021). Sampling error correction in ensemble
 Kalman inversion. arXiv:2105.11341 [cs, math].
@@ -86,7 +89,18 @@ http://arxiv.org/abs/2105.11341
 """
 struct SECFisher <: LocalizationMethod end
 
+"""
+    Localizer{LM <: LocalizationMethod, T}
+
+Structure that defines a `localize` function, based on
+a localization method.
+
+# Fields
+
+$(TYPEDFIELDS)
+"""
 struct Localizer{LM <: LocalizationMethod, T}
+    "Localizing function of the form: `cov -> kernel .* cov`"
     localize::Function
 end
 
