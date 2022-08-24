@@ -71,6 +71,7 @@ pages = [
     "Ensemble Kalman Inversion" => "ensemble_kalman_inversion.md",
     "Ensemble Kalman Sampler" => "ensemble_kalman_sampler.md",
     "Unscented Kalman Inversion" => "unscented_kalman_inversion.md",
+    "Localization and SEC" => "localization.md",
     "Parallelism and HPC" => "parallel_hpc.md",
     "Examples" => examples,
     "API" => api,
