@@ -8,4 +8,8 @@ CurrentModule = EnsembleKalmanProcesses.Localizers
 Localizer
 RBF
 BernoulliDropout
+SEC
+SECFisher
+Delta
+NoLocalization
 ```
