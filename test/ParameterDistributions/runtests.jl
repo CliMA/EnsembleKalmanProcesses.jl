@@ -33,13 +33,18 @@ using EnsembleKalmanProcesses.ParameterDistributions
         c1 = bounded_below(0.2)
         @test isapprox(c1.constrained_to_unconstrained(1.0) - (log(1.0 - 0.2)), 0.0, atol = tol)
         @test isapprox(c1.unconstrained_to_constrained(0.0) - (exp(0.0) + 0.2), 0.0, atol = tol)
+        @test get_constraint_type(c1) == BoundedBelow
+        @test get_bounds(c1) == Dict("lower_bound" => 0.2)
 
         c2 = bounded_above(0.2)
         @test isapprox(c2.constrained_to_unconstrained(-1.0) - (-log(0.2 - -1.0)), 0.0, atol = tol)
         @test isapprox(c2.unconstrained_to_constrained(10.0) - (0.2 - exp(-10.0)), 0.0, atol = tol)
-
+        @test get_constraint_type(c2) == BoundedAbove
+        @test get_bounds(c2) == Dict("upper_bound" => 0.2)
 
         c3 = bounded(-0.1, 0.2)
+        @test get_bounds(c3) == Dict("lower_bound" => -0.1, "upper_bound" => 0.2)
+        @test get_constraint_type(c3) == Bounded
         @test isapprox(c3.constrained_to_unconstrained(0.0) - (log((0.0 - -0.1) / (0.2 - 0.0))), 0.0, atol = tol)
         @test isapprox(
             c3.unconstrained_to_constrained(1.0) - ((0.2 * exp(1.0) + -0.1) / (exp(1.0) + 1)),
@@ -53,13 +58,19 @@ using EnsembleKalmanProcesses.ParameterDistributions
         jacobian = (x -> 3)
         u_to_c = (x -> (x - 14) / 3)
 
-        c4 = Constraint(c_to_u, jacobian, u_to_c)
+        abstract type MyConstraint <: ConstraintType end
+        c4 = Constraint{MyConstraint}(c_to_u, jacobian, u_to_c, nothing)
         @test isapprox(c4.constrained_to_unconstrained(5.0) - c_to_u(5.0), 0.0, atol = tol)
         @test isapprox(c4.unconstrained_to_constrained(5.0) - u_to_c(5.0), 0.0, atol = tol)
+        @test get_constraint_type(c4) == MyConstraint
 
         #length, size
         @test length(c1) == 1
         @test size(c1) == (1,)
+
+        #equality
+        @test c3 == c3
+        @test !(c1 == c2)
 
     end
 
@@ -93,7 +104,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         u1 = ParameterDistribution(d1, c1, name1)
         @test u1.constraint == [c1]
 
-        d2 = VectorOfParameterized(repeat([MvNormal(3, 0.2)], 4))
+        d2 = VectorOfParameterized(repeat([MvNormal(ones(3), 0.2 * I)], 4))
         c2 = repeat([no_constraint()], 12) #3D distribution repeated 4 times has 12 constraints
         name2 = "three_unconstrained_MvNs"
         u2 = ParameterDistribution(d2, c2, name2)
@@ -109,6 +120,10 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test u.distribution == [d1, d2, d3]
         @test u.constraint == cat([[c1], c2, c3]..., dims = 1)
         @test u.name == [name1, name2, name3]
+
+        #equality
+        @test u == u
+        @test !(u2 == u3)
 
     end
 
@@ -149,7 +164,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test u.constraint == [c]
 
         # Tests for the ParameterDistribution
-        d = Parameterized(MvNormal(4, 0.1))
+        d = Parameterized(MvNormal(zeros(4), 0.1 * I))
         c = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name = "constrained_mvnormal"
         param_dict = Dict("distribution" => d, "constraint" => c, "name" => name)
@@ -163,7 +178,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test_throws DimensionMismatch ParameterDistribution(param_dict_fail) # wrong number of constraints
 
         # Tests for the ParameterDistribution
-        d1 = Parameterized(MvNormal(4, 0.1))
+        d1 = Parameterized(MvNormal(zeros(4), 0.1 * I))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
         param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
@@ -183,7 +198,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
     @testset "getter functions" begin
         # setup for the tests:
-        d1 = Parameterized(MvNormal(4, 0.1))
+        d1 = Parameterized(MvNormal(zeros(4), 0.1 * I))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
         u1 = ParameterDistribution(d1, c1, name1)
@@ -219,8 +234,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test get_n_samples(u)[name2] == 4
 
         # Tests for get_distribution
-        @test get_distribution(d1) == MvNormal(4, 0.1)
-        @test get_distribution(u1)[name1] == MvNormal(4, 0.1)
+        @test get_distribution(d1) == MvNormal(zeros(4), 0.1 * I)
+        @test get_distribution(u1)[name1] == MvNormal(zeros(4), 0.1 * I)
         @test typeof(get_distribution(d2)) == Array{Int64, 2}
         @test typeof(get_distribution(u2)[name2]) == Array{Int64, 2}
 
@@ -228,7 +243,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test get_distribution(u3)[name3] == repeat([Beta(2, 2)], 3)
 
         d = get_distribution(u)
-        @test d[name1] == MvNormal(4, 0.1)
+        @test d[name1] == MvNormal(zeros(4), 0.1 * I)
         @test typeof(d[name2]) == Array{Int64, 2}
 
         # Test for get_all_constraints
@@ -238,7 +253,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
     @testset "statistics functions" begin
 
         # setup for the tests:
-        d1 = Parameterized(MvNormal(4, 0.1))
+        d1 = Parameterized(MvNormal(zeros(4), 0.1 * I))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
 
@@ -249,7 +264,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         name2 = "constrained_sampled"
         u2 = ParameterDistribution(d2, c2, name2)
 
-        d3 = VectorOfParameterized([Beta(2, 2), MvNormal(2, 0.1)])
+        d3 = VectorOfParameterized([Beta(2, 2), MvNormal(zeros(2), 0.1 * I)])
         c3 = [no_constraint(), no_constraint(), no_constraint()] # d3 has 3 dimensions
         name3 = "unconstrained_beta_and_MvN"
         u3 = ParameterDistribution(d3, c3, name3)
@@ -266,12 +281,12 @@ using EnsembleKalmanProcesses.ParameterDistributions
         # Tests for sample distribution
         seed = 2020
         Random.seed!(seed)
-        s1 = rand(MvNormal(4, 0.1), 1)
+        s1 = rand(MvNormal(zeros(4), 0.1 * I), 1)
         Random.seed!(seed)
         @test sample(u1) == s1
 
         Random.seed!(seed)
-        s1 = rand(MvNormal(4, 0.1), 3)
+        s1 = rand(MvNormal(zeros(4), 0.1 * I), 3)
         Random.seed!(seed)
         @test sample(u1, 3) == s1
 
@@ -290,7 +305,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         Random.seed!(seed)
         s3 = zeros(3, 1)
         s3[1] = rand(Beta(2, 2))
-        s3[2:3] = rand(MvNormal(2, 0.1))
+        s3[2:3] = rand(MvNormal(zeros(2), 0.1 * I))
         Random.seed!(seed)
         @test sample(u3) == s3
 
@@ -307,7 +322,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test_throws ErrorException get_logpdf(u, zeros(ndims(u)))
         x_in_bd = [0.5, 0.5, 0.5]
         Random.seed!(seed)
-        lpdf3 = sum([logpdf(Beta(2, 2), x_in_bd[1])[1], logpdf(MvNormal(2, 0.1), x_in_bd[2:3])[1]]) #throws deprecated warning without "."
+        lpdf3 = sum([logpdf(Beta(2, 2), x_in_bd[1])[1], logpdf(MvNormal(zeros(2), 0.1 * I), x_in_bd[2:3])[1]]) #throws deprecated warning without "."
 
         Random.seed!(seed)
         @test isapprox(get_logpdf(u3, x_in_bd) - lpdf3, 0.0; atol = 1e-6)
@@ -329,9 +344,9 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         # setup for the tests:
         rng_seed = 1234
-        test_d = MvNormal(4, 0.1)
+        test_d = MvNormal(zeros(4), 0.1 * I)
         test_d3a = Beta(2, 2)
-        test_d3b = MvNormal(2, 0.1)
+        test_d3b = MvNormal(zeros(2), 0.1 * I)
         d0 = Parameterized(test_d)
 
         d1 = Parameterized(test_d)
@@ -344,7 +359,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         name2 = "constrained_sampled"
         u2 = ParameterDistribution(d2, c2, name2)
 
-        d3 = VectorOfParameterized([Beta(2, 2), MvNormal(2, 0.1)])
+        d3 = VectorOfParameterized([Beta(2, 2), MvNormal(zeros(2), 0.1 * I)])
         c3 = repeat([no_constraint()], 3)
         name3 = "beta_and_normal"
         u3 = ParameterDistribution(d3, c3, name3)
@@ -487,7 +502,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
     @testset "transform functions" begin
         #setup for the tests
         tol = 1e-8
-        d1 = Parameterized(MvNormal(4, 0.1))
+        d1 = Parameterized(MvNormal(zeros(4), 0.1 * I))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
         param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
@@ -502,7 +517,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         param_dict = [param_dict1, param_dict2]
         u = ParameterDistribution(param_dict)
 
-        x_unbd = rand(MvNormal(6, 3), 1000)  #6 x 1000 
+        x_unbd = rand(MvNormal(zeros(6), 3 * I), 1000)  #6 x 1000 
         # Tests for transforms
         x_real_constrained1 = mapslices(x -> transform_unconstrained_to_constrained(u1, x), x_unbd[1:4, :]; dims = 1)
         @test isapprox(
@@ -566,20 +581,31 @@ using EnsembleKalmanProcesses.ParameterDistributions
             μ_c = -5.0
             σ_c = 2.0
             pd = constrained_gaussian("test", μ_c, σ_c, -Inf, Inf)
-            d = pd.distribution[1].distribution
+            d = get_distribution(pd)["test"]
             @test mean(d) == μ_c
             @test std(d) == σ_c
             pd = constrained_gaussian("test", μ_c, σ_c, -Inf, 10.0)
-            d = pd.distribution[1].distribution
+            d = get_distribution(pd)["test"]
             μ_u, σ_u = ParameterDistributions._inverse_lognormal_mean_std(10.0 - μ_c, σ_c)
             @test mean(d) == μ_u
             @test std(d) == σ_u
             pd = constrained_gaussian("test", μ_c, σ_c, -20.0, Inf)
-            d = pd.distribution[1].distribution
+            d = get_distribution(pd)["test"]
             μ_u, σ_u = ParameterDistributions._inverse_lognormal_mean_std(μ_c + 20.0, σ_c)
             @test mean(d) == μ_u
             @test std(d) == σ_u
+
+            #multidimension through repeats
+            pd_multi = constrained_gaussian("test", μ_c, σ_c, -20.0, Inf, repeats = 10)
+            @test ndims(pd_multi) == 10
+            @test all(get_distribution(pd_multi)["test"] .== get_distribution(pd)["test"])
+            @test all(get_all_constraints(pd_multi) .== pd.constraint)
+            @test get_name(pd_multi) == get_name(pd)
+
+            pd_rep0 = constrained_gaussian("test", μ_c, σ_c, -20.0, Inf, repeats = 0)
+            @test pd_rep0 == pd
         end
+
         @testset "constrained_gaussian: integration" begin
             # verify analytic solutions
             μ_0 = -5.0
@@ -614,6 +640,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
             m, s = ParameterDistributions._mean_std(1.0, 2.0, cons)
             @test isapprox(m, 0.64772644, atol = 1e-5, rtol = 1e-5)
             @test isapprox(s, 0.29610580, atol = 1e-5, rtol = 1e-5)
+
         end
 
         @testset "constrained_gaussian: optimization" begin

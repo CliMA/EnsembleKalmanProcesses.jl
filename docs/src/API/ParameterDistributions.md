@@ -20,6 +20,8 @@ get_name
 get_dimensions
 get_n_samples
 get_all_constraints
+get_bounds
+get_constraint_type
 batch
 get_distribution
 sample
