@@ -107,10 +107,11 @@ const EKP = EnsembleKalmanProcesses
             # Collect mean final parameter as the solution
             eks_final_result = vec(mean(get_u_final(eksobj), dims = 2))
             # Collect mean initial parameter for comparison
-            initial_guess = vec(mean(initial_ensemble, dims = 2))
+            initial_guess = vec(mean(get_u_prior(eksobj), dims = 2))
 
             # Regression test of algorithmic efficacy
             @test norm(y_obs .- G(eks_final_result))^2 < norm(y_obs .- G(initial_guess))^2
+            @test norm(u_star - eks_final_result) < norm(u_star - initial_guess)
         end
 
         # Plot evolution of the EKS particles
@@ -169,22 +170,23 @@ const EKP = EnsembleKalmanProcesses
                 localization_method = loc_method,
             )
 
-            # some checks 
             g_ens = G(get_u_final(ekiobj))
+            g_ens_t = permutedims(g_ens, (2, 1))
+
             @test size(g_ens) == (n_obs, N_ens)
             # as the columns of g are the data, this should throw an error
-            g_ens_t = permutedims(g_ens, (2, 1))
             @test_throws DimensionMismatch find_ekp_stepsize(ekiobj, g_ens_t)
+
             Δ = find_ekp_stepsize(ekiobj, g_ens)
-            # huge collapse for linear problem so should find timestep should < 1
+            # huge collapse for linear problem so should find timestep Δ < 1
             if isa(loc_method, NoLocalization)
                 @test Δ < 1
             end
             # NOTE We don't use this info, this is just for the test.
 
             # EKI iterations
-            params_i_vec = []
-            g_ens_vec = []
+            params_i_vec = Array{Float64, 2}[]
+            g_ens_vec = Array{Float64, 2}[]
             for i in 1:N_iter
                 # Check SampleSuccGauss handler
                 params_i = get_u_final(ekiobj)
@@ -201,6 +203,7 @@ const EKP = EnsembleKalmanProcesses
                     g_ens_t = permutedims(g_ens, (2, 1))
                     @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
                 end
+                # Correct handling of failures
                 @test !any(isnan.(params_i))
 
                 # Check IgnoreFailures handler
@@ -213,6 +216,7 @@ const EKP = EnsembleKalmanProcesses
                         g_ens_unsafe[:, 1] .= NaN
                         EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
                         u_unsafe = get_u_final(ekiobj_unsafe)
+                        # Propagation of unhandled failures
                         @test any(isnan.(u_unsafe))
                     end
                 end
@@ -231,11 +235,11 @@ const EKP = EnsembleKalmanProcesses
             eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
             if isa(loc_method, NoLocalization)
                 @test norm(u_star - eki_final_result) < norm(u_star - eki_init_result)
+                @test norm(y_obs .- G(eki_final_result))^2 < norm(y_obs .- G(eki_init_result))^2
             end
         end
 
         # Plot evolution of the EKI particles
-        #eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
         if TEST_PLOT_OUTPUT
             gr()
             p = plot(
@@ -303,6 +307,8 @@ const EKP = EnsembleKalmanProcesses
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
         )
+
+        # Test incorrect construction throws error
         @test_throws ArgumentError Unscented(
             prior_mean,
             prior_cov;
@@ -312,8 +318,8 @@ const EKP = EnsembleKalmanProcesses
         )
 
         # UKI iterations
-        params_i_vec = []
-        g_ens_vec = []
+        params_i_vec = Array{Float64, 2}[]
+        g_ens_vec = Array{Float64, 2}[]
         failed_index = 1
         for i in 1:N_iter
             # Check SampleSuccGauss handler
@@ -468,8 +474,8 @@ const EKP = EnsembleKalmanProcesses
             )
 
             # EKI iterations
-            params_i_vec = []
-            g_ens_vec = []
+            params_i_vec = Array{Float64, 2}[]
+            g_ens_vec = Array{Float64, 2}[]
             for i in 1:N_iter
                 # Check SammpleSuccGauss handler
                 params_i = get_u_final(ekiobj)
