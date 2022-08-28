@@ -17,7 +17,7 @@ struct Sampler{FT <: AbstractFloat} <: Process
     "Mean of Gaussian parameter prior in unconstrained space"
     prior_mean::Vector{FT}
     "Covariance of Gaussian parameter prior in unconstrained space"
-    prior_cov::AbstractMatrix{FT}
+    prior_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}}
 end
 
 function FailureHandler(process::Sampler, method::IgnoreFailures)

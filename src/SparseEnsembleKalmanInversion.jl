@@ -111,8 +111,8 @@ end
         u::AbstractMatrix{FT},
         g::AbstractMatrix{FT},
         y::AbstractMatrix{FT},
-        obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
-    ) where {FT <: Real, IT}
+        obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
+    ) where {FT <: Real, CT <: Real, IT}
 
 Returns the sparse updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the inversion algorithm
@@ -125,8 +125,8 @@ function sparse_eki_update(
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
-    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
-) where {FT <: Real, IT}
+    obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
+) where {FT <: Real, CT <: Real, IT}
 
     cov_est = cov([u; g], [u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
@@ -138,7 +138,7 @@ function sparse_eki_update(
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
-    tmp = (cov_gg + obs_noise_cov) \ (y - g)
+    tmp = FT.((cov_gg + obs_noise_cov) \ (y - g))
     u = u + (cov_ug * tmp) # [N_par × N_ens]
 
     # Sparse EKI
@@ -192,7 +192,7 @@ Inputs:
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
     g::AbstractMatrix{FT};
-    cov_threshold::FT = 0.01,
+    cov_threshold::Real = 0.01,
     Δt_new = nothing,
     deterministic_forward_map = true,
     failed_ens = nothing,
