@@ -62,7 +62,7 @@ Structure that is used in Ensemble Kalman processes.
 
 $(TYPEDFIELDS)
 
-# Constructors
+# Generic constructor
 
     EnsembleKalmanProcess(
         params::AbstractMatrix{FT},
@@ -70,17 +70,23 @@ $(TYPEDFIELDS)
         obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
         process::P;
         Δt = FT(1),
-        rng::AbstractRNG = Random.GLOBAL_RNG
-    ) where {FT <: AbstractFloat, P <: Process}
+        rng::AbstractRNG = Random.GLOBAL_RNG,
+        failure_handler_method::FM = IgnoreFailures(),
+        localization_method::LM = NoLocalization(),
+    ) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
 
 Inputs:
 
- - `params`         :: Initial parameter ensemble
- - `obs_mean`       :: Vector of observations
- - `obs_noise_cov`  :: Noise covariance associated with the observations `obs_mean`
- - `process`        :: Algorithm used to evolve the ensemble
- - `Δt`             :: Initial time step or learning rate
- - `rng`            :: Random number generator
+ - `params`                 :: Initial parameter ensemble
+ - `obs_mean`               :: Vector of observations
+ - `obs_noise_cov`          :: Noise covariance associated with the observations `obs_mean`
+ - `process`                :: Algorithm used to evolve the ensemble
+ - `Δt`                     :: Initial time step or learning rate
+ - `rng`                    :: Random number generator
+ - `failure_handler_method` :: Method used to handle particle failures
+ - `localization_method`    :: Method used to localize sample covariances
+
+# Other constructors:
 
 $(METHODLIST)
 """

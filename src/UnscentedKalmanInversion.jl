@@ -39,8 +39,8 @@ Inputs:
   - `modified_unscented_transform`: Modification of the UKI quadrature given
     in Huang et al (2021).
   - `prior_mean`: Prior mean used for regularization.
-  - `sigma_points`: String of sigma point type, it can be `symmetric` with 2N_par+1 
-     ensemble members or `simplex` with N_par+2 ensemble members.
+  - `sigma_points`: String of sigma point type, it can be `symmetric` with `2N_par+1` 
+     ensemble members or `simplex` with `N_par+2` ensemble members.
   
 $(METHODLIST)
 """
@@ -334,7 +334,12 @@ end
 
 
 """
-construct_mean `x_mean` from ensemble `x`.
+    construct_mean(
+        uki::EnsembleKalmanProcess{FT, IT, Unscented},
+        x::AbstractVecOrMat{FT};
+        mean_weights = uki.process.mean_weights,
+    ) where {FT <: AbstractFloat, IT <: Int}
+constructs mean `x_mean` from an ensemble `x`.
 """
 function construct_mean(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
@@ -381,7 +386,14 @@ function construct_successful_mean(
 end
 
 """
-construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
+    construct_cov(
+        uki::EnsembleKalmanProcess{FT, IT, Unscented},
+        x::AbstractVecOrMat{FT},
+        x_mean::Union{FT, AbstractVector{FT}, Nothing} = nothing;
+        cov_weights = uki.process.cov_weights,
+    ) where {FT <: AbstractFloat, IT <: Int}
+
+Constructs covariance `xx_cov` from ensemble `x` and mean `x_mean`.
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
@@ -443,7 +455,16 @@ function construct_successful_cov(
 end
 
 """
-construct_cov `xy_cov` from ensemble x and mean `x_mean`, ensemble `obs_mean` and mean `y_mean`.
+    construct_cov(
+        uki::EnsembleKalmanProcess{FT, IT, Unscented},
+        x::AbstractMatrix{FT},
+        x_mean::AbstractVector{FT},
+        obs_mean::AbstractMatrix{FT},
+        y_mean::AbstractVector{FT};
+        cov_weights = uki.process.cov_weights,
+    ) where {FT <: AbstractFloat, IT <: Int, P <: Process}
+
+Constructs covariance `xy_cov` from ensemble x and mean `x_mean`, ensemble `obs_mean` and mean `y_mean`.
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
@@ -502,7 +523,9 @@ function construct_successful_cov(
 end
 
 """
-uki prediction step : generate sigma points
+    update_ensemble_prediction!(process::Unscented, Δt::FT) where {FT <: AbstractFloat}
+
+UKI prediction step : generate sigma points.
 """
 function update_ensemble_prediction!(process::Unscented, Δt::FT) where {FT <: AbstractFloat}
 
@@ -532,8 +555,13 @@ end
 
 
 """
-uki analysis step 
-g is the predicted observations  `Ny x N_ens` matrix
+    update_ensemble_analysis!(
+        uki::EnsembleKalmanProcess{FT, IT, Unscented},
+        u_p::AbstractMatrix{FT},
+        g::AbstractMatrix{FT},
+    ) where {FT <: AbstractFloat, IT <: Int}
+
+UKI analysis step  : g is the predicted observations  `Ny x N_ens` matrix
 """
 function update_ensemble_analysis!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
@@ -589,10 +617,10 @@ end
 Updates the ensemble according to an Unscented process. 
 
 Inputs:
- - uki :: The EnsembleKalmanProcess to update.
- - g_in :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - Δt_new :: Time step to be used in the current update.
- - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g`
+ - `uki`        :: The EnsembleKalmanProcess to update.
+ - `g_in`       :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - `Δt_new`     :: Time step to be used in the current update.
+ - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
     with NaN entries.
 """
 function update_ensemble!(
@@ -629,7 +657,11 @@ function update_ensemble!(
     return u_p
 end
 
+"""
+    get_u_mean_final(uki::EnsembleKalmanProcess{FT, IT, Unscented}) where {FT <: AbstractFloat, IT <: Int}
 
+Returns the mean parameter at the final iteration.
+"""
 function get_u_mean_final(uki::EnsembleKalmanProcess{FT, IT, Unscented}) where {FT <: AbstractFloat, IT <: Int}
     return uki.process.u_mean[end]
 end

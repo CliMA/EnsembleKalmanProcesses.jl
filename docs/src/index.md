@@ -18,4 +18,4 @@ Localizers.jl                               | Covariance localization kernels
 ## Authors
 
 `EnsembleKalmanProcesses.jl` is being developed by the [Climate Modeling
-Alliance](https://clima.caltech.edu).
+Alliance](https://clima.caltech.edu). The main developers are Oliver R. A. Dunbar and Ignacio Lopez-Gomez.

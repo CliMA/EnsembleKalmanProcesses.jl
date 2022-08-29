@@ -181,12 +181,12 @@ end
 Updates the ensemble according to a SparseInversion process. 
 
 Inputs:
- - ekp :: The EnsembleKalmanProcess to update.
- - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - cov_threshold :: Threshold below which the reduction in covariance determinant results in a warning.
- - Δt_new :: Time step to be used in the current update.
- - deterministic_forward_map :: Whether output `g` comes from a deterministic model.
- - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g`
+ - `ekp` :: The EnsembleKalmanProcess to update.
+ - `g` :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - `cov_threshold` :: Threshold below which the reduction in covariance determinant results in a warning.
+ - `Δt_new` :: Time step to be used in the current update.
+ - `deterministic_forward_map` :: Whether output `g` comes from a deterministic model.
+ - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
     with NaN entries.
 """
 function update_ensemble!(

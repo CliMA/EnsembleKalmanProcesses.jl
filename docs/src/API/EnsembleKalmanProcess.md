@@ -1,4 +1,4 @@
-# EnsembleKalmanProcesses
+# EnsembleKalmanProcess
 
 ```@meta
 CurrentModule = EnsembleKalmanProcesses
@@ -6,10 +6,6 @@ CurrentModule = EnsembleKalmanProcesses
 
 ```@docs
 EnsembleKalmanProcess
-Inversion
-SparseInversion
-Unscented
-Sampler
 FailureHandler
 SampleSuccGauss
 IgnoreFailures
@@ -20,14 +16,9 @@ compute_error!
 get_error
 get_N_iterations
 construct_initial_ensemble
-find_ekp_stepsize
 update_ensemble!
 sample_empirical_gaussian
 split_indices_by_success
-eki_update
-sparse_eki_update
-eks_update
-sparse_qp
 ```
 
 
