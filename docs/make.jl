@@ -44,10 +44,14 @@ end
 #----------
 
 api = [
-    "EnsembleKalmanProcesses" => "API/EnsembleKalmanProcesses.md",
     "ParameterDistributions" => "API/ParameterDistributions.md",
     "Observations" => "API/Observations.md",
     "DataContainers" => "API/DataContainers.md",
+    "EnsembleKalmanProcess" => "API/EnsembleKalmanProcess.md",
+    "Inversion" => "API/Inversion.md",
+    "Unscented" => "API/Unscented.md",
+    "Sampler" => "API/Sampler.md",
+    "SparseInversion" => "API/SparseInversion.md",
     "Localizers" => "API/Localizers.md",
 ]
 

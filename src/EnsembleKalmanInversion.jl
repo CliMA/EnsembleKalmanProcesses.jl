@@ -83,7 +83,7 @@ Returns the updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the inversion algorithm
 from eqns. (4) and (5) of Schillings and Stuart (2017).
 
-Localization is applied following Tong and Morzfeld (2022).
+Localization is implemented following the `ekp.localizer`.
 """
 function eki_update(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},

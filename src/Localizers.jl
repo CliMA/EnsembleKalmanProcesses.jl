@@ -98,6 +98,10 @@ a localization method.
 # Fields
 
 $(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 struct Localizer{LM <: LocalizationMethod, T}
     "Localizing function of the form: `cov -> kernel .* cov`"
