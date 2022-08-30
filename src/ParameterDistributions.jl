@@ -5,6 +5,7 @@ using Distributions
 using Statistics
 using Random
 using Optim, QuadGK
+using DocStringExtensions
 
 #import (to add definitions)
 import StatsBase: mean, var, cov, sample
@@ -18,17 +19,19 @@ export ConstraintType
 #objects
 export Parameterized, Samples, VectorOfParameterized
 export ParameterDistribution
-export Constraint
+export Constraint, NoConstraint, BoundedBelow, BoundedAbove, Bounded
 
 #functions
 export get_name, get_distribution, ndims, get_dimensions, get_all_constraints, get_n_samples
 export sample
 export no_constraint, bounded_below, bounded_above, bounded
+export get_bounds, get_constraint_type
 export transform_constrained_to_unconstrained, transform_unconstrained_to_constrained
 export get_logpdf, batch
 
 export combine_distributions
 export constrained_gaussian
+
 ## Objects
 # for the Distribution
 abstract type ParameterDistributionType end
@@ -41,6 +44,7 @@ A distribution constructed from a parametrized formula (e.g Julia Distributions.
 struct Parameterized <: ParameterDistributionType
     distribution::Distribution
 end
+
 
 """
     Samples{FT <: Real} <: ParameterDistributionType
@@ -69,18 +73,36 @@ end
 
 # For the transforms
 abstract type ConstraintType end
+abstract type NoConstraint <: ConstraintType end
+abstract type BoundedBelow <: ConstraintType end
+abstract type BoundedAbove <: ConstraintType end
+abstract type Bounded <: ConstraintType end
 
 """
-    Constraint <: ConstraintType
+    Constraint{T} <: ConstraintType
 
 Class describing a 1D bijection between constrained and unconstrained spaces.
-"""
-struct Constraint <: ConstraintType
-    constrained_to_unconstrained::Function
-    c_to_u_jacobian::Function
-    unconstrained_to_constrained::Function
-end
+Included parametric types for T:
+- NoConstraint
+- BoundedBelow
+- BoundedAbove
+- Bounded
 
+# Fields
+
+$(TYPEDFIELDS)
+
+"""
+struct Constraint{T} <: ConstraintType
+    "A map from constrained domain -> (-Inf,Inf)"
+    constrained_to_unconstrained::Function
+    "The jacobian of the map from constrained domain -> (-Inf,Inf)"
+    c_to_u_jacobian::Function
+    "map from (-Inf,Inf) -> constrained domain"
+    unconstrained_to_constrained::Function
+    "dictionary of values used to build the Constraint (e.g. \"lower_bound\" or \"upper_bound\")"
+    bounds::Union{Dict, Nothing}
+end
 
 """
     no_constraint()
@@ -91,7 +113,7 @@ function no_constraint()
     c_to_u = (x -> x)
     jacobian = (x -> 1.0)
     u_to_c = (x -> x)
-    return Constraint(c_to_u, jacobian, u_to_c)
+    return Constraint{NoConstraint}(c_to_u, jacobian, u_to_c, nothing)
 end
 
 """
@@ -107,7 +129,8 @@ function bounded_below(lower_bound::FT) where {FT <: Real}
     c_to_u = (x -> log(x - lower_bound))
     jacobian = (x -> 1.0 / (x - lower_bound))
     u_to_c = (x -> exp(x) + lower_bound)
-    return Constraint(c_to_u, jacobian, u_to_c)
+    bounds = Dict("lower_bound" => lower_bound)
+    return Constraint{BoundedBelow}(c_to_u, jacobian, u_to_c, bounds)
 end
 
 """
@@ -123,7 +146,8 @@ function bounded_above(upper_bound::FT) where {FT <: Real}
     c_to_u = (x -> -log(upper_bound - x))
     jacobian = (x -> 1.0 / (upper_bound - x))
     u_to_c = (x -> upper_bound - exp(-x))
-    return Constraint(c_to_u, jacobian, u_to_c)
+    bounds = Dict("upper_bound" => upper_bound)
+    return Constraint{BoundedAbove}(c_to_u, jacobian, u_to_c, bounds)
 end
 
 
@@ -154,10 +178,26 @@ function bounded(lower_bound::Real, upper_bound::Real)
             c_to_u = (x -> log((x - lower_bound) / (upper_bound - x)))
             jacobian = (x -> 1.0 / (upper_bound - x) + 1.0 / (x - lower_bound))
             u_to_c = (x -> upper_bound - (upper_bound - lower_bound) / (exp(x) + 1))
-            return Constraint(c_to_u, jacobian, u_to_c)
+            bounds = Dict("lower_bound" => lower_bound, "upper_bound" => upper_bound)
+            return Constraint{Bounded}(c_to_u, jacobian, u_to_c, bounds)
         end
     end
 end
+
+"""
+    get_bounds(c::Constraint)
+
+get the bounds field from the Constraint
+"""
+get_bounds(c::C) where {C <: Constraint} = c.bounds
+
+"""
+    get_bounds(c::Constraint{T})
+
+get the parametric type T
+"""
+get_constraint_type(c::Constraint{T}) where {T} = T
+
 
 #extending Base.length
 """
@@ -340,6 +380,9 @@ function combine_distributions(pd_vec::AbstractVector{PD}; dims = 1) where {PD <
     return ParameterDistribution(distribution, constraint, name)
 end
 
+
+
+
 ## Functions
 
 """
@@ -414,6 +457,18 @@ get_distribution(d::Samples) = d.distribution_samples
 get_distribution(d::Parameterized) = d.distribution
 
 get_distribution(d::VectorOfParameterized) = d.distribution
+
+
+# overload ==
+Base.:(==)(p_a::ParameterDistributionType, p_b::ParameterDistributionType) =
+    get_distribution(p_a) == get_distribution(p_b)
+Base.:(==)(c_a::ConstraintType, c_b::ConstraintType) = typeof(c_a) == typeof(c_b) && get_bounds(c_a) == get_bounds(c_b)
+
+Base.:(==)(pd_a::ParameterDistribution, pd_b::ParameterDistribution) =
+    get_distribution(pd_a) == get_distribution(pd_b) &&
+    get_all_constraints(pd_a) == get_all_constraints(pd_b) &&
+    get_name(pd_a) == get_name(pd_b)
+
 
 """
     sample([rng], pd::ParameterDistribution, [n_draws])
@@ -726,6 +781,7 @@ function _inverse_lognormal_mean_std(μ_c::Real, σ_c::Real)
     return (log(μ_c) - 0.5 * log1p((σ_c / μ_c)^2), sqrt(log1p((σ_c / μ_c)^2)))
 end
 
+
 """
     constrained_gaussian(name::AbstractString, μ_c::Real, σ_c::Real, lower_bound::Real, upper_bound::Real)
 
@@ -751,6 +807,7 @@ function constrained_gaussian(
     σ_c::Real,
     lower_bound::Real,
     upper_bound::Real;
+    repeats = 1,
     optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
     optim_kwargs...,
 )
@@ -796,7 +853,20 @@ function constrained_gaussian(
         end
     end
     cons = bounded(lower_bound, upper_bound)
-    return ParameterDistribution(Parameterized(Normal(μ_u, σ_u)), cons, name)
+
+    # return 1-D Parameterized, or repeats-D VectorOfParameterized based ParameterDistribution
+    if repeats < 1
+        r = 1
+        @info(" `repeats` < 1 is not defined,`repeats` must be a natural number. Continuing with `repeats = 1` ...")
+    else
+        r = repeats
+    end
+
+    if r == 1
+        return ParameterDistribution(Parameterized(Normal(μ_u, σ_u)), cons, name)
+    else
+        return ParameterDistribution(VectorOfParameterized(repeat([Normal(μ_u, σ_u)], r)), repeat([cons], r), name)
+    end
 end
 
 function _constrained_gaussian_guess(μ_c::Real, σ_c::Real, lower_bound::Real, upper_bound::Real)
