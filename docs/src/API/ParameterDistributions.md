@@ -5,10 +5,10 @@ CurrentModule = EnsembleKalmanProcesses.ParameterDistributions
 ```
 
 ```@docs
+ParameterDistribution
 Parameterized
 Samples
 Constraint
-ParameterDistribution
 no_constraint
 bounded_below
 bounded_above
