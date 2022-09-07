@@ -39,9 +39,14 @@ abstract type ParameterDistributionType end
 """
     Parameterized <: ParameterDistributionType
     
-A distribution constructed from a parametrized formula (e.g Julia Distributions.jl)
+A distribution constructed from a parameterized formula (e.g Julia Distributions.jl)
+
+# Fields
+
+$(TYPEDFIELDS)
 """
 struct Parameterized <: ParameterDistributionType
+    "A parameterized distribution"
     distribution::Distribution
 end
 
@@ -50,8 +55,13 @@ end
     Samples{FT <: Real} <: ParameterDistributionType
 
 A distribution comprised of only samples, stored as columns of parameters.
+
+# Fields
+
+$(TYPEDFIELDS)
 """
 struct Samples{FT <: Real} <: ParameterDistributionType
+    "Samples defining an empirical distribution, stored as columns"
     distribution_samples::AbstractMatrix{FT} #parameters are columns
     Samples(distribution_samples::AbstractMatrix{FT}; params_are_columns = true) where {FT <: Real} =
         params_are_columns ? new{FT}(distribution_samples) : new{FT}(permutedims(distribution_samples, (2, 1)))
@@ -64,9 +74,14 @@ end
     VectorOfParameterized <: ParameterDistributionType
 
 A distribution built from an array of Parametrized distributions.
-A utility to help stacking of distributions where a multivariate equivalent doesn't exist
+A utility to help stacking of distributions where a multivariate equivalent doesn't exist.
+
+# Fields
+
+$(TYPEDFIELDS)
 """
 struct VectorOfParameterized{DT <: Distribution} <: ParameterDistributionType
+    "A vector of parameterized distributions"
     distribution::AbstractVector{DT}
 end
 
@@ -98,9 +113,9 @@ struct Constraint{T} <: ConstraintType
     constrained_to_unconstrained::Function
     "The jacobian of the map from constrained domain -> (-Inf,Inf)"
     c_to_u_jacobian::Function
-    "map from (-Inf,Inf) -> constrained domain"
+    "Map from (-Inf,Inf) -> constrained domain"
     unconstrained_to_constrained::Function
-    "dictionary of values used to build the Constraint (e.g. \"lower_bound\" or \"upper_bound\")"
+    "Dictionary of values used to build the Constraint (e.g. \"lower_bound\" or \"upper_bound\")"
     bounds::Union{Dict, Nothing}
 end
 
@@ -240,11 +255,22 @@ n_samples(d::VectorOfParameterized) = "Distribution stored in Parameterized form
 """
     ParameterDistribution
 
-Structure to hold a parameter distribution, always stored as an array internally.
+Structure to hold a parameter distribution, always stored as an array of distributions internally.
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 struct ParameterDistribution{PDType <: ParameterDistributionType, CType <: ConstraintType, ST <: AbstractString}
+    "Vector of parameter distributions, defined in unconstrained space"
     distribution::AbstractVector{PDType}
+    "Vector of constraints defining transformations between constrained and unconstrained space"
     constraint::AbstractVector{CType}
+    "Vector of parameter names"
     name::AbstractVector{ST}
 end
 
