@@ -89,14 +89,17 @@ A call to the inversion algorithm can be performed with the `update_ensemble!` f
 
 A typical use of the `update_ensemble!` function given the ensemble Kalman inversion object `ekiobj`, the dynamical model `Ψ` and the observation map `H` is
 ```julia
+# Given:
+# Ψ (some black box simulator)
+# H (some observation of the simulator output)
+# prior (prior distribution and parameter constraints)
+
 N_iter = 20 # Number of steps of the algorithm
 
 for n in 1:N_iter
-    θ_n = get_u_final(ekiobj) # Get current ensemble
-    ϕ_n = transform_unconstrained_to_constrained(prior, θ_n) # Transform parameters to physical/constrained space
-    G_n = [H(Ψ((ϕ_n[:, i])) for i in 1:J]
-    g_ens = hcat(G_n...) # Evaluate forward map
-    
+    ϕ_n = get_ϕ_final(prior, ekiobj) # Get current ensemble in constrained "ϕ"-space
+    G_n = [H(Ψ(ϕ_n[:, i])) for i in 1:J]
+    g_ens = hcat(G_n...) # Evaluate forward map 
     update_ensemble!(ekiobj, g_ens) # Update ensemble
 end
 ```
@@ -105,17 +108,19 @@ In the previous update, note that the parameters stored in `ekiobj` are given in
 Gaussian space where the EKI algorithm is performed. The map ``\mathcal{T}^{-1}`` between this unconstrained
 space and the (possibly constrained) physical space of parameters is encoded in the `prior` object. The
 dynamical model `Ψ` accepts as inputs the parameters in (possibly constrained) physical space, so it is
-necessary to apply `transform_unconstrained_to_constrained` before evaluations. See the
-[Prior distributions](@ref parameter-distributions) section for more details on parameter transformations.
+necessary to use the getter `get_ϕ_final` which applies `transform_unconstrained_to_constrained` to the ensemble. See the
+[Prior distributions](@ref parameter-distributions) section for more details on parameter transformations.   
 
 ## Solution
 
 The EKI algorithm drives the initial ensemble, sampled from the prior, towards the support region of the posterior distribution. The algorithm also drives the ensemble members towards consensus. The optimal parameter `θ_optim` found by the algorithm is given by the mean of the last ensemble (i.e., the ensemble after the last iteration),
 
 ```julia
-using Statistics
-
-θ_optim = mean(get_u_final(ekiobj), dims=2)
+θ_optim = get_u_mean_final(ekiobj) # optimal parameter
+```
+To obtain the optimal value in the constrained space, we use the getter with the constrained prior as input
+```julia
+ϕ_optim = get_ϕ_mean_final(prior, ekiobj) # the optimal physical parameter value
 ```
 
 ## Handling forward model failures
@@ -141,14 +146,14 @@ ekiobj = EnsembleKalmanProcess(
     failure_handler_method = SampleSuccGauss())
 ```
 
-!!! info "Forward model requirements when using FailureHandlers"
+\!!! info "Forward model requirements when using FailureHandlers"
     The user must determine if a model run has "failed", and replace the output ``\mathcal{G}(\theta)`` with `NaN`. The `FailureHandler` takes care of the rest.
 
 A description of the algorithmic modification is included below.
 
-### SampleSuccGauss modification
+### `SampleSuccGauss()`
 
-The `SampleSuccGauss()` modification is based on the successful parameter ensemble. Let ``\Theta_{s,n}=[ \theta^{(1)}_{s,n},\dots,\theta^{(J_s)}_{s,n}]`` be the successful ensemble, for which each evaluation ``\mathcal{G}(\theta^{(j)}_{s,n})`` does not fail, and let ``\theta_{f,n}^{(k)}`` be the ensemble members for which the evaluation ``\mathcal{G}(\theta^{(k)}_{f,n})`` fails. The successful ensemble ``\Theta_{s,n}`` is updated to ``\Theta_{s,n+1}`` using expression (2), and each failed ensemble member as
+The `SampleSuccGauss()` modification is based on updating all ensemble members with a distribution given by only the successful parameter ensemble. Let ``\Theta_{s,n}=[ \theta^{(1)}_{s,n},\dots,\theta^{(J_s)}_{s,n}]`` be the successful ensemble, for which each evaluation ``\mathcal{G}(\theta^{(j)}_{s,n})`` does not fail, and let ``\theta_{f,n}^{(k)}`` be the ensemble members for which the evaluation ``\mathcal{G}(\theta^{(k)}_{f,n})`` fails. The successful ensemble ``\Theta_{s,n}`` is updated to ``\Theta_{s,n+1}`` using expression (2), and each failed ensemble member as
 
 ```math
     \theta_{f,n+1}^{(k)} \sim \mathcal{N} \left({m}_{s, {n+1}}, \Sigma_{s, n+1} \right),
@@ -161,3 +166,16 @@ where
 ```
 
 Here, ``\kappa_*`` is a limiting condition number, ``\mu_{s,1}`` is the largest eigenvalue of the sample covariance ``\mathrm{Cov}(\theta_{s, n+1}, \theta_{s, n+1})`` and ``I_p`` is the identity matrix of size ``p\times p``.
+
+!!! warning
+    This modification is not a magic bullet. If large fractions of ensemble members fail during an iteration, this will degenerate the span of the ensemble.
+
+
+
+# Sparsity-Inducing Ensemble Kalman Inversion
+
+We include Sparsity-inducing Ensemble Kalman Inversion (SEKI) to add approximate ``L^0`` and ``L^1`` penalization to the EKI ([Schneider, Stuart, Wu, 2020](https://doi.org/10.48550/arXiv.2007.06175)).
+
+!!! warning
+    The algorithm suffers from robustness issues, and therefore we urge caution in using the tool
+
