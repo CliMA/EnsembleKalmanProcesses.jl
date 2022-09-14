@@ -441,8 +441,8 @@ const EKP = EnsembleKalmanProcesses
         Γy_vec = [noise_level * Matrix(I, n_obs, n_obs), noise_level * I]
         loc_methods = [NoLocalization(), RBF(2.0)]
         # Sparse EKI parameters
-        γ = 1.0
-        regs = [1e-4, 1e-3]
+        γ = 10.0
+        regs = [1e-3, 1e-2]
         uc_idxs = [[1, 2], :]
 
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
@@ -509,7 +509,6 @@ const EKP = EnsembleKalmanProcesses
             eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
             eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
             @test norm(u_star - eki_final_result) < norm(u_star - eki_init_result)
-            @test sum(eki_final_result .> 0.05) < size(eki_final_result)[1]
 
             # Plot evolution of the EKI particles
             eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
