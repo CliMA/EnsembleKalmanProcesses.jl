@@ -101,7 +101,17 @@ function eki_update(
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
-    tmp = FT.((cov_gg + obs_noise_cov) \ (y - g))
+    tmp = try
+        FT.((cov_gg + obs_noise_cov) \ (y - g))
+    catch e
+        if e isa SingularException
+            LHS = Matrix{BigFloat}(cov_gg + obs_noise_cov)
+            RHS = Matrix{BigFloat}(y - g)
+            FT.(LHS \ RHS)
+        else
+            rethrow(e)
+        end
+    end
     return u + (cov_ug * tmp) # [N_par × N_ens]  
 end
 
