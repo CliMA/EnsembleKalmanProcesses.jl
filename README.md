@@ -11,8 +11,8 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 | **Bors**             | [![Bors enabled][bors-img]][bors-url]            |
 
 
-[zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6516055.svg
-[zenodo-latest-url]: https://doi.org/10.5281/zenodo.6516055
+[zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6382967.svg
+[zenodo-latest-url]: https://doi.org/10.5281/zenodo.6382967
 
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://CliMA.github.io/EnsembleKalmanProcesses.jl/dev/
