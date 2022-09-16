@@ -31,6 +31,7 @@ end
         "EnsembleKalmanProcess",
         "Localizers",
         "UQParameters",
+        "SparseInversion",
     ]
         if all_tests || has_submodule(submodule) || "EnsembleKalmanProcesses" in ARGS
             include_test(submodule)
