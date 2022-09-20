@@ -92,14 +92,25 @@ end
             g_ens = G(params_i)
             EKP.update_ensemble!(eksobj, g_ens)
         end
-        # Collect mean final parameter as the solution
-        eks_final_result = vec(mean(get_u_final(eksobj), dims = 2))
         # Collect mean initial parameter for comparison
         initial_guess = vec(mean(get_u_prior(eksobj), dims = 2))
+        # Collect mean final parameter as the solution
+        eks_final_result = get_u_mean_final(eksobj)
 
+        @test initial_guess == get_u_mean(eksobj, 1)
+        @test eks_final_result == vec(mean(get_u_final(eksobj), dims = 2))
+
+        ϕ_final_mean = get_ϕ_mean_final(prior, eksobj)
+        ϕ_init_mean = get_ϕ_mean(prior, eksobj, 1)
+
+        # ϕ_final_mean is transformed mean, not mean transformed parameter
+        @test ϕ_final_mean == transform_unconstrained_to_constrained(prior, eks_final_result)
+        @test ϕ_final_mean != vec(mean(get_ϕ_final(prior, eksobj), dims = 2))
+        # ϕ_init_mean is transformed mean, not mean transformed parameter
+        @test ϕ_init_mean == transform_unconstrained_to_constrained(prior, initial_guess)
+        @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj, 1), dims = 2))
+        @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj)[1], dims = 2))
         # Regression test of algorithmic efficacy
-        ϕ_final_mean = transform_unconstrained_to_constrained(prior, eks_final_result)
-        ϕ_init_mean = transform_unconstrained_to_constrained(prior, initial_guess)
         @test norm(y_obs .- G(eks_final_result))^2 < norm(y_obs .- G(initial_guess))^2
         @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
 
@@ -112,7 +123,7 @@ end
     if TEST_PLOT_OUTPUT
         gr()
         ϕ_prior = transform_unconstrained_to_constrained(prior, get_u_prior(eksobj))
-        ϕ_final = transform_unconstrained_to_constrained(prior, get_u_final(eksobj))
+        ϕ_final = get_ϕ_final(prior, eksobj)
         p = plot(ϕ_prior[1, :], ϕ_final[2, :], seriestype = :scatter, label = "Initial ensemble")
         plot!(ϕ_prior[1, :], ϕ_final[2, :], seriestype = :scatter, label = "Final ensemble")
         plot!(
@@ -227,12 +238,20 @@ end
         # EKI results: Test if ensemble has collapsed toward the true parameter 
         # values
         eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
-        eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
-        ϕ_final_mean = transform_unconstrained_to_constrained(prior, eki_final_result)
-        ϕ_init_mean = transform_unconstrained_to_constrained(prior, eki_init_result)
+        eki_final_result = get_u_mean_final(ekiobj)
+
+        g_mean_init = get_g_mean(ekiobj, 1)
+        g_mean_final = get_g_mean_final(ekiobj)
+
+        @test eki_init_result == get_u_mean(ekiobj, 1)
+        @test eki_final_result == vec(mean(get_u_final(ekiobj), dims = 2))
+
+        ϕ_final_mean = get_ϕ_mean_final(prior, ekiobj)
+        ϕ_init_mean = get_ϕ_mean(prior, ekiobj, 1)
         if isa(loc_method, NoLocalization)
             @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
             @test norm(y_obs .- G(eki_final_result))^2 < norm(y_obs .- G(eki_init_result))^2
+            @test norm(y_obs .- g_mean_final)^2 < norm(y_obs .- g_mean_init)^2
         end
 
         if i_prob <= n_lin_inv_probs && loc_method == NoLocalization()
@@ -250,7 +269,7 @@ end
             # In words: the ensemble covariance is still a bit ill-dispersed since the
             # algorithm employed still does not include the correction term for finite-sized
             # ensembles.
-            @test abs(sum(diag(posterior_cov_inv \ cov(get_u_final(eksobj), dims = 2))) - n_par) > 1e-5
+            @test abs(sum(diag(posterior_cov_inv \ get_u_cov_final(eksobj))) - n_par) > 1e-5
         end
     end
 
@@ -258,7 +277,7 @@ end
     if TEST_PLOT_OUTPUT
         gr()
         ϕ_prior = transform_unconstrained_to_constrained(prior, get_u_prior(ekiobj))
-        ϕ_final = transform_unconstrained_to_constrained(prior, get_u_final(ekiobj))
+        ϕ_final = get_ϕ_final(prior, ekiobj)
         p = plot(ϕ_prior[1, :], ϕ_prior[2, :], seriestype = :scatter, label = "Initial ensemble")
         plot!(ϕ_final[1, :], ϕ_final[2, :], seriestype = :scatter, label = "Final ensemble")
         plot!(
@@ -364,8 +383,15 @@ end
     uki_init_result = vec(mean(get_u_prior(ukiobj), dims = 2))
     uki_final_result = get_u_mean_final(ukiobj)
     uki_simplex_final_result = get_u_mean_final(ukiobj_simplex)
-    ϕ_final_mean = transform_unconstrained_to_constrained(prior, uki_final_result)
-    ϕ_init_mean = transform_unconstrained_to_constrained(prior, uki_init_result)
+    ϕ_final_mean = get_ϕ_mean_final(prior, ukiobj)
+    ϕ_init_mean = get_ϕ_mean(prior, ukiobj, 1)
+    u_cov_final = get_u_cov_final(ukiobj)
+    u_cov_init = get_u_cov(ukiobj, 1)
+
+    @test ϕ_init_mean == transform_unconstrained_to_constrained(prior, uki_init_result)
+    @test ϕ_final_mean == transform_unconstrained_to_constrained(prior, uki_final_result)
+
+    @test tr(u_cov_final) < tr(u_cov_init)
     @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
     @test norm(ϕ_star - transform_unconstrained_to_constrained(prior, uki_simplex_final_result)) <
           norm(ϕ_star - ϕ_init_mean)
