@@ -10,7 +10,7 @@ prior = "Parameterized(Gamma(5.0, 2.0))"
 constraint = "bounded_below(6.0)"
 
 [uq_param_3]
-prior = "Parameterized(MvNormal(4, 10.0))"
+prior = "Parameterized(MvNormal(4, 1.0))"
 constraint = "[no_constraint(), bounded_below(-100.0), bounded_above(10.0), bounded(-42.0, 42.0)]"
 L2 = 1.1
 

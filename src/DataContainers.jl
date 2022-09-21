@@ -48,7 +48,11 @@ struct PairedDataContainer{FT <: Real}
 
         sample_dim = data_are_columns ? 2 : 1
         if !(size(inputs, sample_dim) == size(outputs, sample_dim))
-            throw(DimensionMismatch("There must be the same number of samples of both inputs and outputs"))
+            throw(
+                DimensionMismatch(
+                    "There must be the same number of samples of both inputs and outputs. Got $(size(inputs, sample_dim)) input samples and $(size(outputs, sample_dim)) output samples.",
+                ),
+            )
         end
 
         stored_inputs = DataContainer(inputs; data_are_columns = data_are_columns)
@@ -60,7 +64,11 @@ struct PairedDataContainer{FT <: Real}
     function PairedDataContainer(inputs::DataContainer, outputs::DataContainer)
 
         if !(size(inputs, 2) == size(outputs, 2))
-            throw(DimensionMismatch("There must be the same number of samples of both inputs and outputs."))
+            throw(
+                DimensionMismatch(
+                    "There must be the same number of samples of both inputs and outputs. Got $(size(inputs, 2)) input samples and $(size(outputs, 2)) output samples.",
+                ),
+            )
         else
             FT = eltype(get_data(inputs))
             new{FT}(inputs, outputs)

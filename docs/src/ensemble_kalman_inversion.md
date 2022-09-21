@@ -146,7 +146,7 @@ ekiobj = EnsembleKalmanProcess(
     failure_handler_method = SampleSuccGauss())
 ```
 
-\!!! info "Forward model requirements when using FailureHandlers"
+!!! info "Forward model requirements when using FailureHandlers"
     The user must determine if a model run has "failed", and replace the output ``\mathcal{G}(\theta)`` with `NaN`. The `FailureHandler` takes care of the rest.
 
 A description of the algorithmic modification is included below.
