@@ -130,7 +130,7 @@ the console, we have to force push. We need to force push because we rewrote
 the local commit history.
 
 ```
-$ git push -u origin <name_of_local_branch> --force
+$ git push -uf origin <name_of_local_branch>
 ```
 
 You can find more information about squashing [here](https://github.com/edx/edx-platform/wiki/How-to-Rebase-a-Pull-Request#squash-your-changes).

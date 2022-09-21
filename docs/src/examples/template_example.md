@@ -8,19 +8,23 @@ For small examples typically have 2 files.
 - The example script which contains the inverse problem setup and solve
 
 ## The structure of the example script
-First we create the data and the setting for the model
-1. Set up the forward model.
-2. Construct/load the truth data. Store this data conveniently in the `Observations.Observation` object
 
-Then we set up the inverse problem
-3. Define the prior distributions. Use the `ParameterDistribution` object
-4. Decide on which `process` tool you would like to use (we recommend you begin with `Inversion()`). Then initialize this with the relevant constructor
+### Create the data and the setting for the model
+1. Set up the forward model.
+2. Construct/load the truth data. 
+
+### Set up the inverse problem
+3. Define the prior distributions, and generate an initial ensemble.
+4. Initialize the `process` tool you would like to use (we recommend you begin with `Inversion()`). 
 5. initialize the `EnsembleKalmanProcess` object
 
-Then we solve the inverse problem, in a loop perform the following for as many iterations as required:
+### Solve the inverse problem, in a loop
+
 7. Obtain the current parameter ensemble
 8. Transform them from the unbounded computational space to the physical space
-9. call the forward map on the ensemble of parameters, producing an ensemble of measured data
+9. call the forward model on the ensemble of parameters, producing an ensemble of measured data
 10. call the `update_ensemble!` function to generate a new parameter ensemble based on the new data
 
-One can then obtain the solution, dependent on the `process` type.
+### Get the solution
+1. Obtain the final parameter ensemble, compute desired statistics here.
+2. Transform the final ensemble into the physical space for use in prediction studies with the forward model.

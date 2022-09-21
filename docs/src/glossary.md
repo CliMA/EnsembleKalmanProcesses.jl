@@ -9,7 +9,8 @@ on GitHub.
 
 | Name        | Symbol (Theory/Docs) | Symbol (Code)    |
 | :---        |    :----:            |    :----:     |
-| Parameter vector, Parameters (unconstrained space) | ``\theta``  | `θ` |
+| Parameter vector, Parameters (unconstrained space) | ``\theta``, ``u``, ``\mathcal{T}(\phi)``  | `θ`,`u` |
+| Parameter vector, Parameters (physical / constrained space) | ``\phi``, ``\mathcal{T}^{-1}(\theta)``  | `ϕ`|
 | Parameter vector size, Number of parameters  | ``p``  | `N_par` |
 | Ensemble size  | ``J``  | `N_ens` |
 | Ensemble particles, members  | ``\theta^{(j)}``  | |

@@ -1,4 +1,4 @@
-# [Prior distributions](@id parameter-distributions)
+# [Defining prior distributions](@id parameter-distributions)
 
 Bayesian inference begins with an explicit prior distribution. This page describes the interface EnsembleKalmanProcesses provides for specifying priors on parameters, via the ParameterDistributions module (`src/ParameterDistributions.jl`).
 
@@ -13,6 +13,13 @@ A prior is specified by a `ParameterDistribution` object, which has three compon
  3. The parameter name, given as a `String`.
 
 In multiparameter settings, one should define one `ParameterDistribution` per parameter, and then concatenate these either in the constructor or with `combine_distributions`. This is illustrated below and in the [Multidimensional example](@ref).
+
+!!! note "What's up with the notation u, ϕ, and θ?"
+    Parameters in unconstrained spaces are often denoted ``u`` or ``\theta`` in the literature. In the code, method names featuring `_u` imply the return of a computational, unconstrained parameter.
+    
+    Parameters in physical/constrained spaces are often denoted ``\mathcal{T}^{-1}(u)``, ``\mathcal{T}^{-1}(\theta)``, or ``\phi`` in the literature (for some bijection ``\mathcal{T}`` mapping to the unbounded space). In the code, method names featuring `_ϕ` imply the return of a physical, constrained parameter, and will always require a `prior` as input to perform the transformations internally.
+    
+    For more notations see our [Glossary](@ref).
 
 ### Recommended constructor
 
@@ -84,7 +91,7 @@ The `ParameterDistributionType` class comprises three subclasses for specifying 
  - The `VectorOfParameterized` type is initialized with a vector of distributions.
  - The `Samples` type is initialized using a two dimensional array. Samples are drawn randomly (with replacement) from the columns of the provided array.
 
-!!! warn
+!!! warning
     We recommend that the distributions be unbounded (see next section), as the filtering algorithms in EnsembleKalmanProcesses are not guaranteed to preserve constraints unless defined through the `ConstraintType` mechanism.
 
 
@@ -92,10 +99,10 @@ The `ParameterDistributionType` class comprises three subclasses for specifying 
 
 The inference algorithms implemented in EnsembleKalmanProcesses assume unbounded parameter domains. To be able to handle constrained parameter values consistently, the ConstraintType class defines a bijection between the physical, constrained parameter domain and an unphysical, unconstrained domain in which the filtering takes place. This bijection is specified by the functions `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained`, which are built from either predefined constructors or user-defined constraint functions given as arguments to the `ConstraintType` constructor. 
 
-!!! warn
+!!! warning
     When a nontrivial `ConstraintType` is given, the general constructor assumes the `ParameterDistributionType` is specified in the *unconstrained* space; the actual prior pdf is then the composition of the `ParameterDistributionType`'s pdf with the `transform_unconstrained_to_constrained` transformation. We provide `constrained_gaussian` to define priors directly in the physical, constrained space.
 
-!!! warn
+!!! warning
     It is up to the user to ensure any custom mappings `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained` are inverses of each other.
 
 We provide the following predefined constructors which implement mappings that handle the most common constraints:

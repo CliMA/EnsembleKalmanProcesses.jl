@@ -1,13 +1,12 @@
 # Ensemble Kalman Sampling
 
 ### What Is It and What Does It Do?
-The Ensemble Kalman Sampler (EKS) ([Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), [Cleary et al, 2020](https://clima.caltech.edu/files/2020/01/2001.03689.pdf), [Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)) is a derivative-free method that can be used to solve the inverse problem of finding the optimal model parameters given noisy data. In contrast to Ensemble Kalman Inversion (EKI) ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)), the EKS method approximately samples from the posterior distribution; that is, EKS provides both point estimation (through the mean of the final ensemble) and uncertainty quantification (through the covariance of the final ensemble), unlike EKI, which only provides the former.
+The Ensemble Kalman Sampler (EKS) ([Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1251655), [Cleary et al, 2020](https://doi.org/10.1016/j.jcp.2020.109716), [Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1304891)) is a derivative-free tool for approximate Bayesian inference. It does so by approximately sampling from the posterior distribution. That is, EKS provides both point estimation (through the mean of the final ensemble) and uncertainty quantification (through the covariance of the final ensemble), this is in contrast to EKI, which only provides point estimation.
+
+The EKS is an interacting particle system in stochastic differential equation form, and it is based on a dynamic which transforms an arbitrary initial probability distribution into an approximation of the desired posterior distribution over an infinite time horizon -- see [Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1251655), for a comprehensive description of the method. While there are noisy variants of the standard EKI, EKS differs from them in its noise structure (as its noise is added in parameter space, not in  data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization). The EKS algorithm can be understood as well as an affine invariant system of interacting particles ([Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1304891)) for which a finite-sample correction is introduced to overcome its computational finite-sample implementation. This finite-sample corrected version of EKS is also known as the affine invariant Langevin dynamics (ALDI).
 
 
-The EKS is an interacting particle system in stochastic differential equation form, and it is based on a dynamic which transforms an arbitrary initial probability distribution into an approximation of the desired posterior distribution over an infinite time horizon -- see [Garbuno-Inigo et al, 2019](https://arxiv.org/pdf/1903.08866.pdf), for a comprehensive description of the method. While there are noisy variants of the standard EKI, EKS differs from them in its noise structure (as its noise is added in parameter space, not in  data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization). The EKS algorithm can be understood as well as an affine invariant system of interacting particles ([Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)) for which a finite-sample correction is introduced to overcome its computational finite-sample implementation. The finite-sample corrected version of EKS is referred to as ALDI for its acronym in ([Garbuno-Inigo et al, 2020](https://arxiv.org/pdf/1912.02859.pdf)). 
-
-
-Note that in practice the approximate posterior characterization through EKS needs more iterations, and thus more forward model evaluations, than EKI. This is because of the discrete-time implementation of the EKS diffusion process and the need to maintain a stable interacting particle system. However, the posterior approximation through EKS is obtained with less computational effort than a typical Markov Chain Monte Carlo (MCMC) like Metropolis-Hastings.
+Perhaps as expected, the approximate posterior characterization through EKS needs more iterations, and thus more forward model evaluations, than EKI to converge to a suitable solution. This is because of the discrete-time implementation of the EKS diffusion process and the need to maintain a stable interacting particle system. However, the posterior approximation through EKS is obtained with far less computational effort than a typical Markov Chain Monte Carlo (MCMC) like Metropolis-Hastings.
 
 ### Problem Formulation
 
@@ -15,7 +14,10 @@ The data ``y`` and parameter vector ``\theta`` are assumed to be related accordi
 ```math
     y = \mathcal{G}(\theta) + \eta \,,
 ```
-where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a ``d``-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics ``\eta`` of the process. The full Bayesian characterization for the posterior under the EKS framework requires a ``p``-dimensional prior Gaussian distribution ``\mathcal{N}(m_\theta, \Gamma_\theta)``.
+where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a ``d``-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics ``\eta`` of the process.
+
+!!! note
+    To obtain Bayesian characterization for the posterior from EKS, the user must specify a Gaussian prior distribution. See [Prior distributions](@ref parameter-distributions) to see how one can apply flexible constraints while maintaining Gaussian priors. 
 
 
 ### Ensemble Kalman Sampling Algorithm
@@ -71,7 +73,7 @@ Creating an EKS object requires as arguments:
 
  4. The `Sampler(prior_mean, prior_cov)` process type, with the mean (a vector of length `p`) and the covariance (an array of size `p x p`) of the parameter's prior distribution.
 
-The following example shows how an EKS object is instantiated. The mean of the observational data (`obs_mean`) and the covariance of the observational noise (`obs_cov`) are assumed to be defined previously in the code.
+The following example shows how an EKS object is instantiated. An observation (`y`) and the covariance of the observational noise (`obs_cov`) are assumed to be defined previously in the code.
 
 ```julia
 using EnsembleKalmanProcesses
@@ -88,39 +90,48 @@ initial_ensemble = construct_initial_ensemble(prior, N_ens)
 
 # Construct ensemble Kalman process
 eks_process = Sampler(prior_mean, prior_cov)
-eks_obj = EnsembleKalmanProcess(initial_ensemble, obs_mean, obs_noise_cov, eks_process)
+eksobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, eks_process)
 ```
 
 
 ### Updating the ensemble
 
-Once the EKS object `eks_obj` has been initialized, the initial ensemble of particles is iteratively updated by the `update_ensemble!` function, which takes as arguments the `eks_obj` and the evaluations of the forward model at each member of the current ensemble. In the following example, the forward map `G` maps a parameter to the corresponding data -- this is done for each parameter in the ensemble, such that the resulting `g_ens` is of size `d x N_ens`. The `update_ensemble!` function then stores the updated ensemble as well as the evaluations of the forward map in `eks_obj`.
+Once the EKS object `eksobj` has been initialized, the initial ensemble of particles is iteratively updated by the `update_ensemble!` function, which takes as arguments the `eksobj` and the evaluations of the forward model at each member of the current ensemble. In the following example, the forward map `G` maps a parameter to the corresponding data -- this is done for each parameter in the ensemble, such that the resulting `g_ens` is of size `d x N_ens`. The `update_ensemble!` function then stores the updated ensemble as well as the evaluations of the forward map in `eksobj`.
 
-A typical use of the `update_ensemble!` function given the EKS object `eks_obj`, the dynamical model `Ψ`, and the observation map `H` (the latter two are assumed to be defined elsewhere, e.g. in a separate module)  may look as follows:
+A typical use of the `update_ensemble!` function given the EKS object `eksobj`, the dynamical model `Ψ`, and the observation map `H` (the latter two are assumed to be defined elsewhere, e.g. in a separate module)  may look as follows:
 
 
 ```julia
-N_iter = 10 # Number of iterations
+# Given:
+# Ψ (some black box simulator)
+# H (some observation of the simulator output)
+# prior (prior distribution and parameter constraints)
+
+N_iter = 100 # Number of iterations
 
 for n in 1:N_iter
-    θ_n = get_u_final(eks_obj) # Get current ensemble
-    ϕ_n = transform_unconstrained_to_constrained(prior, θ_n) # Transform parameters to physical/constrained space
+    ϕ_n = get_ϕ_final(prior, eksobj) # Get current ensemble in constrained "ϕ"-space
     G_n = [H(Ψ(ϕ_n[:, i])) for i in 1:J]  # Evaluate forward map
     g_ens = hcat(G_n...)  # Reformat into `d x N_ens` matrix
-    update_ensemble!(eks_obj, g_ens) # Update ensemble
+    update_ensemble!(eksobj, g_ens) # Update ensemble
 end
 ```
 
 ### Solution
 
-The solution of the EKS algorithm is an approximate Gaussian distribution whose mean (`θ_post`) and covariance (`Γ_post`) can be extracted from the ''last ensemble'' (i.e., the ensemble after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter (`θ_optim`) for the given calibration problem. These statistics can be accessed as follows:
+The solution of the EKS algorithm is an approximate Gaussian distribution whose mean (`θ_post`) and covariance (`Γ_post`) can be extracted from the ''final ensemble'' (i.e., after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter (`θ_optim`) for the given calibration problem. These statistics can be accessed as follows:
 
 
 ```julia
-using Statistics
+# mean of the Gaussian distribution, the optimal parameter in computational θ-space
+θ_post = get_u_mean_final(eksobj)
+# (empirical) covariance of the Gaussian distribution in computational θ-space
+Γ_post = get_u_cov_final(eksobj)
+```
+To obtain samples of this approximate posterior in the constrained space, we first sample the distribution, then transform using the constraints contained within the prior 
+```julia
+using Random, Distributions
 
-# mean of the Gaussian distribution, also the optimal parameter for the calibration problem
-θ_post = mean(get_u_final(eks_obj), dims=2)
-# covariance of the Gaussian distribution
-Γ_post = cov(get_u_final(eks_obj), dims=2)
+ten_post_samples = rand(MvNormal(θ_post,Γ_post), 10)
+ten_post_samples_phys = transform_unconstrained_to_constrained(prior, ten_post_samples) # the optimal physical parameter value
 ```
