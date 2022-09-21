@@ -658,14 +658,22 @@ function update_ensemble!(
 end
 
 """
-    get_u_mean_final(uki::EnsembleKalmanProcess{FT, IT, Unscented}) where {FT <: AbstractFloat, IT <: Int}
+    get_u_mean(uki::EnsembleKalmanProcess{FT, IT, Unscented}, iteration::IT)
 
-Returns the mean parameter at the final iteration.
+Returns the mean unconstrained parameter at the requested iteration.
 """
-function get_u_mean_final(uki::EnsembleKalmanProcess{FT, IT, Unscented}) where {FT <: AbstractFloat, IT <: Int}
-    return uki.process.u_mean[end]
+function get_u_mean(uki::EnsembleKalmanProcess{FT, IT, Unscented}, iteration::IT) where {FT <: AbstractFloat, IT <: Int}
+    return uki.process.u_mean[iteration]
 end
 
+"""
+    get_u_cov(uki::EnsembleKalmanProcess{FT, IT, Unscented}, iteration::IT)
+
+Returns the unconstrained parameter covariance at the requested iteration.
+"""
+function get_u_cov(uki::EnsembleKalmanProcess{FT, IT, Unscented}, iteration::IT) where {FT <: AbstractFloat, IT <: Int}
+    return uki.process.uu_cov[iteration]
+end
 
 function compute_error!(uki::EnsembleKalmanProcess{FT, IT, Unscented}) where {FT <: AbstractFloat, IT <: Int}
     mean_g = uki.process.obs_pred[end]
