@@ -86,7 +86,7 @@ function Unscented(
     elseif sigma_points == "simplex"
         N_ens = size(u0_mean, 1) + 2
     else
-        throw(ArgumentError("sigma_points (symmetric/simplex) type is not recognized"))
+        throw(ArgumentError("sigma_points type is not recognized. Select from \"symmetric\" or \"simplex\". "))
     end
 
 
@@ -133,8 +133,6 @@ function Unscented(
         cov_weights .= α
         cov_weights[1] = 0.0
 
-    else
-        throw(ArgumentError("sigma_points (symmetric/simplex) type is not recognized"))
     end
 
     if modified_unscented_transform
@@ -633,7 +631,7 @@ function update_ensemble!(
     if !(size(g_in)[2] == uki.N_ens)
         throw(
             DimensionMismatch(
-                "ensemble size in EnsembleKalmanProcess and g_in do not match, try transposing or check ensemble size",
+                "ensemble size $(uki.N_ens) in EnsembleKalmanProcess does not match the columns of g_in ($(size(g_in)[2])); try transposing g_in or check the ensemble size",
             ),
         )
     end

@@ -206,21 +206,22 @@ Returns a distribution of type `Parameterized` or `Samples`
 function get_distribution_from_expr(d::Expr)
 
     dist_type_symb = d.args[1]
-    dist_type = getfield(Main, dist_type_symb)
 
     if dist_type_symb == Symbol("Parameterized")
         dist = getfield(Main, d.args[2].args[1])
         dist_args = d.args[2].args[2:end]
+        dist_type = getfield(Main, dist_type_symb)
 
         return dist_type(dist(dist_args...))
 
     elseif dist_type_symb == Symbol("Samples")
         dist_args = construct_2d_array(d.args[2])
+        dist_type = getfield(Main, dist_type_symb)
 
         return dist_type(dist_args)
 
     else
-        throw(error("Unknown distribution type ", dist_type))
+        throw(ArgumentError("Unknown distribution type from symbol: $(dist_type_symb)"))
     end
 end
 
@@ -446,7 +447,7 @@ function get_regularization(param_dict::Dict, name::AbstractString)
 
     if haskey(param_dict[name], "L1") && haskey(param_dict[name], "L2")
         # There can't be more than one regularization flag
-        throw(ErrorException("Only one regularization flag (either 'L1' or " * "'L2') is allowed"))
+        throw(ArgumentError("Only one regularization flag (either \"L1\" or \"L2\") is allowed"))
     elseif haskey(param_dict[name], "L1")
         # L1 regularization
         return ("L1", param_dict[name]["L1"])

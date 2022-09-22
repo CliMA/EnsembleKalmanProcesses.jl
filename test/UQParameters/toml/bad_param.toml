@@ -1,0 +1,10 @@
+[uq_param_badL]
+prior = "Parameterized(Normal(-100.0, 20.0))"
+constraint = "no_constraint()"
+L1 = 1.5
+L2 = 3.5
+
+[uq_param_baddist]
+prior = "NotParameterized(Normal(-100.0, 20.0))"
+constraint = "no_constraint()"
+L1 = 1.5

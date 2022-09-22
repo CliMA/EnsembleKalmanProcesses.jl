@@ -176,7 +176,8 @@ and `x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1)`.
 """
 function bounded(lower_bound::Real, upper_bound::Real)
     if (upper_bound <= lower_bound)
-        throw(DomainError("upper bound must be greater than lower bound"))
+        throw(DomainError("Upper bound must be greater than lower bound (got [$(lower_bound), $(upper_bound)])"))
+
     end
     # As far as I know, only way to dispatch method based on isinf() would be to bring in 
     # Traits as another dependency, which would be overkill
@@ -286,7 +287,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
     #check type
     if !(isa(param_dist_dict, Dict) || eltype(param_dist_dict) <: Dict)
-        throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}"))
+        throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}. Got $(typeof(param_dist_dict))"))
     end
 
     # make copy as array
@@ -296,7 +297,9 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
         # check all keys are present
         if !all(["distribution", "name", "constraint"] .∈ [collect(keys(pdd))])
             throw(
-                ArgumentError("input dictionaries must contain the keys: \"distribution\", \"name\", \"constraint\" "),
+                ArgumentError(
+                    "input dictionaries must contain the keys: \"distribution\", \"name\", \"constraint\". Got $(keys(pdd))",
+                ),
             )
         end
 
@@ -308,7 +311,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
         if !isa(distribution, ParameterDistributionType)
             throw(
                 ArgumentError(
-                    "Value of \"distribution\" must be a valid ParameterDistribution object: Parameterized or Samples",
+                    "Value of \"distribution\" must be a valid ParameterDistribution object: Parameterized, VectorOfParameterized, or Samples. Got $(typeof(distribution))",
                 ),
             )
         end
@@ -316,19 +319,19 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
             if !isa(constraint, AbstractVector) #it's not a vector either
                 throw(
                     ArgumentError(
-                        "Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType)",
+                        "Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType). Got $(typeof(constraint))",
                     ),
                 )
             elseif !(eltype(constraint) <: ConstraintType) #it is a vector, but not of constraint
                 throw(
                     ArgumentError(
-                        "Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType)",
+                        "\"constraint\" vector must contain a ConstraintType in all entries. Got eltype $(eltype(constraint))",
                     ),
                 )
             end
         end
         if !isa(name, String)
-            throw(ArgumentError("Value of \"name\" must be a String"))
+            throw(ArgumentError("Value of \"name\" must be a String. Got $(typeof(name))"))
         end
 
         # 1 constraint per dimension check
@@ -338,7 +341,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
         if !(n_parameters == length(constraint_array))
             throw(
                 DimensionMismatch(
-                    "There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required",
+                    "There must be one constraint dimension in a parameter distribution. Required $(n_parameters) contraints, got $(length(constraint_array)). \n Use no_constraint() object if no constraint is required in a dimension",
                 ),
             )
         end
@@ -369,7 +372,11 @@ function ParameterDistribution(
 )
 
     if !(typeof(constraint) <: ConstraintType || eltype(constraint) <: ConstraintType) # if it is a vector, but not of constraint
-        throw(ArgumentError("`constraint` must be a ConstraintType, or Vector of ConstraintType's "))
+        throw(
+            ArgumentError(
+                "`constraint` must be a ConstraintType, or Vector of ConstraintType's. Got $(typeof(constraint))",
+            ),
+        )
     end
     # 1 constraint per dimension check
     constraint_vec = isa(constraint, ConstraintType) ? [constraint] : constraint
@@ -378,7 +385,7 @@ function ParameterDistribution(
     if !(n_parameters == length(constraint_vec))
         throw(
             DimensionMismatch(
-                "There must be one constraint dimension in a parameter distribution, use no_constraint() type if no constraint is required",
+                "There must be one constraint dimension in a parameter distribution. Required $(n_parameters) contraints, got $(length(constraint_vec)). \n Use no_constraint() object if no constraint is required in a dimension",
             ),
         )
     end
@@ -612,7 +619,11 @@ function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where
     end
     #assert xarray correct dim/length
     if size(xarray)[1] != ndims(pd)
-        throw(DimensionMismatch("xarray must have dimension equal to the parameter space"))
+        throw(
+            DimensionMismatch(
+                "xarray must have dimension equal to the parameter space. Expected $(ndims(pd)), got $(size(xarray)[1])",
+            ),
+        )
     end
 
     # get the index of xarray chunks to give to the different distributions.

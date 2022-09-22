@@ -22,7 +22,7 @@ const EKP = EnsembleKalmanProcesses
         "uq_param_1" => ParameterDistribution(Parameterized(Normal(-100.0, 20.0)), no_constraint(), "uq_param_1"),
         "uq_param_2" => ParameterDistribution(Parameterized(Gamma(5.0, 2.0)), bounded_below(6.0), "uq_param_2"),
         "uq_param_3" => ParameterDistribution(
-            Parameterized(MvNormal(4, -10.0)),
+            Parameterized(MvNormal(4, 1.0)),
             [no_constraint(), bounded_below(-100.0), bounded_above(10.0), bounded(-42.0, 42.0)],
             "uq_param_3",
         ),
@@ -56,6 +56,13 @@ const EKP = EnsembleKalmanProcesses
     uq_param_names = get_UQ_parameters(param_dict)
     descr = " will be learned using CES"
 
+    # for test_throws:
+    bad_toml_path = joinpath(@__DIR__, "toml", "bad_param.toml")
+    bad_param_dict = TOML.parsefile(bad_toml_path)
+
+    @test_throws ArgumentError get_parameter_distribution(bad_param_dict, "uq_param_baddist")
+    @test_throws ArgumentError get_regularization(bad_param_dict, "uq_param_badL")
+
     for param_name in uq_param_names
         param_dict[param_name]["description"] = param_name * descr
         pd = get_parameter_distribution(param_dict, param_name)
@@ -69,13 +76,13 @@ const EKP = EnsembleKalmanProcesses
         constraints = get_all_constraints(pd)
         target_constraints = get_all_constraints(target_pd)
         @test constraints == target_constraints
-
-        # Check regularization flags
-        @test get_regularization(param_dict, "uq_param_1") == ("L1", 1.5)
-        @test get_regularization(param_dict, "uq_param_3") == ("L2", 1.1)
-        @test get_regularization(param_dict, "uq_param_4") == (nothing, nothing)
-        @test get_regularization(param_dict, ["uq_param_3", "uq_param_4"]) == [("L2", 1.1), (nothing, nothing)]
     end
+
+    # Check regularization flags
+    @test get_regularization(param_dict, "uq_param_1") == ("L1", 1.5)
+    @test get_regularization(param_dict, "uq_param_3") == ("L2", 1.1)
+    @test get_regularization(param_dict, "uq_param_4") == (nothing, nothing)
+    @test get_regularization(param_dict, ["uq_param_3", "uq_param_4"]) == [("L2", 1.1), (nothing, nothing)]
 
     # We can also get a `ParameterDistribution` representing
     # multiple parameters
