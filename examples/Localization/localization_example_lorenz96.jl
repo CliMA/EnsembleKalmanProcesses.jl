@@ -70,7 +70,7 @@ y = y0 + randn(D)
 
 #### Define prior information on parameters
 priors = map(1:p) do i
-    ParameterDistribution(Parameterized(Normal(0.0, 1)), no_constraint(), string("u", i))
+    constrained_gaussian(string("u", i), 0.0, 1.0, -Inf, Inf)
 end
 prior = combine_distributions(priors)
 
@@ -79,7 +79,7 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 # Solve problem without localization
 ekiobj_vanilla = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
 for i in 1:N_iter
-    g_ens_vanilla = G(get_u_final(ekiobj_vanilla))
+    g_ens_vanilla = G(get_ϕ_final(prior, ekiobj_vanilla))
     EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = true)
 end
 nonlocalized_error = get_error(ekiobj_vanilla)[end]
@@ -95,7 +95,7 @@ ekiobj_bernoulli = EKP.EnsembleKalmanProcess(
 )
 
 for i in 1:N_iter
-    g_ens = G(get_u_final(ekiobj_bernoulli))
+    g_ens = G(get_ϕ_final(prior, ekiobj_bernoulli))
     EKP.update_ensemble!(ekiobj_bernoulli, g_ens, deterministic_forward_map = true)
 end
 
@@ -103,7 +103,7 @@ end
 ekiobj_sec = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SEC(1.0))
 
 for i in 1:N_iter
-    g_ens = G(get_u_final(ekiobj_sec))
+    g_ens = G(get_ϕ_final(prior, ekiobj_sec))
     EKP.update_ensemble!(ekiobj_sec, g_ens, deterministic_forward_map = true)
 end
 
@@ -112,7 +112,7 @@ ekiobj_sec_cutoff =
     EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SEC(1.0, 0.1))
 
 for i in 1:N_iter
-    g_ens = G(get_u_final(ekiobj_sec_cutoff))
+    g_ens = G(get_ϕ_final(prior, ekiobj_sec_cutoff))
     EKP.update_ensemble!(ekiobj_sec_cutoff, g_ens, deterministic_forward_map = true)
 end
 
@@ -121,7 +121,7 @@ ekiobj_sec_fisher =
     EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SECFisher())
 
 for i in 1:N_iter
-    g_ens = G(get_u_final(ekiobj_sec_fisher))
+    g_ens = G(get_ϕ_final(prior, ekiobj_sec_fisher))
     EKP.update_ensemble!(ekiobj_sec_fisher, g_ens, deterministic_forward_map = true)
 end
 

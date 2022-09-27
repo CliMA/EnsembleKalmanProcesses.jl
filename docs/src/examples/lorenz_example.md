@@ -77,20 +77,17 @@ param_names = ["F", "A"]
 ```
 
 ### Priors
-We use normal priors without constraints
+We implement (biased) priors as follows
 
 ```julia
-prior_means = [F_true+1.0, A_true+0.5]
-prior_stds = [2.0, 0.5*A_true]
-d1 = Parameterized(Normal(prior_means[1], prior_stds[1]))
-d2 = Parameterized(Normal(prior_means[2], prior_stds[2]))
-prior_distns = [d1, d2]
-c1 = no_constraint()
-c2 = no_constraint()
-constraints = [[c1], [c2]]
-prior_names = param_names
-priors = ParameterDistribution(prior_distns, constraints, prior_names)
+prior_means = [F_true + 1.0, A_true + 0.5]
+prior_stds = [2.0, 0.5 * A_true]
+# constrained_gaussian("name", desired_mean, desired_std, lower_bd, upper_bd)
+prior_F = constrained_gaussian(param_names[1], prior_means[1], prior_stds[1], 0, Inf)
+prior_A = constrained_gaussian(param_names[2], prior_means[2], prior_stds[2], 0, Inf)
+priors = combine_distributions([prior_F, prior_A])
 ```
+We use the recommended [`constrained_gaussian`](@ref constrained-gaussian) to add the desired scale and bounds to the prior distribution, in particular we place lower bounds to preserve positivity. 
 
 ### Observational Noise
 The observational noise can be generated using the L96 system or prescribed, as specified by `var_prescribe`. 
@@ -107,7 +104,7 @@ The L96 parameter estimation can be run using `julia --project Lorenz_example.jl
 
 
 ## Solution and Output
-The output will provide the estimated parameters.
+The output will provide the estimated parameters in the constrained `ϕ`-space. The `priors` are required in the get-method to apply these constraints.
 
 ### Printed output
 ```julia
@@ -115,7 +112,7 @@ The output will provide the estimated parameters.
 println("True parameters: ")
 println(params_true)
 println("\nEKI results:")
-println(mean(get_u_final(ekiobj), dims=2))
+println(get_ϕ_mean_final(priors, ekiobj))
 ```
 
 ### Saved output
@@ -123,4 +120,4 @@ The parameters and forward model outputs will be saved in `parameter_storage.jld
 The data will be saved in the directory `output`.
 
 ### Plots
-A scatter plot of the parameter estimates compared to the true parameters will be provided in the directory `output`.
+A scatter plot animation of the ensemble convergence to the true parameters is saved in the directory `output`.

@@ -35,11 +35,14 @@ nothing # hide
 # ### Prior distributions
 #
 # As we work with a Bayesian method, we define a prior. This will behave like an "initial guess"
-# for the likely region of parameter space we expect the solution to live in.
-prior_u1 = Dict("distribution" => Parameterized(Normal(0, 2)), "constraint" => no_constraint(), "name" => "u1")
-prior_u2 = Dict("distribution" => Parameterized(Normal(0, 2)), "constraint" => no_constraint(), "name" => "u2")
-
-prior = ParameterDistribution([prior_u1, prior_u2])
+# for the likely region of parameter space we expect the solution to live in. Here we define
+# ``Normal(0,2^2)`` distributions with no constraints 
+prior_u1 = constrained_gaussian("u1", 0, 2, -Inf, Inf)
+prior_u2 = constrained_gaussian("u1", 0, 2, -Inf, Inf)
+prior = combine_distributions([prior_u1, prior_u2])
+nothing # hide
+# !!! note
+#     In this example there are no constraints, therefore no parameter transformations.
 
 # ### Calibration
 #
@@ -62,7 +65,7 @@ process = SparseInversion(γ, threshold_value, uc_idx, reg)
 # We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
 # target, the stabilization and the process type (for sparse EKI this is `SparseInversion`). 
 ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, process)
-
+nothing # hide
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
 # the model outputs:

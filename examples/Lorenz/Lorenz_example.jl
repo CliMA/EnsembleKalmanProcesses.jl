@@ -70,34 +70,15 @@ println(params_true)
 ###
 ###  Define the parameter priors
 ###
-# Lognormal prior or normal prior?
-log_normal = false # THIS ISN't CURRENTLY IMPLEMENTED
-
-function logmean_and_logstd(μ, σ)
-    σ_log = sqrt(log(1.0 + σ^2 / μ^2))
-    μ_log = log(μ / (sqrt(1.0 + σ^2 / μ^2)))
-    return μ_log, σ_log
-end
-#logmean_F, logstd_F = logmean_and_logstd(F_true, 5)
-#logmean_A, logstd_A = logmean_and_logstd(A_true, 0.2*A_true)
 
 if dynamics == 2
     prior_means = [F_true + 1.0, A_true + 0.5]
     prior_stds = [2.0, 0.5 * A_true]
-    prior_F = Dict(
-        "distribution" => Parameterized(Normal(prior_means[1], prior_stds[1])),
-        "constraint" => no_constraint(),
-        "name" => param_names[1],
-    )
-    prior_A = Dict(
-        "distribution" => Parameterized(Normal(prior_means[2], prior_stds[2])),
-        "constraint" => no_constraint(),
-        "name" => param_names[2],
-    )
-    priors = ParameterDistribution([prior_F, prior_A])
+    prior_F = constrained_gaussian(param_names[1], prior_means[1], prior_stds[1], 0, Inf)
+    prior_A = constrained_gaussian(param_names[2], prior_means[2], prior_stds[2], 0, Inf)
+    priors = combine_distributions([prior_F, prior_A])
 else
-    prior_F = Dict("distribution" => Parameterized(Normal(F_true, 1)), "constraint" => no_constraint(), "name" => "F")
-    priors = ParameterDistribution(prior_F)
+    priors = constrained_gaussian("F", F_true, 1.0, 0, Inf)
 end
 
 
@@ -208,9 +189,6 @@ truth_sample = truth.mean
 lorenz_settings_G = lorenz_settings; # initialize to truth settings
 
 # EKP parameters
-log_transform(a::AbstractArray) = log.(a)
-exp_transform(a::AbstractArray) = exp.(a)
-
 N_ens = 20 # number of ensemble members
 N_iter = 5 # number of EKI iterations
 # initial parameters: N_params x N_ens
@@ -222,29 +200,19 @@ ekiobj = EKP.EnsembleKalmanProcess(initial_params, truth_sample, truth.obs_noise
 println("EKP inversion error:")
 err = zeros(N_iter)
 for i in 1:N_iter
-    if log_normal == false
-        params_i = get_u_final(ekiobj)
-    else
-        params_i = exp_transform(get_u_final(ekiobj))
-    end
+    params_i = get_ϕ_final(priors, ekiobj) # the `ϕ` indicates that the `params_i` are in the constrained space    
     g_ens = GModel.run_G_ensemble(params_i, lorenz_settings_G)
     EKP.update_ensemble!(ekiobj, g_ens)
     err[i] = get_error(ekiobj)[end] #mean((params_true - mean(params_i,dims=2)).^2)
     println("Iteration: " * string(i) * ", Error: " * string(err[i]))
 end
 
-
-
 # EKI results: Has the ensemble collapsed toward the truth?
 println("True parameters: ")
 println(params_true)
 
 println("\nEKI results:")
-if log_normal == false
-    println(mean(get_u_final(ekiobj), dims = 2))
-else
-    println(mean(exp_transform(get_u_final(ekiobj)), dims = 2))
-end
+println(get_ϕ_mean_final(priors, ekiobj))
 
 u_stored = get_u(ekiobj, return_array = false)
 g_stored = get_g(ekiobj, return_array = false)
@@ -252,26 +220,41 @@ g_stored = get_g(ekiobj, return_array = false)
 @save data_save_directory * "parameter_storage.jld2" u_stored
 @save data_save_directory * "data_storage.jld2" g_stored
 
-#plots
+#plots in unconstrained space
 gr(size = (600, 600))
 u_init = get_u_prior(ekiobj)
-for i in 1:N_iter
+unconstrained_params_true = transform_constrained_to_unconstrained(priors, params_true)
+anim_ekp_unconst_lorenz = @animate for i in 1:N_iter
     u_i = get_u(ekiobj, i)
     p = plot(u_i[1, :], u_i[2, :], seriestype = :scatter, xlims = extrema(u_init[1, :]), ylims = extrema(u_init[2, :]))
-    plot!(
-        [params_true[1]],
+    vline!(
+        [unconstrained_params_true[1]],
         xaxis = "u1",
         yaxis = "u2",
-        seriestype = "vline",
         linestyle = :dash,
         linecolor = :red,
         label = false,
         title = "EKI iteration = " * string(i),
     )
-    plot!([params_true[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
-    #display(p)
-    figpath = joinpath(figure_save_directory, "posterior_EKP_it_$(i).png")
-    savefig(figpath)
-    #linkfig(figpath)
-    sleep(0.5)
+    hline!([unconstrained_params_true[2]], linestyle = :dash, linecolor = :red, label = "optimum")
 end
+gif(anim_ekp_unconst_lorenz, joinpath(figure_save_directory, "ekp_unconstrained_lorenz.gif"), fps = 1) # hide
+
+
+# plots in constrained space
+ϕ_init = transform_unconstrained_to_constrained(priors, u_init)
+anim_ekp_lorenz = @animate for i in 1:N_iter
+    ϕ_i = get_ϕ(priors, ekiobj, i)
+    p = plot(ϕ_i[1, :], ϕ_i[2, :], seriestype = :scatter, xlims = extrema(ϕ_init[1, :]), ylims = extrema(ϕ_init[2, :]))
+    vline!(
+        [params_true[1]],
+        xaxis = "ϕ1",
+        yaxis = "ϕ2",
+        linestyle = :dash,
+        linecolor = :red,
+        label = false,
+        title = "EKI iteration = " * string(i),
+    )
+    hline!([params_true[2]], linestyle = :dash, linecolor = :red, label = "optimum")
+end
+gif(anim_ekp_lorenz, joinpath(figure_save_directory, "ekp_lorenz.gif"), fps = 1) # hide

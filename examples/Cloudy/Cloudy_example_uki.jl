@@ -11,6 +11,7 @@ using StatsBase
 using LinearAlgebra
 using StatsPlots
 using Plots
+using Plots.PlotMeasures
 using JLD2
 using Random
 
@@ -61,34 +62,10 @@ dist_true = ParticleDistributions.GammaPrimitiveParticleDistribution(ϕ_true...)
 # We choose to use normal distributions to represent the prior distributions of
 # the parameters in the transformed (unconstrained) space. i.e log coordinates
 
-# N0
-lbound_N0 = 0.4 * N0_true
-prior_N0 = Dict(
-    "distribution" => Parameterized(Normal(4.5, 1.0)), #truth is 5.19
-    "constraint" => bounded_below(lbound_N0),
-    "name" => par_names[1],
-)
-
-# θ
-lbound_θ = 1.0e-1
-prior_θ = Dict(
-    "distribution" => Parameterized(Normal(0.0, 2.0)),  #truth is 0.378
-    "constraint" => bounded_below(lbound_θ),
-    "name" => par_names[2],
-)
-
-
-# k
-lbound_k = 1.0e-4
-prior_k = Dict(
-    "distribution" => Parameterized(Normal(-1.0, 1.0)), #truth is -2.51 
-    "constraint" => bounded_below(lbound_k),
-    "name" => par_names[3],
-)
-
-priors = ParameterDistribution([prior_N0, prior_θ, prior_k])
-prior_mean = [4.5; 0.0; -1.0]
-prior_cov = Array(Diagonal(ones(Float64, length(prior_mean))))
+prior_N0 = constrained_gaussian(par_names[1], 200, 200, 0.4 * N0_true, Inf)
+prior_θ = constrained_gaussian(par_names[2], 1.0, 3.0, 1e-1, Inf)
+prior_k = constrained_gaussian(par_names[3], 0.2, 0.5, 1e-4, Inf)
+priors = combine_distributions([prior_N0, prior_θ, prior_k])
 
 
 ###
@@ -142,17 +119,17 @@ truth_sample = truth.mean
 ###  Calibrate: Unscented Kalman Inversion
 ###
 
-N_iter = 20 # number of iterations
+N_iter = 50 # number of iterations
 # need to choose regularization factor α ∈ (0,1],  
 # when you have enough observation data α=1: no regularization
 α_reg = 1.0
 # update_freq 1 : approximate posterior covariance matrix with an uninformative
 #                 prior
 #             0 : weighted average between posterior covariance matrix with an
-#                 uninformative prior and prior
+#                 uninformative prior
 update_freq = 1
 
-process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
+process = Unscented(mean(priors), cov(priors); α_reg = α_reg, update_freq = update_freq)
 ukiobj = EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
 
 # Initialize a ParticleDistribution with dummy parameters. The parameters 
@@ -163,9 +140,8 @@ model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, tspan)
 
 err = zeros(N_iter)
 for n in 1:N_iter
-    θ_n = get_u_final(ukiobj)
-    # Transform parameters to physical/constrained space
-    ϕ_n = mapslices(x -> transform_unconstrained_to_constrained(priors, x), θ_n; dims = 1)
+    # Return transformed parameters in physical/constrained space
+    ϕ_n = get_ϕ_final(priors, ukiobj)
     # Evaluate forward map
     println("size: ", size(ϕ_n))
     G_n = [run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:size(ϕ_n)[2]]
@@ -186,10 +162,10 @@ end
 
 # UKI results: the mean is in ukiobj.process.u_mean
 #              the covariance matrix is in ukiobj.process.uu_cov
-θ_true = transform_constrained_to_unconstrained(priors, ϕ_true)
+θvec_true = transform_constrained_to_unconstrained(priors, ϕ_true)
 
 println("True parameters (transformed): ")
-println(θ_true)
+println(θvec_true)
 
 println("\nUKI results:")
 println(get_u_mean_final(ukiobj))
@@ -200,74 +176,76 @@ g_stored = get_g(ukiobj, return_array = false)
 @save data_save_directory * "data_storage_uki.jld2" g_stored
 
 ####
-θ_mean_arr = hcat(ukiobj.process.u_mean...)
-N_θ = length(ukiobj.process.u_mean[1])
+θ_mean_arr = hcat([get_u_mean(ukiobj, i) for i in 1:N_iter]...)
+N_θ = length(get_u_mean(ukiobj, 1))
 θθ_std_arr = zeros(Float64, (N_θ, N_iter + 1))
 for i in 1:(N_iter + 1)
     for j in 1:N_θ
-        θθ_std_arr[j, i] = sqrt(ukiobj.process.uu_cov[i][j, j])
+        θθ_std_arr[j, i] = sqrt(get_u_cov(ukiobj, i)[j, j])
     end
 end
 
 
 ites = Array(LinRange(1, N_iter + 1, N_iter + 1))
 plot(ites, grid = false, θ_mean_arr[1, :], yerror = 3.0 * θθ_std_arr[1, :], label = "u1")
-plot!(ites, fill(θ_true[1], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+plot!(ites, fill(θvec_true[1], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
 plot!(ites, grid = false, θ_mean_arr[2, :], yerror = 3.0 * θθ_std_arr[2, :], label = "u2", xaxis = "Iterations")
-plot!(ites, fill(θ_true[2], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+plot!(ites, fill(θvec_true[2], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
 plot!(ites, grid = false, θ_mean_arr[3, :], yerror = 3.0 * θθ_std_arr[3, :], label = "u3", xaxis = "Iterations")
-plot!(ites, fill(θ_true[3], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+plot!(ites, fill(θvec_true[3], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
 
-gr(size = (1800, 600))
+gr(size = (1200, 400))
 
-for i in 1:N_iter
-    θ_mean, θθ_cov = ukiobj.process.u_mean[i], ukiobj.process.uu_cov[i]
+anim_uki_unconst_cloudy = @animate for i in 1:N_iter
+    θ_mean, θθ_cov = get_u_mean(ukiobj, i), get_u_cov(ukiobj, i)
     θ1, θ2, fθ1θ2 = Gaussian_2d(θ_mean[1:2], θθ_cov[1:2, 1:2], 100, 100)
     p1 = contour(θ1, θ2, fθ1θ2)
     plot!(
         p1,
-        [θ_true[1]],
+        [θvec_true[1]],
         xaxis = "u1",
         yaxis = "u2",
         seriestype = "vline",
         linestyle = :dash,
         linecolor = :red,
         label = false,
+        margin = 5mm,
         title = "UKI iteration = " * string(i),
     )
-    plot!(p1, [θ_true[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
+    plot!(p1, [θvec_true[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
     θ2, θ3, fθ2θ3 = Gaussian_2d(θ_mean[2:3], θθ_cov[2:3, 2:3], 100, 100)
     p2 = contour(θ2, θ3, fθ2θ3)
     plot!(
         p2,
-        [θ_true[2]],
+        [θvec_true[2]],
         xaxis = "u2",
         yaxis = "u3",
         seriestype = "vline",
         linestyle = :dash,
         linecolor = :red,
         label = false,
+        margin = 5mm,
         title = "UKI iteration = " * string(i),
     )
-    plot!(p2, [θ_true[3]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
+    plot!(p2, [θvec_true[3]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
     θ3, θ1, fθ3θ1 = Gaussian_2d(θ_mean[3:-2:1], θθ_cov[3:-2:1, 3:-2:1], 100, 100)
     p3 = contour(θ3, θ1, fθ3θ1)
     plot!(
         p3,
-        [θ_true[3]],
+        [θvec_true[3]],
         xaxis = "u3",
         yaxis = "u1",
         seriestype = "vline",
         linestyle = :dash,
         linecolor = :red,
         label = false,
+        margin = 5mm,
         title = "UKI iteration = " * string(i),
     )
-    plot!(p3, [θ_true[1]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
+    plot!(p3, [θvec_true[1]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
     p = plot(p1, p2, p3, layout = (1, 3))
-    display(p)
-    sleep(0.5)
 end
+gif(anim_uki_unconst_cloudy, joinpath(figure_save_directory, "uki_unconst_cloudy.gif"), fps = 5) # hide

@@ -41,7 +41,8 @@ using LinearAlgebra
 using Random
 rng_seed = 44
 
-import EnsembleKalmanProcesses
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 const EKP = EnsembleKalmanProcesses
 
 import CLIMAParameters
@@ -70,25 +71,14 @@ osmotic_coeff_true = 0.9
 default_params = [molar_mass_true, osmotic_coeff_true]
 nothing # hide
 
-# Both parameters have to be positive definite, therefore we
-# define the constraints to be bounded below by zero.
-c1 = EKP.ParameterDistributions.bounded_below(0.0)
-c2 = EKP.ParameterDistributions.bounded_below(0.0)
-nothing # hide
-
-# We don't have any other prior knowledge about the calibrated parameters.
-# Defining the prior distribution in the constrained space to be normal
-# with the mean equal to zero and the standard deviation equal to one,
-# ensures that the default parameter values are well within the
-# assumed prior pdf.
-d1 = EKP.ParameterDistributions.Parameterized(Distributions.Normal(0, 1))
-d2 = EKP.ParameterDistributions.Parameterized(Distributions.Normal(0, 1))
-nothing # hide
-
-# This concludes the setup of priors.
-prior1 = Dict("distribution" => d1, "constraint" => c1, "name" => parameter_names[1])
-prior2 = Dict("distribution" => d2, "constraint" => c2, "name" => parameter_names[2])
-priors = EKP.ParameterDistributions.ParameterDistribution([prior1, prior2])
+# We must define parameter priors. Both parameters have to
+# be positive definite, therefore we define the constraints to
+# be bounded below by zero.  We don't have much other prior knowledge
+# about the parameters. We simply constrain their scale to be
+# loosely of size 1. For more details see [`constrained_gaussian`](@ref constrained-gaussian)
+prior1 = constrained_gaussian(parameter_names[1], 1, 1, 0, Inf)
+prior2 = constrained_gaussian(parameter_names[2], 1, 1, 0, Inf)
+priors = combine_distributions([prior1, prior2])
 nothing # hide
 
 # Next we define the atmospheric conditions for which the calibration will take place,
@@ -180,18 +170,14 @@ N_ens = 50
 N_iter = 10
 
 initial_par = EKP.construct_initial_ensemble(priors, N_ens; rng_seed)
-ekiobj = EKP.EnsembleKalmanProcess(initial_par, truth_sample, truth_array.obs_noise_cov, EKP.Inversion(), Δt = 1)
+ekiobj = EKP.EnsembleKalmanProcess(initial_par, truth_sample, truth_array.obs_noise_cov, EKP.Inversion())
 nothing # hide
 
 # Finally, we can run the Ensemble Kalman Process calibration.
 ϕ_n_values = []
 for n in 1:N_iter
-    θ_n = EKP.get_u_final(ekiobj)
-
-    ϕ_n = mapslices(x -> EKP.ParameterDistributions.transform_unconstrained_to_constrained(priors, x), θ_n; dims = 1)
-
+    ϕ_n = EKP.get_ϕ_final(priors, ekiobj)
     G_n = [run_activation_model(ϕ_n[:, i]...) for i in 1:N_ens]
-
     G_ens = hcat(G_n...)
     EKP.update_ensemble!(ekiobj, G_ens)
 
@@ -206,11 +192,10 @@ function plot_ensemble_scatter(id)
 
     if id == 1
         ylabel = "Molar mass [kg/mol]"
-        filename = "molar_mass_scatter.svg"
-    end
-    if id == 2
+        filename = "molar_mass_scatter.pdf"
+    elseif id == 2
         ylabel = "Osmotic coefficient [-]"
-        filename = "osmotic_coeff_scatter.svg"
+        filename = "osmotic_coeff_scatter.pdf"
     end
 
     plot(
@@ -241,11 +226,11 @@ function plot_ensemble_means(id)
 
     if id == 1
         ylabel = "Molar mass [kg/mol]"
-        filename = "molar_mass_average.svg"
+        filename = "molar_mass_average.pdf"
     end
     if id == 2
         ylabel = "Osmotic coefficient [-]"
-        filename = "osmotic_coeff_average.svg"
+        filename = "osmotic_coeff_average.pdf"
     end
 
     plot(
@@ -269,10 +254,10 @@ plot_ensemble_scatter(1)
 plot_ensemble_means(1)
 plot_ensemble_scatter(2)
 plot_ensemble_means(2)
-# ![](molar_mass_scatter.svg)
-# ![](osmotic_coeff_scatter.svg)
-# ![](molar_mass_average.svg)
-# ![](osmotic_coeff_average.svg)
+# ![](molar_mass_scatter.pdf)
+# ![](osmotic_coeff_scatter.pdf)
+# ![](molar_mass_average.pdf)
+# ![](osmotic_coeff_average.pdf)
 
 # Finally, we test that the parameter values obtained via EnsembleKalmanProcesses.jl are close
 # to the known true parameter values.
