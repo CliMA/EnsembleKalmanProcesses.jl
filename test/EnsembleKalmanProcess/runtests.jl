@@ -77,7 +77,7 @@ end
         # Get inverse problem
         y_obs, G, Γy, _ = inv_problem
 
-        eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior_mean, prior_cov); rng = rng)
+        eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior); rng = rng)
 
         params_0 = get_u_final(eksobj)
         g_ens = G(params_0)
@@ -301,7 +301,7 @@ end
 
     α_reg = 1.0
     update_freq = 0
-    process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq, sigma_points = "symmetric")
+    process = Unscented(prior; α_reg = α_reg, update_freq = update_freq, sigma_points = "symmetric")
     iters_with_failure = [5, 8, 9, 15]
     failed_particle_index = [1, 2, 3, 1]
 
@@ -310,19 +310,12 @@ end
     ukiobj = EKP.EnsembleKalmanProcess(y_obs, Γy, process; rng = rng, failure_handler_method = SampleSuccGauss())
     ukiobj_unsafe = EKP.EnsembleKalmanProcess(y_obs, Γy, process; rng = rng, failure_handler_method = IgnoreFailures())
     # test simplex sigma points
-    process_simplex =
-        Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq, sigma_points = "simplex")
+    process_simplex = Unscented(prior; α_reg = α_reg, update_freq = update_freq, sigma_points = "simplex")
     ukiobj_simplex =
         EKP.EnsembleKalmanProcess(y_obs, Γy, process_simplex; rng = rng, failure_handler_method = SampleSuccGauss())
 
     # Test incorrect construction throws error
-    @test_throws ArgumentError Unscented(
-        prior_mean,
-        prior_cov;
-        α_reg = α_reg,
-        update_freq = update_freq,
-        sigma_points = "unknowns",
-    )
+    @test_throws ArgumentError Unscented(prior; α_reg = α_reg, update_freq = update_freq, sigma_points = "unknowns")
 
     # UKI iterations
     params_i_vec = Array{Float64, 2}[]
