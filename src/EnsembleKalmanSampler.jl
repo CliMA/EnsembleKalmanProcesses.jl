@@ -20,6 +20,14 @@ struct Sampler{FT <: AbstractFloat} <: Process
     prior_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}}
 end
 
+function Sampler(prior::ParameterDistribution)
+    mean_prior = Vector(mean(prior))
+    cov_prior = Matrix(cov(prior))
+    FT = eltype(mean_prior)
+    return Sampler{FT}(mean_prior, cov_prior)
+end
+
+
 function FailureHandler(process::Sampler, method::IgnoreFailures)
     function failsafe_update(ekp, u, g, failed_ens)
         u_transposed = permutedims(u, (2, 1))

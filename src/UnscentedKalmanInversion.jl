@@ -170,6 +170,17 @@ function Unscented(
     )
 end
 
+function Unscented(prior::ParameterDistribution; kwargs...)
+
+    u0_mean = Vector(mean(prior)) # mean of unconstrained distribution
+    uu0_cov = Matrix(cov(prior)) # cov of unconstrained distribution
+
+    return Unscented(u0_mean, uu0_cov; kwargs...)
+
+end
+
+
+
 # outer constructors
 function EnsembleKalmanProcess(
     obs_mean::AbstractVector{FT},
