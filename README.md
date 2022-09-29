@@ -31,8 +31,3 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 
 ### Requirements
 Julia version 1.6+ 
-
-
-### Project Mind map
-The latest code structure is found at:
-https://miro.com/app/board/o9J_kkm8OGU=/
