@@ -10,15 +10,9 @@ include(joinpath(@__DIR__, "helper_funcs.jl"))
 param_names = ["C_smag", "C_drag"]
 
 # Set parameter priors
-prior_smag =
-    Dict("distribution" => Parameterized(Normal(0.5, 0.05)), "constraint" => no_constraint(), "name" => param_names[1])
-prior_drag = Dict(
-    "distribution" => Parameterized(Normal(0.001, 0.0001)),
-    "constraint" => no_constraint(),
-    "name" => param_names[2],
-)
-
-priors = ParameterDistribution([prior_smag, prior_drag])
+prior_smag = constrained_gaussian(param_names[1], 0.5, 0.05, -Inf, Inf)
+prior_drag = constrained_gaussian(param_names[2], 1e-3, 1e-4, -Inf, Inf)
+priors = combine_distributions([prior_smag, prior_drag])
 
 # Construct initial ensemble
 N_ens = 10

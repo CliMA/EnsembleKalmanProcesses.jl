@@ -70,26 +70,15 @@ println(params_true)
 ###
 ###  Define the parameter priors
 ###
-# Lognormal prior or normal prior?
-log_normal = false # THIS ISN't CURRENTLY IMPLEMENTED
-
-function logmean_and_logstd(μ, σ)
-    σ_log = sqrt(log(1.0 + σ^2 / μ^2))
-    μ_log = log(μ / (sqrt(1.0 + σ^2 / μ^2)))
-    return μ_log, σ_log
-end
-#logmean_F, logstd_F = logmean_and_logstd(F_true, 5)
-#logmean_A, logstd_A = logmean_and_logstd(A_true, 0.2*A_true)
-
 if dynamics == 2
-    prior_mean = [F_true + 1.0; A_true + 0.5]
-    # prior_stds = [2.0, 0.5*A_true]
-    prior_cov = Array(Diagonal((0.1 * prior_mean) .^ 2))
+    prior_means = [F_true + 1.0, A_true + 0.5]
+    prior_stds = [2.0, 0.5 * A_true]
+    prior_F = constrained_gaussian(param_names[1], prior_means[1], prior_stds[1], -Inf, Inf)
+    prior_A = constrained_gaussian(param_names[2], prior_means[2], prior_stds[2], -Inf, Inf)
+    priors = combine_distributions([prior_F, prior_A])
 else
-    prior_mean = [F_true;]
-    prior_cov = ones(Float64, 1, 1)
+    priors = constrained_gaussian("F", F_true, 1.0, -Inf, Inf)
 end
-
 
 ###
 ###  Define the data from which we want to learn the parameters
@@ -197,10 +186,6 @@ truth_sample = truth.mean
 lorenz_settings_G = lorenz_settings; # initialize to truth settings
 
 # EKP parameters
-log_transform(a::AbstractArray) = log.(a)
-exp_transform(a::AbstractArray) = exp.(a)
-
-
 N_iter = 20 # number of UKI iterations
 # need to choose regularization factor α ∈ (0,1],  
 # when you have enough observation data α=1: no regularization
@@ -213,22 +198,15 @@ update_freq = 0
 # N_ens 2n_param+1 : sample 2n_param+1 sigma points
 #       n_param+2  : sample n_param+2 sigma points
 N_ens = 2n_param + 1
-process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq, sigma_points = "symmetric")
+process = Unscented(mean(priors), cov(priors); α_reg = α_reg, update_freq = update_freq, sigma_points = "symmetric")
 ukiobj = EKP.EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
 
 
 # UKI iterations
 err = zeros(N_iter)
 for i in 1:N_iter
-    if log_normal == false
-        params_i = get_u_final(ukiobj)
-    else
-        params_i = exp_transform(get_u_final(ukiobj))
-    end
+    params_i = get_ϕ_final(priors, ukiobj)
     g_ens = GModel.run_G_ensemble(params_i, lorenz_settings_G)
-
-
-    # analysis step 
     EKP.update_ensemble!(ukiobj, g_ens)
 
     err[i] = get_error(ukiobj)[end] #mean((params_true - mean(params_i,dims=2)).^2)
@@ -243,28 +221,20 @@ for i in 1:N_iter
 end
 
 
-
 # EKI results: Has the ensemble collapsed toward the truth?
 println("True parameters: ")
 println(params_true)
 
 println("\nUKI results:")
-if log_normal == false
-    println(get_u_mean_final(ukiobj))
-else
-    println(exp_transform(get_u_mean_final(ukiobj)))
-end
+println(get_ϕ_mean_final(priors, ukiobj))
 
-
-
-
-####
-θ_mean_arr = hcat(ukiobj.process.u_mean...)
-N_θ = length(ukiobj.process.u_mean[1])
+#### - stats in unconstrained space
+θ_mean_arr = hcat([get_u_mean(ukiobj, i) for i in 1:N_iter]...)
+N_θ = length(get_u_mean(ukiobj, 1))
 θθ_std_arr = zeros(Float64, (N_θ, N_iter + 1))
 for i in 1:(N_iter + 1)
     for j in 1:N_θ
-        θθ_std_arr[j, i] = sqrt(ukiobj.process.uu_cov[i][j, j])
+        θθ_std_arr[j, i] = sqrt(get_u_cov(ukiobj, i)[j, j])
     end
 end
 
@@ -277,11 +247,11 @@ plot!(ites, fill(params_true[2], N_iter + 1), linestyle = :dash, linecolor = :gr
 
 
 
-#plots
+#plots - unconstrained space
 gr(size = (600, 600))
 dθ = 1.0
-for i in 1:N_iter
-    θ_mean, θθ_cov = ukiobj.process.u_mean[i], ukiobj.process.uu_cov[i]
+anim_ukp_lorenz = @animate for i in 1:N_iter
+    θ_mean, θθ_cov = get_u_mean(ukiobj, i), get_u_cov(ukiobj, i)
     xx = Array(LinRange(params_true[1] - dθ, params_true[1] + dθ, 100))
     yy = Array(LinRange(params_true[2] - dθ, params_true[2] + dθ, 100))
     xx, yy, Z = Gaussian_2d(θ_mean, θθ_cov, 100, 100, xx = xx, yy = yy)
@@ -298,6 +268,6 @@ for i in 1:N_iter
         title = "UKI iteration = " * string(i),
     )
     plot!([params_true[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
-    display(p)
-    sleep(0.5)
 end
+
+gif(anim_ukp_lorenz, joinpath(figure_save_directory, "ukp_unconstrained_lorenz.gif"), fps = 1) # hide

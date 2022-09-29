@@ -21,7 +21,7 @@ In multiparameter settings, one should define one `ParameterDistribution` per pa
     
     For more notations see our [Glossary](@ref).
 
-### Recommended constructor
+### [Recommended constructor](@id constrained-gaussian)
 
 `constrained_gaussian()` is a streamlined constructor for `ParameterDistribution`s which addresses the most common use case; more general forms of the constructor are documented below, but we **highly** recommend that users begin here when it comes to specifying priors, only using the general constructor when necessary.
 
@@ -123,7 +123,7 @@ This is simply a `String` used to identify different parameters in multi-paramet
 
 ## ParameterDistribution constructor
 
-The [Recommended constructor](@ref), `constrained_gaussian()`, is described above. For more general cases in which the prior needs to be specified in more detail, a `ParameterDistribution` may be constructed "manually" from its component objects:
+The [Recommended constructor](@ref constrained-gaussian), `constrained_gaussian()`, is described above. For more general cases in which the prior needs to be specified in more detail, a `ParameterDistribution` may be constructed "manually" from its component objects:
 
 ```julia
 prior_1 = ParameterDistribution(distribution_1, constraint_1, name_1)

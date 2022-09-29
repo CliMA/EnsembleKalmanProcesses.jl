@@ -37,11 +37,14 @@ nothing # hide
 # ### Prior distributions
 #
 # As we work with a Bayesian method, we define a prior. This will behave like an "initial guess"
-# for the likely region of parameter space we expect the solution to live in.
-prior_u1 = Dict("distribution" => Parameterized(Normal(0, 1)), "constraint" => no_constraint(), "name" => "u1")
-prior_u2 = Dict("distribution" => Parameterized(Normal(0, 1)), "constraint" => no_constraint(), "name" => "u2")
-
-prior = ParameterDistribution([prior_u1, prior_u2])
+# for the likely region of parameter space we expect the solution to live in. Here we define
+# ``Normal(0,1)`` distributions with no constraints 
+prior_u1 = constrained_gaussian("u1", 0, 1, -Inf, Inf)
+prior_u2 = constrained_gaussian("u1", 0, 1, -Inf, Inf)
+prior = combine_distributions([prior_u1, prior_u2])
+nothing # hide
+# !!! note
+#     In this example there are no constraints, therefore no parameter transformations.
 
 # ### Calibration
 #
@@ -57,7 +60,7 @@ initial_ensemble = EKP.construct_initial_ensemble(prior, N_ensemble; rng_seed = 
 # target, the stabilization and the process type (for EKI this is `Inversion`, initialized 
 # with `Inversion()`). 
 ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, Inversion())
-
+nothing # hide
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
 # the model outputs:
@@ -137,10 +140,11 @@ G_target = [0]
 # We define the prior. We can place prior information on e.g., ``u₁``, demonstrating a belief
 # that ``u₁`` is more likely to be negative. This can be implemented by setting a bias in the
 # mean of its prior distribution to e.g., ``-0.5``:
-prior_u1 = Dict("distribution" => Parameterized(Normal(-0.5, sqrt(2))), "constraint" => no_constraint(), "name" => "u1")
-prior_u2 = Dict("distribution" => Parameterized(Normal(0, sqrt(2))), "constraint" => no_constraint(), "name" => "u2")
-
-prior = ParameterDistribution([prior_u1, prior_u2])
+prior_u1 = constrained_gaussian("u1", -0.5, sqrt(2), -Inf, Inf)
+prior_u2 = constrained_gaussian("u1", 0, sqrt(2), -Inf, Inf)
+prior = combine_distributions([prior_u1, prior_u2])
+# !!! note
+#     In this example there are no constraints, therefore no parameter transformations.
 
 # ### Calibration
 #

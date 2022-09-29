@@ -11,6 +11,7 @@ using StatsBase
 using LinearAlgebra
 using StatsPlots
 using Plots
+using Plots.PlotMeasures
 using JLD2
 using Random
 
@@ -60,34 +61,10 @@ dist_true = ParticleDistributions.GammaPrimitiveParticleDistribution(ϕ_true...)
 ###
 # We choose to use normal distributions to represent the prior distributions of
 # the parameters in the transformed (unconstrained) space. i.e log coordinates
-
-# N0
-lbound_N0 = 0.4 * N0_true
-prior_N0 = Dict(
-    "distribution" => Parameterized(Normal(4.5, 1.0)), #truth is 5.19
-    "constraint" => bounded_below(lbound_N0),
-    "name" => par_names[1],
-)
-
-# θ
-lbound_θ = 1.0e-1
-prior_θ = Dict(
-    "distribution" => Parameterized(Normal(0.0, 2.0)),  #truth is 0.378
-    "constraint" => bounded_below(lbound_θ),
-    "name" => par_names[2],
-)
-
-
-# k
-lbound_k = 1.0e-4
-prior_k = Dict(
-    "distribution" => Parameterized(Normal(-1.0, 1.0)), #truth is -2.51 
-    "constraint" => bounded_below(lbound_k),
-    "name" => par_names[3],
-)
-
-priors = ParameterDistribution([prior_N0, prior_θ, prior_k])
-
+prior_N0 = constrained_gaussian(par_names[1], 400, 300, 0.4 * N0_true, Inf)
+prior_θ = constrained_gaussian(par_names[2], 1.0, 5.0, 1e-1, Inf)
+prior_k = constrained_gaussian(par_names[3], 0.2, 1.0, 1e-4, Inf)
+priors = combine_distributions([prior_N0, prior_θ, prior_k])
 
 ###
 ###  Define the data from which we want to learn the parameters
@@ -154,9 +131,8 @@ dist_type = ParticleDistributions.GammaPrimitiveParticleDistribution(dummy...)
 model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, tspan)
 # EKI iterations
 for n in 1:N_iter
-    θ_n = get_u_final(ekiobj)
-    # Transform parameters to physical/constrained space
-    ϕ_n = mapslices(x -> transform_unconstrained_to_constrained(priors, x), θ_n; dims = 1)
+    # Return transformed parameters in physical/constrained space
+    ϕ_n = get_ϕ_final(priors, ekiobj)
     # Evaluate forward map
     G_n = [run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:N_ens]
     G_ens = hcat(G_n...)  # reformat
@@ -169,18 +145,18 @@ println("True parameters (unconstrained): ")
 println(θ_true)
 
 println("\nEKI results:")
-println(mean(get_u_final(ekiobj), dims = 2))
+println(get_u_mean_final(ekiobj))
 
 u_stored = get_u(ekiobj, return_array = false)
 g_stored = get_g(ekiobj, return_array = false)
 @save data_save_directory * "parameter_storage_eki.jld2" u_stored
 @save data_save_directory * "data_storage_eki.jld2" g_stored
 
-#plots
-gr(size = (1800, 600))
+#plots - unconstrained
+gr(size = (1200, 400))
 
 u_init = get_u_prior(ekiobj)
-for i in 1:N_iter
+anim_eki_unconst_cloudy = @animate for i in 1:N_iter
     u_i = get_u(ekiobj, i)
 
     p1 = plot(u_i[1, :], u_i[2, :], seriestype = :scatter, xlims = extrema(u_init[1, :]), ylims = extrema(u_init[2, :]))
@@ -193,6 +169,7 @@ for i in 1:N_iter
         linestyle = :dash,
         linecolor = :red,
         label = false,
+        margin = 5mm,
         title = "EKI iteration = " * string(i),
     )
     plot!(p1, [θ_true[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
@@ -201,12 +178,13 @@ for i in 1:N_iter
     plot!(
         p2,
         [θ_true[2]],
-        xaxis = "u1",
-        yaxis = "u2",
+        xaxis = "u2",
+        yaxis = "u3",
         seriestype = "vline",
         linestyle = :dash,
         linecolor = :red,
         label = false,
+        margin = 5mm,
         title = "EKI iteration = " * string(i),
     )
     plot!(p2, [θ_true[3]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
@@ -215,17 +193,71 @@ for i in 1:N_iter
     plot!(
         p3,
         [θ_true[3]],
-        xaxis = "u1",
-        yaxis = "u2",
+        xaxis = "u3",
+        yaxis = "u1",
         seriestype = "vline",
         linestyle = :dash,
         linecolor = :red,
         label = false,
+        margin = 5mm,
         title = "EKI iteration = " * string(i),
     )
     plot!(p3, [θ_true[1]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
 
     p = plot(p1, p2, p3, layout = (1, 3))
-    display(p)
-    sleep(0.5)
 end
+gif(anim_eki_unconst_cloudy, joinpath(figure_save_directory, "eki_unconst_cloudy.gif"), fps = 1) # hide
+
+# plots - constrained
+ϕ_init = transform_unconstrained_to_constrained(priors, u_init)
+anim_eki_cloudy = @animate for i in 1:N_iter
+    ϕ_i = get_ϕ(priors, ekiobj, i)
+
+    p1 = plot(ϕ_i[1, :], ϕ_i[2, :], seriestype = :scatter, xlims = extrema(ϕ_init[1, :]), ylims = extrema(ϕ_init[2, :]))
+    plot!(
+        p1,
+        [ϕ_true[1]],
+        xaxis = "ϕ1",
+        yaxis = "ϕ2",
+        seriestype = "vline",
+        linestyle = :dash,
+        linecolor = :red,
+        margin = 5mm,
+        label = false,
+        title = "EKI iteration = " * string(i),
+    )
+    plot!(p1, [ϕ_true[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
+
+    p2 = plot(ϕ_i[2, :], ϕ_i[3, :], seriestype = :scatter, xlims = extrema(ϕ_init[2, :]), ylims = extrema(ϕ_init[3, :]))
+    plot!(
+        p2,
+        [ϕ_true[2]],
+        xaxis = "ϕ2",
+        yaxis = "ϕ3",
+        seriestype = "vline",
+        linestyle = :dash,
+        linecolor = :red,
+        margin = 5mm,
+        label = false,
+        title = "EKI iteration = " * string(i),
+    )
+    plot!(p2, [ϕ_true[3]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
+
+    p3 = plot(ϕ_i[3, :], ϕ_i[1, :], seriestype = :scatter, xlims = extrema(ϕ_init[3, :]), ylims = extrema(ϕ_init[1, :]))
+    plot!(
+        p3,
+        [ϕ_true[3]],
+        xaxis = "ϕ3",
+        yaxis = "ϕ1",
+        seriestype = "vline",
+        linestyle = :dash,
+        linecolor = :red,
+        margin = 5mm,
+        label = false,
+        title = "EKI iteration = " * string(i),
+    )
+    plot!(p3, [ϕ_true[1]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = "optimum")
+
+    p = plot(p1, p2, p3, layout = (1, 3))
+end
+gif(anim_eki_cloudy, joinpath(figure_save_directory, "eki_cloudy.gif"), fps = 1) # hide

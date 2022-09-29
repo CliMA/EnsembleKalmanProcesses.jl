@@ -82,30 +82,16 @@ k_true = 0.0817  # shape parameter of Gamma distribution
 
 #### Priors
 
-All three parameters have to be strictly positive, so we put lower bounds `[lbound_N0, lbound_0, lbound_k]` on them and use a shifted log transformation, ``\mathcal{T}(x) = \log(x - \text{lbound})``, to map the parameter vector ``\phi_0`` to the parameter vector ``\theta = [\mathcal{T}(N_{0,0}), \mathcal{T}(k_0),\mathcal{T}(\theta_0)]`` which is normally distributed:
-
-``\mathcal{T}(N_{0,0})~\sim \mathcal{N}(4.5, 1.0),  \mathcal{T}(k_0) \sim \mathcal{N}(0.0, 2.0), \mathcal{T}(\theta_0) \sim \mathcal{N}(-1.0, 1.0)``. 
-
-The ensemble Kalman algorithm is then performed in the unconstrained "``\theta``-space" (note: don't confuse the parameter vector ``\theta`` with the ``\theta_t`` parameter of the Gamma distribution). A more detailed treatment of these kinds of transformations from constrained/physical to unconstrained/computational parameters is found [here](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/ensemble_kalman_inversion/).
-
 In the code, the priors are constructed as follows:
 ```julia
 par_names = ["N0", "θ", "k"]
-
-c1 = bounded_below(lbound_N0)
-c2 = bounded_below(lbound_θ)
-c3 = bounded_below(lbound_k)
-constraints = [[c1], [c2], [c3]]
-
-# We choose to use normal distributions to represent the prior distributions of
-# the parameters in the unconstrained space
-d1 = Parameterized(Normal(4.5, 1.0))  #truth is 5.19
-d2 = Parameterized(Normal(0.0, 2.0))  #truth is 0.378
-d3 = Parameterized(Normal(-1.0, 1.0)) #truth is -2.51
-distributions = [d1, d2, d3]
-
-priors = ParameterDistribution(distributions, constraints, par_names)
+# constrained_gaussian("name", desired_mean, desired_std, lower_bd, upper_bd)
+prior_N0 = constrained_gaussian(par_names[1], 400, 300, 0.4 * N0_true, Inf)
+prior_θ = constrained_gaussian(par_names[2], 1.0, 5.0, 1e-1, Inf)
+prior_k = constrained_gaussian(par_names[3], 0.2, 1.0, 1e-4, Inf)
+priors = combine_distributions([prior_N0, prior_θ, prior_k])
 ```
+We use the recommended [`constrained_gaussian`](@ref constrained-gaussian) to add the desired scale and bounds to the prior distribution, in particular we place lower bounds to preserve positivity (and numerical stability). 
 
 #### Observational Noise
 
@@ -134,9 +120,9 @@ truth = Observations.Observation(y_t, Γy, data_names)
 
 ### Solution and Output
 
-* `Cloudy_example_eki.jl`: The optimal parameter vector determined by the ensemble Kalman inversion is the ensemble mean of the particles after the last iteration, which is printed to standard output. An output directory is created, where two files are stored: `parameter_storage_eki.jld2` and `data_storage_eki.jld2`, which contain all parameters and model output from the ensemble Kalman iterations, respectively (both as `DataContainers.DataContainer` objects). In addition, an animation is produced that shows the evolution of the ensemble of particles over subsequent iterations of the optimization.
+* `Cloudy_example_eki.jl`: The optimal parameter vector determined by the ensemble Kalman inversion is the ensemble mean of the particles after the last iteration, which is printed to standard output. An output directory is created, where two files are stored: `parameter_storage_eki.jld2` and `data_storage_eki.jld2`, which contain all parameters and model output from the ensemble Kalman iterations, respectively (both as `DataContainers.DataContainer` objects). In addition, an animation is produced that shows the evolution of the ensemble of particles over subsequent iterations of the optimization, both in the computational (unconstrained) and physical (constrained) spaces.
 
-* `Cloudy_example_uki.jl`: In addition to a point estimate of the optimal parameter (which is again given by the ensemble mean of the last iteration and printed to standard output), Unscented Kalman inversion also provides a covariance approximation of the posterior distribution. Together, the mean and covariance allow for the reconstruction of a Gaussian approximation of the posterior distribution. The evolution of this Gaussian approximation over subsequent iterations is shown as an animation. All parameters as well as the model output from the unscented Kalman inversion are stored in an output directory, as `parameter_storage_uki.jld2` and `data_storage_uki.jld2`.
+* `Cloudy_example_uki.jl`: In addition to a point estimate of the optimal parameter (which is again given by the ensemble mean of the last iteration and printed to standard output), unscented Kalman inversion also provides a covariance approximation of the posterior distribution. Together, the mean and covariance allow for the reconstruction of a Gaussian approximation of the posterior distribution. The evolution of this Gaussian approximation over subsequent iterations is shown as an animation over the computational (unconstrained) space. All parameters as well as the model output from the unscented Kalman inversion are stored in an output directory, as `parameter_storage_uki.jld2` and `data_storage_uki.jld2`. 
 
 
 ### Playing Around
