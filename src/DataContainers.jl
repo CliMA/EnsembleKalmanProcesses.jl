@@ -31,7 +31,7 @@ end
 """
     PairedDataContainer{FT <: Real}
 
-stores input - output pairs as data containers, there must be an equal number of inputs and outputs
+Stores input - output pairs as data containers, there must be an equal number of inputs and outputs.
 """
 struct PairedDataContainer{FT <: Real}
     # container for inputs and ouputs, each Container holds an array
@@ -77,7 +77,8 @@ struct PairedDataContainer{FT <: Real}
 
 end
 
-## functions
+## Functions
+
 """
     size(dc::DataContainer, idx::IT) where {IT <: Integer}
 
@@ -92,14 +93,14 @@ size(pdc::PairedDataContainer) = size(pdc.inputs), size(pdc.outputs)
 """
     size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer}
 
-Returns the sizes of the inputs and ouputs along dimension `idx` (if provided)
+Returns the sizes of the inputs and ouputs along dimension `idx` (if provided).
 """
 size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer} = size(pdc.inputs, idx), size(pdc.outputs, idx)
 
 """
     get_data(pdc::PairedDataContainer)
 
-Returns both input and output data stored in pdc
+Returns both input and output data stored in `pdc`.
 """
 get_data(dc::DataContainer) = deepcopy(dc.stored_data)
 get_data(pdc::PairedDataContainer) = get_inputs(pdc), get_outputs(pdc)
@@ -107,14 +108,14 @@ get_data(pdc::PairedDataContainer) = get_inputs(pdc), get_outputs(pdc)
 """
     get_inputs(pdc::PairedDataContainer)
 
-Returns input data stored in pdc
+Returns input data stored in `pdc`.
 """
 get_inputs(pdc::PairedDataContainer) = get_data(pdc.inputs)
 
 """
     get_outputs(pdc::PairedDataContainer)
 
-Returns output data stored in pdc
+Returns output data stored in `pdc`.
 """
 get_outputs(pdc::PairedDataContainer) = get_data(pdc.outputs)
 

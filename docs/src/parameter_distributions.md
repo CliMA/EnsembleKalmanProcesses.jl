@@ -77,6 +77,9 @@ p = plot(p2, legend=false, size = (450, 450)) #hide
 
 In [Simple example revisted](@ref) below, we repeat this example "manually" with the general constructor.
 
+!!! note "What if I want to impose the same prior on many parameters?"
+    
+    The recommended constructor can be called as `constrained_gaussian(...; repeats = n)` to return a combined prior formed by `n` identical priors.
 
 
 ## ParameterDistribution class

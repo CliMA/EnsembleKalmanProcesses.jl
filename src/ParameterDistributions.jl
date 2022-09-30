@@ -203,14 +203,14 @@ end
 """
     get_bounds(c::Constraint)
 
-get the bounds field from the Constraint
+Gets the bounds field from the Constraint.
 """
 get_bounds(c::C) where {C <: Constraint} = c.bounds
 
 """
     get_bounds(c::Constraint{T})
 
-get the parametric type T
+Gets the parametric type T.
 """
 get_constraint_type(c::Constraint{T}) where {T} = T
 
@@ -358,7 +358,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 end
 
 """
-    function ParameterDistribution(distribution::ParameterDistributionType,
+    ParameterDistribution(distribution::ParameterDistributionType,
                                    constraint::Union{ConstraintType,AbstractVector{ConstraintType}},
                                    name::AbstractString)
 
@@ -400,23 +400,21 @@ function ParameterDistribution(
 
 end
 
-"""
-    combine_distributions(pd_vec::AbstractVector{ParameterDistribution}...; dims = 1)
 
-concatenate from vector of single ParameterDistributions, dims keyword is unused
+## Functions
+
 """
-function combine_distributions(pd_vec::AbstractVector{PD}; dims = 1) where {PD <: ParameterDistribution}
+    combine_distributions(pd_vec::AbstractVector{PD})
+
+Form a ParameterDistribution by concatenating a vector of single ParameterDistributions.
+"""
+function combine_distributions(pd_vec::AbstractVector{PD}) where {PD <: ParameterDistribution}
     # flatten the structure
     distribution = cat([d.distribution for d in pd_vec]..., dims = 1)
     constraint = cat([d.constraint for d in pd_vec]..., dims = 1)
     name = cat([d.name for d in pd_vec]..., dims = 1)
     return ParameterDistribution(distribution, constraint, name)
 end
-
-
-
-
-## Functions
 
 """
     get_name(pd::ParameterDistribution)
@@ -820,21 +818,30 @@ end
 
 
 """
-    constrained_gaussian(name::AbstractString, μ_c::Real, σ_c::Real, lower_bound::Real, upper_bound::Real)
+    constrained_gaussian(
+        name::AbstractString,
+        μ_c::Real,
+        σ_c::Real,
+        lower_bound::Real,
+        upper_bound::Real;
+        repeats = 1,
+        optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
+        optim_kwargs...,
+    )
 
 Constructor for a 1D ParameterDistribution consisting of a transformed Gaussian, constrained
-to have support on [`lower_bound`, `upper_bound`], with first two moments μ_c and σ_c^2. The 
+to have support on [`lower_bound`, `upper_bound`], with first two moments `μ_c` and `σ_c^2`. The 
 moment integrals can't be done in closed form, so we set the parameters of the distribution
 with numerical optimization.
 
 !!! note
     The intended use case is defining priors set from user expertise for use in inference 
     with adequate data, so for the sake of performance we only require that the optimization
-    reproduce μ_c, σ_c to a loose tolerance (1e-5). Warnings are logged when the optimization
+    reproduce `μ_c`, `σ_c` to a loose tolerance (1e-5). Warnings are logged when the optimization
     fails.
 
 !!! note
-    The distribution may be bimodal for σ_c large relative to the width of the bound interval.
+    The distribution may be bimodal for `σ_c` large relative to the width of the bound interval.
     In extreme cases the distribution becomes concentrated at the bound endpoints. We regard
     this as a feature, not a bug, and do not warn the user when bimodality occurs.
 """
