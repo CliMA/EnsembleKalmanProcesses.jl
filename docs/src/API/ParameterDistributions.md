@@ -6,6 +6,7 @@ CurrentModule = EnsembleKalmanProcesses.ParameterDistributions
 
 ```@docs
 ParameterDistribution
+constrained_gaussian
 Parameterized
 Samples
 Constraint
