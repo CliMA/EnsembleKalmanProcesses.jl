@@ -9,7 +9,7 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 | **Unit tests**       | [![unit tests][unit-tests-img]][unit-tests-url]  |
 | **Code Coverage**    | [![codecov][codecov-img]][codecov-url]           |
 | **Bors**             | [![Bors enabled][bors-img]][bors-url]            |
-
+| **JOSS**             | [![status][joss-img]][joss-url]                  |
 
 [zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6382967.svg
 [zenodo-latest-url]: https://doi.org/10.5281/zenodo.6382967
@@ -28,6 +28,9 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 
 [codecov-img]: https://codecov.io/gh/CliMA/EnsembleKalmanProcesses.jl/branch/main/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/CliMA/EnsembleKalmanProcesses.jl
+
+[joss-img]: https://joss.theoj.org/papers/5cb2d4c6af8840af61b44071ae1e672a/status.svg
+[joss-url]: https://joss.theoj.org/papers/5cb2d4c6af8840af61b44071ae1e672a
 
 ### Requirements
 Julia version 1.6+ 
