@@ -568,14 +568,6 @@ using EnsembleKalmanProcesses.ParameterDistributions
             @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1.0, 1000.0)
             @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1000.0, 1.0)
             @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1.0, 1.0)
-            # optimization failure
-            @test_logs (:warn,) match_mode = :any ParameterDistributions._constrained_gaussian(
-                "test",
-                0.99999,
-                0.000006,
-                0.0,
-                1.0,
-            )
         end
         @testset "constrained_gaussian: closed form" begin
             μ_c = -5.0
@@ -644,11 +636,6 @@ using EnsembleKalmanProcesses.ParameterDistributions
         end
 
         @testset "constrained_gaussian: optimization" begin
-            # Analytic form for inital guess
-            μ_u, σ_u = ParameterDistributions._constrained_gaussian_guess(0.2, 0.1, 0.0, 1.0)
-            @test isapprox(μ_u, -1.54518, atol = 1e-5, rtol = 1e-5)
-            @test isapprox(σ_u, 0.69622, atol = 1e-5, rtol = 1e-5)
-
             # lognormal - analytic
             μ_u = 1.0
             σ_u = 2.0
