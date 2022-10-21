@@ -913,27 +913,6 @@ function constrained_gaussian(
     end
 end
 
-function _constrained_gaussian_guess(μ_c::Real, σ_c::Real, lower_bound::Real, upper_bound::Real)
-    # Initial guess for μ_c, σ_c in _constrained_gaussian optimization.
-    # Equations result from inverting the system 
-    # μ_c = f^{-1}(μ_u / sqrt(1 + σ_u^2/2))
-    # σ_c = f^{-1}((μ_u + σ_u/2) / sqrt(1 + σ_u^2/2)) - f^{-1}((μ_u - σ_u/2) / sqrt(1 + σ_u^2/2))
-    # where f^{-1} is the specific form of cons.unconstrained_to_constrained().
-
-    cons = bounded(lower_bound, upper_bound)
-    _Δul = upper_bound - lower_bound
-    _Δum = upper_bound - μ_c
-    _Δml = μ_c - lower_bound
-    init_σ_u =
-        0.5 * (
-            -σ_c * (_Δum^2 + _Δml^2) / (_Δum * _Δml * (σ_c - 1.0)) +
-            hypot(2 * _Δum * _Δml, _Δul * σ_c * (_Δum - _Δml)) / (_Δum * _Δml * abs(σ_c - 1.0))
-        )
-    init_σ_u = 2.0 * log(init_σ_u) / sqrt(1.0 - 2 * log(init_σ_u)^2)
-    init_μ_u = sqrt(1.0 + init_σ_u^2 / 2.0) * cons.constrained_to_unconstrained(μ_c)
-    return (init_μ_u, init_σ_u)
-end
-
 function _constrained_gaussian(
     name::AbstractString,
     μ_c::Real,
@@ -952,7 +931,7 @@ function _constrained_gaussian(
     # for analytically.
 
     cons = bounded(lower_bound, upper_bound)
-    init_μ_u, init_σ_u = _constrained_gaussian_guess(μ_c, σ_c, lower_bound, upper_bound)
+    init_μ_u, init_σ_u = (0.0, 1.0)
     # optimize in log σ to avoid constraint σ>0
     init_logσ_u = log(init_σ_u)
 
