@@ -15,6 +15,7 @@ const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/literated")
 
 examples_for_literation = [
+    "Sinusoid/sinusoid_example.jl",
     "LossMinimization/loss_minimization.jl",
     "SparseLossMinimization/loss_minimization_sparse_eki.jl",
     "AerosolActivation/aerosol_activation.jl",
@@ -56,6 +57,7 @@ api = [
 ]
 
 examples = [
+    "Simple example" => "literated/sinusoid_example.md",
     "Template" => "examples/template_example.md",
     "Cloudy" => "examples/Cloudy_example.md",
     "Lorenz" => "examples/lorenz_example.md",

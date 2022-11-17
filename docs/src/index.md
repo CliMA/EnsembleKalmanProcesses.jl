@@ -17,6 +17,11 @@ ParameterDistributions.jl                   | Structures to hold prior and poste
 DataContainers.jl                           | Structure to hold model parameters and outputs
 Localizers.jl                               | Covariance localization kernels
 
+## Learning the amplitude and vertical shift of a sine curve
+![Ensemble of parameter estimates by iteration](assets/sinusoid_example.gif)
+
+[See full example for the code.](literated/sinusoid_example.md)
+
 ## Authors
 
 `EnsembleKalmanProcesses.jl` is being developed by the [Climate Modeling
