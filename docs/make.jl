@@ -70,17 +70,17 @@ examples = [
 pages = [
     "Home" => "index.md",
     "Installation instructions" => "installation_instructions.md",
-    "Contributing" => "contributing.md",
-    "Prior distributions" => "parameter_distributions.md",
-    "Observations" => "observations.md",
-    "Internal data representation" => "internal_data_representation.md",
+    "Examples" => examples,
     "Ensemble Kalman Inversion" => "ensemble_kalman_inversion.md",
     "Ensemble Kalman Sampler" => "ensemble_kalman_sampler.md",
     "Unscented Kalman Inversion" => "unscented_kalman_inversion.md",
+    "Prior distributions" => "parameter_distributions.md",
+    "Internal data representation" => "internal_data_representation.md",
     "Localization and SEC" => "localization.md",
     "Parallelism and HPC" => "parallel_hpc.md",
-    "Examples" => examples,
+    "Observations" => "observations.md",
     "API" => api,
+    "Contributing" => "contributing.md",
     "Glossary" => "glossary.md",
 ]
 
