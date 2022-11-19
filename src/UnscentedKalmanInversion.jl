@@ -618,7 +618,8 @@ end
 """
     update_ensemble!(
         uki::EnsembleKalmanProcess{FT, IT, Unscented},
-        g_in::AbstractMatrix{FT};
+        g_in::AbstractMatrix{FT},
+        process::Unscented;
         Δt_new = nothing,
         failed_ens = nothing,
     ) where {FT <: AbstractFloat, IT <: Int}
@@ -628,13 +629,15 @@ Updates the ensemble according to an Unscented process.
 Inputs:
  - `uki`        :: The EnsembleKalmanProcess to update.
  - `g_in`       :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - `process` :: Type of the EKP.
  - `Δt_new`     :: Time step to be used in the current update.
  - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
     with NaN entries.
 """
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    g_in::AbstractMatrix{FT};
+    g_in::AbstractMatrix{FT},
+    process::Unscented;
     Δt_new = nothing,
     failed_ens = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
