@@ -91,7 +91,8 @@ end
 """
     update_ensemble!(
         ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}},
-        g::AbstractMatrix{FT};
+        g::AbstractMatrix{FT},
+        process::Sampler{FT};
         failed_ens = nothing,
     ) where {FT, IT}
 
@@ -100,12 +101,14 @@ Updates the ensemble according to a Sampler process.
 Inputs:
  - ekp :: The EnsembleKalmanProcess to update.
  - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - process :: Type of the EKP.
  - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g`
     with NaN entries.
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}},
-    g::AbstractMatrix{FT};
+    g::AbstractMatrix{FT},
+    process::Sampler{FT};
     failed_ens = nothing,
 ) where {FT, IT}
 

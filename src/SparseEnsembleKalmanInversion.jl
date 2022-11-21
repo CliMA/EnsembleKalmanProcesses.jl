@@ -173,8 +173,9 @@ end
 """
     update_ensemble!(
         ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
-        g::AbstractMatrix{FT};
-        cov_threshold::FT = 0.01,
+        g::AbstractMatrix{FT},
+        process::SparseInversion{FT};
+        cov_threshold::Real = 0.01,
         Δt_new = nothing,
         deterministic_forward_map = true,
         failed_ens = nothing,
@@ -185,6 +186,7 @@ Updates the ensemble according to a SparseInversion process.
 Inputs:
  - `ekp` :: The EnsembleKalmanProcess to update.
  - `g` :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - `process` :: Type of the EKP.
  - `cov_threshold` :: Threshold below which the reduction in covariance determinant results in a warning.
  - `Δt_new` :: Time step to be used in the current update.
  - `deterministic_forward_map` :: Whether output `g` comes from a deterministic model.
@@ -193,7 +195,8 @@ Inputs:
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
-    g::AbstractMatrix{FT};
+    g::AbstractMatrix{FT},
+    process::SparseInversion{FT};
     cov_threshold::Real = 0.01,
     Δt_new = nothing,
     deterministic_forward_map = true,

@@ -118,7 +118,8 @@ end
 """
     update_ensemble!(
         ekp::EnsembleKalmanProcess{FT, IT, Inversion},
-        g::AbstractMatrix{FT};
+        g::AbstractMatrix{FT},
+        process::Inversion;
         cov_threshold::Real = 0.01,
         Δt_new::Union{Nothing, FT} = nothing,
         deterministic_forward_map::Bool = true,
@@ -130,15 +131,16 @@ Updates the ensemble according to an Inversion process.
 Inputs:
  - ekp :: The EnsembleKalmanProcess to update.
  - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - process :: Type of the EKP.
  - cov_threshold :: Threshold below which the reduction in covariance determinant results in a warning.
  - Δt_new :: Time step to be used in the current update.
  - deterministic_forward_map :: Whether output `g` comes from a deterministic model.
- - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g`
-    with NaN entries.
+ - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
-    g::AbstractMatrix{FT};
+    g::AbstractMatrix{FT},
+    process::Inversion;
     cov_threshold::Real = 0.01,
     Δt_new::Union{Nothing, FT} = nothing,
     deterministic_forward_map::Bool = true,

@@ -321,6 +321,14 @@ function get_N_iterations(ekp::EnsembleKalmanProcess)
 end
 
 """
+    get_process(ekp::EnsembleKalmanProcess)
+Return process type of EnsembleKalmanProcess.
+"""
+function get_process(ekp::EnsembleKalmanProcess)
+    return ekp.process
+end
+
+"""
     construct_initial_ensemble(
         rng::AbstractRNG,
         prior::ParameterDistribution,
@@ -438,6 +446,22 @@ function get_cov_blocks(cov::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <:
     ug_cov = cov[1:p, (p + 1):end]
     gg_cov = cov[(p + 1):end, (p + 1):end]
     return uu_cov, ug_cov, gg_cov
+end
+
+"""
+    update_ensemble!(
+        ekp::EnsembleKalmanProcess,
+        g::AbstractMatrix{FT};
+        ekp_kwargs...,
+    ) where {FT, IT}
+Updates the ensemble according to an Inversion process.
+Inputs:
+ - ekp :: The EnsembleKalmanProcess to update.
+ - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - ekp_kwargs :: Keyword arguments to pass to standard ekp update_ensemble!.
+"""
+function update_ensemble!(ekp::EnsembleKalmanProcess, g::AbstractMatrix{FT}; ekp_kwargs...) where {FT, IT}
+    update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
 end
 
 ## include the different types of Processes and their exports:
