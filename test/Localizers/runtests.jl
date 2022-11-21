@@ -63,6 +63,8 @@ const EKP = EnsembleKalmanProcesses
         cov_est = cov([u_final; g_final], [u_final; g_final], dims = 2, corrected = false)
         cov_localized = ekiobj.localizer.localize(cov_est)
         @test rank(cov_est) < rank(cov_localized)
+        # Test localization getter method
+        @test isa(loc_method, EKP.get_localizer(ekiobj))
     end
 
 end
