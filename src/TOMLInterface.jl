@@ -1,4 +1,4 @@
-module UQParameters
+module TOMLInterface
 
 # Imports
 using TOML
@@ -7,13 +7,36 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
 
 # Exports
-export read_parameters
+export path_to_ensemble_member
 export get_parameter_distribution
+export get_parameter_values
 export save_parameter_ensemble
-export get_UQ_parameters
+export get_admissible_parameters
 export get_regularization
 export write_log_file
 
+
+"""
+    get_parameter_values(param_dict, names)
+
+Gets parameter values from a parameter dictionary, indexing by name.
+
+Args:
+`param_dict` - nested dictionary that has parameter names as keys and the
+               corresponding dictionary of parameter information (in particular,
+               the parameters' values)
+`name` - iterable parameter names
+`return_type` - return type, default "dict", otherwise "array"
+"""
+function get_parameter_values(param_dict::Dict, names; return_type = "dict")
+    if return_type == "dict"
+        return Dict(n => param_dict[n]["value"] for n in names)
+    elseif return_type == "array"
+        return [param_dict[n]["value"] for n in names]
+    else
+        throw(ArgumentError("Unknown `return_type`. Expected \"dict\" or \"array\", got $return_type"))
+    end
+end
 
 """
     get_parameter_distribution(param_dict, name)
@@ -253,7 +276,10 @@ end
         default_param_data,
         save_path,
         save_file,
-        iter=nothing)
+        iteration
+        pad_zeros=3,
+    apply_constraints=true
+    )
 
 Saves the parameters in the given `param_array` to TOML files. The intended
 use is for saving the ensemble of parameters after each update of an
@@ -261,18 +287,19 @@ ensemble Kalman process.
 Each ensemble member (column of `param_array`) is saved in a separate
 directory "member_<j>" (j=1, ..., N_ens). The name of the saved toml file is
 given by `save_file`; it is the same for all members.
-If an iteration `iter` is given, a directory "iteration_<iter>" is created in
-`save_path`, which contains all the "member_<j>" subdirectories.
+A directory "iteration_<iter>" is created in `save_path`, which contains all the "member_<j>" subdirectories.
 
 Args:
 `param_array` - array of size N_param x N_ens
 `param_distribution` - the parameter distribution underlying `param_array`
+`apply_constraints` -  apply the constraints in `param_distribution`
 `default_param_data` - dict of default parameters to be combined and saved with
                        the parameters in `param_array` into a toml file
 `save_path` - path to where the parameters will be saved
 `save_file` - name of the toml files to be generated
-`iter` - the iteration of the ensemble Kalman process represented by the given
+`iteration` - the iteration of the ensemble Kalman process represented by the given
          `param_array`
+`pad_zeros` - the amount of zero-padding for the ensemble member number
 """
 function save_parameter_ensemble(
     param_array::Array{FT, 2},
@@ -280,12 +307,43 @@ function save_parameter_ensemble(
     default_param_data::Dict,
     save_path::AbstractString,
     save_file::AbstractString,
-    iter::Union{Int, Nothing} = nothing,
+    iteration::Int;
+    pad_zeros = 3,
+    apply_constraints = true,
+) where {FT}
+
+    save_dir = joinpath(save_path, join(["iteration", lpad(iteration, pad_zeros, "0")], "_"))
+    return save_parameter_ensemble(
+        param_array,
+        param_distribution,
+        default_param_data,
+        save_dir,
+        save_file;
+        pad_zeros = pad_zeros,
+        apply_constraints = apply_constraints,
+    )
+end
+
+"""
+One can also call this without the iteration level
+"""
+function save_parameter_ensemble(
+    param_array::Array{FT, 2},
+    param_distribution::ParameterDistribution,
+    default_param_data::Dict,
+    save_path::AbstractString,
+    save_file::AbstractString;
+    pad_zeros = 3,
+    apply_constraints = true,
 ) where {FT}
 
     # The parameter values are currently in the unconstrained space
     # where the ensemble Kalman algorithm takes place
-    save_array = transform_unconstrained_to_constrained(param_distribution, param_array)
+    if apply_constraints
+        save_array = transform_unconstrained_to_constrained(param_distribution, param_array)
+    else
+        save_array = param_array
+    end
 
     # The number of rows in param_array represent the sum of all parameter
     # dimensions. We need to determine the slices of rows that belong to
@@ -298,17 +356,16 @@ function save_parameter_ensemble(
     N_ens = size(save_array)[2]
 
     # Create directory where files will be stored if it doesn't exist yet
-    save_dir = isnothing(iter) ? save_path : joinpath(save_path, join(["iteration", lpad(iter, 2, "0")], "_"))
-    mkpath(save_dir)
+    mkpath(save_path)
 
     # Each ensemble member gets its own subdirectory
-    subdir_names = generate_subdir_names(N_ens)
+    subdir_names = generate_subdir_names(N_ens, mode = "all", pad_zeros = pad_zeros)
 
     # All parameter toml files (one for each ensemble member) have the same name
     toml_file = endswith(save_file, ".toml") ? save_file : save_file * ".toml"
 
     for i in 1:N_ens
-        mkpath(joinpath(save_dir, subdir_names[i]))
+        mkpath(joinpath(save_path, subdir_names[i]))
         # Override the value (or add a value, if no value exists yet)
         # of the parameter in the original parameter dict with the
         # corresponding value in param_array
@@ -316,12 +373,42 @@ function save_parameter_ensemble(
 
         param_dict_updated = assign_values!(i, save_array, param_distribution, param_slices, param_dict, param_names)
 
-        open(joinpath(save_dir, subdir_names[i], toml_file), "w") do io
+        open(joinpath(save_path, subdir_names[i], toml_file), "w") do io
             TOML.print(io, param_dict_updated)
         end
     end
 end
 
+"""
+    path_to_ensemble_member(
+        base_path,
+        iteration,
+        member,
+        pad_zeros = 3,
+    )
+
+Obtains the file path to a specified ensemble member. The likely form is
+`base_path/iteration_X/member_Y/` with X,Y padded with zeros. The file path can be reconstructed with:
+`base_path` - base path to where EKP parameters are stored
+`member` - number of the ensemble member (without zero padding)
+`iteration` - iteration of ensemble method (if =nothing then only the load path is used)
+`pad_zeros` - amount of digits to pad to
+"""
+function path_to_ensemble_member(base_path::AbstractString, iteration::Int, member::Int; pad_zeros = 3)
+
+    # Get the directory of the iteration
+    base_dir = joinpath(base_path, join(["iteration", lpad(iteration, pad_zeros, "0")], "_"))
+    return path_to_ensemble_member(base_dir, member, pad_zeros = pad_zeros)
+end
+
+"""
+One can also call this without the iteration level
+"""
+function path_to_ensemble_member(base_path::AbstractString, member::Int; pad_zeros = 3)
+    # get the directory of the member
+    subdir_name = generate_subdir_names(member, mode = "only", pad_zeros = pad_zeros)
+    return joinpath(base_path, subdir_name)
+end
 
 """
     assign_values!(
@@ -366,38 +453,48 @@ end
 
 
 """
-    generate_subdir_names(N_ens, prefix="member")
+    generate_subdir_names(N; prefix="member", mode="all", pad_zeros=3)
 
-Generates `N_ens` directory names "<prefix>_<i>"; i=1, ..., N_ens
+Generates `N` directory names "<prefix>_<i>"; i=1, ..., N
 
 Args:
-`N_ens`  - number of ensemble members (= number of subdirectories)
+`N`  - number of ensemble members (= number of subdirectories) or for `mode=only`, the chosen member
 `prefix` - prefix used for generation of subdirectory names
-
+`mode`   - default `=all` generates all names, `=only` generates just the `N`th name
+`pad_zeros` - amount of digits to pad to
 Returns a list of directory names
 """
-function generate_subdir_names(N_ens::Int, prefix::AbstractString = "member")
+function generate_subdir_names(
+    N::Int;
+    prefix::AbstractString = "member",
+    mode::AbstractString = "all",
+    pad_zeros::Int = 3,
+)
 
-    member(j) = join([prefix, lpad(j, ndigits(N_ens), "0")], "_")
 
-    return [member(j) for j in 1:N_ens]
+    member(j) = join([prefix, lpad(j, pad_zeros, "0")], "_")
+    if mode == "all"
+        return [member(j) for j in 1:N]
+    else
+        return member(N)
+    end
 end
 
 
 """
-    get_UQ_parameters(param_dict)
+    get_admissible_parameters(param_dict)
 
-Finds all UQ parameters in `param_dict`.
+Finds all parameters in `param_dict` that are admissible for calibration.
 
 Args:
 `param_dict` - nested dictionary that has parameter names as keys and the
                corresponding dictionaries of parameter information as values
 
-Returns an array of the names of all UQ parameters in `param_dict`.
-UQ parameters are those parameters that have a key "prior" whose value is not
-set to "fixed". They will enter the uncertainty quantification pipeline.
+Returns an array of the names of all admissible parameters in `param_dict`.
+Admissible parameters must have a key "prior" and the value value of this is not
+set to "fixed". This allows for other parameters to be stored within the TOML file.
 """
-function get_UQ_parameters(param_dict::Dict)
+function get_admissible_parameters(param_dict::Dict)
 
     uq_param = String[]
 

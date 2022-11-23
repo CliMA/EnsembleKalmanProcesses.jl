@@ -7,7 +7,7 @@ include("ParameterDistributions.jl")
 include("DataContainers.jl")
 include("Observations.jl")
 include("Localizers.jl")
-include("UQParameters.jl")
+include("TOMLInterface.jl")
 
 # algorithmic updates
 include("EnsembleKalmanProcess.jl")

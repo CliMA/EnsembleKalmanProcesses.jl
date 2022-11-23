@@ -5,12 +5,12 @@ using Random
 using LinearAlgebra
 
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.UQParameters
+using EnsembleKalmanProcesses.TOMLInterface
 using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributions
 const EKP = EnsembleKalmanProcesses
 
-@testset "UQParameters" begin
+@testset "TOMLInterface" begin
 
     # Load parameters
     toml_path = joinpath(@__DIR__, "toml", "uq_test_parameters.toml")
@@ -53,7 +53,7 @@ const EKP = EnsembleKalmanProcesses
     # Get all `ParameterDistribution`s. We also add dummy (key, value) pairs
     # to check if that information gets added correctly when saving the
     # parameters back to file and re-loading them
-    uq_param_names = get_UQ_parameters(param_dict)
+    uq_param_names = get_admissible_parameters(param_dict)
     descr = " will be learned using CES"
 
     # for test_throws:
@@ -112,8 +112,8 @@ const EKP = EnsembleKalmanProcesses
     toml_path = joinpath(@__DIR__, "toml", "uq_test_parameters.toml")
     param_dict = TOML.parsefile(toml_path)
 
-    # Extract the UQ parameters
-    uq_param_names = get_UQ_parameters(param_dict)
+    # Extract the calibratable parameters
+    uq_param_names = get_admissible_parameters(param_dict)
 
     # Seed for pseudo-random number generator
     rng_seed = 42
@@ -193,27 +193,65 @@ const EKP = EnsembleKalmanProcesses
 
         # EKS iterations
         for i in 1:N_iter
+
             params_i = get_u_final(eki)
+
             G_n = [G(params_i[:, member_idx]) for member_idx in 1:N_ens]
             G_ens = hcat(G_n...)
             update_ensemble!(eki, G_ens)
 
-            # Save updated parameter ensemble
-            save_parameter_ensemble(get_u_final(eki), pd, param_dict, save_path, save_file, i)
+            if i < N_iter
+                # Save updated parameter ensemble
+                save_parameter_ensemble(get_u_final(eki), pd, param_dict, save_path, save_file, i)
+            else
+                # Save updated parameter ensemble - here constraints are applied within EKI instead of upon saving. 
+                save_parameter_ensemble(
+                    get_ϕ_final(pd, eki),
+                    pd,
+                    param_dict,
+                    save_path,
+                    save_file,
+                    i,
+                    apply_constraints = false,
+                )
+            end
+
+
         end
 
         # Check if all parameter files have been created (we expect there to be
         # one for each iteration and ensemble member)
-        @test isdir(joinpath(save_path, "iteration_00"))
-        @test isdir(joinpath(save_path, "iteration_01"))
-        subdir_names = EKP.UQParameters.generate_subdir_names(N_ens)
+        @test isdir(joinpath(save_path, "iteration_000"))
+        @test isdir(joinpath(save_path, "iteration_001"))
+        subdir_names = EKP.TOMLInterface.generate_subdir_names(N_ens)
         for i in 1:N_ens
-            subdir_0 = joinpath(save_path, "iteration_00", subdir_names[i])
-            subdir_1 = joinpath(save_path, "iteration_01", subdir_names[i])
+            subdir_0 = joinpath(save_path, "iteration_000", subdir_names[i])
+            subdir_1 = joinpath(save_path, "iteration_001", subdir_names[i])
             @test isdir(subdir_0)
             @test isfile(joinpath(subdir_0, save_file))
             @test isdir(subdir_1)
             @test isfile(joinpath(subdir_1, save_file))
+
+            # test if these directories are found with path_to_ensemble_member
+            @test path_to_ensemble_member(save_path, 0, i) == subdir_0
+            @test path_to_ensemble_member(save_path, 1, i) == subdir_1
+
         end
+
+        # get the value from one of the parameters
+        it0_mem1_dir = path_to_ensemble_member(save_path, 0, 1)
+        load_param_dict = TOML.parsefile(joinpath(it0_mem1_dir, save_file))
+        names = ["uq_param_" * string(i) for i in 1:7]
+        values_dict = get_parameter_values(load_param_dict, names)
+        @test all(k ∈ names for k in keys(values_dict))
+        @test all(n ∈ keys(values_dict) for n in names)
+        @test all(values_dict[n] == load_param_dict[n]["value"] for n in names)
+        values_array = get_parameter_values(load_param_dict, names, return_type = "array")
+        @test all(values_array .== [load_param_dict[n]["value"] for n in names])
+        @test_throws ArgumentError get_parameter_values(load_param_dict, names, return_type = "not_dict_nor_array")
+
+
     end
+
+
 end
