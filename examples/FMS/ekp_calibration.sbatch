@@ -5,14 +5,15 @@
 #SBATCH --nodes=1         # number of nodes
 #SBATCH --mem-per-cpu=6G   # memory per CPU core
 #SBATCH -J "ekp_call"   # job name
+#SBATCH -o "slurm_ekp_calibration"
 
 # Size of the ensemble
-n=10
+n=5
 # Number of EK iterations
 n_it=5
 
 module purge
-module load julia/1.5.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.8.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system

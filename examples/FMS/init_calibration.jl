@@ -10,11 +10,15 @@ include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 
 
-process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq, sigma_points = "symmetric")
-ukiobj = EKP.EnsembleKalmanProcess(u_init, obs_mean, obs_noise_cov, process)
+process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq, sigma_points = sigma_points_type)
 
+#u_init = EnsembleKalmanProcesses.construct_sigma_ensemble(process, prior_mean, prior_cov)
 
-save_param(ukiobj, 0)
+obs_mean, obs_noise_cov = read_observation()
+
+ukiobj = EnsembleKalmanProcess(obs_mean, obs_noise_cov, process)
+
+save_params(ukiobj, 0)
 
 
 u_p_ens_new = get_u_final(ukiobj)
