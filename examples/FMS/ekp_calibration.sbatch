@@ -10,7 +10,7 @@
 # Size of the ensemble
 n=5
 # Number of EK iterations
-n_it=5
+n_it=20
 
 module purge
 module load julia/1.8.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
@@ -29,9 +29,9 @@ for it in $(seq 1 1 $n_it)
 do
 # Parallel runs of forward model
 if [ "$it" = "1" ]; then
-    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n ekp_fms_run.sbatch $it)
+    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n ekp_solver_run.sbatch $it)
 else
-    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_ek_upd --array=1-$n ekp_fms_run.sbatch $it)
+    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_ek_upd --array=1-$n ekp_solver_run.sbatch $it)
 fi
 id_ek_upd=$(sbatch --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_ens_array --export=n=$n ekp_cont_calibration.sbatch $it)
 done

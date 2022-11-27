@@ -25,7 +25,7 @@ function ek_update(iteration_::Int64)
     # Get outputs
     g_ens = zeros(N_ens, N_y)
     for ens_index = 1:N_ens
-        g_ens[ens_index, :] = read_fms_output(iteration_-1,  ens_index)
+        g_ens[ens_index, :] = read_solver_output(iteration_-1,  ens_index)
     end
     g_ens = Array(g_ens')
 
@@ -48,7 +48,7 @@ function ek_update(iteration_::Int64)
     # Get new step
     u_p_ens_new = get_u_final(ukiobj)
     constraint_u_p_ens_new = constraint(u_p_ens_new)
-    write_fms_input_files(constraint_u_p_ens_new)
+    write_solver_input_files(constraint_u_p_ens_new)
     
     return u_p_ens_new
 end

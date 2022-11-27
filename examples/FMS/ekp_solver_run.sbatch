@@ -13,5 +13,11 @@ iteration_=${1?Error: no iteration given}
 
 run_num=${SLURM_ARRAY_TASK_ID}
 
-julia output/output_$run_num/input_file
 
+solver="linear"
+
+if [ $solver = "linear" ]; then
+    julia output/output_$run_num/input_file
+elif [ $solver = "fms" ]; then
+    echo "TODO"
+fi

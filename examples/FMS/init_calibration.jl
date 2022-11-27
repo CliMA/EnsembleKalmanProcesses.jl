@@ -30,4 +30,4 @@ constraint_u_p_ens_new = constraint(u_p_ens_new)
 
 # update input files
 
-write_fms_input_files(constraint_u_p_ens_new)
+write_solver_input_files(constraint_u_p_ens_new)
