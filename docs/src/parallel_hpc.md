@@ -1,4 +1,4 @@
-# Parallelism and High Performance Computing (HPC)
+# [Parallelism and High Performance Computing (HPC)](@id parallel-hpc)
 
 One benefit of ensemble methods is their ability to be parallelized. The parallellism occurs outside of the EKP update, and so is not present in the source code. On this page we provide suggestions for parallelization for two types of problems:
 1. Run a parallel loop or map within your current Julia session.

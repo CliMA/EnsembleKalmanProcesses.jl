@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# paths
+out_dir=output
+data_path=truth.jld2
+eki_path=eki.jld2
+toml_path=priors.toml
+
+
+# seed
+rng_seed=235487
+rng_seed2=87653
+
+# parameters
+N_ensemble=6
+N_iterations=5
+
+echo "generating data sample..."
+julia --project generate_data.jl $out_dir $data_path $rng_seed
+wait $!
+
+echo "initializing ensemble from priors and data..."
+julia --project initialize_EKP.jl $out_dir $data_path $eki_path $toml_path $N_ensemble $rng_seed2
+wait $!
+
+# now we run the EKI loop
+for i in $(seq 1 $N_iterations); do
+    it=$(($i-1))
+    echo "iteration $it"
+    echo "running the model at current parameter ensemble..."
+    for j in $(seq 1 $N_ensemble); do
+        julia --project run_computer_model.jl $out_dir $data_path $it $j
+        wait $!
+    done
+
+    echo "running eki to update parameter ensemble..."
+    julia --project update_EKP.jl $out_dir $eki_path $it
+    wait $!
+    
+done   
+
+echo "Completed calibration."
+echo "Results are stored within ${out_dir}/${eki_path}"
+echo "To view the ensembles etc., consult the README.md, or the documentation for this example: 'TOML Interface' "
+
+        
+

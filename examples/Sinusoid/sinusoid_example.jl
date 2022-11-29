@@ -1,4 +1,4 @@
-# # Fitting parameters of a sinusoid
+# # [Fitting parameters of a sinusoid](@id sinusoid-example)
 
 # In this example we have a model that produces a sinusoid
 # ``f(A, v) = A \sin(\phi + t) + v, \forall t \in [0,2\pi]``, with a random

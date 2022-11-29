@@ -53,18 +53,20 @@ api = [
     "Unscented" => "API/Unscented.md",
     "Sampler" => "API/Sampler.md",
     "SparseInversion" => "API/SparseInversion.md",
+    "TOML Interface" => "API/TOMLInterface.md",
     "Localizers" => "API/Localizers.md",
 ]
 
 examples = [
     "Simple example" => "literated/sinusoid_example.md",
-    "Template" => "examples/template_example.md",
     "Cloudy" => "examples/Cloudy_example.md",
     "Lorenz" => "examples/lorenz_example.md",
     "Minimization Loss" => "literated/loss_minimization.md",
     "Sparse Minimization Loss" => "literated/loss_minimization_sparse_eki.md",
     "Aerosol activation" => "literated/aerosol_activation.md",
+    "TOML interface" => "examples/sinusoid_example_toml.md",
     "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md",
+    "Template" => "examples/template_example.md",
 ]
 
 pages = [

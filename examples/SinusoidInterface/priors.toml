@@ -1,0 +1,31 @@
+# Define the priors in computational space
+# there are many other examples in test/TOMLInterface/uq_test_parameters.toml
+[amplitude]
+prior = "Parameterized(Normal(0.5815754049028404, 0.47238072707743883))"
+constraint = "bounded_below(0.0)"
+description = """
+The amplitude of the sine curve.
+We choose a physical prior that gives a log-normal with approximate (mean,sd) = (2,1)
+> a = constrained_gaussian('amplitude', 2, 1, 0, Inf) # (what we want)
+
+We find the computational prior from the convenience constructor as follows:
+> get_distribution(a) # gives the Normal(...) 
+Thus we create Parameterized(Normal(...))
+
+> c = get_all_constraints(a)[1] # (vec of constraints)
+> get_constraint_type(c) # gives BoundedBelow
+> get_bounds(c) # gives bound 0
+Thus we create a BoundedBelow object with bounded_below(0) constructor
+
+We then input the information above
+"""
+
+[vert_shift]
+prior = "Parameterized(Normal(0,5))"
+constraint = "no_constraint()"
+description = """
+The vertical shift of the sine curve.
+We choose a physical prior that gives a Normal with (mean,sd) = (0,5)
+"""
+
+

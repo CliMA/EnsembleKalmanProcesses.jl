@@ -30,7 +30,7 @@ end
         "Observations",
         "EnsembleKalmanProcess",
         "Localizers",
-        "UQParameters",
+        "TOMLInterface",
         "SparseInversion",
     ]
         if all_tests || has_submodule(submodule) || "EnsembleKalmanProcesses" in ARGS
