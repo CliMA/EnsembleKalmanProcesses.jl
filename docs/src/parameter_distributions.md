@@ -12,7 +12,7 @@ A prior is specified by a `ParameterDistribution` object, which has three compon
  2. A constraint (or array of constraints) on the domain of the distribution, given as a [ConstraintType](@ref) or `Array{ConstraintType}` object (the latter case builds a multivariate constraint as the Cartesian product of one-dimensional Constraints). This is used to enforce physical parameter values during inference: the model is never evaluated at parameter values outside the constrained region, and the posterior distribution will only be supported there.
  3. The parameter name, given as a `String`.
 
-In multiparameter settings, one should define one `ParameterDistribution` per parameter, and then concatenate these either in the constructor or with `combine_distributions`. This is illustrated below and in the [Multidimensional example](@ref).
+In multiparameter settings, one should define one `ParameterDistribution` per parameter, and then concatenate these either in the constructor or with `combine_distributions`. This is illustrated below and in the [Example combining several distributions](@ref).
 
 !!! note "What's up with the notation u, ϕ, and θ?"
     Parameters in unconstrained spaces are often denoted ``u`` or ``\theta`` in the literature. In the code, method names featuring `_u` imply the return of a computational, unconstrained parameter.
@@ -75,12 +75,11 @@ The pdf of the constructed prior distribution (in the physical, constrained spac
 p = plot(p2, legend=false, size = (450, 450)) #hide
 ```
 
-In [Simple example revisted](@ref) below, we repeat this example "manually" with the general constructor.
+In [Simple example revisited](@ref) below, we repeat this example "manually" with the general constructor.
 
 !!! note "What if I want to impose the same prior on many parameters?"
     
     The recommended constructor can be called as `constrained_gaussian(...; repeats = n)` to return a combined prior formed by `n` identical priors.
-
 
 ## ParameterDistribution class
 
@@ -158,7 +157,7 @@ These functions typically return a `Dict` with `ParameterDistribution.name` as a
 
 ## Additional Examples
 
-### Simple example revisted
+### Simple example revisited
 
 To illustrate what the `constrained_gaussian` constructor is doing, in this section we repeat the [Recommended constructor - Simple example](@ref) given above, using the "manual," general-purpose constructor.
 
@@ -218,9 +217,86 @@ The pdf of the Normal distribution and its transform to the physical, constraine
 p = plot(p1, p2, legend=false, size = (900, 450)) #hide
 ```
 
-### Multidimensional example
+### [Sample-based distribution](@id samples-example)
 
-To show how to combine priors in a more realistic setting (e.g. for an entire parametrized process), we create a 25-dimensional parameter distribution from three dictionaries.
+We repeat the work of [Simple example revisited](@ref), but now assuming that to create our prior, we only have samples given by the histogram:
+
+```@setup example_three
+# instead of importing ParameterDistributions & dependencies to call constructor,
+# which would make docs build longer and more fragile, simply hard-code Normal()
+# parameters found by constrained_gaussian constructor
+
+using Distributions
+using Plots
+Plots.default(lw=2)
+
+N = 5000
+
+#bounded in [0.0, 1.0]
+transform_unconstrained_to_constrained(x) = 1.0 - 1.0 / (exp(x) + 1)
+samples = rand(Normal(0.957711, 0.78507), N)
+constrained_samples = transform_unconstrained_to_constrained.(samples)
+
+p3 = histogram(constrained_samples, bins=50) 
+vline!([0.7]) 
+title!("Prior of samples")
+```
+```@example example_three
+p = plot(p3, legend=false, size = (450, 450)) #hide
+```
+Imagine we **do not know** this distribution is bounded. To create a `ParameterDistribution` one can take a matrix `constrained_samples` whose columns are this data:
+```julia
+distribution = Samples(constrained_samples)
+constraint = no_constraint()
+name = "point_seven"
+prior = ParameterDistribution(distribution, constraint, name)
+```
+!!! note
+    This naive implementation will not enforce any boundaries during the algorithm implementation.
+
+Imagine that we **know** about the boundedness of this distribution, then, as in [Simple example revisited](@ref), we define the constraint
+```julia
+constraint = bounded(0, 1)
+```
+which stores the transformation:
+```julia
+unconstrained_samples = constraint.constrained_to_unconstrained.(constrained_samples)
+```
+This maps the samples into an unbounded space, giving the following histogram:
+```@setup example_four
+# instead of importing ParameterDistributions & dependencies to call constructor,
+# which would make docs build longer and more fragile, simply hard-code Normal()
+# parameters found by constrained_gaussian constructor
+
+using Distributions
+using Plots
+Plots.default(lw=2)
+
+N = 5000
+
+# bounded in [0.0, 1.0]
+# transform_unconstrained_to_constrained(x) = 1.0 - 1.0 / (exp(x) + 1.0)
+ transform_constrained_to_unconstrained(x) = log(1.0 / (1.0 - x) - 1.0)
+unconstrained_samples = rand(Normal(0.957711, 0.78507), N)
+
+p3 = histogram(unconstrained_samples, bins=50) 
+vline!([transform_constrained_to_unconstrained(0.7)]) 
+title!("Prior of samples")
+```
+```@example example_four
+p = plot(p3, legend=false, size = (450, 450)) #hide
+```
+As before we define a `Samples` distribution from matrix whose columns are the (now unconstrained) samples, along with a name to create the `ParameterDistribution`.
+```julia
+distribution = Samples(unconstrained_samples)
+name = "point_seven"
+prior = ParameterDistribution(distribution, constraint, name)
+```
+
+
+### Example combining several distributions
+
+To show how to combine priors in a more complex setting (e.g. for an entire parametrized process), we create a 25-dimensional parameter distribution from three dictionaries.
 
 The first parameter is a 3-dimensional distribution, with the following bound constraints on parameters in physical space:
 ```julia
