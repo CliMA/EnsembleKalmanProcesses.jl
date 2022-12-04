@@ -41,7 +41,7 @@ bibliography: paper.bib
 
 # Summary
 
-\texttt{EnsembleKalmanProcesses.jl} is a Julia-based toolbox that can be used for a broad class of black-box gradient-free optimization problems. Specifically, the tools enable the optimization, or calibration, of parameters within a computer model in order to best match user-defined outputs of the model with available observed data [@kennedy_ohagan_2001]. Some of the tools can also approximately quantify parametric uncertainty [@Huang:2022b]. Though the package is written in Julia, a read–write TOML-file interface is provided so that the tools can be applied to computer models implemented in any language. Furthermore, the calibration tools are non-intrusive, relying only on the ability of users to compute an output of their model given a parameter value.
+\texttt{EnsembleKalmanProcesses.jl} is a Julia-based toolbox that can be used for a broad class of black-box gradient-free optimization problems. Specifically, the tools enable the optimization, or calibration, of parameters within a computer model in order to best match user-defined outputs of the model with available observed data [@kennedy_ohagan_2001]. Some of the tools can also approximately quantify parametric uncertainty [@Huang:2022b]. Though the package is written in Julia [@julia], a read–write TOML-file interface is provided so that the tools can be applied to computer models implemented in any language. Furthermore, the calibration tools are non-intrusive, relying only on the ability of users to compute an output of their model given a parameter value.
 
 As the package name suggests, the tools are inspired by the well-established class of ensemble Kalman methods. Ensemble Kalman filters are currently one of the only practical ways to assimilate large volumes of observational data into models for operational weather forecasting [@Evensen:1994;@Houtekamer:1998;@Houtekamer:2001]. In the data assimilation setting, a computational weather model is integrated for a short time over a collection, or ensemble, of initial conditions, and the ensemble is updated frequently by a variety of atmospheric observations, allowing the forecasts to keep track of the real system.
 
@@ -71,7 +71,7 @@ The task of estimating parameters of a computer model or simulator such that its
 
 ## State of the field
 
-Many gradient-based optimizers have been implemented in Julia, collected in \texttt{Optim.jl} and \texttt{JuliaSmoothOptimizers.jl}, for example. Some gradient-free optimization tools, better suited for non-deterministic or noisy optimization are collected within packages such as \texttt{BlackBoxOptim.jl} and \texttt{Metaheuristics.jl}. Although these packages feature a number of ensemble-based approaches, none utilize Kalman-based statistical updates of ensembles, and instead rely on heuristic algorithms inspired from biologically processes such as natural selection (genetic algortihm) or swarming (particle swarm optimization). A related class of methods to calibrate black-box computer codes are based on Bayesian inference, such as (Markov Chain) Monte Carlo, implemented in \texttt{Turing.jl}, for example. Such methods are effective but are far more computationally expensive as they provide an entire joint distribution for model parameters, from which the optimum is taken as the summary statistic.
+Many gradient-based optimizers have been implemented in Julia, collected in \texttt{Optim.jl} [optimjl] and \texttt{JuliaSmoothOptimizers.jl}, for example. Some gradient-free optimization tools, better suited for non-deterministic or noisy optimization are collected within packages such as \texttt{BlackBoxOptim.jl} and \texttt{Metaheuristics.jl} [@metaheuristicsjl]. Although these packages feature a number of ensemble-based approaches, none utilize Kalman-based statistical updates of ensembles, and instead rely on heuristic algorithms inspired from biologically processes such as natural selection (Genetic Algorithms) or swarming (Particle Swarm Optimization). A related class of methods to calibrate black-box computer codes are based on Bayesian inference, such as (Markov Chain) Monte Carlo, implemented in \texttt{Turing.jl}, for example. Such methods are effective but are far more computationally expensive as they provide an entire joint distribution for model parameters, from which the optimum is taken as the summary statistic.
 
 An ensemble Kalman filter is implemented in \texttt{EnKF.jl}, but the use case is state estimation from sequential data, rather than applied to model parameter estimation independent of the state. Kalman filters without ensemble approximation are also available in \texttt{Kalman.jl} and \texttt{GaussianFilters.jl}.  
 
@@ -83,19 +83,19 @@ There are different ensemble Kalman algorithms in the literature, which differ i
 
 * Ensemble Kalman Inversion (EKI, @Iglesias:2013),
 
-* Ensemble Kalman Sampler (EKS, @Garbuno-Inigo:2020a;@Garbuno-Inigo:2020b),
+* Ensemble Kalman Sampler (EKS, @Garbuno-Inigo:2020a; @Garbuno-Inigo:2020b),
 
 * Unscented Kalman Inversion (UKI, @Huang:2022a),
 
 * Sparse Ensemble Kalman Inversion (SEKI, @Schneider:2022).
 
-We also implement some features to improve robustness and flexibility of the ensemble algorithms:
+The package also implements some features to improve robustness and flexibility of the ensemble algorithms:
 
-* The \texttt{ParameterDistribution} structure allows us to perform calibrations for parameters with known constraints. It does so by defining transformation maps under-the-hood from the constrained space to an unconstrained space where the optimization problem can be suitably defined. Constrained optimization using this framework has been successfully demonstrated in a variety of settings [@Lopez-Gomez:2022; @Dunbar2022; @Schneider2022covid].
+* The \texttt{ParameterDistribution} structure allows users to perform calibrations for parameters with known constraints. It does so by defining transformation maps under-the-hood from the constrained space to an unconstrained space where the optimization problem can be suitably defined. Constrained optimization using this framework has been successfully demonstrated in a variety of settings [@Lopez-Gomez:2022; @Dunbar2022; @Schneider2022covid].
 
 * The \texttt{FailureHandler} structure allows calibrations to continue when several ensemble members fail. Common reasons for failure could be, for instance, simulation blow-up for certain parameter configurations, user termination of slow computations, data corruption, or bad nodes in a high-performance computing facility. This methodology is demonstrated in @Lopez-Gomez:2022.
 
-* The \texttt{Localizer} structure allows us to overcome the restriction of the solution of the calibration to the linear span of the initial ensemble, and to reduce sampling errors due to the finite size of the ensemble. Various such localization and sampling error correction methods are implemented in \texttt{EnsembleKalmanProcesses.jl} [@Lee2021; @Tong2022].
+* The \texttt{Localizer} structure allows users to overcome the restriction of the solution of the calibration to the linear span of the initial ensemble, and to reduce sampling errors due to the finite size of the ensemble. Various such localization and sampling error correction methods are implemented in \texttt{EnsembleKalmanProcesses.jl} [@Lee2021; @Tong2022].
 
 * The TOML-file interface defined in the \texttt{TOMLInterface} module allows non-intrusive use of \texttt{EnsembleKalmanProcesses.jl} through \text{TOML} files, which are widely used for configuration files and easily read in any programming language. Given the computer model to calibrate and prior distributions on the parameters, \texttt{EnsembleKalmanProcesses.jl} reads these distributions from a file and, after an iteration of the ensemble Kalman algorithm, writes each member of the updated ensemble to a parameter file. Each of these parameter files can be then read individually to initiate the ensemble of the computer model for the next iteration.
 
@@ -107,6 +107,7 @@ We are given one sample measurement of $G$, polluted by Gaussian noise $\mathcal
 
 
 We encode information into prior distributions over the parameters:
+
 ```julia
 # A is positive, has likely value 2 with standard deviation 1
 # v has likely value 0 with standard deviation 5
@@ -116,12 +117,15 @@ prior = combine_distributions([prior_A, prior_v])
 ```
 
 To use a basic ensemble method we need to specify one more hyperparameter, the size of the ensemble, which we take to be `N_ensemble = 5`. We now begin solving the problem, by creating the initial ensemble from our prior, and selecting the `Inversion()` tool to perform ensemble Kalman inversion:
+
 ```julia
 initial_ensemble = construct_initial_ensemble(prior, N_ensemble)
 ensemble_kalman_inversion =
     EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion())
 ```
-Then we iterate...
+
+Then we iterate the code below:
+
 ```julia
 N_iterations = 5
 for i in 1:N_iterations`
@@ -133,14 +137,17 @@ for i in 1:N_iterations`
     update_ensemble!(ensemble_kalman_process, G_ens)
 end
 ```
+
 We show the initial and final ensemble in \autoref{fig:sinusoid}, by evaluating $f$ at these parameters. We observe that, the final sinusoid ensemble has greatly reduced the error in amplitude and vertical shift to the truth, despite the presence of the random phase shifts. 
 
 ![Sinusoids produced from initial and final ensembles, and the sine curve that generated the data. \label{fig:sinusoid}](sinusoid_output.pdf){width=80%}
 
 This final ensemble determines the problem solution; for ensemble Kalman inversion, a best estimate of the parameters is taken as the mean of this final ensemble:
+
 ```julia
 best_parameter_estimate = get_phi_mean_final(prior, ensemble_kalman_process)
 ```
+
 The Julia code and further explanation of this example is provided in the documentation.
 
 # Research projects using the package
