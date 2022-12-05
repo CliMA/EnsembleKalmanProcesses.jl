@@ -71,11 +71,9 @@ The task of estimating parameters of a computer model or simulator such that its
 
 ## State of the field
 
-Many gradient-based optimizers have been implemented in Julia, collected in \texttt{Optim.jl} [optimjl] and \texttt{JuliaSmoothOptimizers.jl}, for example. Some gradient-free optimization tools, better suited for non-deterministic or noisy optimization are collected within packages such as \texttt{BlackBoxOptim.jl} and \texttt{Metaheuristics.jl} [@metaheuristicsjl]. Although these packages feature a number of ensemble-based approaches, none utilize Kalman-based statistical updates of ensembles, and instead rely on heuristic algorithms inspired from biologically processes such as natural selection (Genetic Algorithms) or swarming (Particle Swarm Optimization). A related class of methods to calibrate black-box computer codes are based on Bayesian inference, such as (Markov Chain) Monte Carlo, implemented in \texttt{Turing.jl}, for example. Such methods are effective but are far more computationally expensive as they provide an entire joint distribution for model parameters, from which the optimum is taken as the summary statistic.
+Many gradient-based optimizers have been implemented in Julia, collected in \texttt{Optim.jl} [@optimjl] and \texttt{JuliaSmoothOptimizers.jl}, for example. Some gradient-free optimization tools, better suited for non-deterministic or noisy optimization, are collected within packages such as \texttt{BlackBoxOptim.jl} and \texttt{Metaheuristics.jl} [@metaheuristicsjl]. Although these packages feature a number of ensemble-based approaches, none utilize Kalman-based statistical updates, and instead rely on heuristic algorithms inspired from biological processes such as natural selection (Genetic Algorithms) or swarming (Particle Swarm Optimization). A related class of methods to calibrate black-box computer codes are based on Bayesian inference, such as (Markov Chain) Monte Carlo, implemented in \texttt{Turing.jl} [@ge2018t], for example. Such methods provide the posterior distribution of parameters, from which the optimum is taken as the summary statistic. However, they are far more computationally expensive.
 
-An ensemble Kalman filter is implemented in \texttt{EnKF.jl}, but the use case is state estimation from sequential data, rather than applied to model parameter estimation independent of the state. Kalman filters without ensemble approximation are also available in \texttt{Kalman.jl} and \texttt{GaussianFilters.jl}.  
-
-\texttt{EnsembleKalmanProcesses.jl} fills the need for more computationally inexpensive, gradient-free, mathematically-grounded ensemble approaches for calibration that are provably optimal in simple settings, and have a large literature of extensions to complex problems.
+\texttt{EnsembleKalmanProcesses.jl} fills the need for computationally inexpensive, gradient-free, mathematically-grounded, ensemble-based calibration algorithms. Ensemble Kalman processes are provably optimal in simple settings, and have a large literature of extensions to complex problems. Although implementations of Kalman filters exist in Julia (\texttt{EnKF.jl}; \texttt{Kalman.jl}; \texttt{GaussianFilters.jl}), \texttt{EnsembleKalmanProcesses.jl} is the only package to implement ensemble-based updates for parameter estimation; other packages focus on state estimation from sequential data. 
 
 # Features
 
@@ -101,9 +99,7 @@ The package also implements some features to improve robustness and flexibility 
 
 # Pedagogical example
 
-In this example, the computer code simulates a sine curve $$f(A,v) = A\sin(t+\varphi) + v, \ \forall t \in [0,2\pi],$$ with a random phase shift $\varphi$ applied to every evaluation. We define the observable map $$G(A,v) = [\max f(A,v) - \min f(A,v), \mathrm{mean} f(A,v)].$$ We treat $\varphi$ as a "nuisance parameter" that we are not interested in estimating, thus the observable map $G(A,v)$ is chosen independent of $\varphi$ so that it will not pollute the results of the calibration. 
-
-We are given one sample measurement of $G$, polluted by Gaussian noise $\mathcal{N}(0,\Gamma)$, and call this $y$. Our task is to deduce the most likely amplitude $A$ and vertical shift $v$ of the curve that produced the $y$. 
+In this example, the computer code simulates a sine curve $$f(A,v) = A\sin(t+\varphi) + v, \ \forall t \in [0,2\pi],$$ with a random phase shift $\varphi$ applied to every evaluation. We define the observable map $$G(A,v) = [\max f(A,v) - \min f(A,v), \mathrm{mean} f(A,v)].$$ We treat $\varphi$ as a "nuisance parameter" that we are not interested in estimating, thus the observable map $G(A,v)$ is chosen independent of $\varphi$. We are given one sample measurement of $G$, polluted by Gaussian noise $\mathcal{N}(0,\Gamma)$, and call this $y$. Our task is to deduce the most likely amplitude $A$ and vertical shift $v$ of the curve that produced the sample $y$. 
 
 
 We encode information into prior distributions over the parameters:
@@ -116,7 +112,7 @@ prior_v = constrained_gaussian("vert_shift", 0, 5, -Inf, Inf)
 prior = combine_distributions([prior_A, prior_v])
 ```
 
-To use a basic ensemble method we need to specify one more hyperparameter, the size of the ensemble, which we take to be `N_ensemble = 5`. We now begin solving the problem, by creating the initial ensemble from our prior, and selecting the `Inversion()` tool to perform ensemble Kalman inversion:
+To use a basic ensemble method we need to specify the size of the ensemble, which we take to be `N_ensemble = 5`. We now initialize the problem, by drawing the initial ensemble from the prior and selecting the `Inversion()` tool to perform ensemble Kalman inversion:
 
 ```julia
 initial_ensemble = construct_initial_ensemble(prior, N_ensemble)
@@ -124,7 +120,7 @@ ensemble_kalman_inversion =
     EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion())
 ```
 
-Then we iterate the code below:
+Then we run the algorithm iteratively. In this case, we choose to perform 5 iterations:
 
 ```julia
 N_iterations = 5
@@ -138,11 +134,11 @@ for i in 1:N_iterations`
 end
 ```
 
-We show the initial and final ensemble in \autoref{fig:sinusoid}, by evaluating $f$ at these parameters. We observe that, the final sinusoid ensemble has greatly reduced the error in amplitude and vertical shift to the truth, despite the presence of the random phase shifts. 
+The initial and final ensembles are shown in \autoref{fig:sinusoid}, by evaluating $f$ at these parameters. We observe that the final sinusoid ensemble has greatly reduced the error in amplitude and vertical shift, despite the presence of the random phase shifts. 
 
-![Sinusoids produced from initial and final ensembles, and the sine curve that generated the data. \label{fig:sinusoid}](sinusoid_output.pdf){width=80%}
+![Sinusoids produced from the initial and final ensembles, and the sine curve that generated the data (Truth). \label{fig:sinusoid}](sinusoid_output.pdf){width=80%}
 
-This final ensemble determines the problem solution; for ensemble Kalman inversion, a best estimate of the parameters is taken as the mean of this final ensemble:
+This final ensemble determines the problem solution; for ensemble Kalman inversion, a best estimate of the parameters is taken as the mean of the final ensemble:
 
 ```julia
 best_parameter_estimate = get_phi_mean_final(prior, ensemble_kalman_process)
