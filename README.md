@@ -2,6 +2,11 @@
 Implements optimization and approximate uncertainty quantification algorithms, Ensemble Kalman Inversion, and Ensemble Kalman Processes.
 
 
+## Citing us
+
+If you use the examples or code, please cite our article at JOSS in your published materials.
+
+
 | **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]       |
 |----------------------|--------------------------------------------------|
 | **DOI**              | [![DOI][zenodo-img]][zenodo-latest-url]          |
@@ -34,3 +39,4 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 
 ### Requirements
 Julia version 1.6+ 
+
