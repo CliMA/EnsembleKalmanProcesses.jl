@@ -400,6 +400,23 @@ function ParameterDistribution(
 
 end
 
+"""
+    ParameterDistribution(distribution_samples::AbstractMatrix,
+                          constraint::Union{ConstraintType,AbstractVector{ConstraintType}},
+                          name::AbstractString;
+        params_are_columns::Bool = true)
+
+constructor of a Samples ParameterDistribution from a matrix `distribution_samples` of parameters stored as columns by defaut, (array of) `constraint`, `name`.
+"""
+function ParameterDistribution(
+    distribution_samples::AbstractMatrix,
+    constraint::Union{ConstraintType, AbstractVector},
+    name::AbstractString;
+    params_are_columns::Bool = true,
+)
+    distribution = Samples(distribution_samples, params_are_columns = params_are_columns)
+    return ParameterDistribution(distribution, constraint, name)
+end
 
 ## Functions
 
@@ -449,11 +466,23 @@ function get_n_samples(pd::ParameterDistribution)
 end
 
 """
-    get_all_constraints(pd::ParameterDistribution)
+    get_all_constraints(pd::ParameterDistribution; return_dict = false)
 
-Returns the (flattened) array of constraints of the parameter distribution.
+Returns the (flattened) array of constraints of the parameter distribution. or as a dictionary ("param_name" => constraints)
 """
-get_all_constraints(pd::ParameterDistribution) = pd.constraint
+function get_all_constraints(pd::ParameterDistribution; return_dict = false)
+    if return_dict
+        pns = get_name(pd)
+        batch_ids = batch(pd)
+        ret = Dict()
+        for (pn, id) in zip(pns, batch_ids)
+            ret[pn] = pd.constraint[id]
+        end
+        return ret
+    else
+        return pd.constraint
+    end
+end
 
 """
     batch(pd::ParameterDistribution)
@@ -718,70 +747,110 @@ end
 #apply transforms
 
 """
-    transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{<:Real,1})
+    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Array{<:Real,1})
 
-Apply the transformation to map (possibly constrained) parameters `xarray` into the unconstrained space.
+Apply the transformation to map (possibly constrained) parameters `x` into the unconstrained space.
 """
-function transform_constrained_to_unconstrained(
-    pd::ParameterDistribution,
-    xarray::AbstractVector{FT},
-) where {FT <: Real}
-    return cat([c.constrained_to_unconstrained(xarray[i]) for (i, c) in enumerate(pd.constraint)]..., dims = 1)
+function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::AbstractVector{FT}) where {FT <: Real}
+    return cat([c.constrained_to_unconstrained(x[i]) for (i, c) in enumerate(pd.constraint)]..., dims = 1)
 end
 
 """
-    transform_constrained_to_unconstrained(pd::ParameterDistribution, xarray::Array{<:Real,2})
+    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Array{<:Real,2})
 
-Apply the transformation to map (possibly constrained) parameter samples `xarray` into the unconstrained space.
-Here, `xarray` contains parameters as columns and samples as rows.
+Apply the transformation to map (possibly constrained) parameter samples `x` into the unconstrained space.
+Here, `x` contains parameters as columns and samples as rows.
 """
-function transform_constrained_to_unconstrained(
-    pd::ParameterDistribution,
-    xarray::AbstractMatrix{FT},
-) where {FT <: Real}
-    return Array(hcat([c.constrained_to_unconstrained.(xarray[i, :]) for (i, c) in enumerate(pd.constraint)]...)')
+function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::AbstractMatrix{FT}) where {FT <: Real}
+    return Array(hcat([c.constrained_to_unconstrained.(x[i, :]) for (i, c) in enumerate(pd.constraint)]...)')
 end
 
-"""
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{<:Real,1})
-
-Apply the transformation to map parameters `xarray` from the unconstrained space into (possibly constrained) space.
-"""
-function transform_unconstrained_to_constrained(
-    pd::ParameterDistribution,
-    xarray::AbstractVector{FT},
-) where {FT <: Real}
-    return cat([c.unconstrained_to_constrained(xarray[i]) for (i, c) in enumerate(pd.constraint)]..., dims = 1)
-end
 
 """
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{<:Real,2})
+    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Dict)
 
-Apply the transformation to map parameter samples `xarray` from the unconstrained space into (possibly constrained) space.
-Here, `xarray` contains parameters as columns and samples as rows.
+Apply the transformation to map (possibly constrained) parameter samples `x` into the unconstrained space.
+Here, `x` contains parameter names as keys, and 1- or 2-arrays as parameter samples.
 """
-function transform_unconstrained_to_constrained(
-    pd::ParameterDistribution,
-    xarray::AbstractMatrix{FT},
-) where {FT <: Real}
-    return Array(hcat([c.unconstrained_to_constrained.(xarray[i, :]) for (i, c) in enumerate(pd.constraint)]...)')
-end
+function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Dict)
+    param_names = get_name(pd)
+    pd_batch_idxs = batch(pd) # e.g. [collect(1:2), collect(3:3), collect(5:9)]
+    pd_dists = get_distribution(pd)
+    pd_constraints = get_all_constraints(pd, return_dict = true)
 
-"""
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, xarray::Array{Array{<:Real,2},1})
-
-Apply the transformation to map parameter sample ensembles `xarray` from the unconstrained space into (possibly constrained) space.
-Here, `xarray` is an iterable of parameters sample ensembles for different EKP iterations.
-"""
-function transform_unconstrained_to_constrained(
-    pd::ParameterDistribution,
-    xarray, # ::Iterable{AbstractMatrix{FT}},
-) where {FT <: Real}
-    transf_xarray = []
-    for elem in xarray
-        push!(transf_xarray, transform_unconstrained_to_constrained(pd, elem))
+    ret = Dict()
+    for (key, val, idxs) in zip(keys(x), values(x), pd_batch_idxs)
+        ret[key] = Array(
+            transform_constrained_to_unconstrained(
+                ParameterDistribution(pd_dists[key], pd_constraints[key], key),
+                x[key],
+            ),
+        )
     end
-    return transf_xarray
+    return ret
+
+end
+
+
+"""
+    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Array{<:Real,1})
+
+Apply the transformation to map parameters `x` from the unconstrained space into (possibly constrained) space.
+"""
+function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::AbstractVector{FT}) where {FT <: Real}
+    return cat([c.unconstrained_to_constrained(x[i]) for (i, c) in enumerate(pd.constraint)]..., dims = 1)
+end
+
+"""
+    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Array{<:Real,2})
+
+Apply the transformation to map parameter samples `x` from the unconstrained space into (possibly constrained) space.
+Here, `x` contains parameters as columns and samples as rows.
+"""
+function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::AbstractMatrix{FT}) where {FT <: Real}
+    return Array(hcat([c.unconstrained_to_constrained.(x[i, :]) for (i, c) in enumerate(pd.constraint)]...)')
+end
+
+"""
+    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Dict)
+
+Apply the transformation to map parameter samples `x` from the unconstrained space into (possibly constrained) space.
+Here, `x` contains parameter names as keys, and 1- or 2-arrays as parameter samples.
+"""
+function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Dict)
+    param_names = get_name(pd)
+    pd_batch_idxs = batch(pd) # e.g. [collect(1:2), collect(3:3), collect(5:9)]
+    pd_dists = get_distribution(pd)
+    pd_constraints = get_all_constraints(pd, return_dict = true)
+
+    ret = Dict()
+    for (key, val, idxs) in zip(keys(x), values(x), pd_batch_idxs)
+        ret[key] = Array(
+            transform_unconstrained_to_constrained(
+                ParameterDistribution(pd_dists[key], pd_constraints[key], key),
+                x[key],
+            ),
+        )
+    end
+    return ret
+
+end
+
+"""
+    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Array{Array{<:Real,2},1})
+
+Apply the transformation to map parameter sample ensembles `x` from the unconstrained space into (possibly constrained) space.
+Here, `x` is an iterable of parameters sample ensembles for different EKP iterations.
+"""
+function transform_unconstrained_to_constrained(
+    pd::ParameterDistribution,
+    x, # ::Iterable{AbstractMatrix{FT}},
+) where {FT <: Real}
+    transf_x = []
+    for elem in x
+        push!(transf_x, transform_unconstrained_to_constrained(pd, elem))
+    end
+    return transf_x
 end
 
 # -------------------------------------------------------------------------------------
