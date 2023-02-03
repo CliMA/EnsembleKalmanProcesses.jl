@@ -114,16 +114,22 @@ using EnsembleKalmanProcesses.ParameterDistributions
         name3 = "constrained_sampled"
         u3 = ParameterDistribution(d3, c3, name3)
 
+        d4 = Samples([1.0 3.0 5.0 7.0; 9.0 11.0 13.0 15.0])
+        c4 = [bounded(10, 15), no_constraint()]
+        name4 = "constrained_sampled"
+        u4 = ParameterDistribution(d4, c4, name4)
+
         @test_throws ArgumentError ParameterDistribution([u1, u2])
 
-        u = combine_distributions([u1, u2, u3])
-        @test u.distribution == [d1, d2, d3]
-        @test u.constraint == cat([[c1], c2, c3]..., dims = 1)
-        @test u.name == [name1, name2, name3]
+        u = combine_distributions([u1, u2, u3, u4])
+        @test u.distribution == [d1, d2, d3, d4]
+        @test u.constraint == cat([[c1], c2, c3, c4]..., dims = 1)
+        @test u.name == [name1, name2, name3, name4]
 
         #equality
         @test u == u
         @test !(u2 == u3)
+        @test u3 == u4
 
     end
 
@@ -248,6 +254,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         # Test for get_all_constraints
         @test get_all_constraints(u) == cat([c1, c2, c3]..., dims = 1)
+        constraint_dict = Dict(name1 => c1, name2 => c2, name3 => c3)
+        @test get_all_constraints(u; return_dict = true) == constraint_dict
     end
 
     @testset "statistics functions" begin
@@ -504,14 +512,14 @@ using EnsembleKalmanProcesses.ParameterDistributions
         tol = 1e-8
         d1 = Parameterized(MvNormal(zeros(4), 0.1 * I))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
-        name1 = "constrained_mvnormal"
-        param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => name1)
+        n1 = "constrained_mvnormal"
+        param_dict1 = Dict("distribution" => d1, "constraint" => c1, "name" => n1)
         u1 = ParameterDistribution(param_dict1)
 
         d2 = Samples([1.0 3.0 5.0 7.0; 9.0 11.0 13.0 15.0])
         c2 = [bounded(10, 15), no_constraint()]
-        name2 = "constrained_sampled"
-        param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => name2)
+        n2 = "constrained_sampled"
+        param_dict2 = Dict("distribution" => d2, "constraint" => c2, "name" => n2)
         u2 = ParameterDistribution(param_dict2)
 
         param_dict = [param_dict1, param_dict2]
@@ -557,6 +565,45 @@ using EnsembleKalmanProcesses.ParameterDistributions
             [x_real_constrained2, x_real_constrained2];
             atol = tol,
         )
+
+        # with transforming samples distributions - using the dict from get_distributions
+        d3 = Samples([-10.0 10.0 30.0 -30.0])
+        c3 = [bounded_below(0)]
+        n3 = "pos_samples"
+        param_dict3 = Dict("distribution" => d3, "constraint" => c3, "name" => n3)
+        u3 = ParameterDistribution(param_dict3)
+        samples_dist = ParameterDistribution([param_dict2, param_dict3]) #combine two samples distributions
+        samples_dict_unconstrained = get_distribution(samples_dist) # gives name-> values dict
+        samples_dict_constrained = transform_unconstrained_to_constrained(samples_dist, samples_dict_unconstrained)
+        samples_dict_unconstrained_again =
+            transform_constrained_to_unconstrained(samples_dist, samples_dict_constrained)
+
+        @test isapprox(
+            transform_unconstrained_to_constrained(u3, samples_dict_unconstrained[n3]) - samples_dict_constrained[n3],
+            zeros(size(samples_dict_constrained[n3]));
+            atol = tol,
+        )
+
+        @test isapprox(
+            transform_unconstrained_to_constrained(u2, samples_dict_unconstrained[n2]) - samples_dict_constrained[n2],
+            zeros(size(samples_dict_constrained[n2]));
+            atol = tol,
+        )
+
+        @test isapprox(
+            transform_constrained_to_unconstrained(u3, samples_dict_constrained[n3]) -
+            samples_dict_unconstrained_again[n3],
+            zeros(size(samples_dict_constrained[n3]));
+            atol = tol,
+        )
+
+        @test isapprox(
+            transform_constrained_to_unconstrained(u2, samples_dict_constrained[n2]) -
+            samples_dict_unconstrained_again[n2],
+            zeros(size(samples_dict_constrained[n2]));
+            atol = tol,
+        )
+
     end
 
     @testset "constrained_gaussian" begin
