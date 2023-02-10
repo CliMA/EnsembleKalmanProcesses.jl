@@ -32,6 +32,7 @@ end
         "Localizers",
         "TOMLInterface",
         "SparseInversion",
+        "Inflation",
     ]
         if all_tests || has_submodule(submodule) || "EnsembleKalmanProcesses" in ARGS
             include_test(submodule)

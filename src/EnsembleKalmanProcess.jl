@@ -13,7 +13,7 @@ export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error, get_cov_blocks
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
-export get_u_mean_final, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
+export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
 export compute_error!
 export update_ensemble!
 export sample_empirical_gaussian, split_indices_by_success
@@ -239,6 +239,15 @@ function get_u_cov(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integ
 end
 
 """
+    get_u_cov_prior(ekp::EnsembleKalmanProcess)
+
+Returns the unconstrained parameter sample covariance for the initial ensemble.
+"""
+function get_u_cov_prior(ekp::EnsembleKalmanProcess)
+    return cov(get_u_prior(ekp), get_u_prior(ekp), dims = 2)
+end
+
+"""
     get_g_mean(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
 
 Returns the mean forward map evaluation at the given iteration.
@@ -300,7 +309,7 @@ get_ϕ_mean_final(prior::ParameterDistribution, ekp::EnsembleKalmanProcess) =
 """
     get_u_cov_final(ekp::EnsembleKalmanProcess)
 
-Get the mean unconstrained parameter at the last iteration.
+Get the mean unconstrained parameter covariance at the last iteration.
 """
 get_u_cov_final(ekp::EnsembleKalmanProcess) = get_u_cov(ekp, size(ekp.u, 1))
 
@@ -327,6 +336,15 @@ Return process type of EnsembleKalmanProcess.
 function get_process(ekp::EnsembleKalmanProcess)
     return ekp.process
 end
+
+"""
+    get_localizer(ekp::EnsembleKalmanProcess)
+Return localizer type of EnsembleKalmanProcess.
+"""
+function get_localizer(ekp::EnsembleKalmanProcess)
+    return Localizers.get_localizer(ekp.localizer)
+end
+
 
 """
     construct_initial_ensemble(
@@ -449,19 +467,99 @@ function get_cov_blocks(cov::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <:
 end
 
 """
+    multiplicative_inflation!(
+        ekp::EnsembleKalmanProcess;
+        s,
+    ) where {FT, IT}
+Applies multiplicative noise to particles.
+Inputs:
+    - ekp :: The EnsembleKalmanProcess to update.
+    - s :: Scaling factor for time step in multiplicative perturbation.
+"""
+function multiplicative_inflation!(ekp::EnsembleKalmanProcess; s::FT = 1.0) where {FT <: Real}
+
+    scaled_Δt = s * ekp.Δt[end]
+
+    if scaled_Δt >= 1.0
+        error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
+    end
+
+    u = get_u_final(ekp)
+    u_mean = get_u_mean_final(ekp)
+    prefactor = sqrt(1 / (1 - scaled_Δt))
+    u_updated = u_mean .+ prefactor * (u .- u_mean)
+    ekp.u[end] = DataContainer(u_updated, data_are_columns = true)
+
+end
+
+"""
+    additive_inflation!(
+        ekp::EnsembleKalmanProcess;
+        use_prior_cov::Bool = false,
+        s::FT = 1.0,
+    ) where {FT <: Real}
+Applies additive Gaussian noise to particles. Noise is drawn from normal distribution with 0 mean
+and scaled parameter covariance. If use_prior_cov=false (default), scales parameter covariance matrix from
+current ekp iteration. Otherwise, scales parameter covariance of initial ensemble.
+Inputs:
+    - ekp :: The EnsembleKalmanProcess to update.
+    - s :: Scaling factor for time step in additive perturbation.
+    - use_prior_cov :: Bool specifying whether to use prior covariance estimate for additive inflation.
+        If false (default), parameter covariance from the current iteration is used.
+"""
+function additive_inflation!(ekp::EnsembleKalmanProcess; use_prior_cov::Bool = false, s::FT = 1.0) where {FT <: Real}
+
+    scaled_Δt = s * ekp.Δt[end]
+
+    if scaled_Δt >= 1.0
+        error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
+    end
+
+    Σ = use_prior_cov ? get_u_cov_prior(ekp) : get_u_cov_final(ekp)
+
+    u = get_u_final(ekp)
+    # add multivariate noise with 0 mean and scaled covariance
+    noise_multivariate = MvNormal((scaled_Δt / (1 - scaled_Δt)) .* Σ)
+    u_updated = u + rand(noise_multivariate, size(u, 2))
+    ekp.u[end] = DataContainer(u_updated, data_are_columns = true)
+end
+
+"""
     update_ensemble!(
         ekp::EnsembleKalmanProcess,
         g::AbstractMatrix{FT};
+        multiplicative_inflation::Bool = false,
+        additive_inflation::Bool = false,
+        use_prior_cov::Bool = false,
+        s::FT = 0.0,
         ekp_kwargs...,
     ) where {FT, IT}
 Updates the ensemble according to an Inversion process.
 Inputs:
  - ekp :: The EnsembleKalmanProcess to update.
  - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - multiplicative_inflation :: Flag indicating whether to use multiplicative inflation.
+ - additive_inflation :: Flag indicating whether to use additive inflation.
+ - use_prior_cov :: Bool specifying whether to use prior covariance estimate for additive inflation.
+        If false (default), parameter covariance from the current iteration is used.
+ - s :: Scaling factor for time step in inflation step.
  - ekp_kwargs :: Keyword arguments to pass to standard ekp update_ensemble!.
 """
-function update_ensemble!(ekp::EnsembleKalmanProcess, g::AbstractMatrix{FT}; ekp_kwargs...) where {FT, IT}
+function update_ensemble!(
+    ekp::EnsembleKalmanProcess,
+    g::AbstractMatrix{FT};
+    multiplicative_inflation::Bool = false,
+    additive_inflation::Bool = false,
+    use_prior_cov::Bool = false,
+    s::FT = 0.0,
+    ekp_kwargs...,
+) where {FT, IT}
+
     update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
+    if s > 0.0
+        multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
+        additive_inflation ? additive_inflation!(ekp; use_prior_cov = use_prior_cov, s = s) : nothing
+    end
 end
 
 ## include the different types of Processes and their exports:

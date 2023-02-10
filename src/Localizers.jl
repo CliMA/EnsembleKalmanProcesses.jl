@@ -239,4 +239,12 @@ function Localizer(localization::SECFisher, p::IT, d::IT, J::IT, T = Float64) wh
     return Localizer{SECFisher, T}((cov) -> sec_fisher(cov, J))
 end
 
+"""
+    get_localizer(loc::Localizer)
+Return localizer type.
+"""
+function get_localizer(loc::Localizer{T1, T2}) where {T1, T2}
+    return T1
+end
+
 end # module
