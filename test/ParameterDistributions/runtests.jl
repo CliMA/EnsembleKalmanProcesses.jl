@@ -264,7 +264,6 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d1 = Parameterized(MvNormal(zeros(4), 0.1 * I))
         c1 = [no_constraint(), bounded_below(-1.0), bounded_above(0.4), bounded(-0.1, 0.2)]
         name1 = "constrained_mvnormal"
-
         u1 = ParameterDistribution(d1, c1, name1)
 
         d2 = Samples([1 2 3 4])
@@ -287,14 +286,16 @@ using EnsembleKalmanProcesses.ParameterDistributions
         v = combine_distributions([u1, u2, u3, u4])
 
         # Tests for sample distribution
+        # Note from julia 1.8.5, rand(X,2) != [rand(X,1) rand(X,1)]
         seed = 2020
+        testd = MvNormal(zeros(4), 0.1 * I)
         Random.seed!(seed)
-        s1 = rand(MvNormal(zeros(4), 0.1 * I), 1)
+        s1 = rand(testd, 1)
         Random.seed!(seed)
         @test sample(u1) == s1
 
         Random.seed!(seed)
-        s1 = rand(MvNormal(zeros(4), 0.1 * I), 3)
+        s1 = [rand(testd, 1) rand(testd, 1) rand(testd, 1)]
         Random.seed!(seed)
         @test sample(u1, 3) == s1
 
@@ -418,6 +419,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         # test that optional parameter defaults to Random.GLOBAL_RNG, for all methods.
         # reset the global seed instead of copying the rng object's state
+        # Note, from julia 1.8.5 rand(X,2) != [rand(X,1) rand(X,1)]
         rng_seed = 2468
         Random.seed!(rng_seed)
         test_lhs = sample(d0)
@@ -427,7 +429,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         Random.seed!(rng_seed)
         test_lhs = sample(d0, 3)
         Random.seed!(rng_seed)
-        @test test_lhs == rand(test_d, 3)
+        @test test_lhs == [rand(test_d, 1) rand(test_d, 1) rand(test_d, 1)]
 
         Random.seed!(rng_seed)
         test_lhs = sample(u1)
@@ -437,7 +439,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         Random.seed!(rng_seed)
         test_lhs = sample(u1, 3)
         Random.seed!(rng_seed)
-        @test test_lhs == rand(test_d, 3)
+        @test test_lhs == [rand(test_d, 1) rand(test_d, 1) rand(test_d, 1)]
 
         Random.seed!(rng_seed)
         test_lhs = sample(d0)
