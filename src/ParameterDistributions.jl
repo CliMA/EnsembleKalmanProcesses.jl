@@ -979,11 +979,22 @@ function constrained_gaussian(
             μ_u, σ_u = _inverse_lognormal_mean_std(μ_c - lower_bound, σ_c)
         else
             # finite interval case; need to solve numerically
-            if (μ_c - 0.7 * σ_c <= lower_bound)
+            if (μ_c - σ_c <= lower_bound)
                 throw(DomainError("`$(name)`: Target std $(σ_c) puts μ - σ too close to lower bound $(lower_bound)"))
             end
-            if (μ_c + 0.7 * σ_c >= upper_bound)
+            if (μ_c + σ_c >= upper_bound)
                 throw(DomainError("`$(name)`: Target std $(σ_c) puts μ + σ too close to upper bound $(upper_bound)"))
+            end
+            # 1.2 seems a reasonable tolerance here for solver to converge quickly
+            if (μ_c - 1.2 * σ_c <= lower_bound)
+                @warn(
+                    "`$(name)`: Target std $(σ_c) puts μ - σ very close to lower bound $(lower_bound), \n The solver may need more iterations to converge, consider decreasing σ"
+                )
+            end
+            if (μ_c + 1.2 * σ_c >= upper_bound)
+                @warn(
+                    "`$(name)`: Target std $(σ_c) puts μ + σ very close to upper bound $(upper_bound), \n The solver may need more iterations to converge, consider decreasing σ"
+                )
             end
             μ_u, σ_u = _constrained_gaussian(
                 name,
