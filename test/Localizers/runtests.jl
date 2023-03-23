@@ -60,7 +60,7 @@ const EKP = EnsembleKalmanProcesses
         # Test Schur product theorem
         u_final = get_u_final(ekiobj)
         g_final = get_g_final(ekiobj)
-        cov_est = cov([u_final; g_final], [u_final; g_final], dims = 2, corrected = false)
+        cov_est = cov([u_final; g_final], dims = 2, corrected = false)
         cov_localized = ekiobj.localizer.localize(cov_est)
         @test rank(cov_est) < rank(cov_localized)
         # Test localization getter method
