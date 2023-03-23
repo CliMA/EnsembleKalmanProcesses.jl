@@ -12,4 +12,6 @@ include("TOMLInterface.jl")
 # algorithmic updates
 include("EnsembleKalmanProcess.jl")
 
+# Plot recipes
+include("PlotRecipes.jl")
 end # module

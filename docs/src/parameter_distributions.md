@@ -49,6 +49,27 @@ The use case `constrained_gaussian()` addresses is when prior information is qua
 
 The parameters of the Gaussian are chosen automatically (depending on the constraint) to reproduce the desired μ and σ — per the use case, other details of the form of the prior distribution shouldn't be important for downstream inference!
 
+### Plotting
+
+For quick visualization we have a plot recipe for `ParameterDistribution` types. This will plot marginal histograms for all dimensions of the parameter distribution. For example, 
+
+```@example snip1
+# with values:
+# e.g. lower_bound = 0.0, upper_bound = 1.0
+# μ_1 = 0.5, σ_1 = 0.25
+# μ_2 = 0.5, σ_2 = 0.25
+
+using Plots
+plot(prior) 
+```
+One can also access the underlying Gaussian distributions in the unconstrained space with
+
+```@example snip1
+using Plots
+plot(prior, constrained=false) 
+```
+
+
 ### Recommended constructor - Simple example
 
 Task: We wish to create a prior for a one-dimensional parameter. Our problem dictates that this parameter is bounded between 0 and 1; domain knowledge leads us to expect it should be around 0.7. The parameter is called `point_seven`.
@@ -387,10 +408,10 @@ name2 = "constrained_sampled"
 nothing # hide
 ```
 
-The final parameter is 20-dimensional, defined as a list of i.i.d univariate distributions we make use of the `VectorOfParameterized` type
+The final parameter is 4-dimensional, defined as a list of i.i.d univariate distributions we make use of the `VectorOfParameterized` type
 ```@example snip5
-d3 = VectorOfParameterized(repeat([Beta(2,2)],20))
-c3 = repeat([no_constraint()],20)
+d3 = VectorOfParameterized(repeat([Beta(2,2)],4))
+c3 = repeat([no_constraint()],4)
 name3 = "Beta"
 nothing # hide
 ```
@@ -413,6 +434,16 @@ u = ParameterDistribution([param_dict1, param_dict2, param_dict3])
 nothing # hide
 ```
 
+We can visualize the marginals of the constrained distributions,
+```@example snip5
+using Plots
+plot(u)
+```
+and the unconstrained distributions similarly,
+```@example snip5
+using Plots
+plot(u, constrained = false)
+```
 
 ## ConstraintType Examples
 

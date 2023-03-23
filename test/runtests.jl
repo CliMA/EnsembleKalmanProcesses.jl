@@ -27,6 +27,7 @@ end
     for submodule in [
         "DataContainers",
         "ParameterDistributions",
+        "PlotRecipes",
         "Observations",
         "EnsembleKalmanProcess",
         "Localizers",
