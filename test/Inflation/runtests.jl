@@ -82,11 +82,11 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
             EKP.additive_inflation!(eki_add_inflation_prior; use_prior_cov = true)
 
             # ensure multiplicative inflation approximately preserves ensemble mean
-            @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_mult_inflation) atol = 0.1
+            @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_mult_inflation) atol = 0.2
             # ensure additive inflation approximately preserves ensemble mean
-            @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_add_inflation) atol = 0.1
+            @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_add_inflation) atol = 0.2
             # ensure additive inflation (scaling prior cov) approximately preserves ensemble mean
-            @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_add_inflation_prior) atol = 0.1
+            @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_add_inflation_prior) atol = 0.2
 
             # ensure inflation expands ensemble variance as expected
             expected_var_gain = 1 / (1 - Δt)

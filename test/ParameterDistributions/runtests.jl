@@ -617,6 +617,11 @@ using EnsembleKalmanProcesses.ParameterDistributions
             @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1.0, 1000.0)
             @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1000.0, 1.0)
             @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1.0, 1.0)
+            # σ near boundary throws warning
+            @test_logs (:warn,) constrained_gaussian("test", 0.54, 0.4, 0, 1) # 0.54 + 1.2*0.4 > 1
+            @test_logs (:warn,) constrained_gaussian("test", 0.46, 0.4, 0, 1) # 0.46 - 1.2*0.4 < 1
+
+
         end
         @testset "constrained_gaussian: closed form" begin
             μ_c = -5.0

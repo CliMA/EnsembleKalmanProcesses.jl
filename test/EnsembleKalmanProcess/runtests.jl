@@ -9,6 +9,8 @@ using EnsembleKalmanProcesses.Localizers
 import EnsembleKalmanProcesses: construct_mean, construct_cov, construct_sigma_ensemble
 const EKP = EnsembleKalmanProcesses
 
+
+
 # Read inverse problem definitions
 include("inverse_problem.jl")
 
@@ -122,10 +124,11 @@ end
     # Plot evolution of the EKS particles
     if TEST_PLOT_OUTPUT
         gr()
+        eksobj = eksobjs[end]
         ϕ_prior = transform_unconstrained_to_constrained(prior, get_u_prior(eksobj))
         ϕ_final = get_ϕ_final(prior, eksobj)
-        p = plot(ϕ_prior[1, :], ϕ_final[2, :], seriestype = :scatter, label = "Initial ensemble")
-        plot!(ϕ_prior[1, :], ϕ_final[2, :], seriestype = :scatter, label = "Final ensemble")
+        p = plot(ϕ_prior[1, :], ϕ_prior[2, :], seriestype = :scatter, label = "Initial ensemble")
+        plot!(ϕ_final[1, :], ϕ_final[2, :], seriestype = :scatter, label = "Final ensemble")
         plot!(
             [ϕ_star[1]],
             xaxis = "cons_p",
@@ -136,7 +139,7 @@ end
             label = :none,
         )
         plot!([ϕ_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = :none)
-        savefig(p, "EKS_test.png")
+        savefig(p, joinpath(@__DIR__, "EKS_test.png"))
     end
 end
 
@@ -290,7 +293,7 @@ end
             label = :none,
         )
         plot!([ϕ_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = :none)
-        savefig(p, "EKI_test.png")
+        savefig(p, joinpath(@__DIR__, "EKI_test.png"))
     end
 end
 
@@ -393,18 +396,18 @@ end
     if TEST_PLOT_OUTPUT
         gr()
         θ_mean_arr = hcat(ukiobj.process.u_mean...)
-        N_θ = length(ukiobj.process.u_mean[1])
-        θθ_std_arr = zeros(Float64, (N_θ, N_iter + 1))
-        for i in 1:(N_iter + 1)
+        N_θ, N_ens = size(θ_mean_arr)
+        θθ_std_arr = zeros(Float64, (N_θ, N_ens))
+        for i in 1:(N_ens)
             for j in 1:N_θ
                 θθ_std_arr[j, i] = sqrt(ukiobj.process.uu_cov[i][j, j])
             end
         end
 
         u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
-        ites = Array(LinRange(1, N_iter + 1, N_iter + 1))
+        ites = Array(LinRange(1, N_ens, N_ens))
         p = plot(ites, grid = false, θ_mean_arr[1, :], yerror = 3.0 * θθ_std_arr[1, :], label = "cons_p")
-        plot!(ites, fill(u_star[1], N_iter + 1), linestyle = :dash, linecolor = :grey, label = :none)
+        plot!(ites, fill(u_star[1], N_ens), linestyle = :dash, linecolor = :grey, label = :none)
         plot!(
             ites,
             grid = false,
@@ -413,8 +416,8 @@ end
             label = "uncons_p",
             xaxis = "Iterations",
         )
-        plot!(ites, fill(u_star[2], N_iter + 1), linestyle = :dash, linecolor = :grey, label = :none)
-        savefig(p, "UKI_test.png")
+        plot!(ites, fill(u_star[2], N_ens), linestyle = :dash, linecolor = :grey, label = :none)
+        savefig(p, joinpath(@__DIR__, "UKI_test.png"))
     end
 end
 
