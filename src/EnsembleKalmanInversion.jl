@@ -93,7 +93,7 @@ function eki_update(
     obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
 ) where {FT <: Real, IT, CT <: Real}
 
-    cov_est = cov([u; g], [u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
+    cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
     # Localization
     cov_localized = ekp.localizer.localize(cov_est)

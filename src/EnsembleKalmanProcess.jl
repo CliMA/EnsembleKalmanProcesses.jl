@@ -235,7 +235,7 @@ Returns the unconstrained parameter sample covariance at the given iteration.
 """
 function get_u_cov(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
     u = get_data(ekp.u[iteration])
-    return cov(u, u, dims = 2)
+    return cov(u, dims = 2)
 end
 
 """
@@ -244,7 +244,7 @@ end
 Returns the unconstrained parameter sample covariance for the initial ensemble.
 """
 function get_u_cov_prior(ekp::EnsembleKalmanProcess)
-    return cov(get_u_prior(ekp), get_u_prior(ekp), dims = 2)
+    return cov(get_u_prior(ekp), dims = 2)
 end
 
 """
@@ -421,7 +421,7 @@ function sample_empirical_gaussian(
     n::IT;
     inflation::Union{FT, Nothing} = nothing,
 ) where {FT <: Real, IT <: Int}
-    cov_u_new = Symmetric(cov(u, u, dims = 2))
+    cov_u_new = Symmetric(cov(u, dims = 2))
     if !isposdef(cov_u_new)
         @warn string("Sample covariance matrix over ensemble is singular.", "\n Appplying variance inflation.")
         if isnothing(inflation)
