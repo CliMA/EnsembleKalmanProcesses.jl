@@ -76,6 +76,7 @@ $(TYPEDFIELDS)
         rng::AbstractRNG = Random.GLOBAL_RNG,
         failure_handler_method::FM = IgnoreFailures(),
         localization_method::LM = NoLocalization(),
+        verbose::Bool = false,
     ) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
 
 Inputs:
@@ -88,6 +89,7 @@ Inputs:
  - `rng`                    :: Random number generator
  - `failure_handler_method` :: Method used to handle particle failures
  - `localization_method`    :: Method used to localize sample covariances
+ - `verbose`                :: Whether to print diagnostic information
 
 # Other constructors:
 
@@ -116,6 +118,8 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     failure_handler::FailureHandler
     "Localization kernel, implemented for (`Inversion`, `SparseInversion`, `Unscented`)"
     localizer::Localizer
+    "Whether to print diagnostics for each EK iteration"
+    verbose::Bool
 end
 
 function EnsembleKalmanProcess(
@@ -127,6 +131,7 @@ function EnsembleKalmanProcess(
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
     localization_method::LM = NoLocalization(),
+    verbose::Bool = false,
 ) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
 
     #initial parameters stored as columns
@@ -148,7 +153,24 @@ function EnsembleKalmanProcess(
     # localizer
     loc = Localizer(localization_method, N_par, N_obs, N_ens, FT)
 
-    EnsembleKalmanProcess{FT, IT, P}([init_params], obs_mean, obs_noise_cov, N_ens, g, err, Δt, process, rng, fh, loc)
+    if verbose
+        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))"
+    end
+
+    EnsembleKalmanProcess{FT, IT, P}(
+        [init_params],
+        obs_mean,
+        obs_noise_cov,
+        N_ens,
+        g,
+        err,
+        Δt,
+        process,
+        rng,
+        fh,
+        loc,
+        verbose,
+    )
 end
 
 
@@ -423,7 +445,7 @@ function sample_empirical_gaussian(
 ) where {FT <: Real, IT <: Int}
     cov_u_new = Symmetric(cov(u, dims = 2))
     if !isposdef(cov_u_new)
-        @warn string("Sample covariance matrix over ensemble is singular.", "\n Appplying variance inflation.")
+        @warn string("Sample covariance matrix over ensemble is singular.", "\n Applying variance inflation.")
         if isnothing(inflation)
             # Reduce condition number to 1/sqrt(eps(FT))
             inflation = eigmax(cov_u_new) * sqrt(eps(FT))

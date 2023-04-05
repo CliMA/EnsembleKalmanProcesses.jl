@@ -175,7 +175,6 @@ end
         ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
         g::AbstractMatrix{FT},
         process::SparseInversion{FT};
-        cov_threshold::Real = 0.01,
         Δt_new = nothing,
         deterministic_forward_map = true,
         failed_ens = nothing,
@@ -187,7 +186,6 @@ Inputs:
  - `ekp` :: The EnsembleKalmanProcess to update.
  - `g` :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - `process` :: Type of the EKP.
- - `cov_threshold` :: Threshold below which the reduction in covariance determinant results in a warning.
  - `Δt_new` :: Time step to be used in the current update.
  - `deterministic_forward_map` :: Whether output `g` comes from a deterministic model.
  - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
@@ -197,7 +195,6 @@ function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
     g::AbstractMatrix{FT},
     process::SparseInversion{FT};
-    cov_threshold::Real = 0.01,
     Δt_new = nothing,
     deterministic_forward_map = true,
     failed_ens = nothing,
@@ -246,13 +243,4 @@ function update_ensemble!(
 
     # Check convergence
     cov_new = cov(get_u_final(ekp), dims = 2)
-    cov_ratio = det(cov_new) / det(cov_init)
-    if cov_ratio < cov_threshold
-        @warn string(
-            "New ensemble covariance determinant is less than ",
-            cov_threshold,
-            " times its previous value.",
-            "\nConsider reducing the EK time step.",
-        )
-    end
 end

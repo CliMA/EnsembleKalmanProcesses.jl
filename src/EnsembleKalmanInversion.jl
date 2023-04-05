@@ -120,7 +120,6 @@ end
         ekp::EnsembleKalmanProcess{FT, IT, Inversion},
         g::AbstractMatrix{FT},
         process::Inversion;
-        cov_threshold::Real = 0.01,
         Δt_new::Union{Nothing, FT} = nothing,
         deterministic_forward_map::Bool = true,
         failed_ens = nothing,
@@ -132,7 +131,6 @@ Inputs:
  - ekp :: The EnsembleKalmanProcess to update.
  - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - process :: Type of the EKP.
- - cov_threshold :: Threshold below which the reduction in covariance determinant results in a warning.
  - Δt_new :: Time step to be used in the current update.
  - deterministic_forward_map :: Whether output `g` comes from a deterministic model.
  - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
@@ -141,7 +139,6 @@ function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
     g::AbstractMatrix{FT},
     process::Inversion;
-    cov_threshold::Real = 0.01,
     Δt_new::Union{Nothing, FT} = nothing,
     deterministic_forward_map::Bool = true,
     failed_ens = nothing,
@@ -161,6 +158,16 @@ function update_ensemble!(
     u = get_u_final(ekp)
     N_obs = size(g, 1)
     cov_init = cov(u, dims = 2)
+
+    if ekp.verbose
+        if get_N_iterations(ekp) == 0
+            @info "Iteration 0 (prior)"
+            @info "Covariance trace: $(tr(cov_init))"
+        end
+
+        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
+    end
+
     set_Δt!(ekp, Δt_new)
     fh = ekp.failure_handler
 
@@ -188,15 +195,10 @@ function update_ensemble!(
     # Store error
     compute_error!(ekp)
 
-    # Check convergence
+    # Diagnostics
     cov_new = cov(get_u_final(ekp), dims = 2)
-    cov_ratio = det(cov_new) / det(cov_init)
-    if cov_ratio < cov_threshold
-        @warn string(
-            "New ensemble covariance determinant is less than ",
-            cov_threshold,
-            " times its previous value.",
-            "\nConsider reducing the EK time step.",
-        )
+
+    if ekp.verbose
+        @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
     end
 end
