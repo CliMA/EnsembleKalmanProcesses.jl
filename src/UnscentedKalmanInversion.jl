@@ -190,6 +190,7 @@ function EnsembleKalmanProcess(
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
     localization_method::LM = NoLocalization(),
+    verbose::Bool = false,
 ) where {FT <: AbstractFloat, IT <: Int, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
 
     #initial parameters stored as columns
@@ -210,6 +211,10 @@ function EnsembleKalmanProcess(
     # localizer
     loc = Localizer(localization_method, N_par, N_obs, N_ens, FT)
 
+    if verbose
+        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))"
+    end
+
     EnsembleKalmanProcess{FT, IT, Unscented}(
         init_params,
         obs_mean,
@@ -222,6 +227,7 @@ function EnsembleKalmanProcess(
         rng,
         fh,
         loc,
+        verbose,
     )
 end
 
@@ -652,6 +658,17 @@ function update_ensemble!(
 
     u_p_old = get_u_final(uki)
 
+    if uki.verbose
+        cov_init = get_u_cov_final(uki)
+
+        if get_N_iterations(uki) == 0
+            @info "Iteration 0 (prior)"
+            @info "Covariance trace: $(tr(cov_init))"
+        end
+
+        @info "Iteration $(get_N_iterations(uki)+1) (T=$(sum(uki.Δt)))"
+    end
+
     set_Δt!(uki, Δt_new)
     fh = uki.failure_handler
 
@@ -665,6 +682,11 @@ function update_ensemble!(
     u_p = fh.failsafe_update(uki, u_p_old, g_in, failed_ens)
 
     push!(uki.u, DataContainer(u_p, data_are_columns = true))
+
+    if uki.verbose
+        cov_new = get_u_cov_final(uki)
+        @info "Covariance-weighted error: $(get_error(uki)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
+    end
 
     return u_p
 end

@@ -111,7 +111,6 @@ function update_ensemble!(
     process::Sampler{FT};
     failed_ens = nothing,
 ) where {FT, IT}
-
     #catch works when g non-square 
     if !(size(g)[2] == ekp.N_ens)
         throw(
@@ -124,7 +123,18 @@ function update_ensemble!(
     # u: N_ens × N_par
     # g: N_ens × N_obs
     u_old = get_u_final(ekp)
+    cov_init = get_u_cov_final(ekp)
+
     fh = ekp.failure_handler
+
+    if ekp.verbose
+        if get_N_iterations(ekp) == 0
+            @info "Iteration 0 (prior)"
+            @info "Covariance trace: $(tr(cov_init))"
+        end
+
+        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
+    end
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
@@ -143,4 +153,11 @@ function update_ensemble!(
     # but stored in data container with N_ens as the 2nd dim
 
     compute_error!(ekp)
+
+    # Diagnostics
+    cov_new = get_u_cov_final(ekp)
+
+    if ekp.verbose
+        @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
+    end
 end
