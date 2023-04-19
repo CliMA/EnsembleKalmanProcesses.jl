@@ -10,11 +10,13 @@ using DocStringExtensions
 #import (to add definitions)
 import StatsBase: mean, var, cov, sample
 import Base: size, length, ndims
+import Distributions: logpdf
 ## Exports
 
 #types
-export ParameterDistributionType
+export ParameterDistributionType, FunctionParameterDistributionType
 export ConstraintType
+export GRFJL
 
 #objects
 export Parameterized, Samples, VectorOfParameterized
@@ -23,11 +25,10 @@ export Constraint, NoConstraint, BoundedBelow, BoundedAbove, Bounded
 
 #functions
 export get_name, get_distribution, ndims, get_dimensions, get_all_constraints, get_n_samples
-export sample
 export no_constraint, bounded_below, bounded_above, bounded
 export get_bounds, get_constraint_type
 export transform_constrained_to_unconstrained, transform_unconstrained_to_constrained
-export get_logpdf, batch
+export logpdf, batch
 
 export combine_distributions
 export constrained_gaussian
@@ -254,11 +255,11 @@ size(c::CType) where {CType <: ConstraintType} = size([c])
 
 The number of dimensions of the parameter space
 """
-ndims(d::Parameterized) = length(d.distribution)
+ndims(d::Parameterized; kwargs...) = length(d.distribution)
 
-ndims(d::Samples) = size(d.distribution_samples, 1)
+ndims(d::Samples; kwargs...) = size(d.distribution_samples, 1)
 
-ndims(d::VectorOfParameterized) = sum(length.(d.distribution))
+ndims(d::VectorOfParameterized; kwargs...) = sum(length.(d.distribution))
 """
     n_samples(d<:Samples)
 
@@ -329,7 +330,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
         if !isa(distribution, ParameterDistributionType)
             throw(
                 ArgumentError(
-                    "Value of \"distribution\" must be a valid ParameterDistribution object: Parameterized, VectorOfParameterized, or Samples. Got $(typeof(distribution))",
+                    "Value of \"distribution\" must be a valid ParameterDistributionType object: Parameterized, VectorOfParameterized, Samples, FunctionParameterDistribution. Got $(typeof(distribution))",
                 ),
             )
         end
@@ -354,15 +355,16 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
         # 1 constraint per dimension check
         constraint_array = isa(constraint, ConstraintType) ? [constraint] : constraint
-        n_parameters = ndims(distribution)
 
+        n_parameters = ndims(distribution, function_parameter_opt = "constraint")
         if !(n_parameters == length(constraint_array))
             throw(
                 DimensionMismatch(
-                    "There must be one constraint dimension in a parameter distribution. Required $(n_parameters) contraints, got $(length(constraint_array)). \n Use no_constraint() object if no constraint is required in a dimension",
+                    "There must be one constraint per dimension in a parameter distribution, or one constraint (total) in a function parameter distribution. Required $(n_parameters) contraints, got $(length(constraint_array)). \n Use no_constraint() object if no constraint is required in a dimension",
                 ),
             )
         end
+
     end
 
     # flatten the structure
@@ -398,12 +400,12 @@ function ParameterDistribution(
     end
     # 1 constraint per dimension check
     constraint_vec = isa(constraint, ConstraintType) ? [constraint] : constraint
-    n_parameters = ndims(distribution)
+    n_parameters = ndims(distribution, function_parameter_opt = "constraint")
 
     if !(n_parameters == length(constraint_vec))
         throw(
             DimensionMismatch(
-                "There must be one constraint dimension in a parameter distribution. Required $(n_parameters) contraints, got $(length(constraint_vec)). \n Use no_constraint() object if no constraint is required in a dimension",
+                "There must be one constraint per dimension in a parameter distribution, or one constraint (total) in a function parameter distribution. Required $(n_parameters) contraints, got $(length(constraint_vec)). \n Use no_constraint() object if no constraint is required in a dimension",
             ),
         )
     end
@@ -472,19 +474,19 @@ Returns a list of ParameterDistribution names.
 get_name(pd::ParameterDistribution) = pd.name
 
 """
-    get_dimensions(pd::ParameterDistribution)
+    get_dimensions(pd::ParameterDistribution; function_parameter_opt = "dof")
 
-The number of dimensions of the parameter space.
+The number of dimensions of the parameter space. (Also represents other dimensions of interest for `FunctionParameterDistributionType`s with keyword argument)
 """
-function get_dimensions(pd::ParameterDistribution)
-    return [ndims(d) for d in pd.distribution]
+function get_dimensions(pd::ParameterDistribution; function_parameter_opt::AbstractString = "dof")
+    return [ndims(d, function_parameter_opt = function_parameter_opt) for d in pd.distribution]
 end
-function get_dimensions(d::VectorOfParameterized)
+function get_dimensions(d::VectorOfParameterized; kwargs...)
     return [length(dd) for dd in d.distribution]
 end
 
-function ndims(pd::ParameterDistribution)
-    return sum(get_dimensions(pd))
+function ndims(pd::ParameterDistribution; function_parameter_opt::AbstractString = "dof")
+    return sum(get_dimensions(pd, function_parameter_opt = function_parameter_opt))
 end
 
 """
@@ -504,7 +506,7 @@ Returns the (flattened) array of constraints of the parameter distribution. or a
 function get_all_constraints(pd::ParameterDistribution; return_dict = false)
     if return_dict
         pns = get_name(pd)
-        batch_ids = batch(pd)
+        batch_ids = batch(pd, function_parameter_opt = "constraint")
         ret = Dict()
         for (pn, id) in zip(pns, batch_ids)
             ret[pn] = pd.constraint[id]
@@ -516,13 +518,14 @@ function get_all_constraints(pd::ParameterDistribution; return_dict = false)
 end
 
 """
-    batch(pd::ParameterDistribution)
+    batch(pd::ParameterDistribution; function_parameter_opt = "dof")
 
-Returns a list of contiguous `[collect(1:i), collect(i+1:j),... ]` used to split parameter arrays by distribution dimensions.
+Returns a list of contiguous `[collect(1:i), collect(i+1:j),... ]` used to split parameter arrays by distribution dimensions. `function_parameter_opt` is passed to ndims in the special case of `FunctionParameterDistributionType`s.
 """
-function batch(pd::Union{ParameterDistribution, VectorOfParameterized})
+function batch(pd::Union{ParameterDistribution, VectorOfParameterized}; function_parameter_opt::AbstractString = "dof")
     #chunk xarray to give to the different distributions.
-    d_dim = get_dimensions(pd) #e.g [4,1,2]
+
+    d_dim = get_dimensions(pd; function_parameter_opt = function_parameter_opt) #e.g [4,1,2]
     d_dim_tmp = Array{Int64}(undef, size(d_dim)[1] + 1)
     d_dim_tmp[1] = 0
     for i in 2:(size(d_dim)[1] + 1)
@@ -566,7 +569,7 @@ Base.:(==)(pd_a::ParameterDistribution, pd_b::ParameterDistribution) =
 
 Draws `n_draws` samples from the parameter distributions `pd`. Returns an array, with 
 parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
-optional and defaults to 1. 
+optional and defaults to 1. Performed in computational space.
 """
 function sample(rng::AbstractRNG, pd::ParameterDistribution, n_draws::IT) where {IT <: Integer}
     return cat([sample(rng, d, n_draws) for d in pd.distribution]..., dims = 1)
@@ -582,7 +585,7 @@ sample(pd::ParameterDistribution) = sample(Random.GLOBAL_RNG, pd, 1)
 
 Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
 parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
-optional and defaults to 1. 
+optional and defaults to 1. Performed in computational space.
 """
 function sample(rng::AbstractRNG, d::Samples, n_draws::IT) where {IT <: Integer}
     n_stored_samples = n_samples(d)
@@ -604,7 +607,7 @@ sample(d::Samples) = sample(Random.GLOBAL_RNG, d, 1)
 
 Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
 parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
-optional and defaults to 1. 
+optional and defaults to 1. Performed in computational space.
 """
 function sample(rng::AbstractRNG, d::Parameterized, n_draws::IT) where {IT <: Integer}
     if ndims(d) == 1
@@ -624,7 +627,7 @@ sample(d::Parameterized) = sample(Random.GLOBAL_RNG, d, 1)
 
 Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
 parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
-optional and defaults to 1. 
+optional and defaults to 1. Performed in computational space.
 """
 function sample(rng::AbstractRNG, d::VectorOfParameterized, n_draws::IT) where {IT <: Integer}
     samples = zeros(ndims(d), n_draws)
@@ -646,9 +649,9 @@ sample(d::VectorOfParameterized) = sample(Random.GLOBAL_RNG, d, 1)
 Obtains the independent logpdfs of the parameter distributions at `xarray`
 (non-Samples Distributions only), and returns their sum.
 """
-get_logpdf(d::Parameterized, xarray::AbstractVector{FT}) where {FT <: Real} = logpdf.(d.distribution, xarray)
+logpdf(d::Parameterized, xarray::AbstractVector{FT}) where {FT <: Real} = logpdf.(d.distribution, xarray)
 
-function get_logpdf(d::VectorOfParameterized, xarray::AbstractVector{FT}) where {FT <: Real}
+function logpdf(d::VectorOfParameterized, xarray::AbstractVector{FT}) where {FT <: Real}
     # get the index of xarray chunks to give to the different distributions.
     batches = batch(d)
     dimensions = get_dimensions(d)
@@ -664,13 +667,13 @@ function get_logpdf(d::VectorOfParameterized, xarray::AbstractVector{FT}) where 
     return lpdfsum
 end
 
-function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT <: Real}
+function logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT <: Real}
     #first check we don't have sampled distribution
     for d in pd.distribution
         if typeof(d) <: Samples
             throw(
                 ErrorException(
-                    "Cannot compute get_logpdf of Samples distribution. Consider using a Parameterized type for your prior.",
+                    "Cannot compute logpdf of Samples distributions. Consider using a Parameterized type for your prior.",
                 ),
             )
         end
@@ -688,7 +691,7 @@ function get_logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where
     batches = batch(pd)
 
     # perform the logpdf of each of the distributions, and returns their sum    
-    return sum(cat([get_logpdf(d, xarray[batches[i]]) for (i, d) in enumerate(pd.distribution)]..., dims = 1))
+    return sum(cat([logpdf(d, xarray[batches[i]]) for (i, d) in enumerate(pd.distribution)]..., dims = 1))
 end
 
 #extending StatsBase cov,var
@@ -777,95 +780,204 @@ end
 
 #apply transforms
 
-"""
-    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Array{<:Real,1})
+function transform_constrained_to_unconstrained(
+    d::PDT,
+    constraints::AbstractVector,
+    x::AbstractVector{FT},
+) where {FT <: Real, PDT <: ParameterDistributionType}
+    return cat([c.constrained_to_unconstrained(x[i]) for (i, c) in enumerate(constraints)]..., dims = 1)
+end
 
-Apply the transformation to map (possibly constrained) parameters `x` into the unconstrained space.
+function transform_constrained_to_unconstrained(
+    d::PDT,
+    constraints::AbstractVector,
+    x::AbstractMatrix{FT},
+) where {FT <: Real, PDT <: ParameterDistributionType}
+    return Array(hcat([c.constrained_to_unconstrained.(x[i, :]) for (i, c) in enumerate(constraints)]...)')
+end
+
+
+"""
+    transform_constrained_to_unconstrained(d::ParameterDistribution, x::AbstractVector)
+
+Apply the transformation to map a (possibly constrained) parameter sample `x` into the unconstrained space.
 """
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::AbstractVector{FT}) where {FT <: Real}
-    return cat([c.constrained_to_unconstrained(x[i]) for (i, c) in enumerate(pd.constraint)]..., dims = 1)
+    param_names = get_name(pd)
+    pd_batch_idxs = batch(pd, function_parameter_opt = "eval") # e.g. [collect(1:2), collect(3:3), collect(5:9)]
+    pd_constraints = get_all_constraints(pd, return_dict = true)
+
+    ret = []
+    for (name, idxs, d) in zip(param_names, pd_batch_idxs, pd.distribution)
+        push!(ret, Array(transform_constrained_to_unconstrained(d, pd_constraints[name], x[idxs])))
+    end #returns a list of samples that are concatenated 
+
+    return cat(ret..., dims = 1)
+
 end
 
 """
-    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Array{<:Real,2})
+    transform_constrained_to_unconstrained(d::ParameterDistribution, x::AbstractMatrix)
 
-Apply the transformation to map (possibly constrained) parameter samples `x` into the unconstrained space.
-Here, `x` contains parameters as columns and samples as rows.
+Apply the transformation to map (possibly constrained) parameter samples `x` (columns of the matrix) into the unconstrained space.
 """
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::AbstractMatrix{FT}) where {FT <: Real}
-    return Array(hcat([c.constrained_to_unconstrained.(x[i, :]) for (i, c) in enumerate(pd.constraint)]...)')
+    param_names = get_name(pd)
+    pd_batch_idxs = batch(pd, function_parameter_opt = "eval") # e.g. [collect(1:2), collect(3:3), collect(5:9)]
+    pd_dists = get_distribution(pd)
+    pd_constraints = get_all_constraints(pd, return_dict = true)
+
+    ret = []
+    for (name, idxs, d) in zip(param_names, pd_batch_idxs, pd.distribution)
+        push!(ret, Array(transform_constrained_to_unconstrained(d, pd_constraints[name], x[idxs, :])))
+    end #returns a list of row-blocks that are concatenated
+
+    return cat(ret..., dims = 1)
+
 end
 
-
 """
-    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Dict)
+    transform_constrained_to_unconstrained(d::ParameterDistribution, x::Dict)
 
 Apply the transformation to map (possibly constrained) parameter samples `x` into the unconstrained space.
 Here, `x` contains parameter names as keys, and 1- or 2-arrays as parameter samples.
 """
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Dict)
     param_names = get_name(pd)
-    pd_batch_idxs = batch(pd) # e.g. [collect(1:2), collect(3:3), collect(5:9)]
-    pd_dists = get_distribution(pd)
     pd_constraints = get_all_constraints(pd, return_dict = true)
 
     ret = Dict()
-    for (key, val, idxs) in zip(keys(x), values(x), pd_batch_idxs)
-        ret[key] = Array(
-            transform_constrained_to_unconstrained(
-                ParameterDistribution(pd_dists[key], pd_constraints[key], key),
-                x[key],
-            ),
-        )
-    end
+    for (name, d) in zip(param_names, pd.distribution)
+        ret[name] = transform_constrained_to_unconstrained(d, pd_constraints[name], x[name])
+    end #returns a dictionary
+
     return ret
 
 end
 
 
 """
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Array{<:Real,1})
+    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Array{Array{<:Real,2},1})
 
-Apply the transformation to map parameters `x` from the unconstrained space into (possibly constrained) space.
+Apply the transformation to map parameter sample ensembles `x` from the (possibly) constrained space into unconstrained space.
+Here, `x` is an iterable of parameters sample ensembles for different EKP iterations.
 """
-function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::AbstractVector{FT}) where {FT <: Real}
-    return cat([c.unconstrained_to_constrained(x[i]) for (i, c) in enumerate(pd.constraint)]..., dims = 1)
+function transform_constrained_to_unconstrained(
+    pd::ParameterDistribution,
+    x, # ::Iterable{AbstractMatrix{FT}},
+) where {FT <: Real}
+    transf_x = []
+    for elem in x
+        push!(transf_x, transform_constrained_to_unconstrained(pd, elem))
+    end
+    return transf_x
+end
+
+function transform_unconstrained_to_constrained(
+    d::PDT,
+    constraints::AbstractVector,
+    x::AbstractVector{FT};
+    kwargs...,
+) where {FT <: Real, PDT <: ParameterDistributionType}
+    return cat([c.unconstrained_to_constrained(x[i]) for (i, c) in enumerate(constraints)]..., dims = 1)
+end
+
+function transform_unconstrained_to_constrained(
+    d::PDT,
+    constraints::AbstractVector,
+    x::AbstractMatrix{FT};
+    kwargs...,
+) where {FT <: Real, PDT <: ParameterDistributionType}
+    return Array(hcat([c.unconstrained_to_constrained.(x[i, :]) for (i, c) in enumerate(constraints)]...)')
+end
+
+
+"""
+    transform_unconstrained_to_constrained(d::ParameterDistribution, x::AbstractVector)
+
+Apply the transformation to map an unconstrained parameter sample `x` into the constrained space.
+"""
+function transform_unconstrained_to_constrained(
+    pd::ParameterDistribution,
+    x::AbstractVector{FT};
+    build_flag::Bool = true,
+) where {FT <: Real}
+    param_names = get_name(pd)
+    pd_constraints = get_all_constraints(pd, return_dict = true)
+
+    # naive function parameter check, is x a dof vector, or the unconstrained evaluated function?
+    if build_flag
+        pd_batch_idxs = batch(pd, function_parameter_opt = "dof")
+    else
+        pd_batch_idxs = batch(pd, function_parameter_opt = "eval")
+    end
+
+    ret = []
+    for (name, idxs, d) in zip(param_names, pd_batch_idxs, pd.distribution)
+        push!(
+            ret,
+            Array(transform_unconstrained_to_constrained(d, pd_constraints[name], x[idxs], build_flag = build_flag)),
+        )
+    end #returns a list of params (though only 1 sample) that are concatenated 
+
+    return cat(ret..., dims = 1)
+
 end
 
 """
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Array{<:Real,2})
+    transform_unconstrained_to_constrained(d::ParameterDistribution, x::AbstractMatrix)
 
-Apply the transformation to map parameter samples `x` from the unconstrained space into (possibly constrained) space.
-Here, `x` contains parameters as columns and samples as rows.
+Apply the transformation to map unconstrained parameter samples `x` (samples stored as columns) into the constrained space.
 """
-function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::AbstractMatrix{FT}) where {FT <: Real}
-    return Array(hcat([c.unconstrained_to_constrained.(x[i, :]) for (i, c) in enumerate(pd.constraint)]...)')
+function transform_unconstrained_to_constrained(
+    pd::ParameterDistribution,
+    x::AbstractMatrix{FT};
+    build_flag::Bool = true,
+) where {FT <: Real}
+    param_names = get_name(pd)
+    pd_dists = get_distribution(pd)
+    pd_constraints = get_all_constraints(pd, return_dict = true)
+
+    # naive function parameter check, is x a dof vector, or the unconstrained evaluated function?
+    if build_flag
+        pd_batch_idxs = batch(pd, function_parameter_opt = "dof")
+    else
+        pd_batch_idxs = batch(pd, function_parameter_opt = "eval")
+    end
+
+    ret = []
+    for (name, idxs, d) in zip(param_names, pd_batch_idxs, pd.distribution)
+        push!(
+            ret,
+            Array(transform_unconstrained_to_constrained(d, pd_constraints[name], x[idxs, :], build_flag = build_flag)),
+        )
+    end #returns a list of row-blocks that are concatenated
+
+    return cat(ret..., dims = 1)
+
 end
 
 """
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Dict)
+    transform_unconstrained_to_constrained(d::ParameterDistribution, x::Dict)
 
-Apply the transformation to map parameter samples `x` from the unconstrained space into (possibly constrained) space.
+Apply the transformation to map (possibly constrained) parameter samples `x` into the unconstrained space.
 Here, `x` contains parameter names as keys, and 1- or 2-arrays as parameter samples.
 """
-function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Dict)
+function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Dict; build_flag::Bool = true)
     param_names = get_name(pd)
-    pd_batch_idxs = batch(pd) # e.g. [collect(1:2), collect(3:3), collect(5:9)]
-    pd_dists = get_distribution(pd)
     pd_constraints = get_all_constraints(pd, return_dict = true)
 
     ret = Dict()
-    for (key, val, idxs) in zip(keys(x), values(x), pd_batch_idxs)
-        ret[key] = Array(
-            transform_unconstrained_to_constrained(
-                ParameterDistribution(pd_dists[key], pd_constraints[key], key),
-                x[key],
-            ),
-        )
-    end
+    for (name, d) in zip(param_names, pd.distribution)
+        ret[name] = transform_unconstrained_to_constrained(d, pd_constraints[name], x[name], build_flag = build_flag)
+    end #returns a dictionary
+
     return ret
 
 end
+
+
+
 
 """
     transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Array{Array{<:Real,2},1})
@@ -1068,5 +1180,9 @@ function _constrained_gaussian(
     end
     return (μ_u, σ_u)
 end
+
+include("FunctionParameterDistributions.jl")
+
+
 
 end # of module

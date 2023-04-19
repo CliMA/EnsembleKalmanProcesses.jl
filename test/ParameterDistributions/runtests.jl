@@ -1,7 +1,9 @@
 using Test
 using Distributions
-using StableRNGs
 using StatsBase
+import GaussianRandomFields # we wrap this so we don't want to use "using"
+const GRF = GaussianRandomFields
+using StableRNGs
 using LinearAlgebra
 using Random
 
@@ -26,6 +28,190 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d = VectorOfParameterized(repeat([Normal(0, 1)], 5))
         @test d.distribution == repeat([Normal(0, 1)], 5)
     end
+
+    @testset "ParameterDistribution: over function spaces" begin
+
+        # create a 1D Matern GRF with GaussianRandomFields.jl 
+        # For now we only support 1D fields
+        dim = 1
+        smoothness = 1.0
+        corr_length = 0.1
+        dofs = 30
+        pts = collect(0:0.02:1)
+        grf = GRF.GaussianRandomField(
+            GRF.CovarianceFunction(dim, GRF.Matern(corr_length, smoothness)),
+            GRF.KarhunenLoeve(dofs),
+            pts,
+        )
+
+        #our wrapper for learning the field:
+        pkg = GRFJL()
+        d = GaussianRandomFieldInterface(grf, pkg)
+
+        coeff_prior = constrained_gaussian("GRF_coefficients", 0.0, 1.0, -Inf, Inf, repeats = dofs)
+        @test get_grf(d) == grf
+        @test get_distribution(d) == coeff_prior
+        @test get_package(d) == pkg
+
+        # and with another prior:
+        wide_pos_prior = constrained_gaussian("GRF_coefficients_wide_pos", 0.0, 10.0, -10, Inf, repeats = dofs)
+        d_wide_pos = GaussianRandomFieldInterface(grf, pkg, wide_pos_prior)
+        @test get_distribution(d_wide_pos) == wide_pos_prior
+        err_prior = constrained_gaussian("GRF_coefficients_wide_pos", 0.0, 10.0, -10, Inf, repeats = dofs + 1) # wrong num dofs
+        @test_throws ArgumentError GaussianRandomFieldInterface(grf, pkg, err_prior)
+
+
+        #function-based utils
+        @test spectrum(d) == grf.data #evalues and efunctions
+        @test eval_pts(d) == grf.pts
+        @test input_dims(d) == dim
+        @test n_dofs(d) == dofs
+        @test n_eval_pts(d) == prod([length(grf.pts[i]) for i in 1:dim])
+
+        #coeff-based utils
+        @test mean(d) == mean(coeff_prior)
+        @test cov(d) == cov(coeff_prior)
+        @test var(d) == var(coeff_prior)
+        @test logpdf(d, ones(dofs)) ≈ logpdf(coeff_prior, ones(dofs))
+        @test get_n_samples(d) == get_n_samples(coeff_prior) # if coeff was a Samples dist
+
+
+        # ndims now has 3 options
+        @test ndims(d) == n_dofs(d)
+        @test ndims(d, function_parameter_opt = "constraint") == 1 #to resolve dimension differences between coeff and function spaces 
+        @test ndims(d, function_parameter_opt = "eval") == n_eval_pts(d) #to resolve dimension differences between coeff and function spaces
+        @test_throws ArgumentError ndims(d, function_parameter_opt = "other")
+
+        #sampling 
+        s = 9211
+        n_sample = 6
+
+        # sample dist
+        Random.seed!(s)
+        sam = sample(coeff_prior)
+        Random.seed!(s)
+        @test sample(d) ≈ sam
+        Random.seed!(s)
+        sam2 = sample(coeff_prior, n_sample)
+        Random.seed!(s)
+        @test sample(d, n_sample) ≈ sam2
+
+        rng1 = Random.MersenneTwister(s)
+        sam = sample(copy(rng1), coeff_prior)
+        sam2 = sample(copy(rng1), coeff_prior, n_sample)
+        @test sample(copy(rng1), d) ≈ sam
+        @test sample(copy(rng1), d, n_sample) ≈ sam2
+
+        # test building functions from parameters
+        n_pts = n_eval_pts(d)
+        tol = 1e8 * eps() # for the wide priors, the exponential transforms can produces less accurate recovery.
+
+        # [a] build function samples (Random.GLOBAL_RNG) 
+        Random.seed!(s)
+        xi1 = sample(coeff_prior)
+        sample1 = reshape(GRF.sample(grf, xi = xi1), :, 1) # deterministic with xi input
+
+        Random.seed!(s)
+        @test build_function_sample(d) ≈ sample1 atol = tol # build with prior and default RNG
+        @test build_function_sample(d, xi1) ≈ sample1 atol = tol # pass coeffs explicitly
+        Random.seed!(s)
+        xi2 = sample(coeff_prior, n_sample)
+        sample2 = zeros(n_pts, n_sample)
+        for i in 1:n_sample
+            sample2[:, i] = GRF.sample(grf, xi = xi2[:, i])[:]
+        end
+        Random.seed!(s)
+        @test build_function_sample(d, n_sample) ≈ sample2 atol = tol # build with prior and default RNG
+        @test build_function_sample(d, xi2, n_sample) ≈ sample2 atol = tol # pass coeffs explicitly
+
+
+        # [b] building function samples from the prior (with explicit rng)
+        rng1 = Random.MersenneTwister(s)
+        rng2 = copy(rng1)
+        coeff_mat = sample(rng2, wide_pos_prior, 1)
+        constrained_coeff_mat = transform_unconstrained_to_constrained(wide_pos_prior, coeff_mat)
+        sample5 = reshape(GRF.sample(grf, xi = constrained_coeff_mat), :, 1)
+
+        rng3 = copy(rng1)
+        coeff_mat2 = sample(rng3, wide_pos_prior, n_sample)
+        constrained_coeff_mat2 = transform_unconstrained_to_constrained(wide_pos_prior, coeff_mat2)
+        sample6 = zeros(n_pts, n_sample)
+        for i in 1:n_sample
+            sample6[:, i] = GRF.sample(grf, xi = constrained_coeff_mat2[:, i])[:]
+        end
+        @test build_function_sample(copy(rng1), d_wide_pos) ≈ sample5 atol = tol
+        @test build_function_sample(d_wide_pos, constrained_coeff_mat) ≈ sample5 atol = tol
+
+        @test all(isapprox.(build_function_sample(copy(rng1), d_wide_pos, n_sample), sample6, atol = tol))
+        @test all(isapprox.(build_function_sample(d_wide_pos, constrained_coeff_mat2, n_sample), sample6, atol = tol))
+
+        @test_throws DimensionMismatch build_function_sample(d_wide_pos, constrained_coeff_mat2, n_sample + 1)
+
+        if TEST_PLOT_OUTPUT
+            # plot the samples
+            plt = plot(pts, build_function_sample(copy(rng1), d, 20), legend = false) #uses the coeff_prior
+            savefig(plt, joinpath(@__DIR__, "GRF_samples.png"))
+        end
+
+        # Put within parameter distribution
+        function_constraint = bounded_below(3)
+        pd = ParameterDistribution(
+            Dict("distribution" => d_wide_pos, "name" => "grf_above_3", "constraint" => function_constraint),
+        )
+
+        # Transforms:
+        # u->c goes from coefficients to constrained function evaluations. by default
+        sample5_constrained = function_constraint.unconstrained_to_constrained.(sample5)
+        sample6_constrained = function_constraint.unconstrained_to_constrained.(sample6)
+        sample5_constrained_direct = transform_unconstrained_to_constrained(pd, vec(coeff_mat))
+        sample6_constrained_direct = transform_unconstrained_to_constrained(pd, coeff_mat2)
+        @test sample5_constrained ≈ sample5_constrained_direct atol = tol
+        @test sample6_constrained ≈ sample6_constrained_direct atol = tol
+
+        # specifying from unc. to cons. function evaluations with flag
+        @test sample5_constrained ≈ transform_unconstrained_to_constrained(pd, vec(sample5), build_flag = false)
+        @test all(
+            isapprox.(
+                sample6_constrained,
+                transform_unconstrained_to_constrained(pd, sample6, build_flag = false),
+                atol = tol,
+            ),
+        )
+
+        # c->u is the inverse, of the build_flag=false u->c ONLY
+        @test sample5 ≈ transform_constrained_to_unconstrained(pd, vec(sample5_constrained)) atol = tol
+        biggertol = 1e-5
+        @test all(isapprox.(sample6, transform_constrained_to_unconstrained(pd, sample6_constrained), atol = biggertol)) #can be sensitive to sampling (sometimes throws a near "Inf" so inverse is less accurate)
+
+        if TEST_PLOT_OUTPUT
+            dim_plot = 2
+            dofs_plot = 30
+            pts_plot = [collect(0:0.01:1), collect(1:0.02:2)]
+
+            grf_plot = GRF.GaussianRandomField(
+                GRF.CovarianceFunction(dim_plot, GRF.Matern(0.05, 2)),
+                GRF.KarhunenLoeve(dofs_plot),
+                pts_plot...,
+            )
+            d_plot = GaussianRandomFieldInterface(grf_plot, pkg)
+            pd_plot = ParameterDistribution(
+                Dict("distribution" => d_plot, "name" => "pd_min5_5", "constraint" => bounded(-5, -3)),
+            )
+            sample_constrained_flat = transform_unconstrained_to_constrained(pd_plot, ones(dofs_plot))
+            sample_unconstrained_flat = transform_constrained_to_unconstrained(pd_plot, sample_constrained_flat)
+            shape = [length(pp) for pp in pts_plot]
+            # plot the 2D samples. remember heatmap requires a transpose...
+            plt3 = contour(pts_plot..., reshape(sample_unconstrained_flat, shape...)', fill = true)
+            savefig(plt3, joinpath(@__DIR__, "GRF_samples_unconstrained.png"))
+            plt4 = contour(pts_plot..., reshape(sample_constrained_flat, shape...)', fill = true)
+            savefig(plt4, joinpath(@__DIR__, "GRF_samples_constrained.png"))
+
+        end
+
+
+    end
+
+
     @testset "ConstraintType" begin
         tol = 10 * eps(Float64)
         # Tests for the ConstraintType
@@ -119,17 +305,30 @@ using EnsembleKalmanProcesses.ParameterDistributions
         name4 = "constrained_sampled"
         u4 = ParameterDistribution(d4, c4, name4)
 
+        dim = 1
+        dofs = 10
+        pts = collect(0:0.01:1)
+        pkg = GRFJL()
+        grf = GRF.GaussianRandomField(GRF.CovarianceFunction(dim, GRF.Matern(0.05, 1)), GRF.KarhunenLoeve(dofs), pts)
+        d5 = GaussianRandomFieldInterface(grf, pkg)
+        c5 = bounded(-5, 5)
+        name5 = "grf_in_min5_5"
+        u5 = ParameterDistribution(d5, c5, name5)
+
+
+
         @test_throws ArgumentError ParameterDistribution([u1, u2])
 
-        u = combine_distributions([u1, u2, u3, u4])
-        @test u.distribution == [d1, d2, d3, d4]
-        @test u.constraint == cat([[c1], c2, c3, c4]..., dims = 1)
-        @test u.name == [name1, name2, name3, name4]
+        u = combine_distributions([u1, u2, u3, u4, u5])
+        @test u.distribution == [d1, d2, d3, d4, d5]
+        @test u.constraint == cat([[c1], c2, c3, c4, c5]..., dims = 1)
+        @test u.name == [name1, name2, name3, name4, name5]
 
         #equality
         @test u == u
         @test !(u2 == u3)
         @test u3 == u4
+
 
     end
 
@@ -327,15 +526,15 @@ using EnsembleKalmanProcesses.ParameterDistributions
         s = sample(v, 3)
         @test s == cat([s1, s2, s3, s4]..., dims = 1)
 
-        #Test for get_logpdf
-        @test_throws ErrorException get_logpdf(u, zeros(ndims(u)))
+        #Test for logpdf
+        @test_throws ErrorException logpdf(u, zeros(ndims(u)))
         x_in_bd = [0.5, 0.5, 0.5]
         Random.seed!(seed)
         lpdf3 = sum([logpdf(Beta(2, 2), x_in_bd[1])[1], logpdf(MvNormal(zeros(2), 0.1 * I), x_in_bd[2:3])[1]]) #throws deprecated warning without "."
 
         Random.seed!(seed)
-        @test isapprox(get_logpdf(u3, x_in_bd) - lpdf3, 0.0; atol = 1e-6)
-        @test_throws DimensionMismatch get_logpdf(u3, [0.5, 0.5])
+        @test isapprox(logpdf(u3, x_in_bd) - lpdf3, 0.0; atol = 1e-6)
+        @test_throws DimensionMismatch logpdf(u3, [0.5, 0.5])
 
         #Test for cov, var        
         block_cov = cat([cov(d1), var(d2), cov(d3), cov(d4)]..., dims = (1, 2))
@@ -530,6 +729,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         x_unbd = rand(MvNormal(zeros(6), 3 * I), 1000)  #6 x 1000 
         # Tests for transforms
         x_real_constrained1 = mapslices(x -> transform_unconstrained_to_constrained(u1, x), x_unbd[1:4, :]; dims = 1)
+        size(x_real_constrained1)
         @test isapprox(
             x_unbd[1:4, :] -
             mapslices(x -> transform_constrained_to_unconstrained(u1, x), x_real_constrained1; dims = 1),
