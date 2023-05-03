@@ -183,15 +183,6 @@ end
         g_ens_t = permutedims(g_ens, (2, 1))
 
         @test size(g_ens) == (n_obs, N_ens)
-        # as the columns of g are the data, this should throw an error
-        @test_throws DimensionMismatch find_ekp_stepsize(ekiobj, g_ens_t)
-
-        Δ = find_ekp_stepsize(ekiobj, g_ens)
-        # huge collapse for linear problem so should find timestep Δ < 1
-        if isa(loc_method, NoLocalization) && i_prob <= n_lin_inv_probs
-            @test Δ < 1
-        end
-        # NOTE We don't use this info, this is just for the test.
 
         # EKI iterations
         params_i_vec = Array{Float64, 2}[]

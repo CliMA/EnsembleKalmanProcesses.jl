@@ -588,7 +588,6 @@ end
 
 # struct Inversion
 export Inversion
-export find_ekp_stepsize
 include("EnsembleKalmanInversion.jl")
 
 # struct SparseInversion

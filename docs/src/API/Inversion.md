@@ -7,5 +7,4 @@ CurrentModule = EnsembleKalmanProcesses
 ```@docs
 Inversion
 eki_update
-find_ekp_stepsize
 ```

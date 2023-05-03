@@ -34,43 +34,6 @@ function FailureHandler(process::Inversion, method::SampleSuccGauss)
 end
 
 """
-    find_ekp_stepsize(
-        ekp::EnsembleKalmanProcess{FT, IT, Inversion},
-        g::AbstractMatrix{FT};
-        cov_threshold::Real = 0.01,
-    ) where {FT, IT}
-
-Find largest stepsize for the EK solver that leads to a reduction of the determinant of the sample
-covariance matrix no greater than cov_threshold. 
-"""
-function find_ekp_stepsize(
-    ekp::EnsembleKalmanProcess{FT, IT, Inversion},
-    g::AbstractMatrix{FT};
-    cov_threshold::Real = 0.01,
-) where {FT, IT}
-    @assert cov_threshold > -eps(FT) "The limiting covariance reduction threshold cannot be negative."
-    accept_stepsize = false
-
-    Δt = !isempty(ekp.Δt) ? deepcopy(ekp.Δt[end]) : FT(1)
-
-    # final_params [N_par × N_ens]
-    cov_init = cov(get_u_final(ekp), dims = 2)
-    while accept_stepsize == false
-        ekp_copy = deepcopy(ekp)
-        update_ensemble!(ekp_copy, g, Δt_new = Δt)
-        cov_new = cov(get_u_final(ekp_copy), dims = 2)
-        if det(cov_new) > cov_threshold * det(cov_init)
-            accept_stepsize = true
-        else
-            Δt = Δt / 2
-        end
-    end
-
-    return Δt
-
-end
-
-"""
      eki_update(
         ekp::EnsembleKalmanProcess{FT, IT, Inversion},
         u::AbstractMatrix{FT},
