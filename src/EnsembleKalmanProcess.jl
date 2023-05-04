@@ -372,30 +372,19 @@ end
     construct_initial_ensemble(
         rng::AbstractRNG,
         prior::ParameterDistribution,
-        N_ens::IT;
-        rng_seed::Union{IT, Nothing} = nothing,
+        N_ens::IT
     ) where {IT <: Int}
-    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; kwargs...) where {IT <: Int}
+    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <: Int}
 
 Construct the initial parameters, by sampling `N_ens` samples from specified
 prior distribution. Returned with parameters as columns.
 """
-function construct_initial_ensemble(
-    rng::AbstractRNG,
-    prior::ParameterDistribution,
-    N_ens::IT;
-    rng_seed::Union{IT, Nothing} = nothing,
-) where {IT <: Int}
-    # Ensuring reproducibility of the sampled parameter values: 
-    # re-seed the rng *only* if we're given a seed
-    if rng_seed !== nothing
-        rng = Random.seed!(rng, rng_seed)
-    end
+function construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT) where {IT <: Int}
     return sample(rng, prior, N_ens) #of size [dim(param space) N_ens]
 end
 # first arg optional; defaults to GLOBAL_RNG (as in Random, StatsBase)
-construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; kwargs...) where {IT <: Int} =
-    construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens; kwargs...)
+construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <: Int} =
+    construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens)
 
 """
     compute_error!(ekp::EnsembleKalmanProcess)

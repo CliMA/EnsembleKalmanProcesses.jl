@@ -41,7 +41,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 const EKP = EnsembleKalmanProcesses
 
 rng_seed = 4137
-Random.seed!(rng_seed)
+rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)
 
 # Output figure save directory
 homedir = pwd()
@@ -216,7 +216,7 @@ lorenz_settings_G = lorenz_settings; # initialize to truth settings
 N_ens = 20 # number of ensemble members
 N_iter = 5 # number of EKI iterations
 # initial parameters: N_params x N_ens
-initial_params = construct_initial_ensemble(priors, N_ens; rng_seed = rng_seed)
+initial_params = construct_initial_ensemble(rng, priors, N_ens)
 
 ekiobj = EKP.EnsembleKalmanProcess(initial_params, truth_sample, truth.obs_noise_cov, Inversion())
 

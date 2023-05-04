@@ -22,7 +22,7 @@ nothing # hide
 
 # We set the seed for pseudo-random number generator for reproducibility.
 rng_seed = 41
-Random.seed!(rng_seed)
+rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)
 nothing # hide
 
 # We set a stabilization level, which can aid the algorithm convergence
@@ -54,7 +54,7 @@ N_iterations = 10
 nothing # hide
 
 # The initial ensemble is constructed by sampling the prior
-initial_ensemble = EKP.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
+initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
 
 # We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
 # target, the stabilization and the process type (for EKI this is `Inversion`, initialized 
@@ -127,7 +127,7 @@ nothing # hide
 
 # We set the seed for pseudo-random number generator for reproducibility,
 rng_seed = 10
-Random.seed!(rng_seed)
+rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)
 nothing # hide
 
 # A positive function can be minimized with a target of 0,
@@ -152,7 +152,7 @@ prior = combine_distributions([prior_u1, prior_u2])
 N_ensemble = 20
 N_iterations = 20
 
-initial_ensemble = EKP.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
+initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
 
 ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, Inversion())
 
