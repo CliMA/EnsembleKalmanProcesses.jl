@@ -38,11 +38,15 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
     prior_cov = cov(prior)
 
     # Define a few inverse problems to compare algorithmic performance
-    rng_seed = 42
+    rng_seed = 42234
     rng = Random.MersenneTwister(rng_seed)
     nl_inv_problems = [
-        nonlinear_inv_problem(ϕ_star, noise_level, n_obs, prior, rng; obs_corrmat = corrmat) for corrmat in obs_corrmats
+        [nonlinear_inv_problem(ϕ_star, noise_level, n_obs, rng, obs_corrmat = corrmat) for corrmat in obs_corrmats]...
+        [
+            nonlinear_inv_problem(ϕ_star, noise_level, n_obs, rng, obs_corrmat = corrmat, add_or_mult_noise = "add") for corrmat in obs_corrmats
+        ]...
     ]
+
 
     iters_with_failure = [2]
 
@@ -83,12 +87,12 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
         )
 
         # EKI iterations
-        params_i_vec = Array{Float64, 2}[]
+        u_i_vec = Array{Float64, 2}[]
         g_ens_vec = Array{Float64, 2}[]
         for i in 1:N_iter
             # Check SammpleSuccGauss handler
-            params_i = get_u_final(ekiobj)
-            push!(params_i_vec, params_i)
+            params_i = get_ϕ_final(prior, ekiobj)
+            push!(u_i_vec, get_u_final(ekiobj))
             g_ens = hcat([G(params_i[:, i]) for i in 1:N_ens]...)
             # Add random failures
             if i in iters_with_failure
@@ -105,10 +109,10 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
             end
             @test !any(isnan.(params_i))
         end
-        push!(params_i_vec, get_u_final(ekiobj))
+        push!(u_i_vec, get_u_final(ekiobj))
 
-        @test get_u_prior(ekiobj) == params_i_vec[1]
-        @test get_u(ekiobj) == params_i_vec
+        @test get_u_prior(ekiobj) == u_i_vec[1]
+        @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
         @test isequal(get_error(ekiobj), ekiobj.err)
@@ -145,4 +149,60 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
         @test isa(SparseInversion(γ), SparseInversion)
 
     end
+
+    ## Repeat first test with several schedulers
+    y_obs, G, Γy = nl_inv_problems[1]
+
+    schedulers = [
+        DefaultScheduler(0.1),
+        MutableScheduler(0.1),
+        DataMisfitController(),
+        DataMisfitController(on_terminate = "continue"),
+        DataMisfitController(on_terminate = "continue_fixed"),
+    ]
+    N_iters = [10, 10, 50, 50, 50]
+
+    final_ensembles = []
+    init_means = []
+    final_means = []
+    for (scheduler, N_iter) in zip(schedulers, N_iters)
+
+        println("Scheduler: ", nameof(typeof(scheduler)))
+        process = SparseInversion(γ, threshold_values[1], uc_idxs[1], regs[1])
+        ekiobj = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y_obs,
+            Γy,
+            process;
+            rng = copy(rng), #so we get similar performance
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = scheduler,
+            verbose = true,
+        )
+        for i in 1:N_iter
+            params_i = get_ϕ_final(prior, ekiobj)
+            g_ens = G(params_i)
+            if i == 3
+                terminated = EKP.update_ensemble!(ekiobj, g_ens, Δt_new = 0.2)
+                #will change Default for 1 step and Mutated for all continuing steps
+            else
+                terminated = EKP.update_ensemble!(ekiobj, g_ens)
+            end
+            if !isnothing(terminated)
+                break
+            end
+
+        end
+        push!(init_means, vec(mean(get_u_prior(ekiobj), dims = 2)))
+        push!(final_means, vec(mean(get_u_final(ekiobj), dims = 2)))
+
+    end
+    for i in 1:length(final_means)
+        u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
+        inv_sqrt_Γy = sqrt(inv(Γy))
+        #        @test norm(u_star - final_means[i]) < norm(u_star - init_means[i])
+        @test norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[i])))) <
+              norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[i]))))
+    end
+
 end

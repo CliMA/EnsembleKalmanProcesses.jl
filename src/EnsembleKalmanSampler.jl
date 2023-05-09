@@ -32,9 +32,9 @@ function FailureHandler(process::Sampler, method::IgnoreFailures)
     function failsafe_update(ekp, u, g, failed_ens)
         u_transposed = permutedims(u, (2, 1))
         g_transposed = permutedims(g, (2, 1))
-        u_transposed, Δt = eks_update(ekp, u_transposed, g_transposed)
+        u_transposed = eks_update(ekp, u_transposed, g_transposed)
         u_new = permutedims(u_transposed, (2, 1))
-        return u_new, Δt
+        return u_new
     end
     return FailureHandler{Sampler, IgnoreFailures}(failsafe_update)
 end
@@ -75,7 +75,8 @@ function eks_update(
     # D: N_ens × N_ens
     D = (1 / ekp.N_ens) * (E' * (ekp.obs_noise_cov \ R))
 
-    Δt = 1 / (norm(D) + eps(FT))
+    # Default: Δt = 1 / (norm(D) + eps(FT))
+    Δt = ekp.Δt[end]
 
     noise = MvNormal(u_cov)
 
@@ -85,7 +86,7 @@ function eks_update(
 
     u = implicit' + sqrt(2 * Δt) * rand(ekp.rng, noise, ekp.N_ens)'
 
-    return u, Δt
+    return u
 end
 
 """
@@ -111,14 +112,6 @@ function update_ensemble!(
     process::Sampler{FT};
     failed_ens = nothing,
 ) where {FT, IT}
-    #catch works when g non-square 
-    if !(size(g)[2] == ekp.N_ens)
-        throw(
-            DimensionMismatch(
-                "ensemble size $(ekp.N_ens) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
-            ),
-        )
-    end
 
     # u: N_ens × N_par
     # g: N_ens × N_obs
@@ -143,12 +136,11 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u, Δt = fh.failsafe_update(ekp, u_old, g, failed_ens)
+    u = fh.failsafe_update(ekp, u_old, g, failed_ens)
 
     # store new parameters (and model outputs)
     push!(ekp.u, DataContainer(u, data_are_columns = true))
     push!(ekp.g, DataContainer(g, data_are_columns = true))
-    push!(ekp.Δt, Δt)
     # u_old is N_ens × N_par, g is N_ens × N_obs,
     # but stored in data container with N_ens as the 2nd dim
 
