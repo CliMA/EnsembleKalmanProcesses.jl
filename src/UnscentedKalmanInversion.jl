@@ -312,7 +312,7 @@ function construct_sigma_ensemble(
     process::Unscented,
     x_mean::AbstractVector{FT},
     x_cov::AbstractMatrix{FT},
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat}
 
     N_x = size(x_mean, 1)
     N_ens = process.N_ens
@@ -488,7 +488,7 @@ function construct_cov(
     obs_mean::AbstractMatrix{FT},
     y_mean::AbstractVector{FT};
     cov_weights = uki.process.cov_weights,
-) where {FT <: AbstractFloat, IT <: Int, P <: Process}
+) where {FT <: AbstractFloat, IT <: Int}
 
     N_x, N_ens = size(x)
     N_y = length(y_mean)

@@ -575,7 +575,7 @@ function update_ensemble!(
     use_prior_cov::Bool = false,
     s::FT = 0.0,
     ekp_kwargs...,
-) where {FT, IT}
+) where {FT}
 
     update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
     if s > 0.0

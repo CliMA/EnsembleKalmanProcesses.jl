@@ -22,7 +22,7 @@ const EKP = EnsembleKalmanProcesses
         "uq_param_1" => ParameterDistribution(Parameterized(Normal(-100.0, 20.0)), no_constraint(), "uq_param_1"),
         "uq_param_2" => ParameterDistribution(Parameterized(Gamma(5.0, 2.0)), bounded_below(6.0), "uq_param_2"),
         "uq_param_3" => ParameterDistribution(
-            Parameterized(MvNormal(4, 1.0)),
+            Parameterized(MvNormal(zeros(4), I(4))),
             [no_constraint(), bounded_below(-100.0), bounded_above(10.0), bounded(-42.0, 42.0)],
             "uq_param_3",
         ),
@@ -41,8 +41,11 @@ const EKP = EnsembleKalmanProcesses
             repeat([bounded_above(9.0)], 3),
             "uq_param_6",
         ),
-        "uq_param_7" =>
-            ParameterDistribution(Parameterized(MvNormal(3, 2.0)), repeat([no_constraint()], 3), "uq_param_7"),
+        "uq_param_7" => ParameterDistribution(
+            Parameterized(MvNormal(zeros(3), 4.0 * I(3))),
+            repeat([no_constraint()], 3),
+            "uq_param_7",
+        ),
         "uq_param_8" => ParameterDistribution(
             VectorOfParameterized([Gamma(2.0, 3.0), LogNormal(0.1, 0.1), Normal(0.0, 10.0)]),
             [no_constraint(), no_constraint(), bounded_below(-5.0)],
