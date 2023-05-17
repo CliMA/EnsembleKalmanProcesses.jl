@@ -214,10 +214,17 @@ end
                     EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
                 elseif i == iters_with_failure[1]
                     g_ens_unsafe[:, 1] .= NaN
-                    EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
-                    u_unsafe = get_u_final(ekiobj_unsafe)
-                    # Propagation of unhandled failures
-                    @test any(isnan.(u_unsafe))
+                    #inconsistent behaviour before/after v1.9 regarding NaNs in matrices
+                    if (VERSION.major >= 1) && (VERSION.minor >= 9)
+                        # new versions the NaNs break LinearAlgebra.jl
+                        @test_throws ArgumentError EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
+                    else
+                        # old versions the NaNs pass through LinearAlgebra.jl
+                        EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
+                        u_unsafe = get_u_final(ekiobj_unsafe)
+                        # Propagation of unhandled failures
+                        @test any(isnan.(u_unsafe))
+                    end
                 end
             end
         end
@@ -342,9 +349,19 @@ end
                 EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
             elseif i == iters_with_failure[1]
                 g_ens_unsafe[:, 1] .= NaN
-                EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
-                u_unsafe = get_u_final(ukiobj_unsafe)
-                @test any(isnan.(u_unsafe))
+                #inconsistent behaviour before/after v1.9 regarding NaNs in matrices
+                if (VERSION.major >= 1) && (VERSION.minor >= 9)
+                    # new versions the NaNs break LinearAlgebra.jl
+                    @test_throws ArgumentError EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
+                else
+                    # old versions the NaNs pass through LinearAlgebra.jl
+                    EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
+                    u_unsafe = get_u_final(ukiobj_unsafe)
+                    # Propagation of unhandled failures
+                    @test any(isnan.(u_unsafe))
+                end
+
+
             end
         end
 
