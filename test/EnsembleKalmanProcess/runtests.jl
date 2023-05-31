@@ -456,8 +456,5 @@ end
     u = ParameterDistribution(Dict("distribution" => d, "constraint" => no_constraint(), "name" => "test"))
     draw_1 = construct_initial_ensemble(rng, u, 1)
     draw_2 = construct_initial_ensemble(u, 1)
-    # Re-seeded draw should be the same as first draw
-    draw_3 = construct_initial_ensemble(rng, u, 1; rng_seed = rng_seed)
     @test !isapprox(draw_1, draw_2)
-    @test isapprox(draw_1, draw_3)
 end

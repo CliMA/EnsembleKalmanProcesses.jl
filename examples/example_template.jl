@@ -44,7 +44,7 @@ priors = ParameterDistribution(prior_dict)
 ##
 
 # initial ensemble of parameters
-params = construct_initial_ensemble(priors, N_ens; rng_seed = rng_seed)
+params = construct_initial_ensemble(priors, N_ens)
 
 # constructor for the EKI object
 ekiobj =
