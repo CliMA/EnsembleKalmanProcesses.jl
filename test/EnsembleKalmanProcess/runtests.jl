@@ -38,19 +38,30 @@ rng_seed = 42
 rng = Random.MersenneTwister(rng_seed)
 # Random linear forward map
 inv_problems = [
-    linear_inv_problem(ϕ_star, noise_level, n_obs, prior, rng; obs_corrmat = corrmat, return_matrix = true) for
+    linear_inv_problem(ϕ_star, noise_level, n_obs, rng; obs_corrmat = corrmat, return_matrix = true) for
     corrmat in obs_corrmats
 ]
 n_lin_inv_probs = length(inv_problems)
-nl_inv_problem =
-    (nonlinear_inv_problem(ϕ_star, noise_level, n_obs, prior, rng; obs_corrmat = obs_corrmats[3])..., nothing)
-inv_problems = [inv_problems..., nl_inv_problem]
-
+nl_inv_problems = [
+    (nonlinear_inv_problem(ϕ_star, noise_level, n_obs, rng, obs_corrmat = obs_corrmats[3])..., nothing),
+    (
+        nonlinear_inv_problem(
+            ϕ_star,
+            noise_level,
+            n_obs,
+            rng,
+            obs_corrmat = obs_corrmats[3],
+            add_or_mult_noise = "add",
+        )...,
+        nothing,
+    ),
+]
+inv_problems = [inv_problems..., nl_inv_problems...]
 @testset "Inverse problem definition" begin
 
     rng = Random.MersenneTwister(rng_seed)
 
-    y_obs, G, Γ, A = linear_inv_problem(ϕ_star, noise_level, n_obs, prior, rng; return_matrix = true)
+    y_obs, G, Γ, A = linear_inv_problem(ϕ_star, noise_level, n_obs, rng; return_matrix = true)
 
     # Test dimensionality
     @test size(ϕ_star) == (n_par,)
@@ -59,6 +70,128 @@ inv_problems = [inv_problems..., nl_inv_problem]
 
     # sum(y-G)^2 ~ n_obs*noise_level^2
     @test isapprox(norm(y_obs .- A * ϕ_star)^2 - n_obs * noise_level^2, 0; atol = 0.05)
+end
+
+
+@testset "LearningRateSchedulers" begin
+    # Default
+    Δt = 3
+    dlrs1 = EKP.DefaultScheduler()
+    @test dlrs1.Δt_default == Float64(1)
+    dlrs2 = EKP.DefaultScheduler(Δt)
+    @test dlrs2.Δt_default == Float64(Δt)
+
+    #Mutable
+    mlrs1 = EKP.MutableScheduler()
+    @test mlrs1.Δt_mutable == Float64[1]
+    mlrs2 = EKP.MutableScheduler(Δt)
+    @test mlrs2.Δt_mutable == Float64[Δt]
+
+    # EKSStable 
+    ekslrs1 = EKP.EKSStableScheduler()
+    @test ekslrs1.numerator == Float64(1)
+    @test ekslrs1.nugget == Float64(eps())
+
+    num = 3
+    nug = 0.0001
+    ekslrs2 = EKP.EKSStableScheduler(num, nug)
+    @test ekslrs2.numerator == Float64(3)
+    @test ekslrs2.nugget == Float64(0.0001)
+
+    num = Float32(3)
+    nug = Float32(0.0001)
+    ekslrs2 = EKP.EKSStableScheduler(num, nug)
+    @test ekslrs2.numerator == Float32(3)
+    @test ekslrs2.nugget == Float32(0.0001)
+
+    num = Float32(3)
+    nug = Float64(0.0001)
+    ekslrs2 = EKP.EKSStableScheduler(num, nug)
+    @test ekslrs2.numerator == Float64(3)
+    @test ekslrs2.nugget == Float64(0.0001)
+
+    # DataMistfitController
+    # DMC has no user parameters, and gets initialized during initial update
+    dmclrs1 = EKP.DataMisfitController()
+    @test typeof(dmclrs1.iteration) == Vector{Int}
+    @test length(dmclrs1.iteration) == 0
+    @test typeof(dmclrs1.inv_sqrt_noise) == Vector{Matrix{Float64}}
+    @test length(dmclrs1.inv_sqrt_noise) == 0
+    @test dmclrs1.on_terminate == "stop"
+    dmclrs2 = EKP.DataMisfitController(on_terminate = "continue")
+    @test dmclrs2.on_terminate == "continue"
+    dmclrs3 = EKP.DataMisfitController(on_terminate = "continue_fixed")
+    @test dmclrs3.on_terminate == "continue_fixed"
+
+    # build EKP and eki objects
+    # Get an inverse problem
+    y_obs, G, Γy, _ = inv_problems[end] #additive noise inv problem
+    rng = Random.MersenneTwister(rng_seed)
+    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+
+    ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
+    eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior))
+
+    @test ekiobj.scheduler == DefaultScheduler{Float64}(1.0)
+    @test eksobj.scheduler == EKSStableScheduler{Float64}(1.0, eps())
+
+    #test
+    processes = [
+        Inversion(),
+        #        Unscented(prior), TO BE UNCOMMENTED WHEN UKI BUG-FIXED
+        #Sparse inversion tests in test/SparseInversion/runtests.jl
+    ]
+    for process in processes
+        schedulers = [
+            DefaultScheduler(0.05),
+            MutableScheduler(0.05),
+            DataMisfitController(),
+            DataMisfitController(on_terminate = "continue"),
+            DataMisfitController(on_terminate = "continue_fixed"),
+        ]
+        N_iters = [40, 40, 40, 40, 40]
+        init_means = []
+        final_means = []
+
+        for (scheduler, N_iter) in zip(schedulers, N_iters)
+            println("Scheduler: ", nameof(typeof(scheduler)))
+            if !(nameof(typeof(process)) == Symbol(Unscented))
+                ekpobj = EKP.EnsembleKalmanProcess(
+                    initial_ensemble,
+                    y_obs,
+                    Γy,
+                    process,
+                    rng = copy(rng),
+                    scheduler = scheduler,
+                )
+            else #no initial ensemble for UKI
+                ekpobj = EKP.EnsembleKalmanProcess(y_obs, Γy, process, rng = copy(rng), scheduler = scheduler)
+            end
+            for i in 1:N_iter
+                params_i = get_ϕ_final(prior, ekpobj)
+                g_ens = G(params_i)
+                if i == 3
+                    terminated = EKP.update_ensemble!(ekpobj, g_ens, Δt_new = 0.1)
+                    #will change Default for 1 step and Mutated for all continuing steps
+                else
+                    terminated = EKP.update_ensemble!(ekpobj, g_ens)
+                end
+                if !isnothing(terminated)
+                    break
+                end
+            end
+            push!(init_means, vec(mean(get_u_prior(ekpobj), dims = 2)))
+            push!(final_means, vec(mean(get_u_final(ekpobj), dims = 2)))
+        end
+        for i in 1:length(final_means)
+            u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
+            inv_sqrt_Γy = sqrt(inv(Γy))
+            #            @test norm(u_star - final_means[i]) < norm(u_star - init_means[i])
+            @test norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[i])))) <
+                  norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[i]))))
+
+        end
+    end
 end
 
 @testset "EnsembleKalmanSampler" begin
@@ -90,7 +223,7 @@ end
 
         # EKS iterations
         for i in 1:N_iter
-            params_i = get_u_final(eksobj)
+            params_i = get_ϕ_final(prior, eksobj)
             g_ens = G(params_i)
             EKP.update_ensemble!(eksobj, g_ens)
         end
@@ -119,28 +252,10 @@ end
         # Store for comparison with other algorithms
         push!(eks_final_results, eks_final_result)
         push!(eksobjs, eksobj)
+
     end
 
-    # Plot evolution of the EKS particles
-    if TEST_PLOT_OUTPUT
-        gr()
-        eksobj = eksobjs[end]
-        ϕ_prior = transform_unconstrained_to_constrained(prior, get_u_prior(eksobj))
-        ϕ_final = get_ϕ_final(prior, eksobj)
-        p = plot(ϕ_prior[1, :], ϕ_prior[2, :], seriestype = :scatter, label = "Initial ensemble")
-        plot!(ϕ_final[1, :], ϕ_final[2, :], seriestype = :scatter, label = "Final ensemble")
-        plot!(
-            [ϕ_star[1]],
-            xaxis = "cons_p",
-            yaxis = "uncons_p",
-            seriestype = "vline",
-            linestyle = :dash,
-            linecolor = :red,
-            label = :none,
-        )
-        plot!([ϕ_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = :none)
-        savefig(p, joinpath(@__DIR__, "EKS_test.png"))
-    end
+
 end
 
 @testset "EnsembleKalmanInversion" begin
@@ -179,18 +294,18 @@ end
             localization_method = loc_method,
         )
 
-        g_ens = G(get_u_final(ekiobj))
+        g_ens = G(get_ϕ_final(prior, ekiobj))
         g_ens_t = permutedims(g_ens, (2, 1))
 
         @test size(g_ens) == (n_obs, N_ens)
 
         # EKI iterations
-        params_i_vec = Array{Float64, 2}[]
+        u_i_vec = Array{Float64, 2}[]
         g_ens_vec = Array{Float64, 2}[]
         for i in 1:N_iter
             # Check SampleSuccGauss handler
-            params_i = get_u_final(ekiobj)
-            push!(params_i_vec, params_i)
+            params_i = get_ϕ_final(prior, ekiobj)
+            push!(u_i_vec, get_u_final(ekiobj))
             g_ens = G(params_i)
             # Add random failures
             if i in iters_with_failure
@@ -208,7 +323,7 @@ end
 
             # Check IgnoreFailures handler
             if i <= iters_with_failure[1]
-                params_i_unsafe = get_u_final(ekiobj_unsafe)
+                params_i_unsafe = get_ϕ_final(prior, ekiobj_unsafe)
                 g_ens_unsafe = G(params_i_unsafe)
                 if i < iters_with_failure[1]
                     EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
@@ -228,10 +343,10 @@ end
                 end
             end
         end
-        push!(params_i_vec, get_u_final(ekiobj))
+        push!(u_i_vec, get_u_final(ekiobj))
 
-        @test get_u_prior(ekiobj) == params_i_vec[1]
-        @test get_u(ekiobj) == params_i_vec
+        @test get_u_prior(ekiobj) == u_i_vec[1]
+        @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
         @test isequal(get_error(ekiobj), ekiobj.err)
@@ -272,26 +387,26 @@ end
             # ensembles.
             @test abs(sum(diag(posterior_cov_inv \ get_u_cov_final(eksobj))) - n_par) > 1e-5
         end
-    end
 
-    # Plot evolution of the EKI particles
-    if TEST_PLOT_OUTPUT
-        gr()
-        ϕ_prior = transform_unconstrained_to_constrained(prior, get_u_prior(ekiobj))
-        ϕ_final = get_ϕ_final(prior, ekiobj)
-        p = plot(ϕ_prior[1, :], ϕ_prior[2, :], seriestype = :scatter, label = "Initial ensemble")
-        plot!(ϕ_final[1, :], ϕ_final[2, :], seriestype = :scatter, label = "Final ensemble")
-        plot!(
-            [ϕ_star[1]],
-            xaxis = "cons_p",
-            yaxis = "uncons_p",
-            seriestype = "vline",
-            linestyle = :dash,
-            linecolor = :red,
-            label = :none,
-        )
-        plot!([ϕ_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = :none)
-        savefig(p, joinpath(@__DIR__, "EKI_test.png"))
+        # Plot evolution of the EKI particles
+        if TEST_PLOT_OUTPUT
+            gr()
+            ϕ_prior = transform_unconstrained_to_constrained(prior, get_u_prior(ekiobj))
+            ϕ_final = get_ϕ_final(prior, ekiobj)
+            p = plot(ϕ_prior[1, :], ϕ_prior[2, :], seriestype = :scatter, label = "Initial ensemble")
+            plot!(ϕ_final[1, :], ϕ_final[2, :], seriestype = :scatter, label = "Final ensemble")
+            plot!(
+                [ϕ_star[1]],
+                xaxis = "cons_p",
+                yaxis = "uncons_p",
+                seriestype = "vline",
+                linestyle = :dash,
+                linecolor = :red,
+                label = :none,
+            )
+            plot!([ϕ_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red, label = :none)
+            savefig(p, joinpath(@__DIR__, "EKI_test_$(i_prob).png"))
+        end
     end
 end
 
@@ -306,7 +421,7 @@ end
     iters_with_failure = [5, 8, 9, 15]
     failed_particle_index = [1, 2, 3, 1]
 
-    y_obs, G, Γy, A = inv_problems[3]
+    y_obs, G, Γy, A = inv_problems[n_lin_inv_probs] # lin problem with diag noise
 
     ukiobj = EKP.EnsembleKalmanProcess(y_obs, Γy, process; rng = rng, failure_handler_method = SampleSuccGauss())
     ukiobj_unsafe = EKP.EnsembleKalmanProcess(y_obs, Γy, process; rng = rng, failure_handler_method = IgnoreFailures())
@@ -319,13 +434,13 @@ end
     @test_throws ArgumentError Unscented(prior; α_reg = α_reg, update_freq = update_freq, sigma_points = "unknowns")
 
     # UKI iterations
-    params_i_vec = Array{Float64, 2}[]
+    u_i_vec = Array{Float64, 2}[]
     g_ens_vec = Array{Float64, 2}[]
     failed_index = 1
     for i in 1:N_iter
         # Check SampleSuccGauss handler
-        params_i = get_u_final(ukiobj)
-        push!(params_i_vec, params_i)
+        params_i = get_ϕ_final(prior, ukiobj)
+        push!(u_i_vec, get_u_final(ukiobj))
         g_ens = G(params_i)
         # Add random failures
         if i in iters_with_failure
@@ -343,7 +458,7 @@ end
 
         # Check IgnoreFailures handler
         if i <= iters_with_failure[1]
-            params_i_unsafe = get_u_final(ukiobj_unsafe)
+            params_i_unsafe = get_ϕ_final(prior, ukiobj_unsafe)
             g_ens_unsafe = G(params_i_unsafe)
             if i < iters_with_failure[1]
                 EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
@@ -366,12 +481,12 @@ end
         end
 
         # Update simplex sigma points
-        EKP.update_ensemble!(ukiobj_simplex, G(get_u_final(ukiobj_simplex)))
+        EKP.update_ensemble!(ukiobj_simplex, G(get_ϕ_final(prior, ukiobj_simplex)))
     end
-    push!(params_i_vec, get_u_final(ukiobj))
+    push!(u_i_vec, get_u_final(ukiobj))
 
-    @test get_u_prior(ukiobj) == params_i_vec[1]
-    @test get_u(ukiobj) == params_i_vec
+    @test get_u_prior(ukiobj) == u_i_vec[1]
+    @test get_u(ukiobj) == u_i_vec
     @test isequal(get_g(ukiobj), g_ens_vec)
     @test isequal(get_g_final(ukiobj), g_ens_vec[end])
     @test isequal(get_error(ukiobj), ukiobj.err)
@@ -428,6 +543,7 @@ end
         savefig(p, joinpath(@__DIR__, "UKI_test.png"))
     end
 end
+
 
 @testset "EnsembleKalmanProcess utils" begin
     # Success/failure splitting

@@ -122,8 +122,15 @@ truth_sample = truth.mean
 N_ens = 50 # number of ensemble members
 N_iter = 8 # number of EKI iterations
 # initial parameters: N_par x N_ens
+
 initial_par = construct_initial_ensemble(rng, priors, N_ens)
-ekiobj = EnsembleKalmanProcess(initial_par, truth_sample, truth.obs_noise_cov, Inversion(), Δt = 0.1)
+ekiobj = EnsembleKalmanProcess(
+    initial_par,
+    truth_sample,
+    truth.obs_noise_cov,
+    Inversion(),
+    timestepper = DefaultTimestepper(0.1),
+)
 
 # Initialize a ParticleDistribution with dummy parameters. The parameters 
 # will then be set within `run_dyn_model`
