@@ -43,19 +43,19 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
         # Get inverse problem
         y_obs, G, Γy, A =
-            linear_inv_problem(ϕ_star, noise_level, n_obs, prior, rng; obs_corrmat = obs_corrmat, return_matrix = true)
+            linear_inv_problem(ϕ_star, noise_level, n_obs, rng; obs_corrmat = obs_corrmat, return_matrix = true)
 
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs,
             Γy,
             Inversion();
-            Δt = Δt,
+            scheduler = DefaultScheduler(Δt),
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
         )
 
-        g_ens = G(get_u_final(ekiobj))
+        g_ens = G(get_ϕ_final(prior, ekiobj))
 
         # ensure error is thrown when scaled time step >= 1
         @test_throws ErrorException EKP.update_ensemble!(ekiobj, g_ens; multiplicative_inflation = true, s = 3.0)
@@ -64,9 +64,7 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         # EKI iterations
         for i in 1:N_iter
             # Check SampleSuccGauss handler
-            params_i = get_u_final(ekiobj)
-
-            g_ens = G(params_i)
+            g_ens = G(get_ϕ_final(prior, ekiobj))
 
             # standard update
             EKP.update_ensemble!(ekiobj, g_ens, EKP.get_process(ekiobj))

@@ -39,7 +39,9 @@ using Plots
 using Distributions
 using LinearAlgebra
 using Random
+
 rng_seed = 44
+rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)
 
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
@@ -169,7 +171,7 @@ nothing # hide
 N_ens = 50
 N_iter = 10
 
-initial_par = EKP.construct_initial_ensemble(priors, N_ens; rng_seed)
+initial_par = EKP.construct_initial_ensemble(rng, priors, N_ens)
 ekiobj = EKP.EnsembleKalmanProcess(initial_par, truth_sample, truth_array.obs_noise_cov, EKP.Inversion())
 nothing # hide
 

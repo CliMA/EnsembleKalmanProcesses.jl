@@ -518,7 +518,7 @@ Args:
                corresponding dictionaries of parameter information as values
 `file_path` - path of the file where parameters are saved
 """
-function write_log_file(param_dict::Dict, file_path::AbstractString) where {FT}
+function write_log_file(param_dict::Dict, file_path::AbstractString)
     open(file_path, "w") do io
         TOML.print(io, param_dict)
     end

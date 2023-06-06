@@ -20,7 +20,7 @@ nothing # hide
 
 # We set the seed for pseudo-random number generator for reproducibility.
 rng_seed = 41
-Random.seed!(rng_seed)
+rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)
 nothing # hide
 
 # We set a stabilization level, which can aid the algorithm convergence
@@ -52,7 +52,7 @@ N_iterations = 10
 nothing # hide
 
 # The initial ensemble is constructed by sampling the prior
-initial_ensemble = EKP.construct_initial_ensemble(prior, N_ensemble; rng_seed = rng_seed)
+initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
 
 # Sparse EKI parameters
 γ = 1.0

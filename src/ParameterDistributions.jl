@@ -865,7 +865,7 @@ Here, `x` is an iterable of parameters sample ensembles for different EKP iterat
 function transform_constrained_to_unconstrained(
     pd::ParameterDistribution,
     x, # ::Iterable{AbstractMatrix{FT}},
-) where {FT <: Real}
+)
     transf_x = []
     for elem in x
         push!(transf_x, transform_constrained_to_unconstrained(pd, elem))
@@ -988,7 +988,7 @@ Here, `x` is an iterable of parameters sample ensembles for different EKP iterat
 function transform_unconstrained_to_constrained(
     pd::ParameterDistribution,
     x, # ::Iterable{AbstractMatrix{FT}},
-) where {FT <: Real}
+)
     transf_x = []
     for elem in x
         push!(transf_x, transform_unconstrained_to_constrained(pd, elem))

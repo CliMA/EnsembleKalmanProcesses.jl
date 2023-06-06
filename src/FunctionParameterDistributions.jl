@@ -1,9 +1,11 @@
 # included at EOF within ParameterDistributions Module
 
-#usings
-using GaussianRandomFields
-const GRF = GaussianRandomFields
 
+#usings
+
+#imports - we must import GRF not using or we get annoying warnings for the include of sample into the workspace
+import GaussianRandomFields
+const GRF = GaussianRandomFields
 
 #exports
 #types

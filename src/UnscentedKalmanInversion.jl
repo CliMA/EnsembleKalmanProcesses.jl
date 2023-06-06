@@ -103,7 +103,6 @@ function Unscented(
         α = min(sqrt(4 / N_par), 1.0)
         λ = α^2 * N_par - N_par
 
-
         c_weights[1:N_par] .= sqrt(N_par + λ)
         mean_weights[1] = λ / (N_par + λ)
         mean_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
@@ -180,55 +179,17 @@ function Unscented(prior::ParameterDistribution; kwargs...)
 end
 
 
-
-# outer constructors
+# Special constructor for UKI Object
 function EnsembleKalmanProcess(
     obs_mean::AbstractVector{FT},
     obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
     process::Unscented{FT, IT};
-    Δt = FT(1),
-    rng::AbstractRNG = Random.GLOBAL_RNG,
-    failure_handler_method::FM = IgnoreFailures(),
-    localization_method::LM = NoLocalization(),
-    verbose::Bool = false,
-) where {FT <: AbstractFloat, IT <: Int, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
+    kwargs...,
+) where {FT <: AbstractFloat, IT <: Int}
+    # use the distribution stored in process to generate initial ensemble
+    init_params = update_ensemble_prediction!(process, 0.0)
 
-    #initial parameters stored as columns
-    init_params = [DataContainer(update_ensemble_prediction!(process, Δt), data_are_columns = true)]
-    # Dimensionality
-    N_par = length(process.u_mean[1])
-    N_obs = length(obs_mean)
-    # ensemble size
-    N_ens = process.N_ens #stored with data as columns
-    #store for model evaluations
-    g = []
-    # error store
-    err = FT[]
-    # timestep store
-    Δt = Array([Δt])
-    # failure handler
-    fh = FailureHandler(process, failure_handler_method)
-    # localizer
-    loc = Localizer(localization_method, N_par, N_obs, N_ens, FT)
-
-    if verbose
-        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))"
-    end
-
-    EnsembleKalmanProcess{FT, IT, Unscented}(
-        init_params,
-        obs_mean,
-        obs_noise_cov,
-        N_ens,
-        g,
-        err,
-        Δt,
-        process,
-        rng,
-        fh,
-        loc,
-        verbose,
-    )
+    return EnsembleKalmanProcess(init_params, obs_mean, obs_noise_cov, process; kwargs...)
 end
 
 function FailureHandler(process::Unscented, method::IgnoreFailures)
@@ -312,7 +273,7 @@ function construct_sigma_ensemble(
     process::Unscented,
     x_mean::AbstractVector{FT},
     x_cov::AbstractMatrix{FT},
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat}
 
     N_x = size(x_mean, 1)
     N_ens = process.N_ens
@@ -357,10 +318,10 @@ end
 constructs mean `x_mean` from an ensemble `x`.
 """
 function construct_mean(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    uki::EnsembleKalmanProcess{FT, IT, U},
     x::AbstractVecOrMat{FT};
     mean_weights = uki.process.mean_weights,
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
 
     if isa(x, AbstractMatrix{FT})
         @assert size(x, 2) == length(mean_weights)
@@ -384,10 +345,10 @@ in a modified unscented transform, the mean is computed as the
 ensemble mean over all successful particles.
 """
 function construct_successful_mean(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    uki::EnsembleKalmanProcess{FT, IT, U},
     x::AbstractVecOrMat{FT},
     successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
 
     mean_weights = deepcopy(uki.process.mean_weights)
     # Check if modified
@@ -411,11 +372,11 @@ end
 Constructs covariance `xx_cov` from ensemble `x` and mean `x_mean`.
 """
 function construct_cov(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    uki::EnsembleKalmanProcess{FT, IT, U},
     x::AbstractVecOrMat{FT},
     x_mean::Union{FT, AbstractVector{FT}, Nothing} = nothing;
     cov_weights = uki.process.cov_weights,
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
 
     x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
 
@@ -451,11 +412,11 @@ Constructs variance of `x` over successful particles by rescaling the
 off-center weights over the successful off-center particles.
 """
 function construct_successful_cov(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    uki::EnsembleKalmanProcess{FT, IT, U},
     x::AbstractVecOrMat{FT},
     x_mean::Union{FT, AbstractVector{FT}, Nothing},
     successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
 
     cov_weights = deepcopy(uki.process.cov_weights)
 
@@ -482,13 +443,13 @@ end
 Constructs covariance `xy_cov` from ensemble x and mean `x_mean`, ensemble `obs_mean` and mean `y_mean`.
 """
 function construct_cov(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    uki::EnsembleKalmanProcess{FT, IT, U},
     x::AbstractMatrix{FT},
     x_mean::AbstractVector{FT},
     obs_mean::AbstractMatrix{FT},
     y_mean::AbstractVector{FT};
     cov_weights = uki.process.cov_weights,
-) where {FT <: AbstractFloat, IT <: Int, P <: Process}
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
 
     N_x, N_ens = size(x)
     N_y = length(y_mean)
@@ -515,13 +476,13 @@ Constructs covariance of `x` and `obs_mean - y_mean` over successful particles b
 the off-center weights over the successful off-center particles.
 """
 function construct_successful_cov(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    uki::EnsembleKalmanProcess{FT, IT, U},
     x::AbstractMatrix{FT},
     x_mean::AbstractVector{FT},
     obs_mean::AbstractMatrix{FT},
     y_mean::AbstractVector{FT},
     successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     N_ens, N_x, N_y = uki.N_ens, length(x_mean), length(y_mean)
 
     cov_weights = deepcopy(uki.process.cov_weights)
@@ -579,10 +540,10 @@ end
 UKI analysis step  : g is the predicted observations  `Ny x N_ens` matrix
 """
 function update_ensemble_analysis!(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    uki::EnsembleKalmanProcess{FT, IT, U},
     u_p::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
 
     obs_mean = uki.obs_mean
     Σ_ν = uki.process.Σ_ν_scale * uki.obs_noise_cov
@@ -626,7 +587,6 @@ end
         uki::EnsembleKalmanProcess{FT, IT, Unscented},
         g_in::AbstractMatrix{FT},
         process::Unscented;
-        Δt_new = nothing,
         failed_ens = nothing,
     ) where {FT <: AbstractFloat, IT <: Int}
 
@@ -636,26 +596,16 @@ Inputs:
  - `uki`        :: The EnsembleKalmanProcess to update.
  - `g_in`       :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - `process` :: Type of the EKP.
- - `Δt_new`     :: Time step to be used in the current update.
  - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
     with NaN entries.
 """
 function update_ensemble!(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    uki::EnsembleKalmanProcess{FT, IT, U},
     g_in::AbstractMatrix{FT},
-    process::Unscented;
-    Δt_new = nothing,
+    process::U;
     failed_ens = nothing,
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     #catch works when g_in non-square 
-    if !(size(g_in)[2] == uki.N_ens)
-        throw(
-            DimensionMismatch(
-                "ensemble size $(uki.N_ens) in EnsembleKalmanProcess does not match the columns of g_in ($(size(g_in)[2])); try transposing g_in or check the ensemble size",
-            ),
-        )
-    end
-
     u_p_old = get_u_final(uki)
 
     if uki.verbose
@@ -669,7 +619,6 @@ function update_ensemble!(
         @info "Iteration $(get_N_iterations(uki)+1) (T=$(sum(uki.Δt)))"
     end
 
-    set_Δt!(uki, Δt_new)
     fh = uki.failure_handler
 
     if isnothing(failed_ens)
@@ -696,7 +645,10 @@ end
 
 Returns the mean unconstrained parameter at the requested iteration.
 """
-function get_u_mean(uki::EnsembleKalmanProcess{FT, IT, Unscented}, iteration::IT) where {FT <: AbstractFloat, IT <: Int}
+function get_u_mean(
+    uki::EnsembleKalmanProcess{FT, IT, U},
+    iteration::IT,
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     return uki.process.u_mean[iteration]
 end
 
@@ -705,11 +657,14 @@ end
 
 Returns the unconstrained parameter covariance at the requested iteration.
 """
-function get_u_cov(uki::EnsembleKalmanProcess{FT, IT, Unscented}, iteration::IT) where {FT <: AbstractFloat, IT <: Int}
+function get_u_cov(
+    uki::EnsembleKalmanProcess{FT, IT, U},
+    iteration::IT,
+) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     return uki.process.uu_cov[iteration]
 end
 
-function compute_error!(uki::EnsembleKalmanProcess{FT, IT, Unscented}) where {FT <: AbstractFloat, IT <: Int}
+function compute_error!(uki::EnsembleKalmanProcess{FT, IT, U}) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     mean_g = uki.process.obs_pred[end]
     diff = uki.obs_mean - mean_g
     X = uki.obs_noise_cov \ diff # diff: column vector
@@ -717,7 +672,7 @@ function compute_error!(uki::EnsembleKalmanProcess{FT, IT, Unscented}) where {FT
     push!(uki.err, newerr)
 end
 
-function get_error(uki::EnsembleKalmanProcess{FT, IT, Unscented}) where {FT <: AbstractFloat, IT <: Int}
+function get_error(uki::EnsembleKalmanProcess{FT, IT, U}) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     return uki.err
 end
 

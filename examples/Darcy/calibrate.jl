@@ -95,7 +95,7 @@ function main()
     N_ens = dofs + 2 # number of ensemble members
     N_iter = 10 # number of EKI iterations
     # initial parameters: N_params x N_ens
-    initial_params = construct_initial_ensemble(prior, N_ens; rng_seed = seed)
+    initial_params = construct_initial_ensemble(rng, prior, N_ens)
     ekiobj = EKP.EnsembleKalmanProcess(initial_params, truth_sample, obs_noise_cov, Inversion())
 
     println("Begin inversion")
