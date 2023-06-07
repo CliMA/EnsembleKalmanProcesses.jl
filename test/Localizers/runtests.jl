@@ -54,6 +54,12 @@ const EKP = EnsembleKalmanProcesses
             EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
         end
 
+        # Check for expansion in some dimension
+        eki_init_spread = tr(get_u_cov(ekiobj, 1))
+        eki_final_spread = tr(get_u_cov_final(ekiobj))
+        @test eki_final_spread < 2 * eki_init_spread
+
+
         # Test that localized version does better in the setting p >> N_ens
         @test get_error(ekiobj)[end] < nonlocalized_error
 

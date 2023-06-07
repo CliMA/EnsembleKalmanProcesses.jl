@@ -22,7 +22,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
     N_iter = 5
 
     # Test different AbstractMatrices as covariances
-    obs_corrmats = [I, Matrix(I, n_obs, n_obs), Diagonal(Matrix(I, n_obs, n_obs))]
+    obs_corrmats = [1.0 * I, Matrix(1.0 * I, n_obs, n_obs), Diagonal(Matrix(1.0 * I, n_obs, n_obs))]
     # Test different localizers
     loc_methods = [RBF(2.0), Delta(), NoLocalization()]
 
@@ -39,12 +39,21 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
     rng_seed = 42234
     rng = Random.MersenneTwister(rng_seed)
     nl_inv_problems = [
-        [nonlinear_inv_problem(ϕ_star, noise_level, n_obs, rng, obs_corrmat = corrmat) for corrmat in obs_corrmats]...
         [
-            nonlinear_inv_problem(ϕ_star, noise_level, n_obs, rng, obs_corrmat = corrmat, add_or_mult_noise = "add") for corrmat in obs_corrmats
+            nonlinear_inv_problem_old(ϕ_star, noise_level, n_obs, rng, obs_corrmat = corrmat) for
+            corrmat in obs_corrmats
+        ]...
+        [
+            nonlinear_inv_problem_old(
+                ϕ_star,
+                noise_level,
+                n_obs,
+                rng,
+                obs_corrmat = corrmat,
+                add_or_mult_noise = "add",
+            ) for corrmat in obs_corrmats
         ]...
     ]
-
 
     iters_with_failure = [2]
 
@@ -59,10 +68,10 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
     threshold_values = [0, 1e-2]
     test_names = ["test", "test_thresholded"]
 
-    for (threshold_value, reg, uc_idx, test_name, lin_inv_problem, loc_method) in
+    for (threshold_value, reg, uc_idx, test_name, inv_problem, loc_method) in
         zip(threshold_values, regs, uc_idxs, test_names, nl_inv_problems, loc_methods)
 
-        y_obs, G, Γy = lin_inv_problem
+        y_obs, G, Γy = inv_problem
 
         process = SparseInversion(γ, threshold_value, uc_idx, reg)
 
@@ -119,6 +128,11 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
         # values
         eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
         eki_final_result = vec(mean(get_u_final(ekiobj), dims = 2))
+        eki_init_spread = tr(get_u_cov(ekiobj, 1))
+        eki_final_spread = tr(get_u_cov_final(ekiobj))
+        @test eki_final_spread < 2 * eki_init_spread # we wouldn't expect the spread to increase much in any one dimension
+
+
         ϕ_final_mean = transform_unconstrained_to_constrained(prior, eki_final_result)
         ϕ_init_mean = transform_unconstrained_to_constrained(prior, eki_init_result)
         @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
@@ -126,21 +140,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
 
         # Plot evolution of the EKI particles in constrained space
         if TEST_PLOT_OUTPUT
-            gr()
-            ϕ_prior = transform_unconstrained_to_constrained(prior, get_u_prior(ekiobj))
-            ϕ_final = transform_unconstrained_to_constrained(prior, get_u_final(ekiobj))
-            p = plot(ϕ_prior[1, :], ϕ_prior[2, :], seriestype = :scatter)
-            plot!(ϕ_final[1, :], ϕ_final[2, :], seriestype = :scatter)
-            plot!(
-                [ϕ_star[1]],
-                xaxis = "cons_p",
-                yaxis = "uncons_p",
-                seriestype = "vline",
-                linestyle = :dash,
-                linecolor = :red,
-            )
-            plot!([ϕ_star[2]], seriestype = "hline", linestyle = :dash, linecolor = :red)
-            savefig(p, string("SparseEKI_", test_name, ".png"))
+            plot_inv_problem_ensemble(prior, ekiobj, joinpath(@__DIR__, "SEKI_$(test_name).png"))
         end
 
         # Test other constructors
@@ -175,7 +175,6 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
             rng = copy(rng), #so we get similar performance
             failure_handler_method = SampleSuccGauss(),
             scheduler = scheduler,
-            verbose = true,
         )
         for i in 1:N_iter
             params_i = get_ϕ_final(prior, ekiobj)

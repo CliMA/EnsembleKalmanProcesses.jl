@@ -15,9 +15,11 @@ $(TYPEDFIELDS)
         u0_mean::AbstractVector{FT},
         uu0_cov::AbstractMatrix{FT};
         α_reg::FT = 1.0,
-        update_freq::IT = 1,
+        update_freq::IT = 0,
         modified_unscented_transform::Bool = true,
-        prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
+        impose_prior::Bool = false,
+        prior_mean::Any,
+        prior_cov::Any,
         sigma_points::String = symmetric
     ) where {FT <: AbstractFloat, IT <: Int}
 
@@ -38,7 +40,14 @@ Inputs:
   uninformative prior.
   - `modified_unscented_transform`: Modification of the UKI quadrature given
     in Huang et al (2021).
+  - `impose_prior`: using augmented system (Tikhonov regularization with Kalman inversion in Chada 
+     et al 2020 and Huang et al (2022)) to regularize the inverse problem, which also imposes prior 
+     for posterior estimation. If impose_prior == true, prior mean and prior cov must be provided. 
+     This is recommended to use, especially when the number of observations is smaller than the number 
+     of parameters (ill-posed inverse problems). When this is used, other regularizations are turned off
+     automatically.
   - `prior_mean`: Prior mean used for regularization.
+  - `prior_cov`: Prior cov used for regularization.
   - `sigma_points`: String of sigma point type, it can be `symmetric` with `2N_par+1` 
      ensemble members or `simplex` with `N_par+2` ensemble members.
   
@@ -67,19 +76,48 @@ mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
     r::AbstractVector{FT}
     "update frequency"
     update_freq::IT
+    "using augmented system (Tikhonov regularization with Kalman inversion in Chada 
+    et al 2020 and Huang et al (2022)) to regularize the inverse problem, which also imposes prior 
+    for posterior estimation."
+    impose_prior::Bool
+    "prior mean - defaults to initial mean"
+    prior_mean::Any
+    "prior covariance - defaults to initial covariance"
+    prior_cov::Any
     "current iteration number"
     iter::IT
 end
 
 function Unscented(
-    u0_mean::AbstractVector{FT},
-    uu0_cov::AbstractMatrix{FT};
+    u0_mean::VV,
+    uu0_cov::MM;
     α_reg::FT = 1.0,
-    update_freq::IT = 1,
+    update_freq::IT = 0,
     modified_unscented_transform::Bool = true,
-    prior_mean::Union{AbstractVector{FT}, Nothing} = nothing,
+    impose_prior::Bool = false,
+    prior_mean::Any = nothing,
+    prior_cov::Any = nothing,
     sigma_points::String = "symmetric",
-) where {FT <: AbstractFloat, IT <: Int}
+) where {FT <: AbstractFloat, IT <: Int, VV <: AbstractVector, MM <: AbstractMatrix}
+
+    u0_mean = FT.(u0_mean)
+    uu0_cov = FT.(uu0_cov)
+    if impose_prior
+        if isnothing(prior_mean)
+            @info "`impose_prior=true` but `prior_mean=nothing`, taking initial mean as prior mean."
+            prior_mean = u0_mean
+        else
+            prior_mean = FT.(prior_mean)
+        end
+        if isnothing(prior_cov)
+            @info "`impose_prior=true` but `prior_cov=nothing`, taking initial covariance as prior covariance"
+            prior_cov = uu0_cov
+        else
+            prior_cov = FT.(prior_cov)
+        end
+        α_reg = 1.0
+        update_freq = 1
+    end
 
     if sigma_points == "symmetric"
         N_ens = 2 * size(u0_mean, 1) + 1
@@ -88,7 +126,6 @@ function Unscented(
     else
         throw(ArgumentError("sigma_points type is not recognized. Select from \"symmetric\" or \"simplex\". "))
     end
-
 
     N_par = size(u0_mean, 1)
     # ensemble size
@@ -165,6 +202,9 @@ function Unscented(
         α_reg,
         r,
         update_freq,
+        impose_prior,
+        prior_mean,
+        prior_cov,
         iter,
     )
 end
@@ -174,7 +214,7 @@ function Unscented(prior::ParameterDistribution; kwargs...)
     u0_mean = Vector(mean(prior)) # mean of unconstrained distribution
     uu0_cov = Matrix(cov(prior)) # cov of unconstrained distribution
 
-    return Unscented(u0_mean, uu0_cov; kwargs...)
+    return Unscented(u0_mean, uu0_cov; prior_mean = u0_mean, prior_cov = uu0_cov, kwargs...)
 
 end
 
@@ -236,10 +276,17 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         cov_localized = uki.localizer.localize(cov_est)
         uu_p_cov, ug_cov, gg_cov = get_cov_blocks(cov_localized, size(u_p, 1))
 
-        tmp = ug_cov / gg_cov
-
-        u_mean = u_p_mean + tmp * (obs_mean - g_mean)
-        uu_cov = uu_p_cov - tmp * ug_cov'
+        if uki.process.impose_prior
+            ug_cov_reg = [ug_cov uu_p_cov]
+            gg_cov_reg = [gg_cov ug_cov'; ug_cov uu_p_cov+uki.process.prior_cov / uki.Δt[end]]
+            tmp = ug_cov_reg / gg_cov_reg
+            u_mean = u_p_mean + tmp * [obs_mean - g_mean; uki.process.prior_mean - u_p_mean]
+            uu_cov = uu_p_cov - tmp * ug_cov_reg'
+        else
+            tmp = ug_cov / gg_cov
+            u_mean = u_p_mean + tmp * (obs_mean - g_mean)
+            uu_cov = uu_p_cov - tmp * ug_cov'
+        end
 
         ########### Save results
         push!(uki.process.obs_pred, g_mean) # N_ens x N_data
