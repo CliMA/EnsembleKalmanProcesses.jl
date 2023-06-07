@@ -8,8 +8,6 @@ using EnsembleKalmanProcesses.ParameterDistributions
 using EnsembleKalmanProcesses.Localizers
 const EKP = EnsembleKalmanProcesses
 
-TEST_PLOT_OUTPUT = false
-
 # Read inverse problem definitions
 include("../EnsembleKalmanProcess/inverse_problem.jl")
 
@@ -152,11 +150,11 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
 
     ## Repeat first test with several schedulers
     y_obs, G, Γy = nl_inv_problems[1]
-
+    T_end = 3
     schedulers = [
         DefaultScheduler(0.1),
         MutableScheduler(0.1),
-        DataMisfitController(),
+        DataMisfitController(terminate_at = T_end),
         DataMisfitController(on_terminate = "continue"),
         DataMisfitController(on_terminate = "continue_fixed"),
     ]
@@ -195,6 +193,12 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
         end
         push!(init_means, vec(mean(get_u_prior(ekiobj), dims = 2)))
         push!(final_means, vec(mean(get_u_final(ekiobj), dims = 2)))
+        # this test is fine so long as N_iter is large enough to hit the termination time
+        if nameof(typeof(scheduler)) == DataMisfitController
+            if (scheduler.terminate_at, scheduler.on_terminate) == (Float64(T_end), "stop")
+                @test sum(ekiobj.Δt) ≈ scheduler.terminate_at
+            end
+        end
 
     end
     for i in 1:length(final_means)

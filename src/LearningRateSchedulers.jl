@@ -89,13 +89,15 @@ end
 $(TYPEDEF)
 
 Scheduler from Iglesias, Yang, 2021, Based on Bayesian Tempering.
-Terminates at `T=1`, and at this time, ensemble spread provides a (more) meaningful approximation of posterior uncertainty
+Terminates at `T=1` by default, and at this time, ensemble spread provides a (more) meaningful approximation of posterior uncertainty
 In particular, for parameters ``\\theta_j`` at step ``n``, to calculate the next timestep
 ``\\Delta t_n = \\min\\left(\\max\\left(\\frac{J}{2\\Phi}, \\sqrt{\\frac{J}{2\\langle \\Phi, \\Phi \\rangle}}\\right), 1-\\sum^{n-1}_i t_i\\right) `` where ``\\Phi_j = \\|\\Gamma^{-1}(G(\\theta_j) - y)\\|^2``. 
-Cannot be overriden. By default termination returns `true` from `update_ensemble!` and 
+Cannot be overriden by user provided timesteps.
+By default termination returns `true` from `update_ensemble!` and 
 - if `on_terminate == "stop"`, stops further iteration.
 - if `on_terminate == "continue_fixed", continues iteration with the final timestep fixed
 - if `on_terminate == "continue", continues the algorithm (though no longer compares to ``1-\\sum^{n-1}_i t_i``) 
+The user may also change the `T` with `terminate_at` keyword.
 
 $(TYPEDFIELDS)
 """
@@ -104,15 +106,22 @@ struct DataMisfitController{FT, M, S} <:
     iteration::Vector{Int}
     history::Vector{FT}
     inv_sqrt_noise::Vector{M}
+    terminate_at::FT
     on_terminate::S
 end # Iglesias Yan 2021
 
-function DataMisfitController(; on_terminate = "stop")
+function DataMisfitController(; terminate_at = 1.0, on_terminate = "stop")
     FT = Float64
     M = Matrix{FT}
     iteration = Int[]
     history = FT[]
     inv_sqrt_noise = M[]
+
+    if terminate_at > 0 #can be infinity
+        ta = FT(terminate_at)
+    else
+        ta = FT(1.0) # has a notion of posterior
+    end
 
     if on_terminate ∉ ["continue", "continue_fixed", "stop"]
         throw(
@@ -122,7 +131,7 @@ function DataMisfitController(; on_terminate = "stop")
         )
     end
 
-    return DataMisfitController{FT, M, typeof(on_terminate)}(iteration, history, inv_sqrt_noise, on_terminate)
+    return DataMisfitController{FT, M, typeof(on_terminate)}(iteration, history, inv_sqrt_noise, ta, on_terminate)
 end
 
 """
@@ -240,6 +249,7 @@ function calculate_timestep!(
 
 
     M, J = size(g)
+    T = scheduler.terminate_at
 
     if isempty(ekp.Δt)
         push!(scheduler.iteration, 1)
@@ -258,8 +268,8 @@ function calculate_timestep!(
     sum_Δt = (n == 1) ? 0.0 : sum(ekp.Δt)
     sum_Δt_min1 = (n <= 2) ? 0.0 : sum(ekp.Δt[1:(end - 1)])
     # On termination condition:
-    if sum_Δt >= 1
-        if sum_Δt_min1 < 1 # "Just reached termination"
+    if sum_Δt >= T
+        if sum_Δt_min1 < T # "Just reached termination"
             if scheduler.on_terminate == "stop"
                 @warn "Termination condition of timestepping scheme `DataMisfitController` has been exceeded. Preventing futher updates\n Set on_terminate=\"continue\" in `DataMisfitController` to ignore termination"
                 return true #returns a terminate call
@@ -284,8 +294,8 @@ function calculate_timestep!(
 
     q = maximum((M / (2 * Φ_mean), sqrt(M / (2 * Φ_var))))
 
-    if sum_Δt < 1
-        Δt = minimum([q, 1 - sum_Δt])
+    if sum_Δt < T
+        Δt = minimum([q, T - sum_Δt])
     else # when termination condition satisfied but choose to continue
         Δt = q
     end
@@ -293,7 +303,7 @@ function calculate_timestep!(
     # in theory the following should be the same.
     push!(ekp.Δt, Δt)
 
-    if (sum_Δt < 1) && (sum_Δt + Δt >= 1)
+    if (sum_Δt < T) && (sum_Δt + Δt >= T)
         @info "Termination condition of timestepping scheme `DataMisfitController` has been satisfied."
     end
     nothing
