@@ -38,16 +38,21 @@ upper_bound = 1.0
 ```@example snip1
 using EnsembleKalmanProcesses.ParameterDistributions # for `constrained_gaussian`, `combine_distributions`
 prior_1 = constrained_gaussian("param_1", μ_1, σ_1, lower_bound, upper_bound)
-prior_2 = constrained_gaussian("param_2", μ_2, σ_2, 0.0, Inf)
+prior_2 = constrained_gaussian("param_2", μ_2, σ_2, 0.0, Inf, repeats=3)
 prior = combine_distributions([prior_1, prior_2])
 nothing # hide
 ```
 
-`prior_1` is a `ParameterDistribution` describing a prior distribution for a parameter named `"param_1"` taking values on the interval [`lower_bound`, `upper_bound`]; the prior distribution has mean μ₁ and standard deviation σ₁.
+`prior_1` is a `ParameterDistribution` describing a prior distribution for a parameter named `"param_1"` taking values on the interval [`lower_bound`, `upper_bound`]; the prior distribution has approximate mean ``μ_1`` and standard deviation ``σ_1``.
 
-The use case `constrained_gaussian()` addresses is when prior information is qualitative, and exact distributions of the priors are unknown: i.e., the user is only able to specify the physical and likely ranges of prior parameter values at a rough, qualitative level. `constrained_gaussian()` does this by constructing a `ParameterDistribution` corresponding to a Gaussian "squashed" to fit in the given constraint interval, such that the "squashed" distribution has the specified mean and standard deviation (e.g. `prior_2` above is a log-normal).
+`prior_2` is a `ParameterDistribution` describing a 3-dimensional prior distribution for a parameter named `"param_2"` with each dimensions taking independent values on the half-open interval [`0.0`, `Inf`); the marginals of this prior distribution have approximate mean ``μ_2`` and standard deviation ``σ_2``.
 
-The parameters of the Gaussian are chosen automatically (depending on the constraint) to reproduce the desired μ and σ — per the use case, other details of the form of the prior distribution shouldn't be important for downstream inference!
+The use case `constrained_gaussian()` addresses is when prior information is qualitative, and exact distributions of the priors are unknown: i.e., the user is only able to specify the physical and likely ranges of prior parameter values at a rough, qualitative level. `constrained_gaussian()` does this by constructing a `ParameterDistribution` corresponding to a Gaussian "squashed" to fit in the given constraint interval, such that the "squashed" distribution has the specified mean and standard deviation (e.g. `prior_2` above is a log-normal for each dimension).
+
+The parameters of the Gaussian are chosen automatically (depending on the constraint) to reproduce the desired μ and σ — per the use case, other details of the form of the prior distribution shouldn't be important for downstream inference!                
+!!! note "Slow/Failed construction?"
+    The most common case of slow or failed construction is when requested parameters place too much mass at the hard boundary. A typical case is when the requested variance satisfies ``|\sigma| \approx \mathrm{dist}(\mu,\mathrm{boundary})`` Such priors can be defined, but not with our convenience constructor. If this is not the case but you still get failures please let us know!
+ 
 
 ### Plotting
 
@@ -68,7 +73,6 @@ One can also access the underlying Gaussian distributions in the unconstrained s
 using Plots
 plot(prior, constrained=false) 
 ```
-
 
 ### Recommended constructor - Simple example
 

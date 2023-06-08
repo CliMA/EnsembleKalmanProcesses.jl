@@ -117,9 +117,11 @@ end
     @test length(dmclrs1.iteration) == 0
     @test typeof(dmclrs1.inv_sqrt_noise) == Vector{Matrix{Float64}}
     @test length(dmclrs1.inv_sqrt_noise) == 0
+    @test dmclrs1.terminate_at == Float64(1)
     @test dmclrs1.on_terminate == "stop"
-    dmclrs2 = EKP.DataMisfitController(on_terminate = "continue")
+    dmclrs2 = EKP.DataMisfitController(terminate_at = 7, on_terminate = "continue")
     @test dmclrs2.on_terminate == "continue"
+    @test dmclrs2.terminate_at == Float64(7)
     dmclrs3 = EKP.DataMisfitController(on_terminate = "continue_fixed")
     @test dmclrs3.on_terminate == "continue_fixed"
 
@@ -141,11 +143,12 @@ end
         #        Unscented(prior), TO BE UNCOMMENTED WHEN UKI BUG-FIXED
         #Sparse inversion tests in test/SparseInversion/runtests.jl
     ]
+    T_end = 3 # (this could fail a test if N_iters is not enough to reach T_end)
     for process in processes
         schedulers = [
             DefaultScheduler(0.05),
             MutableScheduler(0.05),
-            DataMisfitController(),
+            DataMisfitController(terminate_at = T_end),
             DataMisfitController(on_terminate = "continue"),
             DataMisfitController(on_terminate = "continue_fixed"),
         ]
@@ -182,6 +185,13 @@ end
             end
             push!(init_means, vec(mean(get_u_prior(ekpobj), dims = 2)))
             push!(final_means, vec(mean(get_u_final(ekpobj), dims = 2)))
+
+            # this test is fine so long as N_iter is large enough to hit the termination time
+            if nameof(typeof(scheduler)) == DataMisfitController
+                if (scheduler.terminate_at, scheduler.on_terminate) == (Float64(T_end), "stop")
+                    @test sum(ekpobj.Δt) ≈ scheduler.terminate_at
+                end
+            end
         end
         for i in 1:length(final_means)
             u_star = transform_constrained_to_unconstrained(prior, ϕ_star)

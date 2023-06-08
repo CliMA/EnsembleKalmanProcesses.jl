@@ -65,8 +65,9 @@ Currently we will retain constant timestepping while we investigate further, tho
 
 Please let us know how you get on by setting the keyword argument in EKP
 ```julia
-scheduler = DataMisfitController() # terminating
-scheduler = DataMisfitController(on_terminate = "continue") #non-terminating
+scheduler = DataMisfitController() # terminating at `T=1`
+scheduler = DataMisfitController(terminate_at = 10) # terminating at `T=10`
+scheduler = DataMisfitController(on_terminate = "continue") # non-terminating
 ```
 
 !!! warning "Ensemble Kalman Sampler"
