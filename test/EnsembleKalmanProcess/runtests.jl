@@ -284,6 +284,11 @@ end
 
         # Get inverse problem
         y_obs, G, Γy, A = inv_problem
+        if i_prob == 1
+            scheduler = DataMisfitController(on_terminate = "continue")
+        else
+            scheduler = DefaultScheduler()
+        end
 
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -293,6 +298,7 @@ end
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
             localization_method = loc_method,
+            scheduler = scheduler,
         )
         ekiobj_unsafe = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -302,6 +308,7 @@ end
             rng = rng,
             failure_handler_method = IgnoreFailures(),
             localization_method = loc_method,
+            scheduler = scheduler,
         )
 
         g_ens = G(get_ϕ_final(prior, ekiobj))
