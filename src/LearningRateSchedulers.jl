@@ -137,7 +137,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculates next timestep by pushing to ekp.Δt,
+Calculates next timestep by pushing to ekp.Δt, 
 `!isnothing(return_value)` implies termination condition has been met
 """
 function calculate_timestep!(
@@ -145,7 +145,9 @@ function calculate_timestep!(
     g::M,
     Δt_new::NFT,
 ) where {M <: AbstractMatrix, NFT <: Union{Nothing, AbstractFloat}}
-    terminate = calculate_timestep!(ekp, g, Δt_new, get_scheduler(ekp))
+    # when using g to calculate Δt, pass only successful particles through
+    successful_ens, _ = split_indices_by_success(g)
+    terminate = calculate_timestep!(ekp, g[:, successful_ens], Δt_new, get_scheduler(ekp))
     return terminate
 end
 
@@ -247,7 +249,6 @@ function calculate_timestep!(
         @info "Cannot override DataMisfitController-type timestep selection, ignoring Δt_new = $(Δt_new)"
     end
 
-
     M, J = size(g)
     T = scheduler.terminate_at
 
@@ -285,7 +286,6 @@ function calculate_timestep!(
         end
     end
 
-    M, J = size(g)
     y_mean = ekp.obs_mean
 
     Φ = [0.5 * norm(inv_sqrt_Γ * (g[:, j] - reshape(y_mean, :, 1)))^2 for j in 1:J]
