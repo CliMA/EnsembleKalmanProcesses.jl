@@ -308,3 +308,12 @@ function calculate_timestep!(
     end
     nothing
 end
+
+# overload ==
+function Base.:(==)(lrs_a::LRS, lrs_b::LRS) where {LRS <: LearningRateScheduler}
+    checks = [false for i in 1:length(fieldnames(LRS))]
+    for (i, f) in enumerate(fieldnames(LRS))
+        checks[i] = getfield(lrs_a, f) == getfield(lrs_b, f)
+    end
+    return all(checks)
+end
