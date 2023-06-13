@@ -80,23 +80,25 @@ end
     @test dlrs1.Δt_default == Float64(1)
     dlrs2 = EKP.DefaultScheduler(Δt)
     @test dlrs2.Δt_default == Float64(Δt)
+    @test EKP.DefaultScheduler() == EKP.DefaultScheduler()
 
     #Mutable
     mlrs1 = EKP.MutableScheduler()
     @test mlrs1.Δt_mutable == Float64[1]
     mlrs2 = EKP.MutableScheduler(Δt)
     @test mlrs2.Δt_mutable == Float64[Δt]
-
+    @test EKP.MutableScheduler() == EKP.MutableScheduler()
     # EKSStable 
     ekslrs1 = EKP.EKSStableScheduler()
     @test ekslrs1.numerator == Float64(1)
     @test ekslrs1.nugget == Float64(eps())
-
+    @test EKP.EKSStableScheduler() == EKP.EKSStableScheduler()
     num = 3
     nug = 0.0001
     ekslrs2 = EKP.EKSStableScheduler(num, nug)
     @test ekslrs2.numerator == Float64(3)
     @test ekslrs2.nugget == Float64(0.0001)
+
 
     num = Float32(3)
     nug = Float32(0.0001)
@@ -124,6 +126,7 @@ end
     @test dmclrs2.terminate_at == Float64(7)
     dmclrs3 = EKP.DataMisfitController(on_terminate = "continue_fixed")
     @test dmclrs3.on_terminate == "continue_fixed"
+    @test EKP.DataMisfitController() == EKP.DataMisfitController()
 
     # build EKP and eki objects
     # Get an inverse problem
