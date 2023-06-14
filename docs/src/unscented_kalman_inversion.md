@@ -80,8 +80,10 @@ The free parameters in the unscented Kalman inversion are ``\alpha, r, \Sigma_{\
     
     * otherwise ``\Lambda = C_0``, this allows that the converged covariance matrix is a weighted average between the posterior covariance matrix with an uninformative prior and ``C_0``.
 
-In short, users only need to change the ``\alpha`` (`α_reg`), and the frequency to update the ``\Lambda`` (`update_freq`). The user can first try `α_reg = 1.0` and `update_freq = 0`.
+In short, users only need to change the ``\alpha`` (`α_reg`), and the frequency to update the ``\Lambda`` to the current covariance (`update_freq`). The user can first try `α_reg = 1.0` and `update_freq = 0` (corresponding to ``\Lambda = C_0``).
 
+!!! note "Preventing ensemble divergence"
+    If UKI suffers divergence (for example when inverse problems are not well-posed), one can prevent it by using Tikhonov regularization (see [Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)). It is used by setting the `impose_prior = true` flag. In this mode, the free parameters are fixed to `α_reg = 1.0`, `update_freq = 1`. 
 
 ## Implementation
 
