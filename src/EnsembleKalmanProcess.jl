@@ -271,7 +271,7 @@ end
 """
     get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess)
 
-Returns the unconstrained parameters from all iterations. The outer dimension is given by the number of iterations.
+Returns the constrained parameters from all iterations. The outer dimension is given by the number of iterations.
 """
 get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess) =
     transform_unconstrained_to_constrained(prior, get_u(ekp))
