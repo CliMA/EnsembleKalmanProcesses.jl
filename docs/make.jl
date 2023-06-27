@@ -5,6 +5,8 @@ using EnsembleKalmanProcesses,
     Documenter,
     Plots,  # so that Literate.jl does not capture precompilation output
     Literate
+using Downloads
+using DelimitedFiles
 
 # Gotta set this environment variable when using the GR run-time on CI machines.
 # This happens as examples will use Plots.jl to make plots and movies.
@@ -19,6 +21,7 @@ examples_for_literation = [
     "LossMinimization/loss_minimization.jl",
     "SparseLossMinimization/loss_minimization_sparse_eki.jl",
     "AerosolActivation/aerosol_activation.jl",
+    "SurfaceFluxExample/kappa_calibration.jl",
 ]
 
 if isempty(get(ENV, "CI", ""))
@@ -42,6 +45,31 @@ for example in examples_for_literation
     )
 end
 
+# The purpose of the code below is to remove the occurrences of the Documenter @example block
+# created by Literate in order to prevent Documenter from evaluating the code blocks from 
+# kappa_calibration.jl. The reason the code blocks do not work is due to a package compatibility
+# mismatch, i.e. aerosol_activation is only compatible with CloudMicrophysics v0.5, and CloudMicrophysics v0.5
+# is only compatible with SurfaceFluxes v0.3. However, kappa_calibration.jl requires a new version of SurfaceFluxes, 
+# version 0.6, making it impossible to evaluate the code blocks in the markdown file kappa_calibration.md without
+# running into errors. Thus, we filter out the @example blocks and merely display the code on the docs.
+
+# Another reason we cannot evaluate the code blocks in kappa_calibration is that kappa_calibration depends
+# on locally downloaded data. Because we cannot download data to the remote repository, it is never plausible
+# to run kappa_calibration remotely.
+
+# read file and copy over modified
+kappa_md_file = open("docs/src/literated/kappa_calibration.md", "r")
+all_lines = string("")
+while (!eof(kappa_md_file))
+    line = readline(kappa_md_file) * "\n"
+    line = replace(line, "@example kappa_calibration" => "")
+    global all_lines *= line
+end
+
+# write to file
+kappa_md_file = open("docs/src/literated/kappa_calibration.md", "w")
+write(kappa_md_file, all_lines)
+close(kappa_md_file)
 #----------
 
 api = [
@@ -66,6 +94,7 @@ examples = [
     "Aerosol activation" => "literated/aerosol_activation.md",
     "TOML interface" => "examples/sinusoid_example_toml.md",
     "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md",
+    "Surface Fluxes" => "literated/kappa_calibration.md",
     "Template" => "examples/template_example.md",
 ]
 
