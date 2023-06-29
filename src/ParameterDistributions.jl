@@ -441,7 +441,7 @@ end
 function Base.show(io::IO, distributions::ParameterDistribution)
     n = length(distributions.name)
     out = "ParameterDistribution with $n entries: \n"
-    for (i, inds) in enumerate(batch(distributions))
+    for (i, inds) in enumerate(batch(distributions, function_parameter_opt = "constraint"))
         dist = distributions.distribution[i]
         dist_string = replace("$dist", "\n" => " ")  # hack to remove `\n` from `Parameterized(FullNormal(...))`
         cons = distributions.constraint[inds]
