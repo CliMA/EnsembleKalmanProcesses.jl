@@ -43,21 +43,24 @@ using Random
 rng_seed = 44
 rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)
 
-using EnsembleKalmanProcesses
+import EnsembleKalmanProcesses as EKP
 using EnsembleKalmanProcesses.ParameterDistributions
-const EKP = EnsembleKalmanProcesses
 
-import CLIMAParameters
-const CP = CLIMAParameters
-struct EarthParameterSet <: CP.AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+import CLIMAParameters as CP
 
-import CloudMicrophysics
-const AM = CloudMicrophysics.AerosolModel
-const AA = CloudMicrophysics.AerosolActivation
+import Thermodynamics as TD
 
-import Thermodynamics
-const TD = Thermodynamics
+import CloudMicrophysics as CM
+const AM = CM.AerosolModel
+const AA = CM.AerosolActivation
+const CMP = CM.Parameters
+
+const FT = Float32
+include(joinpath(pkgdir(CM), "test", "create_parameters.jl"))
+toml_dict = CP.create_toml_dict(FT; dict_type = "alias")
+param_set = cloud_microphysics_parameters(toml_dict)
+thermo_param_set = CMP.thermodynamics_params(param_set)
+
 nothing # hide
 
 # Next, we provide the information about the priors of the parameters we want to learn.
@@ -90,8 +93,8 @@ nothing # hide
 T = 283.15
 p = 1e5
 w = 5.0
-p_vs = TD.saturation_vapor_pressure(param_set, T, TD.Liquid())
-q_vs = 1 / (1 - CP.Planet.molmass_ratio(param_set) * (p_vs - p) / p_vs)
+p_vs = TD.saturation_vapor_pressure(thermo_param_set, T, TD.Liquid())
+q_vs = 1 / (1 - CMP.molmass_ratio(param_set) * (p_vs - p) / p_vs)
 q = TD.PhasePartition(q_vs, 0.0, 0.0)
 nothing # hide
 
