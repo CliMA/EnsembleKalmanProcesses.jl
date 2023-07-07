@@ -4,7 +4,7 @@
 
 We demonstrate the behaviour of different learning rate schedulers through solution of a nonlinear inverse problem.
 
-In this example we have a model that produces the exponential of a sinusoid ``f(A, v) = \exp(A \sin(t) + v), \forall t \in [0,2\pi]``. Given an initial guess of the parameters as ``A^* \sim \mathcal{N}(2,1)`` and ``v^* \sim \mathcal{N}(0,5)``, the inverse problem is to estimate the parameters from a noisy observation of only the maximum and mean value of the true model output.
+In this example we have a model that produces the exponential of a sinusoid ``f(A, v) = \exp(A \sin(t) + v), \forall t \in [0,2\pi]``. Given an initial guess of the parameters as ``A^* \sim \mathcal{N}(2,1)`` and ``v^* \sim \mathcal{N}(0,25)``, the inverse problem is to estimate the parameters from a noisy observation of only the maximum and mean value of the true model output.
 
 We shall compare the following configurations of implemented schedulers. 
 1. Fixed, long timestep `DefaultScheduler(0.5)` - orange
