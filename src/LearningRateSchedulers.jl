@@ -104,7 +104,6 @@ $(TYPEDFIELDS)
 struct DataMisfitController{FT, M, S} <:
        LearningRateScheduler where {FT <: AbstractFloat, M <: AbstractMatrix, S <: AbstractString}
     iteration::Vector{Int}
-    history::Vector{FT}
     inv_sqrt_noise::Vector{M}
     terminate_at::FT
     on_terminate::S
@@ -114,7 +113,6 @@ function DataMisfitController(; terminate_at = 1.0, on_terminate = "stop")
     FT = Float64
     M = Matrix{FT}
     iteration = Int[]
-    history = FT[]
     inv_sqrt_noise = M[]
 
     if terminate_at > 0 #can be infinity
@@ -131,7 +129,7 @@ function DataMisfitController(; terminate_at = 1.0, on_terminate = "stop")
         )
     end
 
-    return DataMisfitController{FT, M, typeof(on_terminate)}(iteration, history, inv_sqrt_noise, ta, on_terminate)
+    return DataMisfitController{FT, M, typeof(on_terminate)}(iteration, inv_sqrt_noise, ta, on_terminate)
 end
 
 """
