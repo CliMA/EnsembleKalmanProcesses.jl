@@ -117,25 +117,26 @@ In [Simple example revisited](@ref) below, we repeat this example "manually" wit
     
     The recommended constructor can be called as `constrained_gaussian(...; repeats = n)` to return a combined prior formed by `n` identical priors.
 
-## ParameterDistribution class
+## ParameterDistribution struct
 
 This section provides more details on the components of a `ParameterDistribution` object.
 
 ### ParameterDistributionType
 
-The `ParameterDistributionType` class comprises three subclasses for specifying different types of prior distributions:
+The `ParameterDistributionType` struct wraps four types for specifying different types of prior distributions:
 
  - The `Parameterized` type is initialized using a Julia `Distributions.jl` object. Samples are drawn randomly from the distribution object.
  - The `VectorOfParameterized` type is initialized with a vector of distributions.
  - The `Samples` type is initialized using a two dimensional array. Samples are drawn randomly (with replacement) from the columns of the provided array.
 
+- The `FunctionParameterDistributionType` struct defines parameters specified as fields over a domain. More detail can be found [here](@ref function-parameter-type).
 
 !!! warning
     We recommend that the distributions be unbounded (see next section), as the filtering algorithms in EnsembleKalmanProcesses are not guaranteed to preserve constraints unless defined through the `ConstraintType` mechanism.
 
 ### ConstraintType
 
-The inference algorithms implemented in EnsembleKalmanProcesses assume unbounded parameter domains. To be able to handle constrained parameter values consistently, the ConstraintType class defines a bijection between the physical, constrained parameter domain and an unphysical, unconstrained domain in which the filtering takes place. This bijection is specified by the functions `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained`, which are built from either predefined constructors or user-defined constraint functions given as arguments to the `ConstraintType` constructor. 
+The inference algorithms implemented in EnsembleKalmanProcesses assume unbounded parameter domains. To be able to handle constrained parameter values consistently, the `ConstraintType`  defines a bijection between the physical, constrained parameter domain and an unphysical, unconstrained domain in which the filtering takes place. This bijection is specified by the functions `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained`, which are built from either predefined constructors or user-defined constraint functions given as arguments to the `ConstraintType` constructor. 
 
 We provide the following predefined constructors which implement mappings that handle the most common constraints:
 
@@ -160,15 +161,15 @@ Currently we only support multivariate constraints which are the Cartesian produ
 This is simply a `String` used to identify different parameters in multi-parameter situations, as in the methods below.
 
 
-### FunctionParameterDistributionType
-
-A subtype of `ParameterDistributionType`, we currently support one subclass for specifying prior distributions over functions.
+### [FunctionParameterDistributionType](@id function-parameter-type)
 
 Learning a function distribution is useful when one wishes to obtain a parametric representation of a function that is (relatively) agnostic of the underlying grid discretization. Most practical implementations involve posing a restrictive class of functions by truncation of a spectral decomposition. The function is then represented as a set of coefficients of these modes (known as degrees of freedom), rather than directly through the values at evaluation points.
 
+As a subtype of `ParameterDistributionType`, we currently support one option for specifying prior distributions over functions:
+
 - The `GaussianRandomFieldInterface` type is initialized with a Gaussian Random Field object and the GRF package. Currently we support objects from [`GaussianRandomFields.jl`](https://github.com/PieterjanRobbe/GaussianRandomFields.jl) with package `GRFJL()`. Gaussian random fields allow the definition of scalar function distributions defined over a uniform mesh on interval, rectangular, and hyper-rectangular domains.
 
-When constructing a function distribution, one can also enforce a constraint on the output space of the function using a `Constraint()`.
+As with other `ParameterDistribution`s, a function distribution, is built from a name, a `FunctionPameterDistributionType` struct and a constraint, here only one, placed on the scalar output space of the function using a `Constraint()`.
 
 !!! note "constraints"
     The transformation `transform_unconstrained_to_constrained`, will map from (unconstrained) degrees of freedom, to (constrained) evaluations of the function on a numerical grid. In particular, the `transform_constrained_to_unconstrained` is *no longer the inverse* of this map, it now simply maps from constrained evaluations to unconstrained evaluations on the grid.
