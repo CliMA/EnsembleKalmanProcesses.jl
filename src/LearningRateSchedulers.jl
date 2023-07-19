@@ -56,15 +56,15 @@ end
 $(TYPEDEF)
 
 Scheduler known to be stable for EKS,
-In particular, ``\\Delta t = \\frac{\\alpha}{\\|U\\| + \\varepsilon}`` where ``U = (G(u) - \\bar{G(u)}])^T\\Gamma^{-1}(G(u) - y)``. 
+In particular, ``\\Delta t = \\frac{\\alpha}{\\|U\\| + \\varepsilon}`` where ``U = (G(u) - \\bar{G(u)})^T\\Gamma^{-1}(G(u) - y)``. 
 Cannot be overriden.
 
 $(TYPEDFIELDS)
 """
 struct EKSStableScheduler{FT} <: LearningRateScheduler where {FT <: AbstractFloat}
-    "the numerator ``\alpha``"
+    "the numerator ``\\alpha``"
     numerator::FT
-    "the nugget term ``\varepsilon``"
+    "the nugget term ``\\varepsilon``"
     nugget::FT
 end
 
@@ -91,21 +91,25 @@ $(TYPEDEF)
 Scheduler from Iglesias, Yang, 2021, Based on Bayesian Tempering.
 Terminates at `T=1` by default, and at this time, ensemble spread provides a (more) meaningful approximation of posterior uncertainty
 In particular, for parameters ``\\theta_j`` at step ``n``, to calculate the next timestep
-``\\Delta t_n = \\min\\left(\\max\\left(\\frac{J}{2\\Phi}, \\sqrt{\\frac{J}{2\\langle \\Phi, \\Phi \\rangle}}\\right), 1-\\sum^{n-1}_i t_i\\right) `` where ``\\Phi_j = \\|\\Gamma^{-1}(G(\\theta_j) - y)\\|^2``. 
+``\\Delta t_n = \\min\\left(\\max\\left(\\frac{J}{2\\Phi}, \\sqrt{\\frac{J}{2\\langle \\Phi, \\Phi \\rangle}}\\right), 1-\\sum^{n-1}_i t_i\\right) `` where ``\\Phi_j = \\|\\Gamma^{-\\frac{1}{2}}(G(\\theta_j) - y)\\|^2``. 
 Cannot be overriden by user provided timesteps.
 By default termination returns `true` from `update_ensemble!` and 
 - if `on_terminate == "stop"`, stops further iteration.
-- if `on_terminate == "continue_fixed", continues iteration with the final timestep fixed
-- if `on_terminate == "continue", continues the algorithm (though no longer compares to ``1-\\sum^{n-1}_i t_i``) 
+- if `on_terminate == "continue_fixed"`, continues iteration with the final timestep fixed
+- if `on_terminate == "continue"`, continues the algorithm (though no longer compares to ``1-\\sum^{n-1}_i t_i``) 
 The user may also change the `T` with `terminate_at` keyword.
 
 $(TYPEDFIELDS)
 """
 struct DataMisfitController{FT, M, S} <:
        LearningRateScheduler where {FT <: AbstractFloat, M <: AbstractMatrix, S <: AbstractString}
+    "the current iteration"
     iteration::Vector{Int}
+    "the inverse square-root of the noise covariance is stored"
     inv_sqrt_noise::Vector{M}
+    "the algorithm time for termination, default: 1.0"
     terminate_at::FT
+    "the action on termination, default: \"stop\", "
     on_terminate::S
 end # Iglesias Yan 2021
 
@@ -302,7 +306,7 @@ function calculate_timestep!(
     push!(ekp.Δt, Δt)
 
     if (sum_Δt < T) && (sum_Δt + Δt >= T)
-        @info "Termination condition of timestepping scheme `DataMisfitController` has been satisfied."
+        @info "Termination condition of timestepping scheme `DataMisfitController` will be exceeded during the next iteration."
     end
     nothing
 end

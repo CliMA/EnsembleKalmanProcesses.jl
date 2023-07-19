@@ -32,7 +32,7 @@ sample_empirical_gaussian
 split_indices_by_success
 ```
 
-## Learning Rate Schedulers
+## [Learning Rate Schedulers](@id scheduler_api)
 
 ```@docs
 DefaultScheduler
