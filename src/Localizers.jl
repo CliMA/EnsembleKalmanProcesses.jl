@@ -4,7 +4,7 @@ using Distributions
 using LinearAlgebra
 using DocStringExtensions
 
-export NoLocalization, Delta, RBF, BernoulliDropout, SEC, SECFisher
+export NoLocalization, Delta, RBF, BernoulliDropout, SEC, SECFisher, LWShrinkage
 export LocalizationMethod, Localizer
 
 abstract type LocalizationMethod end
@@ -239,12 +239,45 @@ function Localizer(localization::SECFisher, p::IT, d::IT, J::IT, T = Float64) wh
     return Localizer{SECFisher, T}((cov) -> sec_fisher(cov, J))
 end
 
+struct LWShrinkage <: LocalizationMethod end
+
+function lw_shrinkage(sample_mat::AA) where {AA <: AbstractMatrix}
+    n_out, n_sample = size(sample_mat)
+
+    # de-mean (as we will use the samples directly for calculation of β)
+    sample_mat_zeromean = sample_mat .- mean(sample_mat, dims=2)
+    # Ledoit Wolf shrinkage to I
+
+    # get sample covariance
+    Γ = cov(sample_mat_zeromean, dims = 2)
+    # estimate opt shrinkage
+    μ_shrink = 1/n_out * tr(Γ)
+    δ_shrink = norm(Γ - μ_shrink*I)^2 / n_out # (scaled) frob norm of Γ_m
+    #once de-meaning, we need to correct the sample covariance with an n_sample -> n_sample-1
+    β_shrink = sum([norm(c*c'-   - Γ)^2/n_out for c in eachcol(sample_mat_zeromean)])/ (n_sample-1)^2 
+
+    γ_shrink = min(β_shrink / δ_shrink, 1) # clipping is typically rare
+    #  γμI + (1-γ)Γ
+    Γ .*= (1-γ_shrink)
+    for i = 1:n_out
+        Γ[i,i] += γ_shrink * μ_shrink 
+    end 
+
+    @info "Shrinkage scale: $(γ_shrink), (0 = none, 1 = revert to scaled Identity)\n shrinkage covariance condition number: $(cond(Γ))"
+    return Γ
+end        
+
+"ShrinkageEstimator constructor"
+function Localizer(localization::LWShrinkage, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
+    return Localizer{LWShrinkage, T}(samples -> lw_shrinkage(samples))
+end
+
 """
     get_localizer(loc::Localizer)
 Return localizer type.
 """
-function get_localizer(loc::Localizer{T1, T2}) where {T1, T2}
-    return T1
-end
+get_localizer(loc::Localizer{T1,T2}) where {T1, T2} = T1
+
+
 
 end # module

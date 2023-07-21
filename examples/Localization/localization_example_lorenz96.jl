@@ -125,6 +125,21 @@ for i in 1:N_iter
     EKP.update_ensemble!(ekiobj_sec_fisher, g_ens, deterministic_forward_map = true)
 end
 
+# Test LDShrinkage
+ekiobj_lw =
+    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = LWShrinkage())
+
+for i in 1:N_iter
+    g_ens = G(get_ϕ_final(prior, ekiobj_lw))
+    EKP.update_ensemble!(ekiobj_lw, g_ens, deterministic_forward_map = true)
+end
+
+
+
+
+
+
+
 u_final = get_u_final(ekiobj_sec)
 g_final = get_g_final(ekiobj_sec)
 cov_est = cov([u_final; g_final], [u_final; g_final], dims = 2, corrected = false)
@@ -135,6 +150,7 @@ plot!(get_error(ekiobj_bernoulli), label = "Bernoulli")
 plot!(get_error(ekiobj_sec), label = "SEC (Lee, 2021)")
 plot!(get_error(ekiobj_sec_fisher), label = "SECFisher (Flowerdew, 2015)")
 plot!(get_error(ekiobj_sec_cutoff), label = "SEC with cutoff")
+plot!(get_error(ekiobj_lw), label = "Ledoit Wolf shrinkage estimator")
 
 xlabel!("Iterations")
 ylabel!("Error")

@@ -59,7 +59,12 @@ function eki_update(
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
     # Localization
-    cov_localized = ekp.localizer.localize(cov_est)
+    if get_localizer(ekp) == LWShrinkage
+        cov_localized = ekp.localizer.localize([u; g])
+        @info "localize with samples"
+    else
+        cov_localized = ekp.localizer.localize(cov_est)
+    end
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
 
     # N_obs × N_obs \ [N_obs × N_ens]
