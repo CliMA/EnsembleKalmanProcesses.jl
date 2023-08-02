@@ -64,6 +64,7 @@ examples = [
     "Minimization Loss" => "literated/loss_minimization.md",
     "Sparse Minimization Loss" => "literated/loss_minimization_sparse_eki.md",
     "Aerosol activation" => "literated/aerosol_activation.md",
+    "Darcy flow" => "examples/darcy.md",
     "TOML interface" => "examples/sinusoid_example_toml.md",
     "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md",
     "Template" => "examples/template_example.md",
