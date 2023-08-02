@@ -1,6 +1,6 @@
 # Learning the permiability field in a Darcy flow
 
-In this example we hope to illustrate function learning. One may wish to use function learning in cases where the underlying parameter of interest is actual a finite-dimensional approximation (e.g. spatial discretization) of some "true" function. Treating the discretization as just random samples at evaluation points, leads to increasingly high-dimensional learning problems as the spatial resolution is increased, thus giving poor computational scaling and increasingly ill-posed inverse problems. Treating the object as a discretized function from a function space, one can learn coefficients instead in a basis of this function space, it is commonly the case that functions will have relatively low effective dimension in this space, and the dependence on the spatial discretization only arises in the discretization error, which vanishes as resolution is increased.
+In this example, we illustrate a simple function learning problem. We are presented with an unknown field that is discretized with a finite-dimensional approximation (e.g. spatial discretization). When learning this field, if one represents each pointwise value at a gridpoint as a parameter, increasing the spatial resolution leads to increasingly high dimensional learning problems, thus giving poor computational scaling and increasingly ill-posed inverse problems from fixed data. If instead, we treat the approximation as a discretized function living in a function space, then one can learn coefficients of a basis of this function space. Since it is commonly the case that functions have relatively low effective dimension in this space, the dependence on the spatial discretization only arises in discretization error, which vanishes as resolution is increased.
 
 We will solve for an unknown permeability field ``\kappa`` governing the velocity of a [Darcy flow](https://en.wikipedia.org/wiki/Darcy%27s_law) on a square 2D domain. To learn about the permeability we shall take few pointwise measurements of the solved velocity field within the domain. The forward solver is a simple finite difference scheme taken and modified from code [here](https://github.com/Zhengyu-Huang/InverseProblems.jl/blob/master/Fluid/Darcy-2D.jl).
 
@@ -45,7 +45,7 @@ N, L = 80, 1.0
 pts_per_dim = LinRange(0, L, N)
 ```
 
-To provide a simple test case, we assume that the true function parameter is a particular sample from the function space we set up to define our prior. We choose a value of the truth that doesnt have a vanishingly small probability under the prior defined by a probability distribution over functions; taken to be a family of Gaussian Random Fields (GRF). This function distribution is characterized by a covariance function (Matern) and an appropriate representation (Karhunen-Loeve expansion). The representation is truncated to a finite number of coefficients, the degrees of freedom (`dofs`), which define the effective dimension of the learning problem that is decoupled from the spatial discretization. Larger `dofs` may be required to represent multiscale functions, but come at an increased dimension of the parameter space and therefore a typical increase in cost and difficulty of the learning problem.
+To provide a simple test case, we assume that the true function parameter is a particular sample from the function space we set up to define our prior. We choose a value of the truth that doesnt have a vanishingly small probability under the prior defined by a probability distribution over functions; taken to be a family of Gaussian Random Fields (GRF). This function distribution is characterized by a covariance function (Matern) and an appropriate representation (Karhunen-Loeve expansion). The representation is truncated to a finite number of coefficients, the degrees of freedom (`dofs`), which define the effective dimension of the learning problem that is decoupled from the spatial discretization. Larger `dofs` may be required to represent multiscale functions, but come at an increased dimension of the parameter space and therefore a typical increase in cost and difficulty of the learning problem. For more details see [`GaussianRandomFields.jl`](https://pieterjanrobbe.github.io/GaussianRandomFields.jl/stable/)
 
 ```julia
 smoothness = 2.0
@@ -71,7 +71,7 @@ pd = ParameterDistribution(
 ) # the fully constrained parameter distribution
 ```
 
-Henceforth, the GRF is interfaced in the same manner as any other parameter distribution with regards to interface. We sample a reasonably high-probability value from this distribution as a true value (here all degrees of freedom set with ``u_{\mathrm{true}} = -1.5``). We then use the EKP transform function to build the corresponding instance of the ``\kappa_{\mathrm{true}}``.
+Henceforth, the GRF is interfaced in the same manner as any other parameter distribution with regards to interface. We choose the true value by setting all degrees of freedom ``u_{\mathrm{true}} = -1.5``; this choice is arbitrary, upto not having a vanishingly small mass under the prior. We then use the EKP transform function to build the corresponding instance of the ``\kappa_{\mathrm{true}}``.
 
 ```julia
 u_true = -1.5 * ones(dofs,1) # the truth parameter
@@ -79,14 +79,14 @@ u_true = -1.5 * ones(dofs,1) # the truth parameter
 κ_true = reshape(κ_true, N, N)
 ```
 
-We generate the data sample for the truth in a perfect model setting by evaluating the the model here, and observing the flow velocity at a few subsampled points in each dimension (here `obs_ΔN` leads to a ``7 \times 7`` observation grid), and we assume 5% additive observational noise on the measurements.
+We generate the data sample for the truth in a perfect model setting by evaluating the the model here, and observing the flow velocity at a few subsampled points in each dimension (here `obs_ΔN`, samples every 10 points in each dimension, leading to a ``7 \times 7`` observation grid), and we assume 5% additive observational noise on the measurements.
 
 ```julia
 obs_ΔN = 10 
 darcy = Setup_Param(pts_per_dim, obs_ΔN, κ_true) 
 h_2d = solve_Darcy_2D(darcy, κ_true)
 y_noiseless = compute_obs(darcy, h_2d)
-obs_noise_cov = 0.05^2 * I(length(y_noiseless)) * (maximum(κ_true) - minimum(κ_true))
+obs_noise_cov = 0.05^2 * I(length(y_noiseless)) * (maximum(y_noiseless) - minimum(y_noiseless))
 truth_sample = vec(y_noiseless + rand(rng, MvNormal(zeros(length(y_noiseless)), obs_noise_cov)))
 ```
 
@@ -96,7 +96,7 @@ Now we set up the Bayesian inversion algorithm. The prior we have already define
 prior = pd
 ```
 
-We define some algorithm parameters, here we take ensemble members larger than the dimension of the parameter space
+We define some algorithm parameters, here we take ensemble members larger than the dimension of the parameter space to ensure a full rank ensemble covariance.
 
 ```julia
 N_ens = dofs + 2 # number of ensemble members

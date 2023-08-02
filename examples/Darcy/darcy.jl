@@ -79,7 +79,7 @@ darcy = Setup_Param(pts_per_dim, obs_ΔN, κ_true)
 println(" Number of observation points: $(darcy.N_y)")
 h_2d = solve_Darcy_2D(darcy, κ_true)
 y_noiseless = compute_obs(darcy, h_2d)
-obs_noise_cov = 0.05^2 * I(length(y_noiseless)) * (maximum(κ_true) - minimum(κ_true))
+obs_noise_cov = 0.05^2 * I(length(y_noiseless)) * (maximum(y_noiseless) - minimum(y_noiseless))
 truth_sample = vec(y_noiseless + rand(rng, MvNormal(zeros(length(y_noiseless)), obs_noise_cov)))
 
 
@@ -89,7 +89,7 @@ prior = pd
 
 # We define some algorithm parameters, here we take ensemble members larger than the dimension of the parameter space
 N_ens = dofs + 2 # number of ensemble members
-N_iter = 20 # number of EKI iterations
+N_iter = 10 # number of EKI iterations
 
 # We sample the initial ensemble from the prior, and create the EKP object as an EKI algorithm using the `Inversion()` keyword
 initial_params = construct_initial_ensemble(rng, prior, N_ens)
