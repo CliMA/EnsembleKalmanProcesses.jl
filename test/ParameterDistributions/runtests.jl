@@ -159,6 +159,9 @@ using EnsembleKalmanProcesses.ParameterDistributions
             Dict("distribution" => d_wide_pos, "name" => "grf_above_3", "constraint" => function_constraint),
         )
 
+        # "test" show
+        show(pd)
+
         # Transforms:
         # u->c goes from coefficients to constrained function evaluations. by default
         sample5_constrained = function_constraint.unconstrained_to_constrained.(sample5)
@@ -182,6 +185,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test sample5 ≈ transform_constrained_to_unconstrained(pd, vec(sample5_constrained)) atol = tol
         biggertol = 1e-5
         @test all(isapprox.(sample6, transform_constrained_to_unconstrained(pd, sample6_constrained), atol = biggertol)) #can be sensitive to sampling (sometimes throws a near "Inf" so inverse is less accurate)
+
+
 
         if TEST_PLOT_OUTPUT
             dim_plot = 2
@@ -323,6 +328,9 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test u.distribution == [d1, d2, d3, d4, d5]
         @test u.constraint == cat([[c1], c2, c3, c4, c5]..., dims = 1)
         @test u.name == [name1, name2, name3, name4, name5]
+
+        # "test" show
+        show(u)
 
         #equality
         @test u == u

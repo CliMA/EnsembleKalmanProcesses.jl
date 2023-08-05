@@ -83,7 +83,6 @@ end
         ekp::EnsembleKalmanProcess{FT, IT, Inversion},
         g::AbstractMatrix{FT},
         process::Inversion;
-        Δt_new::Union{Nothing, FT} = nothing,
         deterministic_forward_map::Bool = true,
         failed_ens = nothing,
     ) where {FT, IT}
@@ -94,7 +93,6 @@ Inputs:
  - ekp :: The EnsembleKalmanProcess to update.
  - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - process :: Type of the EKP.
- - Δt_new :: Time step to be used in the current update.
  - deterministic_forward_map :: Whether output `g` comes from a deterministic model.
  - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
 """
@@ -102,19 +100,9 @@ function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
     g::AbstractMatrix{FT},
     process::Inversion;
-    Δt_new::Union{Nothing, FT} = nothing,
     deterministic_forward_map::Bool = true,
     failed_ens = nothing,
 ) where {FT, IT}
-
-    #catch works when g non-square
-    if !(size(g)[2] == ekp.N_ens)
-        throw(
-            DimensionMismatch(
-                "ensemble size $(ekp.N_ens) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
-            ),
-        )
-    end
 
     # u: N_par × N_ens 
     # g: N_obs × N_ens
@@ -131,7 +119,6 @@ function update_ensemble!(
         @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
     end
 
-    set_Δt!(ekp, Δt_new)
     fh = ekp.failure_handler
 
     # Scale noise using Δt

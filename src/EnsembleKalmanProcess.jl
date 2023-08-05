@@ -19,11 +19,17 @@ export update_ensemble!
 export sample_empirical_gaussian, split_indices_by_success
 export SampleSuccGauss, IgnoreFailures, FailureHandler
 
+
 abstract type Process end
 #specific Processes and their exports are included after the general definitions
 
+# LearningRateSchedulers
+abstract type LearningRateScheduler end
+
 # Failure handlers
 abstract type FailureHandlingMethod end
+
+
 
 "Failure handling method that ignores forward model failures"
 struct IgnoreFailures <: FailureHandlingMethod end
@@ -54,6 +60,7 @@ struct FailureHandler{P <: Process, FM <: FailureHandlingMethod}
     failsafe_update::Function
 end
 
+
 ## begin general constructor and function definitions
 
 """
@@ -72,6 +79,7 @@ $(TYPEDFIELDS)
         obs_mean,
         obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
         process::P;
+        scheduler = DefaultScheduler(1),
         Δt = FT(1),
         rng::AbstractRNG = Random.GLOBAL_RNG,
         failure_handler_method::FM = IgnoreFailures(),
@@ -85,6 +93,7 @@ Inputs:
  - `obs_mean`               :: Vector of observations
  - `obs_noise_cov`          :: Noise covariance associated with the observations `obs_mean`
  - `process`                :: Algorithm used to evolve the ensemble
+ - `scheduler`              :: Adaptive timestep calculator 
  - `Δt`                     :: Initial time step or learning rate
  - `rng`                    :: Random number generator
  - `failure_handler_method` :: Method used to handle particle failures
@@ -95,7 +104,7 @@ Inputs:
 
 $(METHODLIST)
 """
-struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
+struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process, LRS <: LearningRateScheduler}
     "array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
     u::Array{DataContainer{FT}}
     "vector of the observed vector size [`N_obs`]"
@@ -108,7 +117,9 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
     g::Array{DataContainer{FT}}
     "vector of errors"
     err::Vector{FT}
-    "vector of timesteps used in each EK iteration"
+    "Scheduler to calculate the timestep size in each EK iteration"
+    scheduler::LRS
+    "stored vector of timesteps used in each EK iteration"
     Δt::Vector{FT}
     "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `SparseInversion`)"
     process::P
@@ -127,12 +138,19 @@ function EnsembleKalmanProcess(
     obs_mean,
     obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
     process::P;
-    Δt = FT(1),
+    scheduler::Union{Nothing, LRS} = nothing,
+    Δt = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
     localization_method::LM = NoLocalization(),
     verbose::Bool = false,
-) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
+) where {
+    FT <: AbstractFloat,
+    LRS <: LearningRateScheduler,
+    P <: Process,
+    FM <: FailureHandlingMethod,
+    LM <: LocalizationMethod,
+}
 
     #initial parameters stored as columns
     init_params = DataContainer(params, data_are_columns = true)
@@ -146,24 +164,48 @@ function EnsembleKalmanProcess(
     g = []
     # error store
     err = FT[]
+
+    # set the timestep methods (being cautious of EKS scheduler)
+    if isnothing(scheduler)
+        if !(isnothing(Δt))
+            @warn "the `Δt = x` keyword argument will soon be deprecated, for the same behavior please set `scheduler = DefaultScheduler(x)`, or `scheduler = EKSStableScheduler()` for using the `Sampler` "
+            if !(typeof(process) <: Sampler) # sampler should use this default
+                lrs = DefaultScheduler(FT(Δt))
+            else
+                lrs = EKSStableScheduler(1.0, eps())
+            end
+        else
+            if !(typeof(process) <: Sampler) # sampler should use this default
+                lrs = DefaultScheduler(FT(1))
+            else
+                lrs = EKSStableScheduler(1.0, eps())
+            end
+        end
+    else
+        lrs = scheduler
+    end
+    RS = typeof(lrs)
+
     # timestep store
-    Δt = Array([Δt])
+    Δt = FT[]
+
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
     # localizer
     loc = Localizer(localization_method, N_par, N_obs, N_ens, FT)
 
     if verbose
-        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))"
+        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))\nScheduler: $(nameof(typeof(lrs)))"
     end
 
-    EnsembleKalmanProcess{FT, IT, P}(
+    EnsembleKalmanProcess{FT, IT, P, RS}(
         [init_params],
         obs_mean,
         obs_noise_cov,
         N_ens,
         g,
         err,
+        lrs,
         Δt,
         process,
         rng,
@@ -173,6 +215,8 @@ function EnsembleKalmanProcess(
     )
 end
 
+
+include("LearningRateSchedulers.jl")
 
 
 """
@@ -227,7 +271,7 @@ end
 """
     get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess)
 
-Returns the unconstrained parameters from all iterations. The outer dimension is given by the number of iterations.
+Returns the constrained parameters from all iterations. The outer dimension is given by the number of iterations.
 """
 get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess) =
     transform_unconstrained_to_constrained(prior, get_u(ekp))
@@ -367,35 +411,32 @@ function get_localizer(ekp::EnsembleKalmanProcess)
     return Localizers.get_localizer(ekp.localizer)
 end
 
+"""
+    get_scheduler(ekp::EnsembleKalmanProcess)
+Return scheduler type of EnsembleKalmanProcess.
+"""
+function get_scheduler(ekp::EnsembleKalmanProcess)
+    return ekp.scheduler
+end
+
 
 """
     construct_initial_ensemble(
         rng::AbstractRNG,
         prior::ParameterDistribution,
-        N_ens::IT;
-        rng_seed::Union{IT, Nothing} = nothing,
+        N_ens::IT
     ) where {IT <: Int}
-    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; kwargs...) where {IT <: Int}
+    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <: Int}
 
 Construct the initial parameters, by sampling `N_ens` samples from specified
 prior distribution. Returned with parameters as columns.
 """
-function construct_initial_ensemble(
-    rng::AbstractRNG,
-    prior::ParameterDistribution,
-    N_ens::IT;
-    rng_seed::Union{IT, Nothing} = nothing,
-) where {IT <: Int}
-    # Ensuring reproducibility of the sampled parameter values: 
-    # re-seed the rng *only* if we're given a seed
-    if rng_seed !== nothing
-        rng = Random.seed!(rng, rng_seed)
-    end
+function construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT) where {IT <: Int}
     return sample(rng, prior, N_ens) #of size [dim(param space) N_ens]
 end
 # first arg optional; defaults to GLOBAL_RNG (as in Random, StatsBase)
-construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; kwargs...) where {IT <: Int} =
-    construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens; kwargs...)
+construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <: Int} =
+    construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens)
 
 """
     compute_error!(ekp::EnsembleKalmanProcess)
@@ -418,15 +459,6 @@ Returns the mean forward model output error as a function of algorithmic time.
 """
 get_error(ekp::EnsembleKalmanProcess) = ekp.err
 
-function set_Δt!(ekp::EnsembleKalmanProcess, Δt_new::T) where {T}
-    if !isnothing(Δt_new)
-        push!(ekp.Δt, Δt_new)
-    elseif isnothing(Δt_new) && isempty(ekp.Δt)
-        push!(ekp.Δt, FT(1))
-    else
-        push!(ekp.Δt, ekp.Δt[end])
-    end
-end
 
 """
     sample_empirical_gaussian(
@@ -546,6 +578,9 @@ function additive_inflation!(ekp::EnsembleKalmanProcess; use_prior_cov::Bool = f
     ekp.u[end] = DataContainer(u_updated, data_are_columns = true)
 end
 
+
+
+
 """
     update_ensemble!(
         ekp::EnsembleKalmanProcess,
@@ -574,15 +609,33 @@ function update_ensemble!(
     additive_inflation::Bool = false,
     use_prior_cov::Bool = false,
     s::FT = 0.0,
+    Δt_new::NFT = nothing,
     ekp_kwargs...,
-) where {FT, IT}
+) where {FT, NFT <: Union{Nothing, AbstractFloat}}
 
-    update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
-    if s > 0.0
-        multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
-        additive_inflation ? additive_inflation!(ekp; use_prior_cov = use_prior_cov, s = s) : nothing
+    #catch works when g non-square 
+    if !(size(g)[2] == ekp.N_ens)
+        throw(
+            DimensionMismatch(
+                "ensemble size $(ekp.N_ens) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
+            ),
+        )
     end
+
+    terminate = calculate_timestep!(ekp, g, Δt_new)
+    if isnothing(terminate)
+        update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
+        if s > 0.0
+            multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
+            additive_inflation ? additive_inflation!(ekp; use_prior_cov = use_prior_cov, s = s) : nothing
+        end
+    else
+        return terminate # true if scheduler has not stepped
+    end
+    return nothing
+
 end
+
 
 ## include the different types of Processes and their exports:
 

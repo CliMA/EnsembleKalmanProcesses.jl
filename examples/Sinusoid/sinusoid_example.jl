@@ -3,7 +3,7 @@
 # In this example we have a model that produces a sinusoid
 # ``f(A, v) = A \sin(\phi + t) + v, \forall t \in [0,2\pi]``, with a random
 # phase ``\phi``. Given an initial guess of the parameters as
-# ``A^* \sim \mathcal{N}(2,1)`` and ``v^* \sim \mathcal{N}(0,5)``, our goal is
+# ``A^* \sim \mathcal{N}(2,1)`` and ``v^* \sim \mathcal{N}(0,25)``, our goal is
 # to estimate the parameters from a noisy observation of the maximum, minimum,
 # and mean of the true model output.
 

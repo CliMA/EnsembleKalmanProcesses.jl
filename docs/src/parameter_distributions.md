@@ -8,7 +8,7 @@ Bayesian inference begins with an explicit prior distribution. This page describ
 
 A prior is specified by a `ParameterDistribution` object, which has three components:
 
- 1. The distribution itself, given as a [ParameterDistributionType](@ref) object. This includes standard Julia [Distributions](https://juliastats.org/Distributions.jl/stable/) as well as empirical/sample-based distributions, and can be uni- or multi-variate. To clarify, despite our use of the term "Kalman processes," the prior distribution is *not* required to be Gaussian.
+ 1. The distribution itself, given as a [ParameterDistributionType](@ref) object. This includes standard Julia [Distributions](https://juliastats.org/Distributions.jl/stable/), [GaussianRandomFields](https://github.com/PieterjanRobbe/GaussianRandomFields.jl) as well as empirical/sample-based distributions, and thus can be univariate, multivariate or functional. To clarify, despite our use of the term "Kalman processes," the prior distribution is *not* required to be Gaussian.
  2. A constraint (or array of constraints) on the domain of the distribution, given as a [ConstraintType](@ref) or `Array{ConstraintType}` object (the latter case builds a multivariate constraint as the Cartesian product of one-dimensional Constraints). This is used to enforce physical parameter values during inference: the model is never evaluated at parameter values outside the constrained region, and the posterior distribution will only be supported there.
  3. The parameter name, given as a `String`.
 
@@ -38,16 +38,20 @@ upper_bound = 1.0
 ```@example snip1
 using EnsembleKalmanProcesses.ParameterDistributions # for `constrained_gaussian`, `combine_distributions`
 prior_1 = constrained_gaussian("param_1", μ_1, σ_1, lower_bound, upper_bound)
-prior_2 = constrained_gaussian("param_2", μ_2, σ_2, 0.0, Inf)
+prior_2 = constrained_gaussian("param_2", μ_2, σ_2, 0.0, Inf, repeats=3)
 prior = combine_distributions([prior_1, prior_2])
-nothing # hide
 ```
 
-`prior_1` is a `ParameterDistribution` describing a prior distribution for a parameter named `"param_1"` taking values on the interval [`lower_bound`, `upper_bound`]; the prior distribution has mean μ₁ and standard deviation σ₁.
+`prior_1` is a `ParameterDistribution` describing a prior distribution for a parameter named `"param_1"` taking values on the interval [`lower_bound`, `upper_bound`]; the prior distribution has approximate mean ``μ_1`` and standard deviation ``σ_1``.
 
-The use case `constrained_gaussian()` addresses is when prior information is qualitative, and exact distributions of the priors are unknown: i.e., the user is only able to specify the physical and likely ranges of prior parameter values at a rough, qualitative level. `constrained_gaussian()` does this by constructing a `ParameterDistribution` corresponding to a Gaussian "squashed" to fit in the given constraint interval, such that the "squashed" distribution has the specified mean and standard deviation (e.g. `prior_2` above is a log-normal).
+`prior_2` is a `ParameterDistribution` describing a 3-dimensional prior distribution for a parameter named `"param_2"` with each dimensions taking independent values on the half-open interval [`0.0`, `Inf`); the marginals of this prior distribution have approximate mean ``μ_2`` and standard deviation ``σ_2``.
 
-The parameters of the Gaussian are chosen automatically (depending on the constraint) to reproduce the desired μ and σ — per the use case, other details of the form of the prior distribution shouldn't be important for downstream inference!
+The use case `constrained_gaussian()` addresses is when prior information is qualitative, and exact distributions of the priors are unknown: i.e., the user is only able to specify the physical and likely ranges of prior parameter values at a rough, qualitative level. `constrained_gaussian()` does this by constructing a `ParameterDistribution` corresponding to a Gaussian "squashed" to fit in the given constraint interval, such that the "squashed" distribution has the specified mean and standard deviation (e.g. `prior_2` above is a log-normal for each dimension).
+
+The parameters of the Gaussian are chosen automatically (depending on the constraint) to reproduce the desired μ and σ — per the use case, other details of the form of the prior distribution shouldn't be important for downstream inference!                
+!!! note "Slow/Failed construction?"
+    The most common case of slow or failed construction is when requested parameters place too much mass at the hard boundary. A typical case is when the requested variance satisfies ``|\sigma| \approx \mathrm{dist}(\mu,\mathrm{boundary})`` Such priors can be defined, but not with our convenience constructor. If this is not the case but you still get failures please let us know!
+ 
 
 ### Plotting
 
@@ -68,7 +72,6 @@ One can also access the underlying Gaussian distributions in the unconstrained s
 using Plots
 plot(prior, constrained=false) 
 ```
-
 
 ### Recommended constructor - Simple example
 
@@ -114,31 +117,26 @@ In [Simple example revisited](@ref) below, we repeat this example "manually" wit
     
     The recommended constructor can be called as `constrained_gaussian(...; repeats = n)` to return a combined prior formed by `n` identical priors.
 
-## ParameterDistribution class
+## ParameterDistribution struct
 
 This section provides more details on the components of a `ParameterDistribution` object.
 
 ### ParameterDistributionType
 
-The `ParameterDistributionType` class comprises three subclasses for specifying different types of prior distributions:
+The `ParameterDistributionType` struct wraps four types for specifying different types of prior distributions:
 
  - The `Parameterized` type is initialized using a Julia `Distributions.jl` object. Samples are drawn randomly from the distribution object.
  - The `VectorOfParameterized` type is initialized with a vector of distributions.
  - The `Samples` type is initialized using a two dimensional array. Samples are drawn randomly (with replacement) from the columns of the provided array.
 
+- The `FunctionParameterDistributionType` struct defines parameters specified as fields over a domain. More detail can be found [here](@ref function-parameter-type).
+
 !!! warning
     We recommend that the distributions be unbounded (see next section), as the filtering algorithms in EnsembleKalmanProcesses are not guaranteed to preserve constraints unless defined through the `ConstraintType` mechanism.
 
-
 ### ConstraintType
 
-The inference algorithms implemented in EnsembleKalmanProcesses assume unbounded parameter domains. To be able to handle constrained parameter values consistently, the ConstraintType class defines a bijection between the physical, constrained parameter domain and an unphysical, unconstrained domain in which the filtering takes place. This bijection is specified by the functions `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained`, which are built from either predefined constructors or user-defined constraint functions given as arguments to the `ConstraintType` constructor. 
-
-!!! warning
-    When a nontrivial `ConstraintType` is given, the general constructor assumes the `ParameterDistributionType` is specified in the *unconstrained* space; the actual prior pdf is then the composition of the `ParameterDistributionType`'s pdf with the `transform_unconstrained_to_constrained` transformation. We provide `constrained_gaussian` to define priors directly in the physical, constrained space.
-
-!!! warning
-    It is up to the user to ensure any custom mappings `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained` are inverses of each other.
+The inference algorithms implemented in EnsembleKalmanProcesses assume unbounded parameter domains. To be able to handle constrained parameter values consistently, the `ConstraintType`  defines a bijection between the physical, constrained parameter domain and an unphysical, unconstrained domain in which the filtering takes place. This bijection is specified by the functions `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained`, which are built from either predefined constructors or user-defined constraint functions given as arguments to the `ConstraintType` constructor. 
 
 We provide the following predefined constructors which implement mappings that handle the most common constraints:
 
@@ -147,14 +145,36 @@ We provide the following predefined constructors which implement mappings that h
  - `bounded_above(upper_bound)`: The parameter takes values in (-∞, `upper_bound`].
  - `bounded(lower_bound,upper_bound)`: The parameter takes values on the interval [`lower_bound`, `upper_bound`].
 
- These are demonstrated in [ConstraintType Examples](@ref).
+These are demonstrated in [ConstraintType Examples](@ref).
 
 Currently we only support multivariate constraints which are the Cartesian product of the one-dimensional `ConstraintType`s. Every component of a multidimensional parameter must have an associated constraint, so, e.g. for a multivariate `ParameterDistributionType` of dimension `p` the user must provide a `p-`dimensional `Array{ConstraintType}`. A `VectorOfParameterized` distribution built with distributions of dimension `p` and `q` has dimension `p+q`.
+
+
+!!! note
+    When a nontrivial `ConstraintType` is given, the general constructor assumes the `ParameterDistributionType` is specified in the *unconstrained* space; the actual prior pdf is then the composition of the `ParameterDistributionType`'s pdf with the `transform_unconstrained_to_constrained` transformation. We provide `constrained_gaussian` to define priors directly in the physical, constrained space.
+
+!!! warning
+    It is up to the user to ensure any custom mappings `transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained` are inverses of each other.
 
 ### The name
 
 This is simply a `String` used to identify different parameters in multi-parameter situations, as in the methods below.
 
+
+### [FunctionParameterDistributionType](@id function-parameter-type)
+
+Learning a function distribution is useful when one wishes to obtain a parametric representation of a function that is (relatively) agnostic of the underlying grid discretization. Most practical implementations involve posing a restrictive class of functions by truncation of a spectral decomposition. The function is then represented as a set of coefficients of these modes (known as degrees of freedom), rather than directly through the values at evaluation points.
+
+As a subtype of `ParameterDistributionType`, we currently support one option for specifying prior distributions over functions:
+
+- The `GaussianRandomFieldInterface` type is initialized with a Gaussian Random Field object and the GRF package. Currently we support objects from [`GaussianRandomFields.jl`](https://github.com/PieterjanRobbe/GaussianRandomFields.jl) with package `GRFJL()`. Gaussian random fields allow the definition of scalar function distributions defined over a uniform mesh on interval, rectangular, and hyper-rectangular domains.
+
+As with other `ParameterDistribution`s, a function distribution, is built from a name, a `FunctionPameterDistributionType` struct and a constraint, here only one, placed on the scalar output space of the function using a `Constraint()`.
+
+!!! note "constraints"
+    The transformation `transform_unconstrained_to_constrained`, will map from (unconstrained) degrees of freedom, to (constrained) evaluations of the function on a numerical grid. In particular, the `transform_constrained_to_unconstrained` is *no longer the inverse* of this map, it now simply maps from constrained evaluations to unconstrained evaluations on the grid.
+
+We provide an example construction [here](@ref function-example).
 
 ## ParameterDistribution constructor
 
@@ -356,7 +376,6 @@ prior = ParameterDistribution(distribution, constraint, name)
 nothing # hide
 ```
 
-
 ### Example combining several distributions
 
 To show how to combine priors in a more complex setting (e.g. for an entire parametrized process), we create a 25-dimensional parameter distribution from three dictionaries.
@@ -443,6 +462,51 @@ and the unconstrained distributions similarly,
 ```@example snip5
 using Plots
 plot(u, constrained = false)
+```
+
+## [Function Distribution Example](@id function-example)
+Here, define a function parameter distribution on ``[0,1] \times [1,2]`` , bounded by ``[-5,-3]`` and with correlation lengthscales 0.05. First, we get the packages:
+
+```@example snip_fun
+using EnsembleKalmanProcesses.ParameterDistributions # For `ParameterDistribution`
+using Random, Distributions # for `rand` and `Normal`
+using Plots
+# We must `import` the GRF package, rather than call a `using` statement here
+import GaussianRandomFields # for `GaussianRandomFields`
+```
+then, we use the  [`GaussianRandomFields.jl`](https://github.com/PieterjanRobbe/GaussianRandomFields.jl) package to define the distribution of choice. This distribution is unbounded. Here we take a `Matern` kernel, and define our evaluation grid on the domain. We choose 30 degrees of freedom (`dofs`), so this function distribution is specified through the value of 30 learnable coefficients. 
+```@example snip_fun
+const GRF = GaussianRandomFields
+# Define a `GaussianRandomFields` object
+input_dim = 2 # Define a 2D -> 1D function
+dofs = 30 # the number of modes defining the distribution
+points = [collect(0:0.01:1), collect(1:0.02:2)] # the 2D domain grid (uniform in each dimension)
+
+grfjl_obj = GRF.GaussianRandomField(
+   GRF.CovarianceFunction(input_dim, GRF.Matern(0.05, 2)),
+   GRF.KarhunenLoeve(dofs),
+   points...,
+) # the Gaussian Random Field object from the package
+nothing # hide
+```
+We define our parameter distribution wrapper, where `GRFJL()` indicates the GRF package used. We also impose bounds into an interval ``[-5,-3]`` (here applied to the output space).
+```@example snip_fun
+grf = GaussianRandomFieldInterface(grfjl_obj, GRFJL()) # our wrapper
+pd = ParameterDistribution(
+    Dict(
+        "distribution" => grf,
+        "constraint" => bounded(-5, -3), 
+        "name" => "func_in_min5_min3",
+    )
+) # The ParameterDistribution with constraint in the output space
+nothing # hide
+```
+We plot 4 samples of this distribution. Samples are taken over the (30-dimensional) degrees of freedom, and then we apply the `transform_unconstrained_to_costrained` map to (i) build the function distribution, (ii) evaluate it on the numerical grid, and (iii) constrain the output with our prescribed bounds.
+```@example snip_fun
+shape = [length(pp) for pp in points]
+samples_constrained_flat = [transform_unconstrained_to_constrained(pd, rand(Normal(0,1), dofs)) for i = 1:4] 
+plts = [contour(points..., reshape(samples_constrained_flat[i], shape...)', fill = true,) for i =1:4]
+plot(plts..., legend=false, size=(800,800)) 
 ```
 
 ## ConstraintType Examples
