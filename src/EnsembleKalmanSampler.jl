@@ -139,7 +139,6 @@ function update_ensemble!(
     u = fh.failsafe_update(ekp, u_old, g, failed_ens)
 
     # store new parameters (and model outputs)
-    push!(ekp.u, DataContainer(u, data_are_columns = true))
     push!(ekp.g, DataContainer(g, data_are_columns = true))
     # u_old is N_ens × N_par, g is N_ens × N_obs,
     # but stored in data container with N_ens as the 2nd dim
@@ -147,9 +146,11 @@ function update_ensemble!(
     compute_error!(ekp)
 
     # Diagnostics
-    cov_new = get_u_cov_final(ekp)
+    cov_new = cov(u, dims = 2)
 
     if ekp.verbose
         @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
     end
+
+    return u
 end
