@@ -2,7 +2,7 @@
 
 # In this example we hope to illustrate function learning. One may wish to use function learning in cases where the underlying parameter of interest is actual a finite-dimensional approximation (e.g. spatial discretization) of some "true" function. Treating such an object directly will lead to increasingly high-dimensional learning problems as the spatial resolution is increased, resulting in poor computational scaling and increasingly ill-posed inverse problems. Treating the object as a discretized function from a function space, one can learn coefficients not in the standard basis, but instead in a basis of this function space, it is commonly the case that functions will have relatively low effective dimension, and will be depend only on the spatial discretization due to discretization error, that should vanish as resolution is increased. 
 
-# We will solve for an unknown permeability field ``\kappa`` governing the velocity of a Darcy flow on a square 2D domain. To learn about the permeability we shall take few pointwise measurements of the solved velocity field within the domain. The forward solver is a simple finite difference scheme taken and modified from code [here](https://github.com/Zhengyu-Huang/InverseProblems.jl/blob/master/Fluid/Darcy-2D.jl). 
+# We will solve for an unknown permeability field ``\kappa`` governing the pressure field of a Darcy flow on a square 2D domain. To learn about the permeability we shall take few pointwise measurements of the solved pressure field within the domain. The forward solver is a simple finite difference scheme taken and modified from code [here](https://github.com/Zhengyu-Huang/InverseProblems.jl/blob/master/Fluid/Darcy-2D.jl). 
 
 # First we load standard packages
 using LinearAlgebra
@@ -77,8 +77,8 @@ println(u_true)
 # Now we generate the data sample for the truth in a perfect model setting by evaluating the the model here, and observing it by subsampling in each dimension every `obs_ΔN` points, and add some observational noise
 darcy = Setup_Param(pts_per_dim, obs_ΔN, κ_true)
 println(" Number of observation points: $(darcy.N_y)")
-h_2d = solve_Darcy_2D(darcy, κ_true)
-y_noiseless = compute_obs(darcy, h_2d)
+h_2d_true = solve_Darcy_2D(darcy, κ_true)
+y_noiseless = compute_obs(darcy, h_2d_true)
 obs_noise_cov = 0.05^2 * I(length(y_noiseless)) * (maximum(y_noiseless) - minimum(y_noiseless))
 truth_sample = vec(y_noiseless + rand(rng, MvNormal(zeros(length(y_noiseless)), obs_noise_cov)))
 
@@ -112,7 +112,7 @@ for i in 1:N_iter
     println("Iteration: " * string(i) * ", Error: " * string(err[i]))
 end
 
-# We plot first the prior ensemble mean and pointwise variance of the permeability field, and also the velocity field solved with the ensemble mean. Each ensemble member is stored as a column and therefore for uses such as plotting one needs to reshape to the desired dimension.
+# We plot first the prior ensemble mean and pointwise variance of the permeability field, and also the pressure field solved with the ensemble mean. Each ensemble member is stored as a column and therefore for uses such as plotting one needs to reshape to the desired dimension.
 if PLOT_FLAG
     gr(size = (1500, 400), legend = false)
     prior_κ_ens = get_ϕ(prior, ekiobj, 1)
@@ -129,14 +129,14 @@ if PLOT_FLAG
         colorbar = true,
     )
     h_2d = solve_Darcy_2D(darcy, κ_ens_mean)
-    p3 = contour(pts_per_dim, pts_per_dim, h_2d', fill = true, levels = 15, title = "flow", colorbar = true)
+    p3 = contour(pts_per_dim, pts_per_dim, h_2d', fill = true, levels = 15, title = "pressure", colorbar = true)
     l = @layout [a b c]
     plt = plot(p1, p2, p3, layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_prior.png")) # pre update
 
 end
 
-# Now we plot the final ensemble mean and pointwise variance of the permeability field, and also the velocity field solved with the ensemble mean.
+# Now we plot the final ensemble mean and pointwise variance of the permeability field, and also the pressure field solved with the ensemble mean.
 if PLOT_FLAG
     gr(size = (1500, 400), legend = false)
     final_κ_ens = get_ϕ_final(prior, ekiobj) # the `ϕ` indicates that the `params_i` are in the constrained space
@@ -153,7 +153,7 @@ if PLOT_FLAG
         colorbar = true,
     )
     h_2d = solve_Darcy_2D(darcy, κ_ens_mean)
-    p3 = contour(pts_per_dim, pts_per_dim, h_2d', fill = true, levels = 15, title = "flow", colorbar = true)
+    p3 = contour(pts_per_dim, pts_per_dim, h_2d', fill = true, levels = 15, title = "pressure", colorbar = true)
     l = @layout [a b c]
     plt = plot(p1, p2, p3; layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_it_" * string(N_iter) * ".png")) # pre update
@@ -162,11 +162,19 @@ end
 println("Final coefficients (ensemble mean):")
 println(get_u_mean_final(ekiobj))
 
-# We can compare this with the true permeability and velocity field: 
+# We can compare this with the true permeability and pressure field: 
 if PLOT_FLAG
     gr(size = (1000, 400), legend = false)
     p1 = contour(pts_per_dim, pts_per_dim, κ_true', fill = true, levels = 15, title = "kappa true", colorbar = true)
-    p2 = contour(pts_per_dim, pts_per_dim, h_2d', fill = true, levels = 15, title = "flow true", colorbar = true)
+    p2 = contour(
+        pts_per_dim,
+        pts_per_dim,
+        h_2d_true',
+        fill = true,
+        levels = 15,
+        title = "pressure true",
+        colorbar = true,
+    )
     l = @layout [a b]
     plt = plot(p1, p2, layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_true.png"))
