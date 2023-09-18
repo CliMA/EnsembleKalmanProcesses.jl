@@ -77,8 +77,8 @@ println(u_true)
 # Now we generate the data sample for the truth in a perfect model setting by evaluating the the model here, and observing it by subsampling in each dimension every `obs_ΔN` points, and add some observational noise
 darcy = Setup_Param(pts_per_dim, obs_ΔN, κ_true)
 println(" Number of observation points: $(darcy.N_y)")
-h_2d = solve_Darcy_2D(darcy, κ_true)
-y_noiseless = compute_obs(darcy, h_2d)
+h_2d_true = solve_Darcy_2D(darcy, κ_true)
+y_noiseless = compute_obs(darcy, h_2d_true)
 obs_noise_cov = 0.05^2 * I(length(y_noiseless)) * (maximum(y_noiseless) - minimum(y_noiseless))
 truth_sample = vec(y_noiseless + rand(rng, MvNormal(zeros(length(y_noiseless)), obs_noise_cov)))
 
@@ -166,7 +166,7 @@ println(get_u_mean_final(ekiobj))
 if PLOT_FLAG
     gr(size = (1000, 400), legend = false)
     p1 = contour(pts_per_dim, pts_per_dim, κ_true', fill = true, levels = 15, title = "kappa true", colorbar = true)
-    p2 = contour(pts_per_dim, pts_per_dim, h_2d', fill = true, levels = 15, title = "flow true", colorbar = true)
+    p2 = contour(pts_per_dim, pts_per_dim, h_2d_true', fill = true, levels = 15, title = "flow true", colorbar = true)
     l = @layout [a b]
     plt = plot(p1, p2, layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_true.png"))
