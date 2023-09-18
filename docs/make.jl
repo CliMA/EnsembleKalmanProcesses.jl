@@ -100,7 +100,6 @@ makedocs(
     pages = pages,
     modules = [EnsembleKalmanProcesses],
     doctest = true,
-    strict = true,
     clean = true,
     checkdocs = :none,
 )
