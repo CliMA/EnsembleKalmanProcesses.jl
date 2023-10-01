@@ -607,6 +607,177 @@ end
     end
 end
 
+@testset "EnsembleTransformKalmanInversion" begin
+
+    # Seed for pseudo-random number generator
+    rng = Random.MersenneTwister(rng_seed)
+
+    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+
+    ekiobj = nothing
+    eki_final_result = nothing
+    iters_with_failure = [5, 8, 9, 15]
+
+    for (i_prob, inv_problem) in enumerate(inv_problems)
+
+        # Get inverse problem
+        y_obs, G, Γy, A = inv_problem
+        if i_prob == 1
+            scheduler = DataMisfitController(on_terminate = "continue")
+        else
+            scheduler = DefaultScheduler()
+        end
+
+        ekiobj = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y_obs,
+            Γy,
+            TransformInversion(inv(Γy));
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = scheduler,
+        )
+
+        ekiobj_unsafe = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y_obs,
+            Γy,
+            TransformInversion(inv(Γy));
+            rng = rng,
+            failure_handler_method = IgnoreFailures(),
+            scheduler = scheduler,
+        )
+
+
+        g_ens = G(get_ϕ_final(prior, ekiobj))
+        g_ens_t = permutedims(g_ens, (2, 1))
+
+        @test size(g_ens) == (n_obs, N_ens)
+
+        # ETKI iterations
+        u_i_vec = Array{Float64, 2}[]
+        g_ens_vec = Array{Float64, 2}[]
+        for i in 1:N_iter
+            params_i = get_ϕ_final(prior, ekiobj)
+            push!(u_i_vec, get_u_final(ekiobj))
+            g_ens = G(params_i)
+
+            # Add random failures
+            if i in iters_with_failure
+                g_ens[:, 1] .= NaN
+            end
+
+            EKP.update_ensemble!(ekiobj, g_ens)
+            push!(g_ens_vec, g_ens)
+            if i == 1
+                if !(size(g_ens, 1) == size(g_ens, 2))
+                    g_ens_t = permutedims(g_ens, (2, 1))
+                    @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
+                end
+            end
+
+            # Correct handling of failures
+            @test !any(isnan.(params_i))
+
+            # Check IgnoreFailures handler
+            if i <= iters_with_failure[1]
+                params_i_unsafe = get_ϕ_final(prior, ekiobj_unsafe)
+                g_ens_unsafe = G(params_i_unsafe)
+                if i < iters_with_failure[1]
+                    EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
+                elseif i == iters_with_failure[1]
+                    g_ens_unsafe[:, 1] .= NaN
+                    #inconsistent behaviour before/after v1.9 regarding NaNs in matrices
+                    if (VERSION.major >= 1) && (VERSION.minor >= 9)
+                        # new versions the NaNs break LinearAlgebra.jl
+                        @test_throws ArgumentError EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
+                    else
+                        # old versions the NaNs pass through LinearAlgebra.jl
+                        EKP.update_ensemble!(ekiobj_unsafe, g_ens_unsafe)
+                        u_unsafe = get_u_final(ekiobj_unsafe)
+                        # Propagation of unhandled failures
+                        @test any(isnan.(u_unsafe))
+                    end
+                end
+            end
+        end
+
+        push!(u_i_vec, get_u_final(ekiobj))
+
+        @test get_u_prior(ekiobj) == u_i_vec[1]
+        @test get_u(ekiobj) == u_i_vec
+        @test isequal(get_g(ekiobj), g_ens_vec)
+        @test isequal(get_g_final(ekiobj), g_ens_vec[end])
+        @test isequal(get_error(ekiobj), ekiobj.err)
+
+        # ETKI results: Test if ensemble has collapsed toward the true parameter 
+        # values
+        eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
+        eki_final_result = get_u_mean_final(ekiobj)
+        eki_init_spread = tr(get_u_cov(ekiobj, 1))
+        eki_final_spread = tr(get_u_cov_final(ekiobj))
+
+        g_mean_init = get_g_mean(ekiobj, 1)
+        g_mean_final = get_g_mean_final(ekiobj)
+
+        @test eki_init_result == get_u_mean(ekiobj, 1)
+        @test eki_final_result == vec(mean(get_u_final(ekiobj), dims = 2))
+
+        @test eki_final_spread < 2 * eki_init_spread # we wouldn't expect the spread to increase much in any one dimension
+
+        ϕ_final_mean = get_ϕ_mean_final(prior, ekiobj)
+        ϕ_init_mean = get_ϕ_mean(prior, ekiobj, 1)
+
+        if nameof(typeof(ekiobj.localizer)) == EKP.Localizers.NoLocalization
+            @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
+            @test norm(y_obs .- G(eki_final_result))^2 < norm(y_obs .- G(eki_init_result))^2
+            @test norm(y_obs .- g_mean_final)^2 < norm(y_obs .- g_mean_init)^2
+        end
+
+        if i_prob <= n_lin_inv_probs && nameof(typeof(ekiobj.localizer)) == EKP.Localizers.NoLocalization
+
+            posterior_cov_inv = (A' * (Γy \ A) + 1 * Matrix(I, n_par, n_par) / prior_cov)
+            ols_mean = (A' * (Γy \ A)) \ (A' * (Γy \ y_obs))
+            posterior_mean = posterior_cov_inv \ ((A' * (Γy \ A)) * ols_mean + (prior_cov \ prior_mean))
+
+            # ETKI provides a solution closer to the ordinary Least Squares estimate
+            @test norm(ols_mean - ϕ_final_mean) < norm(ols_mean - ϕ_init_mean)
+        end
+
+        # Plot evolution of the ETKI particles
+        if TEST_PLOT_OUTPUT
+            plot_inv_problem_ensemble(prior, ekiobj, joinpath(@__DIR__, "ETKI_test_$(i_prob).png"))
+        end
+    end
+
+    for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000])
+        initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+
+        y_obs_test, G_test, Γ_test, A_test =
+            linear_inv_problem(ϕ_star, noise_level, n_obs_test, rng; return_matrix = true)
+
+        ekiobj = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y_obs_test,
+            Γ_test,
+            TransformInversion(inv(Γ_test));
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+        )
+        T = 0.0
+        for i in 1:N_iter
+            params_i = get_ϕ_final(prior, ekiobj)
+            g_ens = G_test(params_i)
+
+            dt = @elapsed EKP.update_ensemble!(ekiobj, g_ens)
+            T += dt
+        end
+        # Skip timing of first due to precompilation
+        if i >= 2
+            @info "ETKI with $n_obs_test observations took $T seconds."
+        end
+    end
+end
 
 @testset "EnsembleKalmanProcess utils" begin
     # Success/failure splitting
