@@ -121,11 +121,11 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process, LRS <
     scheduler::LRS
     "stored vector of timesteps used in each EK iteration"
     Δt::Vector{FT}
-    "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `SparseInversion`)"
+    "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `TransformInversion` or `SparseInversion`)"
     process::P
     "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility. Defaults to `Random.GLOBAL_RNG`."
     rng::AbstractRNG
-    "struct storing failsafe update directives, implemented for (`Inversion`, `SparseInversion`, `Unscented`)"
+    "struct storing failsafe update directives, implemented for (`Inversion`, `SparseInversion`, `Unscented`, `TransformInversion`)"
     failure_handler::FailureHandler
     "Localization kernel, implemented for (`Inversion`, `SparseInversion`, `Unscented`)"
     localizer::Localizer
@@ -164,6 +164,10 @@ function EnsembleKalmanProcess(
     g = []
     # error store
     err = FT[]
+
+    if (typeof(process) <: TransformInversion) & !(typeof(localization_method) == NoLocalization)
+        throw(ArgumentError("`TransformInversion` cannot currently be used with localization."))
+    end
 
     # set the timestep methods (being cautious of EKS scheduler)
     if isnothing(scheduler)
@@ -642,6 +646,10 @@ end
 # struct Inversion
 export Inversion
 include("EnsembleKalmanInversion.jl")
+
+# struct TransformInversion
+export TransformInversion
+include("EnsembleTransformKalmanInversion.jl")
 
 # struct SparseInversion
 export SparseInversion
