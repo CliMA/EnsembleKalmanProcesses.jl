@@ -222,7 +222,6 @@ function update_ensemble!(
     u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
 
     # store new parameters (and model outputs)
-    push!(ekp.u, DataContainer(u, data_are_columns = true))
     push!(ekp.g, DataContainer(g, data_are_columns = true))
 
     # Store error
@@ -230,4 +229,6 @@ function update_ensemble!(
 
     # Check convergence
     cov_new = cov(get_u_final(ekp), dims = 2)
+
+    return u
 end

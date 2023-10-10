@@ -79,6 +79,104 @@ inv_problems = [inv_problems..., nl_inv_problems...]
 end
 
 
+@testset "Accelerators" begin
+    # Get an inverse problem
+    y_obs, G, Γy, _ = inv_problems[end - 1] # additive noise inv problem
+    rng = Random.MersenneTwister(rng_seed)
+    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+
+    # build accelerated and non-accelerated processes
+    ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(), accelerator = NesterovAccelerator())
+    eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior), accelerator = NesterovAccelerator())
+    ekiobj_noacc = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
+    eksobj_noacc = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior))
+    ekiobj_noacc_specified =
+        EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(), accelerator = DefaultAccelerator())
+    eksobj_noacc_specified =
+        EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior), accelerator = DefaultAccelerator())
+
+    ## test EKP object's accelerator type is consistent (EKP constructor reassigns object in some cases)
+    @test typeof(ekiobj.accelerator) <: NesterovAccelerator
+    @test typeof(eksobj.accelerator) <: NesterovAccelerator
+    @test typeof(ekiobj_noacc.accelerator) <: DefaultAccelerator
+    @test typeof(eksobj_noacc.accelerator) <: DefaultAccelerator
+    @test typeof(ekiobj_noacc_specified.accelerator) <: DefaultAccelerator
+    @test typeof(eksobj_noacc_specified.accelerator) <: DefaultAccelerator
+
+    ## test NesterovAccelerators satisfy desired ICs
+    @test ekiobj.accelerator.r == 3.0
+    @test ekiobj.accelerator.u_prev == initial_ensemble
+    @test eksobj.accelerator.r == 3.0
+    @test eksobj.accelerator.u_prev == initial_ensemble
+
+    ## test method convergence
+    # Note: this test only requires that the final ensemble is an improvement on the initial ensemble,
+    # NOT that the accelerated processes are more effective than the default, as this is not guaranteed.
+    # Specific cost values are printed to give an idea of acceleration.
+    processes = [Inversion(), Sampler(prior), TransformInversion(inv(Γy))]
+    T_end = 1 # (this could fail a test if N_iters is not enough to reach T_end)
+    for process in processes
+        accelerators = [DefaultAccelerator(), NesterovAccelerator()]
+        N_iters = [30, 30, 30]
+        init_means = []
+        final_means = []
+
+        for (accelerator, N_iter) in zip(accelerators, N_iters)
+            println("Accelerator: ", nameof(typeof(accelerator)), " Process: ", nameof(typeof(process)))
+            if !(nameof(typeof(process)) == Symbol(Unscented))
+                ekpobj = EKP.EnsembleKalmanProcess(
+                    initial_ensemble,
+                    y_obs,
+                    Γy,
+                    process,
+                    rng = copy(rng),
+                    accelerator = accelerator,
+                )
+            end
+
+            ## test get_accelerator function in EKP
+            @test ekpobj.accelerator == get_accelerator(ekpobj)
+
+            for i in 1:N_iter
+                params_i = get_ϕ_final(prior, ekpobj)
+                g_ens = G(params_i)
+                terminated = EKP.update_ensemble!(ekpobj, g_ens)
+                if !isnothing(terminated)
+                    break
+                end
+            end
+            push!(init_means, vec(mean(get_u_prior(ekpobj), dims = 2)))
+            push!(final_means, vec(mean(get_u_final(ekpobj), dims = 2)))
+
+            inv_sqrt_Γy = sqrt(inv(Γy))
+            cost_initial =
+                norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[end]))))
+            cost_final =
+                norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[end]))))
+            @info "Convergence:" cost_initial cost_final
+
+            if typeof(process) <: Inversion
+                u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
+                @test norm(
+                    inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[end]))),
+                ) < norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[end]))))
+            end
+
+        end
+
+    end
+    ## test that error is thrown when applying acceleration to UKI
+    ukiobj = EKP.EnsembleKalmanProcess(
+        y_obs,
+        Γy,
+        Unscented(prior; impose_prior = true),
+        rng = copy(rng),
+        accelerator = NesterovAccelerator(),
+    )
+    @test_throws ArgumentError EKP.update_ensemble!(ukiobj, zeros(length(y_obs), 5))
+end
+
+
 @testset "LearningRateSchedulers" begin
     # Default
     Δt = 3

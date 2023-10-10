@@ -13,7 +13,7 @@ export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error, get_cov_blocks
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
-export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
+export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final, get_accelerator
 export compute_error!
 export update_ensemble!
 export sample_empirical_gaussian, split_indices_by_success
@@ -28,6 +28,9 @@ abstract type LearningRateScheduler end
 
 # Failure handlers
 abstract type FailureHandlingMethod end
+
+# Accelerators
+abstract type Accelerator end
 
 
 
@@ -104,7 +107,13 @@ Inputs:
 
 $(METHODLIST)
 """
-struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process, LRS <: LearningRateScheduler}
+struct EnsembleKalmanProcess{
+    FT <: AbstractFloat,
+    IT <: Int,
+    P <: Process,
+    LRS <: LearningRateScheduler,
+    ACC <: Accelerator,
+}
     "array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
     u::Array{DataContainer{FT}}
     "vector of the observed vector size [`N_obs`]"
@@ -119,6 +128,8 @@ struct EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process, LRS <
     err::Vector{FT}
     "Scheduler to calculate the timestep size in each EK iteration"
     scheduler::LRS
+    "accelerator object that informs EK update steps, stores additional state variables as needed"
+    accelerator::ACC
     "stored vector of timesteps used in each EK iteration"
     Δt::Vector{FT}
     "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `TransformInversion` or `SparseInversion`)"
@@ -139,6 +150,7 @@ function EnsembleKalmanProcess(
     obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
     process::P;
     scheduler::Union{Nothing, LRS} = nothing,
+    accelerator::Union{Nothing, ACC} = nothing,
     Δt = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
@@ -147,6 +159,7 @@ function EnsembleKalmanProcess(
 ) where {
     FT <: AbstractFloat,
     LRS <: LearningRateScheduler,
+    ACC <: Accelerator,
     P <: Process,
     FM <: FailureHandlingMethod,
     LM <: LocalizationMethod,
@@ -193,16 +206,31 @@ function EnsembleKalmanProcess(
     # timestep store
     Δt = FT[]
 
+    # set up accelerator
+    if isnothing(accelerator)
+        acc = DefaultAccelerator()
+    else
+        acc = accelerator
+    end
+    AC = typeof(acc)
+
+    if AC <: NesterovAccelerator
+        set_ICs!(acc, params)
+        if P <: Sampler
+            @warn "Acceleration is experimental for Sampler processes and may affect convergence."
+        end
+    end
+
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
     # localizer
     loc = Localizer(localization_method, N_par, N_obs, N_ens, FT)
 
     if verbose
-        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))\nScheduler: $(nameof(typeof(lrs)))"
+        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))\nScheduler: $(nameof(typeof(lrs)))\nAccelerator: $(nameof(typeof(acc)))"
     end
 
-    EnsembleKalmanProcess{FT, IT, P, RS}(
+    EnsembleKalmanProcess{FT, IT, P, RS, AC}(
         [init_params],
         obs_mean,
         obs_noise_cov,
@@ -210,6 +238,7 @@ function EnsembleKalmanProcess(
         g,
         err,
         lrs,
+        acc,
         Δt,
         process,
         rng,
@@ -221,7 +250,6 @@ end
 
 
 include("LearningRateSchedulers.jl")
-
 
 """
     get_u(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
@@ -421,6 +449,14 @@ Return scheduler type of EnsembleKalmanProcess.
 """
 function get_scheduler(ekp::EnsembleKalmanProcess)
     return ekp.scheduler
+end
+
+"""
+    get_accelerator(ekp::EnsembleKalmanProcess)
+Return accelerator type of EnsembleKalmanProcess.
+"""
+function get_accelerator(ekp::EnsembleKalmanProcess)
+    return ekp.accelerator
 end
 
 
@@ -628,7 +664,8 @@ function update_ensemble!(
 
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
-        update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
+        u = update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
+        update_state!(ekp, u)
         if s > 0.0
             multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
             additive_inflation ? additive_inflation!(ekp; use_prior_cov = use_prior_cov, s = s) : nothing
@@ -664,3 +701,6 @@ export Unscented
 export Gaussian_2d
 export construct_initial_ensemble, construct_mean, construct_cov
 include("UnscentedKalmanInversion.jl")
+
+# struct Accelerator
+include("Accelerators.jl")
