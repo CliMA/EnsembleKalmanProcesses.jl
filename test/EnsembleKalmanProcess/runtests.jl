@@ -81,9 +81,10 @@ end
 
 @testset "Accelerators" begin
     # Get an inverse problem
-    y_obs, G, Γy, _ = inv_problems[end - 1] # additive noise inv problem
+    y_obs, G, Γy, _ = inv_problems[end - 2] # additive noise inv problem (deterministic map)
     rng = Random.MersenneTwister(rng_seed)
-    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+    N_ens_tmp = 5
+    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens_tmp)
 
     # build accelerated and non-accelerated processes
     ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(), accelerator = NesterovAccelerator())
@@ -104,36 +105,47 @@ end
     @test typeof(eksobj_noacc_specified.accelerator) <: DefaultAccelerator
 
     ## test NesterovAccelerators satisfy desired ICs
-    @test ekiobj.accelerator.r == 3.0
+    @test ekiobj.accelerator.r ≈ 3.0
     @test ekiobj.accelerator.u_prev == initial_ensemble
-    @test eksobj.accelerator.r == 3.0
+    @test eksobj.accelerator.r ≈ 3.0
     @test eksobj.accelerator.u_prev == initial_ensemble
 
     ## test method convergence
     # Note: this test only requires that the final ensemble is an improvement on the initial ensemble,
     # NOT that the accelerated processes are more effective than the default, as this is not guaranteed.
     # Specific cost values are printed to give an idea of acceleration.
-    processes = [Inversion(), Sampler(prior), TransformInversion(inv(Γy))]
-    T_end = 1 # (this could fail a test if N_iters is not enough to reach T_end)
-    for process in processes
+    processes = [Inversion(), TransformInversion(inv(Γy)), Unscented(prior; impose_prior = true), Sampler(prior)]
+    schedulers = [repeat([DefaultScheduler(0.1)], 3)..., EKSStableScheduler()]
+    for (process, scheduler) in zip(processes, schedulers)
         accelerators = [DefaultAccelerator(), NesterovAccelerator()]
-        N_iters = [30, 30, 30]
+        N_iters = [5, 5, 5, 5]
         init_means = []
         final_means = []
 
         for (accelerator, N_iter) in zip(accelerators, N_iters)
-            println("Accelerator: ", nameof(typeof(accelerator)), " Process: ", nameof(typeof(process)))
+            process_copy = deepcopy(process)
+            scheduler_copy = deepcopy(scheduler)
+            println("Accelerator: ", nameof(typeof(accelerator)), " Process: ", nameof(typeof(process_copy)))
             if !(nameof(typeof(process)) == Symbol(Unscented))
                 ekpobj = EKP.EnsembleKalmanProcess(
                     initial_ensemble,
                     y_obs,
                     Γy,
-                    process,
+                    process_copy,
                     rng = copy(rng),
+                    scheduler = scheduler_copy,
+                    accelerator = accelerator,
+                )
+            else
+                ekpobj = EKP.EnsembleKalmanProcess(
+                    y_obs,
+                    Γy,
+                    process_copy,
+                    rng = copy(rng),
+                    scheduler = scheduler_copy,
                     accelerator = accelerator,
                 )
             end
-
             ## test get_accelerator function in EKP
             @test ekpobj.accelerator == get_accelerator(ekpobj)
 
@@ -155,25 +167,14 @@ end
                 norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[end]))))
             @info "Convergence:" cost_initial cost_final
 
-            if typeof(process) <: Inversion
-                u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
-                @test norm(
-                    inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[end]))),
-                ) < norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[end]))))
-            end
+            u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
+            @test norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[end])))) <
+                  norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[end]))))
 
         end
 
     end
-    ## test that error is thrown when applying acceleration to UKI
-    ukiobj = EKP.EnsembleKalmanProcess(
-        y_obs,
-        Γy,
-        Unscented(prior; impose_prior = true),
-        rng = copy(rng),
-        accelerator = NesterovAccelerator(),
-    )
-    @test_throws ArgumentError EKP.update_ensemble!(ukiobj, zeros(length(y_obs), 5))
+
 end
 
 
@@ -426,7 +427,7 @@ end
             Inversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
-            scheduler = scheduler,
+            scheduler = deepcopy(scheduler),
         )
         ekiobj_unsafe = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -435,7 +436,7 @@ end
             Inversion();
             rng = rng,
             failure_handler_method = IgnoreFailures(),
-            scheduler = scheduler,
+            scheduler = deepcopy(scheduler),
         )
 
         g_ens = G(get_ϕ_final(prior, ekiobj))
@@ -579,7 +580,7 @@ end
         zip(1:length(inv_problems), inv_problems, impose_priors, update_freqs)
 
         y_obs, G, Γy, A = inv_problem
-        scheduler = DataMisfitController(on_terminate = "continue")
+        scheduler = DataMisfitController(on_terminate = "continue") #will need to be copied as stores run information inside
 
         process = Unscented(prior; sigma_points = "symmetric", impose_prior = impose_prior, update_freq = update_freq)
         ukiobj = EKP.EnsembleKalmanProcess(
@@ -587,7 +588,7 @@ end
             Γy,
             process;
             rng = rng,
-            scheduler = scheduler,
+            scheduler = deepcopy(scheduler),
             failure_handler_method = SampleSuccGauss(),
         )
         ukiobj_unsafe = EKP.EnsembleKalmanProcess(
@@ -595,7 +596,7 @@ end
             Γy,
             process;
             rng = rng,
-            scheduler = scheduler,
+            scheduler = deepcopy(scheduler),
             failure_handler_method = IgnoreFailures(),
         )
         # test simplex sigma points
@@ -605,7 +606,7 @@ end
             Γy,
             process_simplex;
             rng = rng,
-            scheduler = scheduler,
+            scheduler = deepcopy(scheduler),
             failure_handler_method = SampleSuccGauss(),
         )
 
@@ -635,6 +636,7 @@ end
                     @test_throws DimensionMismatch EKP.update_ensemble!(ukiobj, g_ens_t)
                 end
             end
+
             @test !any(isnan.(params_i))
 
             # Check IgnoreFailures handler
@@ -733,7 +735,7 @@ end
             TransformInversion(inv(Γy));
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
-            scheduler = scheduler,
+            scheduler = deepcopy(scheduler),
         )
 
         ekiobj_unsafe = EKP.EnsembleKalmanProcess(
@@ -743,7 +745,7 @@ end
             TransformInversion(inv(Γy));
             rng = rng,
             failure_handler_method = IgnoreFailures(),
-            scheduler = scheduler,
+            scheduler = deepcopy(scheduler),
         )
 
 
