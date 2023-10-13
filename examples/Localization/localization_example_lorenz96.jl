@@ -75,7 +75,7 @@ ekiobj_bernoulli_err = zeros(n_repeats, N_iter)
 ekiobj_sec_err= zeros(n_repeats, N_iter)
 ekiobj_sec_fisher_err= zeros(n_repeats, N_iter)
 ekiobj_cut_err= zeros(n_repeats, N_iter)
-ekiobj_cut2_err= zeros(n_repeats, N_iter)
+#ekiobj_cut2_err= zeros(n_repeats, N_iter)
 ekiobj_sec_cutoff_err= zeros(n_repeats, N_iter)
     
 #### Define prior information on parameters
@@ -126,13 +126,14 @@ for exp_it = 1:n_repeats
     end
     
     # Test cutoff only
+    #=
     ekiobj_cut2 = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = ThresholdCutoff(1.4))
     
     for i in 1:N_iter
         g_ens = G(get_ϕ_final(prior, ekiobj_cut2))
         EKP.update_ensemble!(ekiobj_cut2, g_ens, deterministic_forward_map = true)
     end
-    
+    =#
     # Test SEC & cutoff
     ekiobj_sec_cutoff =
         EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SEC(1.0, 0.1))
@@ -156,18 +157,18 @@ for exp_it = 1:n_repeats
     ekiobj_sec_err[exp_it,:] = get_error(ekiobj_sec)
     ekiobj_sec_fisher_err[exp_it,:] = get_error(ekiobj_sec_fisher)
     ekiobj_cut_err[exp_it,:] = get_error(ekiobj_cut)
-    ekiobj_cut2_err[exp_it,:] = get_error(ekiobj_cut2)
+    #ekiobj_cut2_err[exp_it,:] = get_error(ekiobj_cut2)
     ekiobj_sec_cutoff_err[exp_it,:] = get_error(ekiobj_sec_cutoff)
 end
    
 
     
     fig = plot(mean(ekiobj_vanilla_err, dims=1)[:], label = "No localization",size = (Int(floor(1.618*600)),600))
-#    plot!(mean(ekiobj_bernoulli_err, dims=1)[:], label = "Bernoulli")
+    plot!(mean(ekiobj_bernoulli_err, dims=1)[:], label = "Bernoulli")
     plot!(mean(ekiobj_sec_err, dims=1)[:], label = "SEC (Lee, 2021)")
     plot!(mean(ekiobj_sec_fisher_err, dims=1)[:], label = "SECFisher (Flowerdew, 2015)")
     plot!(mean(ekiobj_cut_err, dims=1)[:], label = "(corr) cutoff")
-    plot!(mean(ekiobj_cut2_err, dims=1)[:], label = "(cov) cutoff (Sans Alonso, 2023)")
+    #plot!(mean(ekiobj_cut2_err, dims=1)[:], label = "(cov) cutoff (Sans Alonso, 2023)")
     plot!(mean(ekiobj_sec_cutoff_err, dims=1)[:], label = "SEC with cutoff")
     
     xlabel!("Iterations")
