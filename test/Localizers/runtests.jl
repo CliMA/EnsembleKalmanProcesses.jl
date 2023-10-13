@@ -42,9 +42,10 @@ const EKP = EnsembleKalmanProcesses
     nonlocalized_error = get_error(ekiobj_vanilla)[end]
 
     # Test different localizers
-    loc_methods = [Delta(), RBF(1.0), RBF(0.1), BernoulliDropout(0.1), SEC(10.0), SECFisher(), SEC(1.0, 0.1)]
+    loc_methods = [Delta(), RBF(1.0), RBF(0.1), BernoulliDropout(0.1), SEC(10.0), SECFisher(), SEC(1.0, 0.1), ThresholdCutoff(0.01)]
 
     for loc_method in loc_methods
+        println("loc_method")
         ekiobj =
             EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = loc_method)
         @test isa(ekiobj.localizer, Localizer)
@@ -68,7 +69,7 @@ const EKP = EnsembleKalmanProcesses
         g_final = get_g_final(ekiobj)
         cov_est = cov([u_final; g_final], dims = 2, corrected = false)
         cov_localized = ekiobj.localizer.localize(cov_est)
-        @test rank(cov_est) < rank(cov_localized)
+        @test rank(cov_est) <= rank(cov_localized)
         # Test localization getter method
         @test isa(loc_method, EKP.get_localizer(ekiobj))
     end

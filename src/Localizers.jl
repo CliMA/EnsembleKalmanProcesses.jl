@@ -4,7 +4,7 @@ using Distributions
 using LinearAlgebra
 using DocStringExtensions
 
-export NoLocalization, Delta, RBF, BernoulliDropout, SEC, SECFisher
+export NoLocalization, Delta, RBF, BernoulliDropout, SEC, SECFisher, ThresholdCutoff
 export LocalizationMethod, Localizer
 
 abstract type LocalizationMethod end
@@ -23,7 +23,6 @@ terms ``C_{i,j}`` are damped through multiplication with a
 centered Gaussian with standardized deviation ``d(i,j)= \\vert i-j \\vert / l``.
 
 # Fields
-
 $(TYPEDFIELDS)
 """
 struct RBF{FT <: Real} <: LocalizationMethod
@@ -89,6 +88,21 @@ http://arxiv.org/abs/2105.11341
 """
 struct SECFisher <: LocalizationMethod end
 
+
+"""
+    ThresholdCutoff{FT <: Real}
+
+Localization that sets cross-covariance terms below a threshold to zero.
+
+# Fields
+
+$(TYPEDFIELDS)
+"""
+struct ThresholdCutoff{FT <: Real} <: LocalizationMethod
+    "Set values below the threshold to 0"
+    threshold::FT
+end
+
 """
     Localizer{LM <: LocalizationMethod, T}
 
@@ -129,6 +143,7 @@ function Localizer(localization::Delta, p::IT, d::IT, J::IT, T = Float64) where 
     kernel_ug = T(1) * Matrix(I, p, d)
     return Localizer{Delta, T}(kernel_function(kernel_ug, T, p, d))
 end
+
 
 "RBF kernel localizer constructor"
 function Localizer(localization::RBF, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
@@ -179,6 +194,22 @@ end
 function Localizer(localization::BernoulliDropout, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
     return Localizer{BernoulliDropout, T}(bernoulli_kernel_function(localization.prob, T, p, d))
 end
+
+"""
+Set to 0 if below threshold
+"""
+function Localizer(localization::ThresholdCutoff, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
+    threshold = localization.threshold
+    function sparsify_ug(covmat, threshold, p, d)
+#        y = covmat[1:p, (p + 1):end]
+#        covmat[1:p, (p + 1):end] = y
+#        covmat[(p + 1):end, 1:p] = y'
+        return covmat .* (abs.(covmat) .> threshold) 
+    end
+    return Localizer{ThresholdCutoff, T}(cov -> sparsify_ug(cov, threshold, p, d))
+end
+
+
 
 """
 Function that performs sampling error correction as per Lee (2021).
@@ -246,5 +277,6 @@ Return localizer type.
 function get_localizer(loc::Localizer{T1, T2}) where {T1, T2}
     return T1
 end
+
 
 end # module
