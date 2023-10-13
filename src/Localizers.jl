@@ -201,10 +201,10 @@ Set to 0 if below threshold
 function Localizer(localization::ThresholdCutoff, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
     threshold = localization.threshold
     function sparsify_ug(covmat, threshold, p, d)
-#        y = covmat[1:p, (p + 1):end]
-#        covmat[1:p, (p + 1):end] = y
-#        covmat[(p + 1):end, 1:p] = y'
-        return covmat .* (abs.(covmat) .> threshold) 
+        #        y = covmat[1:p, (p + 1):end]
+        #        covmat[1:p, (p + 1):end] = y
+        #        covmat[(p + 1):end, 1:p] = y'
+        return covmat .* (abs.(covmat) .> threshold)
     end
     return Localizer{ThresholdCutoff, T}(cov -> sparsify_ug(cov, threshold, p, d))
 end

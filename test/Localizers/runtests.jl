@@ -42,7 +42,16 @@ const EKP = EnsembleKalmanProcesses
     nonlocalized_error = get_error(ekiobj_vanilla)[end]
 
     # Test different localizers
-    loc_methods = [Delta(), RBF(1.0), RBF(0.1), BernoulliDropout(0.1), SEC(10.0), SECFisher(), SEC(1.0, 0.1), ThresholdCutoff(0.01)]
+    loc_methods = [
+        Delta(),
+        RBF(1.0),
+        RBF(0.1),
+        BernoulliDropout(0.1),
+        SEC(10.0),
+        SECFisher(),
+        SEC(1.0, 0.1),
+        ThresholdCutoff(0.01),
+    ]
 
     for loc_method in loc_methods
         println("loc_method")
