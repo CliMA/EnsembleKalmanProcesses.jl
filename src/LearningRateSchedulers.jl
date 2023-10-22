@@ -1,7 +1,7 @@
 # included in EnsembleKalmanProcess.jl
 
 export DefaultScheduler, MutableScheduler, EKSStableScheduler, DataMisfitController
-export calculate_timestep!
+export calculate_timestep!, posdef_correct
 
 # default unless user overrides
 
@@ -222,6 +222,7 @@ $(DocStringExtensions.TYPEDSIGNATURES)
 Makes square matrix `mat` positive definite, by symmetrizing and bounding the minimum eigenvalue below by `tol`
 """
 function posdef_correct(mat::AbstractMatrix; tol::Real = 1e8 * eps())
+    mat = deepcopy(mat)
     if !issymmetric(mat)
         out = 0.5 * (mat + permutedims(mat, (2, 1))) #symmetrize
         if isposdef(out)
