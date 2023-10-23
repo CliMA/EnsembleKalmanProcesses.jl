@@ -278,6 +278,7 @@ end
             else #no initial ensemble for UKI
                 ekpobj = EKP.EnsembleKalmanProcess(y_obs, Γy, process, rng = copy(rng), scheduler = scheduler)
             end
+            initial_obs_noise_cov = deepcopy(ekpobj.obs_noise_cov)
             for i in 1:N_iter
                 params_i = get_ϕ_final(prior, ekpobj)
                 g_ens = G(params_i)
@@ -290,9 +291,13 @@ end
                 if !isnothing(terminated)
                     break
                 end
+                # ensure Δt is updated
+                @test length(ekpobj.Δt) == i
             end
             push!(init_means, vec(mean(get_u_prior(ekpobj), dims = 2)))
             push!(final_means, vec(mean(get_u_final(ekpobj), dims = 2)))
+            # ensure obs_noise_cov matrix remains unchanged
+            @test initial_obs_noise_cov == ekpobj.obs_noise_cov
 
             # this test is fine so long as N_iter is large enough to hit the termination time
             if nameof(typeof(scheduler)) == DataMisfitController
