@@ -214,7 +214,7 @@ function EnsembleKalmanProcess(
     end
     AC = typeof(acc)
 
-    if AC <: NesterovAccelerator
+    if !(AC <: DefaultAccelerator)
         set_ICs!(acc, params)
         if P <: Sampler
             @warn "Acceleration is experimental for Sampler processes and may affect convergence."
