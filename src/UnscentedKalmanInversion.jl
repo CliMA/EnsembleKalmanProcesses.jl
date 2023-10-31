@@ -551,10 +551,7 @@ end
 
 UKI prediction step : generate sigma points.
 """
-function update_ensemble_prediction!(
-    process::Unscented,
-    Δt::FT,
-) where {FT <: AbstractFloat, AV <: AbstractVector, AM <: AbstractMatrix}
+function update_ensemble_prediction!(process::Unscented, Δt::FT) where {FT <: AbstractFloat}
 
     process.iter += 1
     # update evolution covariance matrix
