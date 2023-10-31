@@ -82,6 +82,8 @@ end
 @testset "Accelerators" begin
     # Get an inverse problem
     y_obs, G, Γy, _ = inv_problems[end - 2] # additive noise inv problem (deterministic map)
+    inv_sqrt_Γy = sqrt(inv(Γy))
+
     rng = Random.MersenneTwister(rng_seed)
     N_ens_tmp = 5
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens_tmp)
@@ -89,6 +91,20 @@ end
     # build accelerated and non-accelerated processes
     ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(), accelerator = NesterovAccelerator())
     eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior), accelerator = NesterovAccelerator())
+    ekiobj_const = EKP.EnsembleKalmanProcess(
+        initial_ensemble,
+        y_obs,
+        Γy,
+        Inversion(),
+        accelerator = ConstantStepNesterovAccelerator(),
+    )
+    eksobj_const = EKP.EnsembleKalmanProcess(
+        initial_ensemble,
+        y_obs,
+        Γy,
+        Sampler(prior),
+        accelerator = ConstantStepNesterovAccelerator(),
+    )
     ekiobj_noacc = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
     eksobj_noacc = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior))
     ekiobj_noacc_specified =
@@ -99,26 +115,45 @@ end
     ## test EKP object's accelerator type is consistent (EKP constructor reassigns object in some cases)
     @test typeof(ekiobj.accelerator) <: NesterovAccelerator
     @test typeof(eksobj.accelerator) <: NesterovAccelerator
+    @test typeof(ekiobj_const.accelerator) <: ConstantStepNesterovAccelerator
+    @test typeof(eksobj_const.accelerator) <: ConstantStepNesterovAccelerator
     @test typeof(ekiobj_noacc.accelerator) <: DefaultAccelerator
     @test typeof(eksobj_noacc.accelerator) <: DefaultAccelerator
     @test typeof(ekiobj_noacc_specified.accelerator) <: DefaultAccelerator
     @test typeof(eksobj_noacc_specified.accelerator) <: DefaultAccelerator
 
     ## test NesterovAccelerators satisfy desired ICs
-    @test ekiobj.accelerator.r ≈ 3.0
     @test ekiobj.accelerator.u_prev == initial_ensemble
-    @test eksobj.accelerator.r ≈ 3.0
+    @test ekiobj.accelerator.θ_prev == 1.0
     @test eksobj.accelerator.u_prev == initial_ensemble
+    @test eksobj.accelerator.θ_prev == 1.0
+
+    @test ekiobj_const.accelerator.r ≈ 3.0
+    @test ekiobj_const.accelerator.u_prev == initial_ensemble
+    @test eksobj_const.accelerator.r ≈ 3.0
+    @test eksobj_const.accelerator.u_prev == initial_ensemble
 
     ## test method convergence
     # Note: this test only requires that the final ensemble is an improvement on the initial ensemble,
     # NOT that the accelerated processes are more effective than the default, as this is not guaranteed.
     # Specific cost values are printed to give an idea of acceleration.
-    processes = [Inversion(), TransformInversion(inv(Γy)), Unscented(prior; impose_prior = true), Sampler(prior)]
-    schedulers = [repeat([DefaultScheduler(0.1)], 3)..., EKSStableScheduler()]
+    processes = [
+        repeat([Inversion(), TransformInversion(inv(Γy)), Unscented(prior; impose_prior = true)], 2)...,
+        Sampler(prior),
+    ]
+    schedulers = [
+        repeat([DefaultScheduler(0.1)], 3)..., # for constant timestep Nesterov
+        repeat([DataMisfitController(terminate_at = 100)], 3)..., # for general Nesterov
+        EKSStableScheduler(), # for general Nesterov
+    ]
     for (process, scheduler) in zip(processes, schedulers)
-        accelerators = [DefaultAccelerator(), NesterovAccelerator()]
-        N_iters = [5, 5, 5, 5]
+        if typeof(scheduler) <: DefaultScheduler
+            accelerators = [DefaultAccelerator(), ConstantStepNesterovAccelerator(), NesterovAccelerator()]
+            N_iters = [20, 20, 20]
+        else #don't test the constantstep accelerator with variable timesteppers
+            accelerators = [DefaultAccelerator(), NesterovAccelerator()]
+            N_iters = [20, 20]
+        end
         init_means = []
         final_means = []
 
@@ -160,9 +195,8 @@ end
             push!(init_means, vec(mean(get_u_prior(ekpobj), dims = 2)))
             push!(final_means, vec(mean(get_u_final(ekpobj), dims = 2)))
 
-            inv_sqrt_Γy = sqrt(inv(Γy))
             cost_initial =
-                norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[end]))))
+                norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, initial_ensemble))))
             cost_final =
                 norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[end]))))
             @info "Convergence:" cost_initial cost_final
