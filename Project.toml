@@ -34,6 +34,9 @@ StableRNGs = "1.0"
 Statistics = "1"
 StatsBase = "^0.33, 0.34"
 TOML = "1"
+LinearAlgebra = "1"
+Random = "1"
+SparseArrays = "1"
 julia = "1.5"
 
 [extras]
