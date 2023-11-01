@@ -1,6 +1,10 @@
-# Learning the permiability field in a Darcy flow
+# Learning the permeability field in a Darcy flow
 
-In this example, we illustrate a simple function learning problem. We are presented with an unknown field that is discretized with a finite-dimensional approximation (e.g. spatial discretization). When learning this field, if one represents each pointwise value at a gridpoint as a parameter, increasing the spatial resolution leads to increasingly high dimensional learning problems, thus giving poor computational scaling and increasingly ill-posed inverse problems from fixed data. If instead, we treat the approximation as a discretized function living in a function space, then one can learn coefficients of a basis of this function space. Since it is commonly the case that functions have relatively low effective dimension in this space, the dependence on the spatial discretization only arises in discretization error, which vanishes as resolution is increased.
+In this example, we illustrate a simple function learning problem.
+We are presented with an unknown field that is discretized with a finite-dimensional approximation (e.g. spatial discretization).
+When learning this field, if one represents each pointwise value at a gridpoint as a parameter, increasing the spatial resolution leads to increasingly high dimensional learning problems, thus giving poor computational scaling and increasingly ill-posed inverse problems from fixed data.
+If instead, we treat the approximation as a discretized function living in a function space, then one can learn coefficients of a basis of this function space.
+Since it is commonly the case that functions have relatively low effective dimension in this space, the dependence on the spatial discretization only arises in discretization error, which vanishes as resolution is increased.
 
 We will solve for an unknown permeability field ``\kappa`` governing the pressure field of a [Darcy flow](https://en.wikipedia.org/wiki/Darcy%27s_law) on a square 2D domain. To learn about the permeability we shall take few pointwise measurements of the solved pressure field within the domain. The forward solver is a simple finite difference scheme taken and modified from code [here](https://github.com/Zhengyu-Huang/InverseProblems.jl/blob/master/Fluid/Darcy-2D.jl).
 
