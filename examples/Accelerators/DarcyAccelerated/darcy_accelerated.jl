@@ -44,8 +44,23 @@ function main()
     seed = 100234
     rng = Random.MersenneTwister(seed)
 
-    USE_SCHEDULER = false
-    scheduler_def = DataMisfitController(on_terminate = "continue")
+    cases = ["const", "dmc", "dmc-loc-small-ens"]
+    case = cases[3]
+
+    @info "running case $case"
+    if case == "const"
+        scheduler = DefaultScheduler()
+        N_ens = 52 # dofs+2  
+        localization_method = EKP.Localizers.NoLocalization()
+    elseif case == "dmc"
+        scheduler = DataMisfitController(terminate_at = 1e4)
+        N_ens = 52  # dofs+2
+        localization_method = EKP.Localizers.NoLocalization()
+    elseif case == "dmc-loc-small-ens"
+        scheduler = DataMisfitController(terminate_at = 1e4)
+        N_ens = 10
+        localization_method = EKP.Localizers.SEC(1.0, 0.01)
+    end
 
     # Define the spatial domain and discretization 
     dim = 2
@@ -57,7 +72,6 @@ function main()
     smoothness = 1.0
     corr_length = 0.25
     dofs = 50
-
     grf = GRF.GaussianRandomField(
         GRF.CovarianceFunction(dim, GRF.Matern(smoothness, corr_length)),
         GRF.KarhunenLoeve(dofs),
@@ -91,19 +105,16 @@ function main()
     # We define some algorithm parameters, here we take ensemble members larger than the dimension of the parameter space
     N_ens = dofs + 2    # number of ensemble members
     N_iter = 20         # number of EKI iterations
-    N_trials = 5       # number of trials 
+    N_trials = 10       # number of trials 
+    @info "obtaining statistics over $N_trials trials"
 
     errs = zeros(N_trials, N_iter)
     errs_acc = zeros(N_trials, N_iter)
     errs_acc_cs = zeros(N_trials, N_iter)
 
-    for trial in 1:N_trials
-        if USE_SCHEDULER
-            scheduler = scheduler_def
-        else
-            scheduler = DefaultScheduler(0.1)
-        end
+    for (idx, trial) in enumerate(1:N_trials)
 
+        @info "computing trial $idx"
         # We sample the initial ensemble from the prior, and create three EKP objects to 
         # perform EKI algorithm using three different acceleration methods.
         initial_params = construct_initial_ensemble(rng, prior, N_ens)
@@ -113,6 +124,7 @@ function main()
             obs_noise_cov,
             Inversion(),
             scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
         ekiobj_acc = EKP.EnsembleKalmanProcess(
             initial_params,
@@ -121,14 +133,16 @@ function main()
             Inversion(),
             accelerator = NesterovAccelerator(),
             scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
         ekiobj_acc_cs = EKP.EnsembleKalmanProcess(
             initial_params,
             truth_sample,
             obs_noise_cov,
             Inversion(),
-            accelerator = ConstantStepNesterovAccelerator(),
+            accelerator = FirstOrderNesterovAccelerator(),
             scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
 
         # Run EKI algorithm, recording parameter error after each iteration.
@@ -159,11 +173,11 @@ function main()
     end
 
 
-    # compare recorded convergences with default, Nesterov, and Constant-Step Nesterov accelerators
+    # compare recorded convergences with default, Nesterov, and First-Order Nesterov accelerators
     gr(legend = true)
     conv_plot = plot(1:N_iter, mean((errs), dims = 1)[:], label = "No acceleration", color = "black")
     plot!(1:N_iter, mean((errs_acc), dims = 1)[:], label = "Nesterov", color = "blue")
-    plot!(1:N_iter, mean((errs_acc_cs), dims = 1)[:], label = "Nesterov, Constant Step", color = "red")
+    plot!(1:N_iter, mean((errs_acc_cs), dims = 1)[:], label = "Nesterov, FirstOrder", color = "red")
     # error bars
     plot!(
         1:N_iter,
@@ -211,7 +225,7 @@ function main()
     title!("EKI convergence on Darcy IP")
     xlabel!("Iteration")
     ylabel!("log(Error)")
-    savefig(conv_plot, joinpath(fig_save_directory, "darcy_conv_comparison.png"))
+    savefig(conv_plot, joinpath(fig_save_directory, case * "_darcy_conv_comparison.png"))
 end
 
 main()

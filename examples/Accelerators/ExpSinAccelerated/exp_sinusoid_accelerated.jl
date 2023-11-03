@@ -17,7 +17,10 @@ using Distributions, Plots
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 const EKP = EnsembleKalmanProcesses
-fig_save_directory = @__DIR__
+fig_save_directory = joinpath(@__DIR__, "output")
+if !isdir(fig_save_directory)
+    mkdir(fig_save_directory)
+end
 
 ## Setting up the model and data for our inverse problem
 dt = 0.01
@@ -40,8 +43,24 @@ function G(u)
 end
 
 function main()
-    USE_SCHEDULER = false
-    scheduler_def = DataMisfitController(on_terminate = "continue")
+
+    cases = ["const", "dmc", "dmc-loc-small-ens"]
+    case = cases[3]
+
+    @info "running case $case"
+    if case == "const"
+        scheduler = DefaultScheduler()
+        N_ens = 10
+        localization_method = EKP.Localizers.NoLocalization()
+    elseif case == "dmc"
+        scheduler = DataMisfitController(terminate_at = 1e4)
+        N_ens = 10
+        localization_method = EKP.Localizers.NoLocalization()
+    elseif case == "dmc-loc-small-ens"
+        scheduler = DataMisfitController(terminate_at = 1e4)
+        N_ens = 4
+        localization_method = EKP.Localizers.SEC(1.0, 0.01)
+    end
 
     dim_output = 2
     Γ = 0.01 * I
@@ -58,10 +77,9 @@ function main()
 
     # To compare the two EKI methods, we will average over several trials, 
     # allowing the methods to run with different initial ensembles and noise samples.
-    N_ens = 10
-    N_iterations = 15
+    N_iterations = 20
     N_trials = 50
-
+    @info "obtaining statistics over $N_trials trials"
     # Define cost function to compare convergences. We use a logarithmic cost function 
     # to best interpret exponential model. Note we do not explicitly penalize distance from the prior here.
     function cost(theta)
@@ -80,18 +98,15 @@ function main()
         # to compare convergence.
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
-        if USE_SCHEDULER
-            scheduler = deepcopy(scheduler_def)
-            scheduler_acc = deepcopy(scheduler_def)
-            scheduler_acc_cs = deepcopy(scheduler_def)
-        else
-            scheduler = DefaultScheduler()
-            scheduler_acc = DefaultScheduler()
-            scheduler_acc_cs = DefaultScheduler()
-        end
-
-        ensemble_kalman_process =
-            EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, scheduler = scheduler)
+        ensemble_kalman_process = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y,
+            Γ,
+            Inversion();
+            rng = rng,
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
+        )
         ensemble_kalman_process_acc = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y,
@@ -99,16 +114,18 @@ function main()
             Inversion();
             accelerator = NesterovAccelerator(),
             rng = rng,
-            scheduler = scheduler_acc,
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
         ensemble_kalman_process_acc_cs = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y,
             Γ,
             Inversion();
-            accelerator = ConstantStepNesterovAccelerator(),
+            accelerator = FirstOrderNesterovAccelerator(),
             rng = rng,
-            scheduler = scheduler_acc_cs,
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
 
         global convs = zeros(N_iterations)
@@ -141,10 +158,10 @@ function main()
         all_convs_acc_cs[trial, :] = convs_acc_cs
     end
 
-    gr(size = (400, 400), legend = true)
+    gr(size = (600, 600), legend = true)
     p = plot(1:N_iterations, mean(all_convs, dims = 1)[:], color = :black, label = "No acceleration")
     plot!(1:N_iterations, mean(all_convs_acc, dims = 1)[:], color = :blue, label = "Nesterov")
-    plot!(1:N_iterations, mean(all_convs_acc_cs, dims = 1)[:], color = :red, label = "Nesterov, Constant Step")
+    plot!(1:N_iterations, mean(all_convs_acc_cs, dims = 1)[:], color = :red, label = "Nesterov, FirstOrder")
     # error bars
     plot!(
         1:N_iterations,
@@ -194,7 +211,7 @@ function main()
     ylabel!("log(Cost)")
     title!("EKI convergence on exp sin IP")
 
-    savefig(p, joinpath(fig_save_directory, "exp_sin.png"))
+    savefig(p, joinpath(fig_save_directory, case * "_exp_sin.png"))
 end
 
 main()

@@ -10,7 +10,10 @@ using EnsembleKalmanProcesses.Localizers
 import EnsembleKalmanProcesses: construct_mean, construct_cov, construct_sigma_ensemble
 const EKP = EnsembleKalmanProcesses
 
-fig_save_directory = @__DIR__
+fig_save_directory = joinpath(@__DIR__, "output")
+if !isdir(fig_save_directory)
+    mkdir(fig_save_directory)
+end
 
 function rk4(f::F, y0::Array{Float64, 1}, t0::Float64, t1::Float64, h::Float64; inplace::Bool = true) where {F}
     y = y0
@@ -53,8 +56,24 @@ end
 
 function main()
     D = 20
-    USE_SCHEDULER = false
-    scheduler_def = DataMisfitController(on_terminate = "continue")
+
+    cases = ["const", "dmc", "dmc-loc-small-ens"]
+    case = cases[3]
+
+    @info "running case $case"
+    if case == "const"
+        scheduler = DefaultScheduler()
+        N_ens = 20
+        localization_method = EKP.Localizers.NoLocalization()
+    elseif case == "dmc"
+        scheduler = DataMisfitController(terminate_at = 1e4)
+        N_ens = 20
+        localization_method = EKP.Localizers.NoLocalization()
+    elseif case == "dmc-loc-small-ens"
+        scheduler = DataMisfitController(terminate_at = 1e4)
+        N_ens = 5
+        localization_method = EKP.Localizers.SEC(1.0, 0.01)
+    end
 
     lorenz96_sys = (t, u) -> lorenz96(t, u, Dict("N" => D))
 
@@ -77,9 +96,11 @@ function main()
     end
     prior = combine_distributions(priors)
 
-    N_ens = 20
+
     N_iter = 20
     N_trials = 50
+    @info "obtaining statistics over $N_trials trials"
+
     errs = zeros(N_trials, N_iter)
     errs_acc = zeros(N_trials, N_iter)
     errs_acc_cs = zeros(N_trials, N_iter)
@@ -87,18 +108,17 @@ function main()
     for trial in 1:N_trials
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
-        if USE_SCHEDULER
-            scheduler_van = deepcopy(scheduler_def)
-            scheduler_acc = deepcopy(scheduler_def)
-            scheduler_acc_cs = deepcopy(scheduler_def)
-        else
-            scheduler_van = DefaultScheduler()
-            scheduler_acc = DefaultScheduler()
-            scheduler_acc_cs = DefaultScheduler()
-        end
+
         # We create 3 EKP Inversion objects to compare acceleration.
-        ekiobj_vanilla =
-            EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, scheduler = scheduler_van)
+        ekiobj_vanilla = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y,
+            Γ,
+            Inversion();
+            rng = rng,
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
+        )
         ekiobj_acc = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y,
@@ -106,7 +126,8 @@ function main()
             Inversion();
             rng = rng,
             accelerator = NesterovAccelerator(),
-            scheduler = scheduler_acc,
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
         ekiobj_acc_cs = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -114,8 +135,9 @@ function main()
             Γ,
             Inversion();
             rng = rng,
-            accelerator = ConstantStepNesterovAccelerator(),
-            scheduler = scheduler_acc_cs,
+            accelerator = FirstOrderNesterovAccelerator(),
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
 
         err = zeros(N_iter)
@@ -138,8 +160,9 @@ function main()
 
     convplot = plot(1:(N_iter), mean(errs, dims = 1)[:], color = :black, label = "No acceleration")
     plot!(1:(N_iter), mean(errs_acc, dims = 1)[:], color = :blue, label = "Nesterov")
-    plot!(1:(N_iter), mean(errs_acc_cs, dims = 1)[:], color = :red, label = "Nesterov, Constant Step")
+    plot!(1:(N_iter), mean(errs_acc_cs, dims = 1)[:], color = :red, label = "Nesterov, FirstOrder")
     title!("EKI convergence on Lorenz96 IP, N_trials=" * string(N_trials))
+    xlabel!("Iteration")
 
     # error bars
     plot!(
@@ -185,7 +208,7 @@ function main()
         label = "",
     )
 
-    savefig(convplot, joinpath(fig_save_directory, "lorenz96.png"))
+    savefig(convplot, joinpath(fig_save_directory, case * "_lorenz96.png"))
 end
 
 main()
