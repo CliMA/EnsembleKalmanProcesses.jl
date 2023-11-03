@@ -37,7 +37,7 @@ abstract type Accelerator end
 "Failure handling method that ignores forward model failures"
 struct IgnoreFailures <: FailureHandlingMethod end
 
-""""
+"""
     SampleSuccGauss <: FailureHandlingMethod
 
 Failure handling method that substitutes failed ensemble members by new samples from
