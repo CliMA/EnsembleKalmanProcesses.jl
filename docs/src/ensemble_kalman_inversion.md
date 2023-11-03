@@ -1,8 +1,10 @@
+This page documents ensemble Kalman inversion (EKI), as well as two variants, [ensemble transform Kalman inversion](@ref etki) (ETKI) and [sparsity-inducing ensemble Kalman inversion](@ref seki) (SEKI).
+
 # Ensemble Kalman Inversion
 
-One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the ensemble
+One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is ensemble
 Kalman inversion ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)).
-The ensemble Kalman inversion (EKI) is a derivative-free ensemble optimization method that seeks
+Ensemble Kalman inversion (EKI) is a derivative-free ensemble optimization method that seeks
 to find the optimal parameters ``\theta \in \mathbb{R}^p`` in the inverse problem defined by the data-model relation
 
 ```math
@@ -170,9 +172,30 @@ Here, ``\kappa_*`` is a limiting condition number, ``\mu_{s,1}`` is the largest 
 !!! warning
     This modification is not a magic bullet. If large fractions of ensemble members fail during an iteration, this will degenerate the span of the ensemble.
 
+# [Ensemble Transform Kalman Inversion](@id etki)
 
+Ensemble transform Kalman inversion (ETKI) is a variant of EKI based on the ensemble transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)). It is a form of ensemble square-root inversion, and was previously implemented in [Huang et al., 2022](http://doi.org/10.1088/1361-6420/ac99fa). The main advantage of ETKI over EKI is that it has better scalability as the observation dimension grows: while the naive implementation of EKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, ETKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. ETKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
 
-# Sparsity-Inducing Ensemble Kalman Inversion
+The major disadvantage of ETKI is that it cannot be used with localization or sampling error correction. ETKI also requires the inverse observation noise covariance, ``\Gamma^{-1}``. In typical applications, when ``\Gamma`` is diagonal, this will be cheap to compute; however, if ``p`` is very large and ``\Gamma`` has non-trivial cross-covariance structure, computing the inverse may be prohibitively expensive.
+
+## Using ETKI
+
+An ETKI struct can be created using the `EnsembleKalmanProcess` constructor by specifying the `TransformInversion` process type, with ``\Gamma^{-1}`` passed as an argument: 
+
+```julia
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+
+J = 50  # number of ensemble members
+initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble from prior
+
+ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov,
+                               TransformInversion(inv(obs_noise_cov)))
+```
+
+The rest of the inversion process is the same as for regular EKI.
+
+# [Sparsity-Inducing Ensemble Kalman Inversion](@id seki)
 
 We include Sparsity-inducing Ensemble Kalman Inversion (SEKI) to add approximate ``L^0`` and ``L^1`` penalization to the EKI ([Schneider, Stuart, Wu, 2020](https://doi.org/10.48550/arXiv.2007.06175)).
 

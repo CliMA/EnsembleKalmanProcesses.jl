@@ -214,7 +214,7 @@ function EnsembleKalmanProcess(
     end
     AC = typeof(acc)
 
-    if AC <: NesterovAccelerator
+    if !(AC <: DefaultAccelerator)
         set_ICs!(acc, params)
         if P <: Sampler
             @warn "Acceleration is experimental for Sampler processes and may affect convergence."
@@ -665,7 +665,7 @@ function update_ensemble!(
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
         u = update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
-        update_state!(ekp, u)
+        accelerate!(ekp, u)
         if s > 0.0
             multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
             additive_inflation ? additive_inflation!(ekp; use_prior_cov = use_prior_cov, s = s) : nothing
@@ -696,11 +696,13 @@ include("SparseEnsembleKalmanInversion.jl")
 export Sampler
 include("EnsembleKalmanSampler.jl")
 
+
 # struct Unscented
 export Unscented
 export Gaussian_2d
 export construct_initial_ensemble, construct_mean, construct_cov
 include("UnscentedKalmanInversion.jl")
+
 
 # struct Accelerator
 include("Accelerators.jl")

@@ -54,9 +54,9 @@ Inputs:
 $(METHODLIST)
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
-    "an interable of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added)"
+    "an interable of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added), note - this is not the same as the ensemble mean of the sigma ensemble as it is taken prior to prediction"
     u_mean::Any  # ::Iterable{AbtractVector{FT}}
-    "an iterable of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added)"
+    "an iterable of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added), note - this is not the same as the ensemble cov of the sigma ensemble as it is taken prior to prediction"
     uu_cov::Any  # ::Iterable{AbstractMatrix{FT}}
     "an iterable of arrays of size `N_y` containing the predicted observation (in each `uki` iteration a new array of predicted observation is added)"
     obs_pred::Any # ::Iterable{AbstractVector{FT}}
@@ -226,6 +226,7 @@ function EnsembleKalmanProcess(
     process::Unscented{FT, IT};
     kwargs...,
 ) where {FT <: AbstractFloat, IT <: Int}
+
     # use the distribution stored in process to generate initial ensemble
     init_params = update_ensemble_prediction!(process, 0.0)
 
@@ -237,8 +238,8 @@ function FailureHandler(process::Unscented, method::IgnoreFailures)
         #perform analysis on the model runs
         update_ensemble_analysis!(uki, u, g)
         #perform new prediction output to model parameters u_p
-        u = update_ensemble_prediction!(uki.process, uki.Δt[end])
-        return u
+        u_p = update_ensemble_prediction!(uki.process, uki.Δt[end])
+        return u_p
     end
     return FailureHandler{Unscented, IgnoreFailures}(failsafe_update)
 end
@@ -292,17 +293,17 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         push!(uki.process.obs_pred, g_mean) # N_ens x N_data
         push!(uki.process.u_mean, u_mean) # N_ens x N_params
         push!(uki.process.uu_cov, uu_cov) # N_ens x N_data
-
         push!(uki.g, DataContainer(g, data_are_columns = true))
 
         compute_error!(uki)
+
     end
     function failsafe_update(uki, u, g, failed_ens)
         #perform analysis on the model runs
         succ_gauss_analysis!(uki, u, g, failed_ens)
         #perform new prediction output to model parameters u_p
-        u = update_ensemble_prediction!(uki.process, uki.Δt[end])
-        return u
+        u_p = update_ensemble_prediction!(uki.process, uki.Δt[end])
+        return u_p
     end
     return FailureHandler{Unscented, SampleSuccGauss}(failsafe_update)
 end
@@ -565,7 +566,7 @@ function update_ensemble_prediction!(process::Unscented, Δt::FT) where {FT <: A
     r = process.r
     Σ_ω = process.Σ_ω
 
-    N_par = length(process.u_mean[1])
+    N_par = length(u_mean[1])
     ############# Prediction step:
 
     u_p_mean = α_reg * u_mean + (1 - α_reg) * r
@@ -623,10 +624,10 @@ function update_ensemble_analysis!(
     push!(uki.process.obs_pred, g_mean) # N_ens x N_data
     push!(uki.process.u_mean, u_mean) # N_ens x N_params
     push!(uki.process.uu_cov, uu_cov) # N_ens x N_data
-
     push!(uki.g, DataContainer(g, data_are_columns = true))
 
     compute_error!(uki)
+
 end
 
 """
@@ -677,7 +678,6 @@ function update_ensemble!(
 
     u_p = fh.failsafe_update(uki, u_p_old, g_in, failed_ens)
 
-    push!(uki.u, DataContainer(u_p, data_are_columns = true))
 
     if uki.verbose
         cov_new = get_u_cov_final(uki)
