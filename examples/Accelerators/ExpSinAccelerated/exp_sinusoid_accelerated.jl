@@ -70,19 +70,22 @@ end
         # Preallocate so we can track and compare convergences of the methods
         all_convs = zeros(N_trials, N_iterations)
         all_convs_acc = zeros(N_trials, N_iterations)
+        all_convs_acc_cs = zeros(N_trials, N_iterations)
 
         for trial in 1:N_trials
             # We now generate the initial ensemble and set up two EKI objects, one using an accelerator, 
             # to compare convergence.
             initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-            accelerator = NesterovAccelerator()
 
             ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
             ensemble_kalman_process_acc =
-                EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); accelerator = accelerator, rng = rng)
+                EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); accelerator = NesterovAccelerator(), rng = rng)
+            ensemble_kalman_process_acc_cs =
+                EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); accelerator = ConstantStepNesterovAccelerator(), rng = rng)
 
             global convs = zeros(N_iterations)
             global convs_acc = zeros(N_iterations)
+            global convs_acc_cs = zeros(N_iterations)
 
             # We are now ready to carry out the inversion. At each iteration, we get the
             # ensemble from the last iteration, apply ``G(\theta)`` to each ensemble member,
@@ -91,28 +94,37 @@ end
             for i in 1:N_iterations
                 params_i = get_ϕ_final(prior, ensemble_kalman_process)
                 params_i_acc = get_ϕ_final(prior, ensemble_kalman_process_acc)
+                params_i_acc_cs = get_ϕ_final(prior, ensemble_kalman_process_acc_cs)
 
                 G_ens = hcat([G(params_i[:, i]) for i in 1:N_ens]...)
                 G_ens_acc = hcat([G(params_i_acc[:, i]) for i in 1:N_ens]...)
+                G_ens_acc_cs = hcat([G(params_i_acc_cs[:, i]) for i in 1:N_ens]...)
 
                 EKP.update_ensemble!(ensemble_kalman_process, G_ens, deterministic_forward_map = false)
                 EKP.update_ensemble!(ensemble_kalman_process_acc, G_ens_acc, deterministic_forward_map = false)
+                EKP.update_ensemble!(ensemble_kalman_process_acc_cs, G_ens_acc_cs, deterministic_forward_map = false)
 
                 convs[i] = cost(mean(params_i, dims = 2))
                 convs_acc[i] = cost(mean(params_i_acc, dims = 2))
+                convs_acc_cs[i] = cost(mean(params_i_acc_cs, dims = 2))
             end
             all_convs[trial, :] = convs
             all_convs_acc[trial, :] = convs_acc
+            all_convs_acc_cs[trial, :] = convs_acc_cs
         end
 
         gr(size = (400,400), legend = true)
         p = plot(1:N_iterations, mean(all_convs, dims = 1)[:], color = :black, label = "No acceleration")
-        plot!(1:N_iterations, mean(all_convs_acc, dims = 1)[:], color = :red, label = "Nesterov")
+        plot!(1:N_iterations, mean(all_convs_acc, dims = 1)[:], color = :blue, label = "Nesterov")
+        plot!(1:N_iterations, mean(all_convs_acc_cs, dims = 1)[:], color = :red, label = "Nesterov, Constant Step")
         # error bars
         plot!(1:N_iterations, (mean(all_convs, dims=1)[:] + std(all_convs, dims=1)[:]/sqrt(N_trials)), color = :black, ls= :dash, label = "")
         plot!(1:N_iterations, (mean(all_convs, dims=1)[:] - std(all_convs, dims=1)[:]/sqrt(N_trials)), color = :black, ls= :dash, label = "")
-        plot!(1:N_iterations, (mean(all_convs_acc, dims=1)[:] + std(all_convs_acc, dims=1)[:]/sqrt(N_trials)), color = :red, ls= :dash, label = "")
-        plot!(1:N_iterations, (mean(all_convs_acc, dims=1)[:] - std(all_convs_acc, dims=1)[:]/sqrt(N_trials)), color = :red, ls= :dash, label = "")
+        plot!(1:N_iterations, (mean(all_convs_acc, dims=1)[:] + std(all_convs_acc, dims=1)[:]/sqrt(N_trials)), color = :blue, ls= :dash, label = "")
+        plot!(1:N_iterations, (mean(all_convs_acc, dims=1)[:] - std(all_convs_acc, dims=1)[:]/sqrt(N_trials)), color = :blue, ls= :dash, label = "")
+        plot!(1:N_iterations, (mean(all_convs_acc_cs, dims=1)[:] + std(all_convs_acc_cs, dims=1)[:]/sqrt(N_trials)), color = :red, ls= :dash, label = "")
+        plot!(1:N_iterations, (mean(all_convs_acc_cs, dims=1)[:] - std(all_convs_acc_cs, dims=1)[:]/sqrt(N_trials)), color = :red, ls= :dash, label = "")
+
 
         xlabel!("Iteration")
         ylabel!("log(Cost)")

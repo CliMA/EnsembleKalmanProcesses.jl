@@ -86,7 +86,7 @@ prior = pd
 # We define some algorithm parameters, here we take ensemble members larger than the dimension of the parameter space
 N_ens = dofs + 2    # number of ensemble members
 N_iter = 20         # number of EKI iterations
-N_trials = 10       # number of trials 
+N_trials = 5       # number of trials 
 
 """
 Define function run_darcy() with parameter ACCELERATED to solve the Darcy problem using either
@@ -135,9 +135,7 @@ function run_darcy(ACCELERATED::Bool)
     return errs
 end
 
-"""
 
-"""
 function compare_single_trial()
     N_iter = 10 # number of EKI iterations
     initial_params = construct_initial_ensemble(rng, prior, N_ens)
@@ -308,8 +306,8 @@ errs_acc = run_darcy(true)
 
 # compare recorded convergences with and without acceleration
 gr(legend = true)
-conv_plot = plot(1:N_iter, mean(log.(errs_trad), dims=1)[:], label="EKI, traditional", color="black")
-plot!(1:N_iter, mean(log.(errs_acc), dims=1)[:], label="EKI with momentum", color="red")
+conv_plot = plot(1:N_iter, mean(log.(errs_trad), dims=1)[:], label="No acceleration", color="black")
+plot!(1:N_iter, mean(log.(errs_acc), dims=1)[:], label="Nesterov", color="red")
 title!("EKI convergence on Darcy IP")
 xlabel!("Iteration")
 ylabel!("log(Error)")
