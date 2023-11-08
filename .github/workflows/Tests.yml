@@ -3,10 +3,7 @@ name: Run Tests
 on:
   pull_request:
   push:
-    branches:
-      - staging
-      - trying
-      - main
+    tags: '*'
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
