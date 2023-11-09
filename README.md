@@ -13,7 +13,6 @@ If you use the examples or code, please cite our article at JOSS in your publish
 | **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]      |
 | **Unit tests**       | [![unit tests][unit-tests-img]][unit-tests-url]  |
 | **Code Coverage**    | [![codecov][codecov-img]][codecov-url]           |
-| **Bors**             | [![Bors enabled][bors-img]][bors-url]            |
 | **JOSS**             | [![status][joss-img]][joss-url]                  |
 
 [zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6382967.svg
@@ -27,9 +26,6 @@ If you use the examples or code, please cite our article at JOSS in your publish
 
 [unit-tests-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Tests.yml/badge.svg?branch=main
 [unit-tests-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Tests.yml
-
-[bors-img]: https://bors.tech/images/badge_small.svg
-[bors-url]: https://app.bors.tech/repositories/32227
 
 [codecov-img]: https://codecov.io/gh/CliMA/EnsembleKalmanProcesses.jl/branch/main/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/CliMA/EnsembleKalmanProcesses.jl
