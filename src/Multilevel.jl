@@ -39,18 +39,12 @@ levels(ms::MultilevelScheduler) = begin
     )
 end
 
-transform_noise(ms::MultilevelScheduler, noise::AbstractMatrix{FT}) where {FT <: Real} = begin
-    @assert size(noise, 2) == ms.N_indep
-
-    noise[:, vcat(1:ms.N_indep, ms.Js[0]+1:ms.N_indep)]
-end
-
 statistic_groups(ms::MultilevelScheduler) = begin
     groups = []
 
     offset = ms.N_indep - ms.Js[0]
 
-    index = 0;
+    index = 0
     for level in sort(collect(keys(ms.Js)))
         J = ms.Js[level]
         push!(groups, (index+1:index+J, 1))
@@ -64,6 +58,30 @@ statistic_groups(ms::MultilevelScheduler) = begin
     groups
 end
 
+transform_noise(ms::MultilevelScheduler, noise::AbstractMatrix{FT}) where {FT <: Real} = begin
+    @assert size(noise, 2) == ms.N_indep
+
+    noise[:, vcat(1:ms.N_indep, ms.Js[0]+1:ms.N_indep)]
+end
+
+get_correlations(ms::MultilevelScheduler, indices::AbstractVector{IT}) where {IT <: Integer} = begin
+    num_uncorrelated = 0
+    new_indices = map(indices) do i
+        if i <= ms.Js[0]
+            num_uncorrelated += 1
+            i # There is no correlated index
+        elseif i <= ms.N_indep
+            i + (ms.N_indep - ms.Js[0])
+        else
+            i - (ms.N_indep - ms.Js[0])
+        end
+    end
+    all_indices = sort!(unique!(vcat(indices, new_indices)))
+    num_correlated = (length(all_indices) - num_uncorrelated) ÷ 2
+    noise_dim = num_correlated + num_uncorrelated
+    all_indices, hcat(1:num_uncorrelated, num_uncorrelated+1:noise_dim, num_uncorrelated+1:noise_dim), noise_dim
+end
+
 
 get_N_ens(sls::SingleLevelScheduler) = sls.N_ens
 
@@ -71,6 +89,8 @@ get_N_indep(sls::SingleLevelScheduler) = sls.N_ens
 
 levels(sls::SingleLevelScheduler) = fill(sls.level, sls.N_ens)
 
-transform_noise(sls::SingleLevelScheduler, noise::AbstractMatrix{FT}) where {FT <: Real} = noise
-
 statistic_groups(sls::SingleLevelScheduler) = [(1:sls.N_ens, 1)]
+
+transform_noise(::SingleLevelScheduler, noise::AbstractMatrix{FT}) where {FT <: Real} = noise
+
+get_correlations(::SingleLevelScheduler, indices::AbstractVector{IT}) where {IT <: Integer} = (indices, 1:length(indices), length(indices))

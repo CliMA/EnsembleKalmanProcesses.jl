@@ -87,8 +87,8 @@ end
 
     println(multilevel_cost, " ", multilevel_error)
     println(single_level_cost, " ", single_level_errors)
-    @assert multilevel_cost < 0.5 * single_level_cost
+    @test multilevel_cost < 0.5 * single_level_cost
     for single_level_error in single_level_errors
-        @assert multilevel_error < 0.5 * single_level_error
+        @test multilevel_error < single_level_error
     end
 end

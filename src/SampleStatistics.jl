@@ -9,14 +9,16 @@ function posdef(mat)
     V * diagm(S) * V'
 end
 
-function compute_mean(ekp::EnsembleKalmanProcess, u)
-    foldl(statistic_groups(ekp.level_scheduler); init = 0) do acc, (indices, multiplier)
-        multiplier * mean(u[:, indices]; dims = 2) .+ acc
+function compute_mean(ekp::EnsembleKalmanProcess, x; ignored_indices = [])
+    reduce(statistic_groups(ekp.level_scheduler); init = 0) do acc, (indices, multiplier)
+        indices = setdiff(indices, ignored_indices)
+        multiplier * mean(x[:, indices]; dims = 2) .+ acc
     end
 end
 
-function compute_cov(ekp::EnsembleKalmanProcess, u, g; corrected)
-    foldl(statistic_groups(ekp.level_scheduler); init = 0) do acc, (indices, multiplier)
-        multiplier * cov([u; g][:, indices]; corrected = false, dims = 2) .+ acc
+function compute_cov(ekp::EnsembleKalmanProcess, x; corrected, ignored_indices = [])
+    reduce(statistic_groups(ekp.level_scheduler); init = 0) do acc, (indices, multiplier)
+        indices = setdiff(indices, ignored_indices)
+        multiplier * cov(x[:, indices]; corrected, dims = 2) .+ acc
     end
 end

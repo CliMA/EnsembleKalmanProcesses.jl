@@ -960,7 +960,9 @@ end
     rng = Random.MersenneTwister(rng_seed)
 
     u = rand(10, 4)
+    ekp = EKP.EnsembleKalmanProcess(u, [1.;], [1.;;], Inversion())
     @test_logs (:warn, r"Sample covariance matrix over ensemble is singular.") match_mode = :any sample_empirical_gaussian(
+        ekp,
         u,
         2,
     )
@@ -968,8 +970,8 @@ end
     u2 = rand(rng, 5, 20)
     @test all(
         isapprox.(
-            sample_empirical_gaussian(copy(rng), u2, 2),
-            sample_empirical_gaussian(copy(rng), u2, 2, inflation = 0.0);
+            sample_empirical_gaussian(copy(rng), ekp, u2, 2),
+            sample_empirical_gaussian(copy(rng), ekp, u2, 2, inflation = 0.0);
             atol = 1e-8,
         ),
     )
