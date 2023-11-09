@@ -32,6 +32,8 @@ abstract type FailureHandlingMethod end
 # Accelerators
 abstract type Accelerator end
 
+# Level schedulers
+abstract type LevelScheduler end
 
 
 "Failure handling method that ignores forward model failures"
@@ -130,6 +132,8 @@ struct EnsembleKalmanProcess{
     scheduler::LRS
     "accelerator object that informs EK update steps, stores additional state variables as needed"
     accelerator::ACC
+    ""
+    level_scheduler::LevelScheduler
     "stored vector of timesteps used in each EK iteration"
     Δt::Vector{FT}
     "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `TransformInversion` or `SparseInversion`)"
@@ -151,6 +155,7 @@ function EnsembleKalmanProcess(
     process::P;
     scheduler::Union{Nothing, LRS} = nothing,
     accelerator::Union{Nothing, ACC} = nothing,
+    level_scheduler::Union{Nothing, LS} = nothing,
     Δt = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
@@ -160,6 +165,7 @@ function EnsembleKalmanProcess(
     FT <: AbstractFloat,
     LRS <: LearningRateScheduler,
     ACC <: Accelerator,
+    LS <: LevelScheduler,
     P <: Process,
     FM <: FailureHandlingMethod,
     LM <: LocalizationMethod,
@@ -221,6 +227,13 @@ function EnsembleKalmanProcess(
         end
     end
 
+    # set up level scheduler
+    ls = if isnothing(level_scheduler)
+        SingleLevelScheduler(N_ens, LevelInfinity())
+    else
+        level_scheduler
+    end
+
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
     # localizer
@@ -239,6 +252,7 @@ function EnsembleKalmanProcess(
         err,
         lrs,
         acc,
+        ls,
         Δt,
         process,
         rng,
@@ -691,6 +705,8 @@ function update_ensemble!(
 end
 
 
+include("SampleStatistics.jl")
+
 ## include the different types of Processes and their exports:
 
 # struct Inversion
@@ -719,3 +735,6 @@ include("UnscentedKalmanInversion.jl")
 
 # struct Accelerator
 include("Accelerators.jl")
+
+# Level schedulers
+include("Multilevel.jl")

@@ -56,11 +56,13 @@ function eki_update(
     obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
 ) where {FT <: Real, IT, CT <: Real}
 
-    cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
+    cov_est = compute_cov(ekp, u, g; corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
     # Localization
     cov_localized = ekp.localizer.localize(cov_est)
+
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
+    cov_gg = posdef(cov_gg)
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
@@ -108,9 +110,10 @@ function update_ensemble!(
     # g: N_obs × N_ens
     u = get_u_final(ekp)
     N_obs = size(g, 1)
-    cov_init = cov(u, dims = 2)
 
     if ekp.verbose
+        cov_init = get_cov_blocks(compute_cov(ekp, u, g; corrected = true))[1]
+
         if get_N_iterations(ekp) == 0
             @info "Iteration 0 (prior)"
             @info "Covariance trace: $(tr(cov_init))"
@@ -123,7 +126,9 @@ function update_ensemble!(
 
     # Scale noise using Δt
     scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
-    noise = sqrt(scaled_obs_noise_cov) * rand(ekp.rng, MvNormal(zeros(N_obs), I), ekp.N_ens)
+    independent_noise_dim = get_N_indep(ekp.level_scheduler)
+    noise = scaled_obs_noise_cov * rand(ekp.rng, MvNormal(zeros(N_obs), I), independent_noise_dim)
+    noise = transform_noise(ekp.level_scheduler, noise)
 
     # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic
@@ -143,10 +148,10 @@ function update_ensemble!(
     # Store error
     compute_error!(ekp)
 
-    # Diagnostics
-    cov_new = cov(u, dims = 2)
-
     if ekp.verbose
+        # Diagnostics
+        cov_new = get_cov_blocks(compute_cov(ekp, u, g; corrected = true))[1]
+
         @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
     end
 
