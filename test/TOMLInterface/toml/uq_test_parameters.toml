@@ -40,6 +40,19 @@ constraint = "repeat([no_constraint()], 3)"
 prior = "VectorOfParameterized([Gamma(2.0, 3.0), LogNormal(0.1, 0.1), Normal(0.0, 10.0)])"
 constraint = "[no_constraint(), no_constraint(), bounded_below(-5.0)]"
 
+# Test for `constrained_gaussian` constructor
+# Basic
+[uq_param_9]
+prior = "constrained_gaussian(uq_param_9, 55.47802418037957, 10, 0, Inf)"
+
+# Non-positional kwarg
+[uq_param_10]
+prior = "constrained_gaussian(uq_param_10, 55.47802418037957, 10, 0, Inf; repeats = 3)"
+
+# Positional kwarg
+[uq_param_11]
+prior = "constrained_gaussian(uq_param_11, 55.47802418037957, 10, 0, Inf, repeats = 3)"
+
 # The six parameters below are interpreted as "regular" (non-UQ) parameters, as they
 # they either have no key "prior", or a key "prior" that is set to "fixed"
 [mean_sea_level_pressure]

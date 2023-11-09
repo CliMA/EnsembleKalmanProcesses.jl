@@ -51,6 +51,26 @@ const EKP = EnsembleKalmanProcesses
             [no_constraint(), no_constraint(), bounded_below(-5.0)],
             "uq_param_8",
         ),
+        "uq_param_9" =>
+            ParameterDistribution(Parameterized(Normal(4.0, 0.17881264846405112)), [bounded(0, Inf)], "uq_param_9"),
+        "uq_param_10" => ParameterDistribution(
+            VectorOfParameterized([
+                Normal(4.0, 0.17881264846405112),
+                Normal(4.0, 0.17881264846405112),
+                Normal(4.0, 0.17881264846405112),
+            ]),
+            [bounded(0, Inf), bounded(0, Inf), bounded(0, Inf)],
+            "uq_param_10",
+        ),
+        "uq_param_11" => ParameterDistribution(
+            VectorOfParameterized([
+                Normal(4.0, 0.17881264846405112),
+                Normal(4.0, 0.17881264846405112),
+                Normal(4.0, 0.17881264846405112),
+            ]),
+            [bounded(0, Inf), bounded(0, Inf), bounded(0, Inf)],
+            "uq_param_11",
+        ),
     )
 
     # Get all `ParameterDistribution`s. We also add dummy (key, value) pairs
@@ -65,6 +85,7 @@ const EKP = EnsembleKalmanProcesses
 
     @test_throws ArgumentError get_parameter_distribution(bad_param_dict, "uq_param_baddist")
     @test_throws ArgumentError get_regularization(bad_param_dict, "uq_param_badL")
+    @test_throws ArgumentError get_parameter_distribution(bad_param_dict, "uq_param_bad_constrain_gauss")
 
     for param_name in uq_param_names
         param_dict[param_name]["description"] = param_name * descr
