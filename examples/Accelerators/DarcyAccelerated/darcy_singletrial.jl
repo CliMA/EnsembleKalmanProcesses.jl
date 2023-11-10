@@ -58,7 +58,9 @@ function main()
     pkg = GRFJL()
     distribution = GaussianRandomFieldInterface(grf, pkg) # our wrapper from EKP
     domain_constraint = bounded_below(0) # make κ positive
-    pd = ParameterDistribution(Dict("distribution" => distribution, "name" => "kappa", "constraint" => domain_constraint)) # the fully constrained parameter distribution
+    pd = ParameterDistribution(
+        Dict("distribution" => distribution, "name" => "kappa", "constraint" => domain_constraint),
+    ) # the fully constrained parameter distribution
 
     # Now we have a function distribution, we sample a reasonably high-probability value from this distribution as a true value (here all degrees of freedom set with `u_{\mathrm{true}} = -0.5`). We use the EKP transform function to build the corresponding instance of the ``\kappa_{\mathrm{true}}``.
     u_true = -1.5 * ones(dofs, 1) # the truth parameter
@@ -114,7 +116,7 @@ function main()
 
     ## Now we plot the final ensemble mean and pointwise variance of the permeability field, and also the pressure field solved with the ensemble mean.
     h_2d_true = solve_Darcy_2D(darcy, κ_true)
-            
+
     gr(size = (1500, 400), legend = false)
     final_κ_ens = get_ϕ_final(prior, eki_trad) # the `ϕ` indicates that the `params_i` are in the constrained space
     κ_ens_mean = reshape(mean(final_κ_ens, dims = 2), N, N)
@@ -226,12 +228,11 @@ function main()
     l = @layout [a c]
     plt = plot(p1, p3; layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_diff_it_" * string(N_iter) * "_acc.png"))
-    
+
     h_2d = solve_Darcy_2D(darcy, κ_true) #?
     gr(size = (1500, 400), legend = false)
     p1 = contour(pts_per_dim, pts_per_dim, κ_true', fill = true, levels = 15, title = "kappa true", colorbar = true)
-    p2 =
-        contour(pts_per_dim, pts_per_dim, h_2d', fill = true, levels = 15, title = "pressure true", colorbar = true)
+    p2 = contour(pts_per_dim, pts_per_dim, h_2d', fill = true, levels = 15, title = "pressure true", colorbar = true)
     l = @layout [a b]
     plt = plot(p1, p2, layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_true.png"))
