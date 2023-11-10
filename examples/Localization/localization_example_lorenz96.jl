@@ -48,7 +48,7 @@ function lorenz96(t, u, p)
     return copy(du)
 end
 
-D = 20
+D = 200
 
 lorenz96_sys = (t, u) -> lorenz96(t, u, Dict("N" => D))
 
@@ -116,19 +116,26 @@ for i in 1:N_iter
     EKP.update_ensemble!(ekiobj_sec_cutoff, g_ens, deterministic_forward_map = true)
 end
 
+# Test SECFisher
+ekiobj_sec_fisher =
+    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SECFisher())
+
+for i in 1:N_iter
+    g_ens = G(get_ϕ_final(prior, ekiobj_sec_fisher))
+    EKP.update_ensemble!(ekiobj_sec_fisher, g_ens, deterministic_forward_map = true)
+end
 
 u_final = get_u_final(ekiobj_sec)
 g_final = get_g_final(ekiobj_sec)
 cov_est = cov([u_final; g_final], [u_final; g_final], dims = 2, corrected = false)
 cov_localized = ekiobj_sec.localizer.localize(cov_est)
 
-# fig = plot(get_error(ekiobj_vanilla), label = "No localization")
-# display(fig)
-# plot!(get_error(ekiobj_bernoulli), label = "Bernoulli")
-# plot!(get_error(ekiobj_sec), label = "SEC (Lee, 2021)")
-# plot!(get_error(ekiobj_sec_fisher), label = "SECFisher (Flowerdew, 2015)")
-# plot!(get_error(ekiobj_sec_cutoff), label = "SEC with cutoff")
+fig = plot(get_error(ekiobj_vanilla), label = "No localization")
+plot!(get_error(ekiobj_bernoulli), label = "Bernoulli")
+plot!(get_error(ekiobj_sec), label = "SEC (Lee, 2021)")
+plot!(get_error(ekiobj_sec_fisher), label = "SECFisher (Flowerdew, 2015)")
+plot!(get_error(ekiobj_sec_cutoff), label = "SEC with cutoff")
 
-# xlabel!("Iterations")
-# ylabel!("Error")
-# savefig(fig, "result.png")
+xlabel!("Iterations")
+ylabel!("Error")
+savefig(fig, "result.png")

@@ -10,6 +10,8 @@ using EnsembleKalmanProcesses.Localizers
 import EnsembleKalmanProcesses: construct_mean, construct_cov, construct_sigma_ensemble
 const EKP = EnsembleKalmanProcesses
 
+fig_save_directory = @__DIR__
+
 function rk4(f::F, y0::Array{Float64, 1}, t0::Float64, t1::Float64, h::Float64; inplace::Bool = true) where {F}
     y = y0
     n = round(Int, (t1 - t0) / h)
@@ -48,74 +50,140 @@ function lorenz96(t, u, p)
     return copy(du)
 end
 
-D = 20
 
-lorenz96_sys = (t, u) -> lorenz96(t, u, Dict("N" => D))
+function main()
+    D = 20
+    USE_SCHEDULER = true
+    scheduler_def = DataMisfitController(on_terminate = "continue")
 
-# Seed for pseudo-random number generator
-rng_seed = 42
-rng = Random.MersenneTwister(rng_seed)
-dt = 0.05
-y0 = rk4(lorenz96_sys, randn(D), 0.0, 1000.0, dt)
+    lorenz96_sys = (t, u) -> lorenz96(t, u, Dict("N" => D))
 
-# Lorenz96 initial condition problem - Section 6.3 of Tong and Morzfeld (2022)
-G(u) = mapslices((u) -> rk4(lorenz96_sys, u, 0.0, 0.4, dt), u, dims = 1)
-p = D
-# Generate random truth
-y = y0 + randn(D)
-Γ = 1.0 * I
+    # Seed for pseudo-random number generator
+    rng_seed = 42
+    rng = Random.MersenneTwister(rng_seed)
+    dt = 0.05
+    y0 = rk4(lorenz96_sys, randn(D), 0.0, 1000.0, dt)
 
-#### Define prior information on parameters
-priors = map(1:p) do i
-    constrained_gaussian(string("u", i), 0.0, 1.0, -Inf, Inf)
-end
-prior = combine_distributions(priors)
+    # Lorenz96 initial condition problem - Section 6.3 of Tong and Morzfeld (2022)
+    G(u) = mapslices((u) -> rk4(lorenz96_sys, u, 0.0, 0.4, dt), u, dims = 1)
+    p = D
+    # Generate random truth
+    y = y0 + randn(D)
+    Γ = 1.0 * I
 
-N_ens = 20
-N_iter = 20
-N_trials = 50
-errs = zeros(N_trials,N_iter)
-errs_acc = zeros(N_trials,N_iter)
-errs_acc_cs = zeros(N_trials,N_iter)
-
-for trial in 1:N_trials
-    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-
-    # We create 3 EKP Inversion objects to compare acceleration.
-    ekiobj_vanilla = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
-    ekiobj_acc = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, accelerator=NesterovAccelerator())
-    ekiobj_acc_cs = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, accelerator=ConstantStepNesterovAccelerator())
-
-    err = zeros(N_iter)
-    err_acc = zeros(N_iter)
-    err_acc_cs = zeros(N)
-    for i in 1:N_iter
-        g_ens_vanilla = G(get_ϕ_final(prior, ekiobj_vanilla))
-        EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = true)
-        g_ens_acc = G(get_ϕ_final(prior, ekiobj_acc))
-        EKP.update_ensemble!(ekiobj_acc, g_ens_acc, deterministic_forward_map = true)
-        g_ens_acc_cs = G(get_ϕ_final(prior, ekiobj_acc_cs))
-        EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs, deterministic_forward_map = true)
+    #### Define prior information on parameters
+    priors = map(1:p) do i
+        constrained_gaussian(string("u", i), 0.0, 1.0, -Inf, Inf)
     end
-    errs[trial,:] = get_error(ekiobj_vanilla)
-    errs_acc[trial,:] = get_error(ekiobj_acc)
-    errs_acc_cs[trial,:] = get_error(ekiobj_acc_cs)
+    prior = combine_distributions(priors)
+
+    N_ens = 20
+    N_iter = 20
+    N_trials = 50
+    errs = zeros(N_trials, N_iter)
+    errs_acc = zeros(N_trials, N_iter)
+    errs_acc_cs = zeros(N_trials, N_iter)
+
+    for trial in 1:N_trials
+        initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+
+        if USE_SCHEDULER
+            scheduler_van = deepcopy(scheduler_def)
+            scheduler_acc = deepcopy(scheduler_def)
+            scheduler_acc_cs = deepcopy(scheduler_def)
+        else
+            scheduler = nothing
+        end
+        # We create 3 EKP Inversion objects to compare acceleration.
+        ekiobj_vanilla =
+            EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, scheduler = scheduler_van)
+        ekiobj_acc = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y,
+            Γ,
+            Inversion();
+            rng = rng,
+            accelerator = NesterovAccelerator(),
+            scheduler = scheduler_acc,
+        )
+        ekiobj_acc_cs = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y,
+            Γ,
+            Inversion();
+            rng = rng,
+            accelerator = ConstantStepNesterovAccelerator(),
+            scheduler = scheduler_acc_cs,
+        )
+
+        err = zeros(N_iter)
+        err_acc = zeros(N_iter)
+        err_acc_cs = zeros(N_iter)
+        for i in 1:N_iter
+            g_ens_vanilla = G(get_ϕ_final(prior, ekiobj_vanilla))
+            EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = true)
+            g_ens_acc = G(get_ϕ_final(prior, ekiobj_acc))
+            EKP.update_ensemble!(ekiobj_acc, g_ens_acc, deterministic_forward_map = true)
+            g_ens_acc_cs = G(get_ϕ_final(prior, ekiobj_acc_cs))
+            EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs, deterministic_forward_map = true)
+        end
+        errs[trial, :] = get_error(ekiobj_vanilla)
+        errs_acc[trial, :] = get_error(ekiobj_acc)
+        errs_acc_cs[trial, :] = get_error(ekiobj_acc_cs)
+    end
+
+    # COMPARE CONVERGENCES
+
+    convplot = plot(1:(N_iter), mean(errs, dims = 1)[:], color = :black, label = "No acceleration")
+    plot!(1:(N_iter), mean(errs_acc, dims = 1)[:], color = :blue, label = "Nesterov Accelerator")
+    plot!(1:(N_iter), mean(errs_acc_cs, dims = 1)[:], color = :red, label = "Nesterov Accelerator, Constant Step")
+    title!("EKI convergence on Lorenz96 IP, N_trials=" * string(N_trials))
+
+    # error bars
+    plot!(
+        1:(N_iter),
+        (mean(errs, dims = 1)[:] + std(errs, dims = 1)[:] / sqrt(N_trials)),
+        color = :black,
+        ls = :dash,
+        label = "",
+    )
+    plot!(
+        1:(N_iter),
+        (mean(errs, dims = 1)[:] - std(errs, dims = 1)[:] / sqrt(N_trials)),
+        color = :black,
+        ls = :dash,
+        label = "",
+    )
+    plot!(
+        1:(N_iter),
+        (mean(errs_acc, dims = 1)[:] + std(errs_acc, dims = 1)[:] / sqrt(N_trials)),
+        color = :blue,
+        ls = :dash,
+        label = "",
+    )
+    plot!(
+        1:(N_iter),
+        (mean(errs_acc, dims = 1)[:] - std(errs_acc, dims = 1)[:] / sqrt(N_trials)),
+        color = :blue,
+        ls = :dash,
+        label = "",
+    )
+    plot!(
+        1:(N_iter),
+        (mean(errs_acc_cs, dims = 1)[:] + std(errs_acc_cs, dims = 1)[:] / sqrt(N_trials)),
+        color = :red,
+        ls = :dash,
+        label = "",
+    )
+    plot!(
+        1:(N_iter),
+        (mean(errs_acc_cs, dims = 1)[:] - std(errs_acc_cs, dims = 1)[:] / sqrt(N_trials)),
+        color = :red,
+        ls = :dash,
+        label = "",
+    )
+
+    savefig(convplot, joinpath(fig_save_directory, "lorenz96.png"))
 end
 
-# COMPARE CONVERGENCES
-
-convplot = plot(1:(N_iter), mean(errs, dims=1)[:], color = :black, label = "No acceleration")
-plot!(1:(N_iter), mean(errs_acc, dims=1)[:], color = :blue, label = "Nesterov Accelerator")
-plot!(1:(N_iter), mean(errs_acc_cs, dims=1)[:], color = :red, label = "Nesterov Accelerator, Constant Step")
-title!("EKI convergence on Lorenz96 IP, N_trials="*string(N_trials))
-
-# error bars
-plot!(1:(N_iter), (mean(errs, dims=1)[:] + std(errs, dims=1)[:]/sqrt(N_trials)), color = :black, ls= :dash, label = "")
-plot!(1:(N_iter), (mean(errs, dims=1)[:] - std(errs, dims=1)[:]/sqrt(N_trials)), color = :black, ls= :dash, label = "")
-plot!(1:(N_iter), (mean(errs_acc, dims=1)[:] + std(errs_acc, dims=1)[:]/sqrt(N_trials)), color = :blue, ls= :dash, label = "")
-plot!(1:(N_iter), (mean(errs_acc, dims=1)[:] - std(errs_acc, dims=1)[:]/sqrt(N_trials)), color = :blue, ls= :dash, label = "")
-plot!(1:(N_iter), (mean(errs_acc_cs, dims=1)[:] + std(errs_acc_cs, dims=1)[:]/sqrt(N_trials)), color = :red, ls= :dash, label = "")
-plot!(1:(N_iter), (mean(errs_acc_cs, dims=1)[:] - std(errs_acc_cs, dims=1)[:]/sqrt(N_trials)), color = :red, ls= :dash, label = "")
-
-display(convplot)
-
+main()
