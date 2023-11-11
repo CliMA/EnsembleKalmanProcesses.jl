@@ -85,7 +85,7 @@ function main()
             scheduler_acc = deepcopy(scheduler_def)
             scheduler_acc_cs = deepcopy(scheduler_def)
         else
-            scheduler = nothing
+            scheduler = DefaultScheduler(0.1)
         end
 
         ensemble_kalman_process =

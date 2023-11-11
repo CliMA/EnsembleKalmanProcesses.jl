@@ -44,8 +44,8 @@ function main()
     seed = 100234
     rng = Random.MersenneTwister(seed)
 
-    USE_SCHEDULER = false
-    scheduler_def = DataMisfitController()
+    USE_SCHEDULER = true
+    scheduler_def = DataMisfitController(on_terminate = "continue")
 
     # Define the spatial domain and discretization 
     dim = 2
@@ -107,9 +107,9 @@ function main()
 
         for trial in 1:N_trials
             if USE_SCHEDULER
-                scheduler = deepcopy(scheduler_def)
+                scheduler = scheduler_def
             else
-                scheduler = nothing
+                scheduler = DefaultScheduler(0.1)
             end
 
             # We sample the initial ensemble from the prior, and create the EKP object as an EKI algorithm using the `Inversion()` keyword
@@ -121,7 +121,7 @@ function main()
                     obs_noise_cov,
                     Inversion(),
                     accelerator = NesterovAccelerator(),
-                    scheduler = scheduler,
+                    scheduler = deepcopy(scheduler),
                 )
             else
                 ekiobj = EKP.EnsembleKalmanProcess(
@@ -129,7 +129,7 @@ function main()
                     truth_sample,
                     obs_noise_cov,
                     Inversion(),
-                    scheduler = DefaultScheduler(0.5),
+                    scheduler = deepcopy(scheduler),
                 )
             end
 

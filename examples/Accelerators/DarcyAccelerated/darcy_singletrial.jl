@@ -84,13 +84,20 @@ function main()
 
     N_iter = 10 # number of EKI iterations
     initial_params = construct_initial_ensemble(rng, prior, N_ens)
-    eki_trad = EKP.EnsembleKalmanProcess(initial_params, truth_sample, obs_noise_cov, Inversion())#,scheduler = DataMisfitController(on_terminate = "continue"))
+    eki_trad = EKP.EnsembleKalmanProcess(
+        initial_params,
+        truth_sample,
+        obs_noise_cov,
+        Inversion(),
+        scheduler = DefaultScheduler(0.1),
+    )#,scheduler = DataMisfitController(on_terminate = "continue"))
     eki_acc = EKP.EnsembleKalmanProcess(
         initial_params,
         truth_sample,
         obs_noise_cov,
         Inversion(),
         accelerator = NesterovAccelerator(),
+        scheduler = DefaultScheduler(0.1),
     )
 
     err = zeros(N_iter)

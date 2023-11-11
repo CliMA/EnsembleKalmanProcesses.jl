@@ -92,7 +92,7 @@ function main()
             scheduler_acc = deepcopy(scheduler_def)
             scheduler_acc_cs = deepcopy(scheduler_def)
         else
-            scheduler = nothing
+            scheduler = DefaultScheduler(0.1)
         end
         # We create 3 EKP Inversion objects to compare acceleration.
         ekiobj_vanilla =
