@@ -206,14 +206,14 @@ function collect_from_expr(e::Expr, eltype::AbstractString; repeat::Bool = false
 
         for i in 1:n_elem
             elem = e.args[i]
-            arr[i] = getfield(Main, elem.args[1])(elem.args[2:end]...)
+            arr[i] = getfield(ParameterDistributions, elem.args[1])(elem.args[2:end]...)
         end
 
         return repeat ? arr[1] : arr
 
     else
         # There is a single distribution / constraint
-        return getfield(Main, e.args[1])(e.args[2:end]...)
+        return getfield(ParameterDistributions, e.args[1])(e.args[2:end]...)
     end
 
 end
@@ -234,15 +234,15 @@ function get_distribution_from_expr(d::Expr)
     dist_type_symb = d.args[1]
 
     if dist_type_symb == Symbol("Parameterized")
-        dist = getfield(Main, d.args[2].args[1])
+        dist = getfield(Distributions, d.args[2].args[1])
         dist_args = d.args[2].args[2:end]
-        dist_type = getfield(Main, dist_type_symb)
+        dist_type = getfield(ParameterDistributions, dist_type_symb)
 
         return dist_type(dist(dist_args...))
 
     elseif dist_type_symb == Symbol("Samples")
         dist_args = construct_2d_array(d.args[2])
-        dist_type = getfield(Main, dist_type_symb)
+        dist_type = getfield(ParameterDistributions, dist_type_symb)
 
         return dist_type(dist_args)
 
