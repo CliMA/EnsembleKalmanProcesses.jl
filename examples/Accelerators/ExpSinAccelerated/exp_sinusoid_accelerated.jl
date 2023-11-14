@@ -41,7 +41,7 @@ end
 
 function main()
     USE_SCHEDULER = false
-    scheduler_def = DataMisfitController()
+    scheduler_def = DataMisfitController(on_terminate = "continue")
 
     dim_output = 2
     Γ = 0.01 * I
@@ -50,7 +50,7 @@ function main()
     y = G(theta_true) .+ rand(noise_dist)
 
     # We define a variety of prior distributions so we can study
-    # the effectiveness of momentum on this problem.
+    # the effectiveness of accelerators on this problem.
 
     prior_u1 = constrained_gaussian("amplitude", 2, 0.1, 0, 10)
     prior_u2 = constrained_gaussian("vert_shift", 0, 0.5, -10, 10)
@@ -85,7 +85,9 @@ function main()
             scheduler_acc = deepcopy(scheduler_def)
             scheduler_acc_cs = deepcopy(scheduler_def)
         else
-            scheduler = DefaultScheduler(0.1)
+            scheduler = DefaultScheduler()
+            scheduler_acc = DefaultScheduler()
+            scheduler_acc_cs = DefaultScheduler()
         end
 
         ensemble_kalman_process =
