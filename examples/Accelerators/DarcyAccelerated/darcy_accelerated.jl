@@ -44,7 +44,7 @@ function main()
     seed = 100234
     rng = Random.MersenneTwister(seed)
 
-    USE_SCHEDULER = true
+    USE_SCHEDULER = false
     scheduler_def = DataMisfitController(on_terminate = "continue")
 
     # Define the spatial domain and discretization 
@@ -54,7 +54,6 @@ function main()
     obs_ΔN = 10
 
     # To provide a simple test case, we assume that the true function parameter is a particular sample from the function space we set up to define our prior. More precisely we choose a value of the truth that doesnt have a vanishingly small probability under the prior defined by a probability distribution over functions; here taken as a family of Gaussian Random Fields (GRF). The function distribution is characterized by a covariance function - here a Matern kernel which assumes a level of smoothness over the samples from the distribution. We define an appropriate expansion of this distribution, here based on the Karhunen-Loeve expansion (similar to an eigenvalue-eigenfunction expansion) that is truncated to a finite number of terms, known as the degrees of freedom (`dofs`). The `dofs` define the effective dimension of the learning problem, decoupled from the spatial discretization. Explicitly, larger `dofs` may be required to represent multiscale functions, but come at an increased dimension of the parameter space and therefore a typical increase in cost and difficulty of the learning problem.
-
     smoothness = 1.0
     corr_length = 0.25
     dofs = 50
@@ -94,77 +93,88 @@ function main()
     N_iter = 20         # number of EKI iterations
     N_trials = 5       # number of trials 
 
-    """
-    Define function run_darcy() with parameter ACCELERATED to solve the Darcy problem using either
-    the default EKI algorithm (ACCELERATED=TRUE) or the EKI algorithm with Nesterov acceleration (ACCELERATED=FALSE).
+    errs = zeros(N_trials, N_iter)
+    errs_acc = zeros(N_trials, N_iter)
+    errs_acc_cs = zeros(N_trials, N_iter)
 
-    Returns a vector of errors evaluated after each EKI iteration.
-    """
-    function run_darcy(ACCELERATED::Bool)
-        errs = zeros(N_trials, N_iter)
-
-        # can make separate RNG for each thread, run with multithreading
-
-        for trial in 1:N_trials
-            if USE_SCHEDULER
-                scheduler = scheduler_def
-            else
-                scheduler = DefaultScheduler(0.1)
-            end
-
-            # We sample the initial ensemble from the prior, and create the EKP object as an EKI algorithm using the `Inversion()` keyword
-            initial_params = construct_initial_ensemble(rng, prior, N_ens)
-            if ACCELERATED
-                ekiobj = EKP.EnsembleKalmanProcess(
-                    initial_params,
-                    truth_sample,
-                    obs_noise_cov,
-                    Inversion(),
-                    accelerator = NesterovAccelerator(),
-                    scheduler = deepcopy(scheduler),
-                )
-            else
-                ekiobj = EKP.EnsembleKalmanProcess(
-                    initial_params,
-                    truth_sample,
-                    obs_noise_cov,
-                    Inversion(),
-                    scheduler = deepcopy(scheduler),
-                )
-            end
-
-            # Run the EKI algorithm using EKP functions, recording parameter error after each iteration.
-            err = zeros(N_iter)
-            for i in 1:N_iter
-                params_i = get_ϕ_final(prior, ekiobj)
-                g_ens = run_G_ensemble(darcy, params_i)
-                EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
-                err[i] = get_error(ekiobj)[end]
-                errs[trial, :] = err
-            end
-
+    for trial in 1:N_trials
+        if USE_SCHEDULER
+            scheduler = scheduler_def
+        else
+            scheduler = DefaultScheduler(0.1)
         end
-        return errs
+
+        # We sample the initial ensemble from the prior, and create three EKP objects to 
+        # perform EKI algorithm using three different acceleration methods.
+        initial_params = construct_initial_ensemble(rng, prior, N_ens)
+        ekiobj = EKP.EnsembleKalmanProcess(
+            initial_params,
+            truth_sample,
+            obs_noise_cov,
+            Inversion(),
+            scheduler = deepcopy(scheduler),
+        )
+        ekiobj_acc = EKP.EnsembleKalmanProcess(
+            initial_params,
+            truth_sample,
+            obs_noise_cov,
+            Inversion(),
+            accelerator = NesterovAccelerator(),
+            scheduler = deepcopy(scheduler),
+        )
+        ekiobj_acc_cs = EKP.EnsembleKalmanProcess(
+            initial_params,
+            truth_sample,
+            obs_noise_cov,
+            Inversion(),
+            accelerator = ConstantStepNesterovAccelerator(),
+            scheduler = deepcopy(scheduler),
+        )
+
+        # Run EKI algorithm, recording parameter error after each iteration.
+        err = zeros(N_iter)
+        err_acc = zeros(N_iter)
+        err_acc_cs = zeros(N_iter)
+        for i in 1:N_iter
+            params_i = get_ϕ_final(prior, ekiobj)
+            params_i_acc = get_ϕ_final(prior, ekiobj_acc)
+            params_i_acc_cs = get_ϕ_final(prior, ekiobj_acc_cs)
+
+            g_ens = run_G_ensemble(darcy, params_i)
+            g_ens_acc = run_G_ensemble(darcy, params_i_acc)
+            g_ens_acc_cs = run_G_ensemble(darcy, params_i_acc_cs)
+
+            EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
+            EKP.update_ensemble!(ekiobj_acc, g_ens_acc, deterministic_forward_map = true)
+            EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs, deterministic_forward_map = true)
+
+            err[i] = log.(get_error(ekiobj)[end])
+            errs[trial, :] = err
+            err_acc[i] = log.(get_error(ekiobj_acc)[end])
+            errs_acc[trial, :] = err_acc
+            err_acc_cs[i] = log.(get_error(ekiobj_acc_cs)[end])
+            errs_acc_cs[trial, :] = err_acc_cs
+        end
+
     end
 
-    errs_trad = log.(run_darcy(false))
-    errs_acc = log.(run_darcy(true))
 
-    # compare recorded convergences with and without acceleration
+    # compare recorded convergences with default, Nesterov, and Constant-Step Nesterov accelerators
     gr(legend = true)
-    conv_plot = plot(1:N_iter, mean((errs_trad), dims = 1)[:], label = "No acceleration", color = "black")
-    plot!(1:N_iter, mean((errs_acc), dims = 1)[:], label = "Nesterov", color = "red")
+    conv_plot = plot(1:N_iter, mean((errs), dims = 1)[:], label = "No acceleration", color = "black")
+    plot!(1:N_iter, mean((errs_acc), dims = 1)[:], label = "Nesterov", color = "blue")
+    plot!(1:N_iter, mean((errs_acc_cs), dims = 1)[:], label = "Nesterov, Constant Step", color = "red")
     # error bars
     plot!(
         1:N_iter,
-        (mean(errs_trad, dims = 1)[:] + std(errs_trad, dims = 1)[:] / sqrt(N_trials)),
+        (mean(errs, dims = 1)[:] + std(errs, dims = 1)[:] / sqrt(N_trials)),
         color = :black,
         ls = :dash,
         label = "",
     )
     plot!(
         1:N_iter,
-        (mean(errs_trad, dims = 1)[:] - std(errs_trad, dims = 1)[:] / sqrt(N_trials)),
+        (mean(errs, dims = 1)[:] - std(errs, dims = 1)[:] / sqrt(N_trials)),
         color = :black,
         ls = :dash,
         label = "",
@@ -172,13 +182,27 @@ function main()
     plot!(
         1:N_iter,
         (mean(errs_acc, dims = 1)[:] + std(errs_acc, dims = 1)[:] / sqrt(N_trials)),
-        color = :red,
+        color = :blue,
         ls = :dash,
         label = "",
     )
     plot!(
         1:N_iter,
         (mean(errs_acc, dims = 1)[:] - std(errs_acc, dims = 1)[:] / sqrt(N_trials)),
+        color = :blue,
+        ls = :dash,
+        label = "",
+    )
+    plot!(
+        1:N_iter,
+        (mean(errs_acc_cs, dims = 1)[:] + std(errs_acc_cs, dims = 1)[:] / sqrt(N_trials)),
+        color = :red,
+        ls = :dash,
+        label = "",
+    )
+    plot!(
+        1:N_iter,
+        (mean(errs_acc_cs, dims = 1)[:] - std(errs_acc_cs, dims = 1)[:] / sqrt(N_trials)),
         color = :red,
         ls = :dash,
         label = "",

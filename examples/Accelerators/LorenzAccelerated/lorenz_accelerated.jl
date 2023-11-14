@@ -53,7 +53,7 @@ end
 
 function main()
     D = 20
-    USE_SCHEDULER = true
+    USE_SCHEDULER = false
     scheduler_def = DataMisfitController(on_terminate = "continue")
 
     lorenz96_sys = (t, u) -> lorenz96(t, u, Dict("N" => D))
@@ -92,7 +92,9 @@ function main()
             scheduler_acc = deepcopy(scheduler_def)
             scheduler_acc_cs = deepcopy(scheduler_def)
         else
-            scheduler = DefaultScheduler(0.1)
+            scheduler_van = DefaultScheduler()
+            scheduler_acc = DefaultScheduler()
+            scheduler_acc_cs = DefaultScheduler()
         end
         # We create 3 EKP Inversion objects to compare acceleration.
         ekiobj_vanilla =
@@ -135,8 +137,8 @@ function main()
     # COMPARE CONVERGENCES
 
     convplot = plot(1:(N_iter), mean(errs, dims = 1)[:], color = :black, label = "No acceleration")
-    plot!(1:(N_iter), mean(errs_acc, dims = 1)[:], color = :blue, label = "Nesterov Accelerator")
-    plot!(1:(N_iter), mean(errs_acc_cs, dims = 1)[:], color = :red, label = "Nesterov Accelerator, Constant Step")
+    plot!(1:(N_iter), mean(errs_acc, dims = 1)[:], color = :blue, label = "Nesterov")
+    plot!(1:(N_iter), mean(errs_acc_cs, dims = 1)[:], color = :red, label = "Nesterov, Constant Step")
     title!("EKI convergence on Lorenz96 IP, N_trials=" * string(N_trials))
 
     # error bars
