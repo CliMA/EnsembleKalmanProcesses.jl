@@ -113,7 +113,7 @@ function accelerate!(
 
     b = θ_prev^2
     θ = (-b + sqrt(b^2 + 4 * b)) / 2
-    
+
     v = u .+ θ * (1 / θ_prev - 1) * (u .- ekp.accelerator.u_prev)
     ## update "u" state: 
     ekp.accelerator.u_prev = u
@@ -238,7 +238,7 @@ function accelerate!(
     u::MA,
 ) where {FT <: AbstractFloat, IT <: Int, P <: Process, LRS <: LearningRateScheduler, MA <: AbstractMatrix}
     ## update "v" state:
-    k = get_N_iterations(ekp) + 3
+    k = get_N_iterations(ekp) + 3 # get_N_iterations starts at 0
     v = u .+ (1 - ekp.accelerator.r / k) * (u .- ekp.accelerator.u_prev)
 
     ## update "u" state: 
@@ -260,7 +260,7 @@ function accelerate!(
 
     #identical update stage as before
     ## update "v" state:
-    k = get_N_iterations(uki) + 3
+    k = get_N_iterations(uki) + 3  # get_N_iterations starts at 0
     v = u .+ (1 - uki.accelerator.r / k) * (u .- uki.accelerator.u_prev)
 
     ## update "u" state: 
