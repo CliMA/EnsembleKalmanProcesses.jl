@@ -169,6 +169,8 @@ function main()
             err_acc_cs[i] = log.(get_error(ekiobj_acc_cs)[end])
             errs_acc_cs[trial, :] = err_acc_cs
         end
+        
+        GC.gc()
 
     end
 
