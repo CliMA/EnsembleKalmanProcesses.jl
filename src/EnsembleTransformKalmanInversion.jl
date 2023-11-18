@@ -32,7 +32,7 @@ function FailureHandler(process::TransformInversion, method::SampleSuccGauss)
         n_failed = length(failed_ens)
         u[:, successful_ens] = etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, obs_noise_cov)
         if !isempty(failed_ens)
-            u[:, failed_ens] = sample_empirical_gaussian(u[:, successful_ens], n_failed)
+            u[:, failed_ens] = sample_empirical_gaussian(ekp.rng, u[:, successful_ens], n_failed)
         end
         return u
     end

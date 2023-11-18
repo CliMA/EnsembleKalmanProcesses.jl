@@ -33,28 +33,25 @@ Multiplicative inflation can be used by flagging the `update_ensemble!` method a
 ```
 
 ## Additive Inflation 
-Additive inflation is implemented by systematically adding stochastic perturbations to the parameter ensemble in the form of Gaussian noise. Additive inflation breaks the linear subspace property, meaning the parameter ensemble can evolve outside of the span of the initial ensemble. In additive inflation, the ensemble is perturbed in the following manner after the standard Kalman update:
+Additive inflation is implemented by systematically adding stochastic perturbations to the parameter ensemble in the form of Gaussian noise. Additive inflation is capable of breaking the linear subspace property, meaning the parameter ensemble can evolve outside of the span of the current ensemble. In additive inflation, the ensemble is perturbed in the following manner after the standard Kalman update:
 
 ```math
      u_{n+1} = u_n + \zeta_{n} \qquad (3) \\
-    \zeta_{n} \sim N(0, \frac{s \Delta{t} }{1 - s \Delta{t}} C_n) \qquad (4)
+    \zeta_{n} \sim N(0, \frac{s \Delta{t} }{1 - s \Delta{t}} \Sigma) \qquad (4)
 ```
-This inflates the parameter covariance by a factor of ``\frac{1}{1 - s \Delta{t}}`` as in eqn. 2 , while the ensemble mean remains fixed.
+This can be seen as a stochastic modification of the ensemble covariance, while the mean remains fixed
+```math
+     C_{n + 1} = C_{n} + \frac{s \Delta{t} }{1 - s \Delta{t}} \Sigma \qquad (5)
+```
 
-Additive inflation can be used by flagging the `update_ensemble!` method as follows:
+For example, if ``\Sigma = C_{n}`` we see inflation that is statistically equivalent to scaling the parameter covariance by a factor of ``\frac{1}{1 - s \Delta{t}}`` as in eqn. 2.
+
+Additive inflation, by default takes ``\Sigma = C_0`` (the prior covariance), and can be used by flagging the `update_ensemble!` method as follows:
 ```julia
     EKP.update_ensemble!(ekiobj, g_ens; additive_inflation = true, s = 1.0)
 ```
-Alternatively, the prior covariance matrix may be used to generate additive noise, following:
-```math
-    \zeta_{n} \sim N(0, \frac{s \Delta{t} }{1 - s \Delta{t}} C_{0}) \qquad (5)
-```
-This results in an additive increase in the parameter covariance by `` \frac{s \Delta{t} }{1 - s \Delta{t}} * C_{0}`` , while the mean remains fixed.
-```math
-     C_{n + 1} = C_{n} + \frac{s \Delta{t} }{1 - s \Delta{t}} C_{0} \qquad (6)
-```
-
-Additive inflation using the scaled prior covariance (parameter covariance of initial ensemble) can be used by flagging the `update_ensemble!` method as follows:
+Any positive semi-definite matrix (or uniform scaling) ``\Sigma`` may be provided to generate additive noise to the ensemble by flagging the `update_ensemble!` method as follows:
 ```julia
-    EKP.update_ensemble!(ekiobj, g_ens; additive_inflation = true, use_prior_cov = true, s = 1.0)
+    Σ = 0.01*I # user defined inflation
+    EKP.update_ensemble!(ekiobj, g_ens; additive_inflation = true, additive_inflation_cov = Σ, s = 1.0)
 ```

@@ -78,13 +78,13 @@ function eks_update(
     # Default: Δt = 1 / (norm(D) + eps(FT))
     Δt = ekp.Δt[end]
 
-    noise = MvNormal(u_cov)
+    noise = MvNormal(zeros(size(u_cov, 1)), I)
 
     implicit =
         (1 * Matrix(I, size(u)[2], size(u)[2]) + Δt * (ekp.process.prior_cov' \ u_cov')') \
         (u' .- Δt * (u' .- u_mean) * D .+ Δt * u_cov * (ekp.process.prior_cov \ ekp.process.prior_mean))
 
-    u = implicit' + sqrt(2 * Δt) * rand(ekp.rng, noise, ekp.N_ens)'
+    u = implicit' + sqrt(2 * Δt) * (sqrt(u_cov) * rand(ekp.rng, noise, ekp.N_ens))'
 
     return u
 end

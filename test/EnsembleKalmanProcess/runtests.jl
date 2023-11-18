@@ -233,6 +233,18 @@ end
 
 
 @testset "LearningRateSchedulers" begin
+
+    # Utility
+    X = [2 1; 1.1 2] # correct with symmetrisation
+    @test isposdef(posdef_correct(X))
+    @test posdef_correct(X) ≈ 0.5 * (X + permutedims(X, (2, 1))) atol = 1e-8
+    Y = [0 1; -1 0]
+    tol = 1e-8
+    @test isposdef(posdef_correct(Y, tol = tol)) # symmetrize and add to diagonal
+    @test posdef_correct(Y, tol = tol) ≈ tol * I(2) atol = 1e-8
+
+
+
     # Default
     Δt = 3
     dlrs1 = EKP.DefaultScheduler()
@@ -944,15 +956,23 @@ end
     end
     @test_logs (:warn, r"More than 50% of runs produced NaNs") match_mode = :any split_indices_by_success(g)
 
+
+    rng = Random.MersenneTwister(rng_seed)
+
     u = rand(10, 4)
     @test_logs (:warn, r"Sample covariance matrix over ensemble is singular.") match_mode = :any sample_empirical_gaussian(
         u,
         2,
     )
-    @test_throws PosDefException sample_empirical_gaussian(u, 2, inflation = 0.0)
 
-    # Initial ensemble construction
-    rng = Random.MersenneTwister(rng_seed)
+    u2 = rand(rng, 5, 20)
+    @test all(
+        isapprox.(
+            sample_empirical_gaussian(copy(rng), u2, 2),
+            sample_empirical_gaussian(copy(rng), u2, 2, inflation = 0.0);
+            atol = 1e-8,
+        ),
+    )
 
     ### sanity check on rng:
     d = Parameterized(Normal(0, 1))

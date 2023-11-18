@@ -502,15 +502,16 @@ get_error(ekp::EnsembleKalmanProcess) = ekp.err
 
 """
     sample_empirical_gaussian(
+        rng::AbstractRNG,
         u::AbstractMatrix{FT},
         n::IT;
         inflation::Union{FT, Nothing} = nothing,
     ) where {FT <: Real, IT <: Int}
 
-Returns `n` samples from an empirical Gaussian based on point estimates `u`, adding inflation
-if the covariance is singular.
+Returns `n` samples from an empirical Gaussian based on point estimates `u`, adding inflation if the covariance is singular.
 """
 function sample_empirical_gaussian(
+    rng::AbstractRNG,
     u::AbstractMatrix{FT},
     n::IT;
     inflation::Union{FT, Nothing} = nothing,
@@ -525,8 +526,17 @@ function sample_empirical_gaussian(
         cov_u_new = cov_u_new + inflation * I
     end
     mean_u_new = mean(u, dims = 2)
-    return rand(MvNormal(mean_u_new[:], cov_u_new), n)
+    return mean_u_new .+ sqrt(cov_u_new) * rand(rng, MvNormal(zeros(length(mean_u_new[:])), I), n)
 end
+
+function sample_empirical_gaussian(
+    u::AbstractMatrix{FT},
+    n::IT;
+    inflation::Union{FT, Nothing} = nothing,
+) where {FT <: Real, IT <: Int}
+    return sample_empirical_gaussian(Random.GLOBAL_RNG, u, n, inflation = inflation)
+end
+
 
 """
      split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
@@ -588,20 +598,22 @@ end
 
 """
     additive_inflation!(
-        ekp::EnsembleKalmanProcess;
-        use_prior_cov::Bool = false,
+        ekp::EnsembleKalmanProcess
+        inflation_cov::AM;
         s::FT = 1.0,
     ) where {FT <: Real}
 Applies additive Gaussian noise to particles. Noise is drawn from normal distribution with 0 mean
-and scaled parameter covariance. If use_prior_cov=false (default), scales parameter covariance matrix from
-current ekp iteration. Otherwise, scales parameter covariance of initial ensemble.
+and scaled parameter covariance. The original parameter covariance is a provided matrix, assumed positive semi-definite.
 Inputs:
     - ekp :: The EnsembleKalmanProcess to update.
     - s :: Scaling factor for time step in additive perturbation.
-    - use_prior_cov :: Bool specifying whether to use prior covariance estimate for additive inflation.
-        If false (default), parameter covariance from the current iteration is used.
+    - inflation_cov :: AbstractMatrix provide a N_par x N_par matrix to use.
 """
-function additive_inflation!(ekp::EnsembleKalmanProcess; use_prior_cov::Bool = false, s::FT = 1.0) where {FT <: Real}
+function additive_inflation!(
+    ekp::EnsembleKalmanProcess,
+    inflation_cov::MorUS;
+    s::FT = 1.0,
+) where {FT <: Real, MorUS <: Union{AbstractMatrix, UniformScaling}}
 
     scaled_Δt = s * ekp.Δt[end]
 
@@ -609,12 +621,12 @@ function additive_inflation!(ekp::EnsembleKalmanProcess; use_prior_cov::Bool = f
         error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
     end
 
-    Σ = use_prior_cov ? get_u_cov_prior(ekp) : get_u_cov_final(ekp)
-
     u = get_u_final(ekp)
+
+    Σ_sqrt = sqrt(scaled_Δt / (1 - scaled_Δt) .* inflation_cov)
+
     # add multivariate noise with 0 mean and scaled covariance
-    noise_multivariate = MvNormal((scaled_Δt / (1 - scaled_Δt)) .* Σ)
-    u_updated = u + rand(noise_multivariate, size(u, 2))
+    u_updated = u .+ Σ_sqrt * rand(ekp.rng, MvNormal(zeros(size(u, 1)), I), size(u, 2))
     ekp.u[end] = DataContainer(u_updated, data_are_columns = true)
 end
 
@@ -627,7 +639,7 @@ end
         g::AbstractMatrix{FT};
         multiplicative_inflation::Bool = false,
         additive_inflation::Bool = false,
-        use_prior_cov::Bool = false,
+        additive_inflation_cov::MorUS = get_u_cov_prior(ekp),
         s::FT = 0.0,
         ekp_kwargs...,
     ) where {FT, IT}
@@ -637,7 +649,7 @@ Inputs:
  - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - multiplicative_inflation :: Flag indicating whether to use multiplicative inflation.
  - additive_inflation :: Flag indicating whether to use additive inflation.
- - use_prior_cov :: Bool specifying whether to use prior covariance estimate for additive inflation.
+ - additive_inflation_cov ::  specifying an additive inflation matrix (default is the prior covariance) assumed positive semi-definite
         If false (default), parameter covariance from the current iteration is used.
  - s :: Scaling factor for time step in inflation step.
  - ekp_kwargs :: Keyword arguments to pass to standard ekp update_ensemble!.
@@ -647,11 +659,11 @@ function update_ensemble!(
     g::AbstractMatrix{FT};
     multiplicative_inflation::Bool = false,
     additive_inflation::Bool = false,
-    use_prior_cov::Bool = false,
+    additive_inflation_cov::MorUS = get_u_cov_prior(ekp),
     s::FT = 0.0,
     Δt_new::NFT = nothing,
     ekp_kwargs...,
-) where {FT, NFT <: Union{Nothing, AbstractFloat}}
+) where {FT, NFT <: Union{Nothing, AbstractFloat}, MorUS <: Union{AbstractMatrix, UniformScaling}}
 
     #catch works when g non-square 
     if !(size(g)[2] == ekp.N_ens)
@@ -668,8 +680,9 @@ function update_ensemble!(
         accelerate!(ekp, u)
         if s > 0.0
             multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
-            additive_inflation ? additive_inflation!(ekp; use_prior_cov = use_prior_cov, s = s) : nothing
+            additive_inflation ? additive_inflation!(ekp, additive_inflation_cov, s = s) : nothing
         end
+
     else
         return terminate # true if scheduler has not stepped
     end
