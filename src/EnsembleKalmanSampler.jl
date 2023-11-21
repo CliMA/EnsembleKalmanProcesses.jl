@@ -48,7 +48,7 @@ end
 
 Returns the updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the sampler algorithm.
-
+(Garbuno-Inigo, Hoffmann, Li, Stuart 2020) eqn 4.1
 The current implementation assumes that rows of u and g correspond to
 ensemble members, so it requires passing the transpose of the `u` and
 `g` arrays associated with ekp.
@@ -76,12 +76,13 @@ function eks_update(
     D = (1 / get_N_ens(ekp)) * (E' * (get_obs_noise_cov(ekp) \ R))
 
     # Default: Δt = 1 / (norm(D) + eps(FT))
-    Δt = get_Δt(ekp)[end]
+    Δt = ekp_Δt(ekp)[end]
 
-    noise = MvNormal(zeros(size(u_cov, 1)), I)
+    noise = MvNormal(zeros(size(u, 2)), I(size(u, 2)))
+
     process = get_process(ekp)
     implicit =
-        (1 * Matrix(I, size(u)[2], size(u)[2]) + Δt * (process.prior_cov' \ u_cov')') \
+        (1 * Matrix(I, size(u, 2), size(u, 2)) + Δt * (process.prior_cov' \ u_cov')') \
         (u' .- Δt * (u' .- u_mean) * D .+ Δt * u_cov * (process.prior_cov \ process.prior_mean))
 
     u = implicit' + sqrt(2 * Δt) * (sqrt(u_cov) * rand(get_rng(ekp), noise, get_N_ens(ekp)))'

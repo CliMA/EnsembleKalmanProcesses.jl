@@ -1,8 +1,5 @@
 # # [Fitting parameters of a sinusoid](@id sinusoid-example)
-#
-# !!! info "How do I run this code?"
-#     The full code is found in the [`examples/`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples) directory of the github repository
-#
+
 # In this example we have a model that produces a sinusoid
 # ``f(A, v) = A \sin(\phi + t) + v, \forall t \in [0,2\pi]``, with a random
 # phase ``\phi``. Given an initial guess of the parameters as
@@ -20,7 +17,14 @@ using EnsembleKalmanProcesses.ParameterDistributions
 const EKP = EnsembleKalmanProcesses
 nothing # hide
 
-# Make gif (slow)
+## Setting up the model and data for our inverse problem
+
+# Seed for pseudo-random number generator.
+rng_seed = 41
+rng = Random.MersenneTwister(rng_seed)
+nothing # hide
+
+# make gif (slow)
 make_gif = false
 
 # Choose a case
@@ -35,28 +39,11 @@ elseif case == "nonrev_sampler"
     process = NonreversibleSampler(prior, prefactor = 1.5) # prefactor (1.1 - 1.5) vs stepsize
 end
 # some methods have better than fixed timesteppers
-fixed_step = 5e-3
-#scheduler = DefaultScheduler(fixed_step)
-scheduler = EKSStableScheduler()
+fixed_step = 1e-3
+scheduler = DefaultScheduler(fixed_step)
+# scheduler = EKSStableScheduler()   
 # scheduler = DataMisfitController()
 
-## Setting up the model and data for our inverse problem
-
-# Now, we define a model which generates a sinusoid given parameters ``\theta``: an
-# amplitude and a vertical shift. We will estimate these parameters from data.
-# The model adds a random phase shift upon evaluation.
-dt = 0.01
-trange = 0:dt:(2 * pi + dt)
-function model(amplitude, vert_shift)
-    phi = 2 * pi * rand(rng)
-    return amplitude * sin.(trange .+ phi) .+ vert_shift
-end
-nothing # hide
-
-# Seed for pseudo-random number generator.
-rng_seed = 41
-rng = Random.MersenneTwister(rng_seed)
-nothing # hide
 
 # We then define ``G(\theta)``, which returns the observables of the sinusoid
 # given a parameter vector. These observables should be defined such that they
@@ -64,9 +51,7 @@ nothing # hide
 # observables are the ``y`` range of the curve (which is informative about its
 # amplitude), as well as its mean (which is informative about its vertical shift).
 function G(u)
-    theta, vert_shift = u
-    sincurve = model(theta, vert_shift)
-    return [maximum(sincurve) - minimum(sincurve), mean(sincurve)]
+    return u[1] + u[2]
 end
 nothing # hide
 
@@ -75,11 +60,11 @@ nothing # hide
 # and adding Gaussian noise to the output.
 dim_output = 2
 
-Γ = 0.1 * I
+Γ = 1.0 * I
 noise_dist = MvNormal(zeros(dim_output), Γ)
 
 theta_true = [1.0, 7.0]
-y = G(theta_true) .+ rand(noise_dist)
+y = [1.0] # G(theta_true) .+ rand(noise_dist)
 nothing # hide
 
 ## Solving the inverse problem
@@ -88,21 +73,26 @@ nothing # hide
 # we define a prior with mean 2 and standard deviation 1. It is
 # additionally constrained to be nonnegative. For the vertical shift we define
 # a Gaussian prior with mean 0 and standard deviation 5.
-
-prior_u1 = constrained_gaussian("amplitude", 2, 1, 0, Inf)
-prior_u2 = constrained_gaussian("vert_shift", 0, 5, -Inf, Inf)
-prior = combine_distributions([prior_u1, prior_u2])
-
+prior = constrained_gaussian("u", 0, sqrt(10), -Inf, Inf, repeats = 2)
 nothing # hide
 
 # We now generate the initial ensemble and set up the ensemble Kalman inversion.
-N_ensemble = 20
+N_ensemble = 50
 N_iterations = 2000
 
 initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
 
-ensemble_kalman_process =
-    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, process; rng = rng, scheduler = scheduler, verbose = true)
+ensemble_kalman_process = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    y,
+    Γ,
+    process;
+    rng = rng,
+    scheduler = DefaultScheduler(fixed_step),
+    #   scheduler = DataMisfitController(),
+    #     scheduler = EKSStableScheduler(),
+    verbose = true,
+)
 nothing # hide
 
 # We are now ready to carry out the inversion. At each iteration, we get the
@@ -110,43 +100,19 @@ nothing # hide
 # and apply the Kalman update to the ensemble.
 for i in 1:N_iterations
     params_i = get_ϕ_final(prior, ensemble_kalman_process)
+    println(mean(params_i, dims = 2)[:])
+    println(cov(params_i, dims = 2))
     G_ens = hcat([G(params_i[:, i]) for i in 1:N_ensemble]...)
 
     EKP.update_ensemble!(ensemble_kalman_process, G_ens)
-
 end
+
 nothing # hide
 
 # Finally, we get the ensemble after the last iteration. This provides our estimate of the parameters.
 final_ensemble = get_ϕ_final(prior, ensemble_kalman_process)
-
 # To visualize the success of the inversion, we plot model with the true
 # parameters, the initial ensemble, and the final ensemble.
-
-println(final_ensemble)
-
-ppp = plot(trange, model(theta_true...), c = :black, label = "Truth", legend = :bottomright, linewidth = 2)
-plot!(
-    p,
-    trange,
-    [model(get_ϕ(prior, ensemble_kalman_process, 1)[:, i]...) for i in 1:N_ensemble],
-    c = :red,
-    label = ["Initial ensemble" "" "" "" ""],
-)
-plot!(
-    p,
-    trange,
-    [model(final_ensemble[:, i]...) for i in 1:N_ensemble],
-    c = :blue,
-    label = ["Final ensemble" "" "" "" ""],
-)
-
-xlabel!("Time")
-
-# We see that the final ensemble is much closer to the truth. Note that the
-# random phase shift is of no consequence.
-savefig(ppp, "sinusoid_output_model_$case.png")
-
 if make_gif
     anim_linear = @animate for i in 1:N_iterations
 
@@ -160,7 +126,7 @@ if make_gif
 
         scatter!(ppp, soln[1, :], soln[2, :], c = :blue, label = ["ensemble $i"])
     end
-    gif(anim_linear, "sinusoid_output_parameters_$case.gif", fps = 30) # hide
+    gif(anim_linear, "linear_output_$case.gif", fps = 30) # hide
 end
 
 ppp = scatter(
@@ -177,4 +143,10 @@ scatter!(
     c = :blue,
     label = ["Final ensemble" "" "" "" ""],
 )
-savefig(ppp, "sinusoid_output_parameters_$case.png")
+savefig(ppp, "linear_output_$case.png")
+
+
+@info "final $(final_ensemble)"
+@info "final mean $(mean(final_ensemble,dims=2)[:])"
+@info "final cov $(cov(final_ensemble,dims=2))"
+@info "final corr(u1,u2) $(cor(final_ensemble[1,:],final_ensemble[2,:]))"

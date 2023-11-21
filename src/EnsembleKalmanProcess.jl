@@ -813,15 +813,15 @@ function split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
 end
 
 """
-    get_cov_blocks(cov::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <: Integer}
+    get_cov_blocks(cov_mat::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <: Integer}
 
-Given a covariance matrix `cov` and number of parameters `p`, returns the matrix blocks corresponding to the u–u
+Given a covariance matrix `cov_mat` and number of parameters `p`, returns the matrix blocks corresponding to the u–u
 covariance, the u–G(u) covariance, and the G(u)–G(u) covariance.
 """
-function get_cov_blocks(cov::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <: Integer}
-    uu_cov = cov[1:p, 1:p]
-    ug_cov = cov[1:p, (p + 1):end]
-    gg_cov = cov[(p + 1):end, (p + 1):end]
+function get_cov_blocks(cov_mat::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <: Integer}
+    uu_cov = cov_mat[1:p, 1:p]
+    ug_cov = cov_mat[1:p, (p + 1):end]
+    gg_cov = cov_mat[(p + 1):end, (p + 1):end]
     return uu_cov, ug_cov, gg_cov
 end
 
@@ -1006,6 +1006,9 @@ include("SparseEnsembleKalmanInversion.jl")
 export Sampler
 include("EnsembleKalmanSampler.jl")
 
+# struct NonreversibleSampler
+export NonreversibleSampler
+include("EnsembleKalmanSamplerNonreversible.jl")
 
 # struct Unscented
 export Unscented
