@@ -89,22 +89,34 @@ end
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens_tmp)
 
     # build accelerated and non-accelerated processes
+
+
     ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(), accelerator = NesterovAccelerator())
     eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior), accelerator = NesterovAccelerator())
-    ekiobj_const = EKP.EnsembleKalmanProcess(
-        initial_ensemble,
-        y_obs,
-        Γy,
-        Inversion(),
-        accelerator = ConstantStepNesterovAccelerator(),
-    )
+    ekiobj_const =
+        EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(), accelerator = ConstantNesterovAccelerator())
     eksobj_const = EKP.EnsembleKalmanProcess(
         initial_ensemble,
         y_obs,
         Γy,
         Sampler(prior),
-        accelerator = ConstantStepNesterovAccelerator(),
+        accelerator = ConstantNesterovAccelerator(),
     )
+    ekiobj_firstorder = EKP.EnsembleKalmanProcess(
+        initial_ensemble,
+        y_obs,
+        Γy,
+        Inversion(),
+        accelerator = FirstOrderNesterovAccelerator(),
+    )
+    eksobj_firstorder = EKP.EnsembleKalmanProcess(
+        initial_ensemble,
+        y_obs,
+        Γy,
+        Sampler(prior),
+        accelerator = FirstOrderNesterovAccelerator(),
+    )
+
     ekiobj_noacc = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
     eksobj_noacc = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior))
     ekiobj_noacc_specified =
@@ -115,8 +127,10 @@ end
     ## test EKP object's accelerator type is consistent (EKP constructor reassigns object in some cases)
     @test typeof(ekiobj.accelerator) <: NesterovAccelerator
     @test typeof(eksobj.accelerator) <: NesterovAccelerator
-    @test typeof(ekiobj_const.accelerator) <: ConstantStepNesterovAccelerator
-    @test typeof(eksobj_const.accelerator) <: ConstantStepNesterovAccelerator
+    @test typeof(ekiobj_const.accelerator) <: ConstantNesterovAccelerator
+    @test typeof(eksobj_const.accelerator) <: ConstantNesterovAccelerator
+    @test typeof(ekiobj_firstorder.accelerator) <: FirstOrderNesterovAccelerator
+    @test typeof(eksobj_firstorder.accelerator) <: FirstOrderNesterovAccelerator
     @test typeof(ekiobj_noacc.accelerator) <: DefaultAccelerator
     @test typeof(eksobj_noacc.accelerator) <: DefaultAccelerator
     @test typeof(ekiobj_noacc_specified.accelerator) <: DefaultAccelerator
@@ -128,10 +142,15 @@ end
     @test eksobj.accelerator.u_prev == initial_ensemble
     @test eksobj.accelerator.θ_prev == 1.0
 
-    @test ekiobj_const.accelerator.r ≈ 3.0
+    @test ekiobj_const.accelerator.λ ≈ 0.9
     @test ekiobj_const.accelerator.u_prev == initial_ensemble
-    @test eksobj_const.accelerator.r ≈ 3.0
+    @test eksobj_const.accelerator.λ ≈ 0.9
     @test eksobj_const.accelerator.u_prev == initial_ensemble
+
+    @test ekiobj_firstorder.accelerator.r ≈ 3.0
+    @test ekiobj_firstorder.accelerator.u_prev == initial_ensemble
+    @test eksobj_firstorder.accelerator.r ≈ 3.0
+    @test eksobj_firstorder.accelerator.u_prev == initial_ensemble
 
     ## test method convergence
     # Note: this test only requires that the final ensemble is an improvement on the initial ensemble,
@@ -147,13 +166,14 @@ end
         EKSStableScheduler(), # for general Nesterov
     ]
     for (process, scheduler) in zip(processes, schedulers)
-        if typeof(scheduler) <: DefaultScheduler
-            accelerators = [DefaultAccelerator(), ConstantStepNesterovAccelerator(), NesterovAccelerator()]
-            N_iters = [20, 20, 20]
-        else #don't test the constantstep accelerator with variable timesteppers
-            accelerators = [DefaultAccelerator(), NesterovAccelerator()]
-            N_iters = [20, 20]
-        end
+        accelerators = [
+            DefaultAccelerator(),
+            ConstantNesterovAccelerator(0.5),
+            FirstOrderNesterovAccelerator(),
+            NesterovAccelerator(),
+        ]
+        N_iters = [20, 20, 20, 20]
+
         init_means = []
         final_means = []
 

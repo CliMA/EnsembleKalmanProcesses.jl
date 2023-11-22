@@ -5,7 +5,6 @@ using TOML
 using Distributions
 using EnsembleKalmanProcesses.ParameterDistributions
 
-
 # Exports
 export path_to_ensemble_member
 export get_parameter_distribution
@@ -56,6 +55,10 @@ function get_parameter_distribution(param_dict::Dict, name::AbstractString)
     # Constructing a parameter distribution requires a prior distribution,
     # a constraint, and a name.
     prior = construct_prior(param_dict[name])
+    # If constrained_gaussian, then prior is already a ParameterDistribution
+    if prior isa ParameterDistribution
+        return prior
+    end
     constraint = construct_constraint(param_dict[name])
 
     return ParameterDistribution(prior, constraint, name)
@@ -203,14 +206,14 @@ function collect_from_expr(e::Expr, eltype::AbstractString; repeat::Bool = false
 
         for i in 1:n_elem
             elem = e.args[i]
-            arr[i] = getfield(Main, elem.args[1])(elem.args[2:end]...)
+            arr[i] = getfield(ParameterDistributions, elem.args[1])(elem.args[2:end]...)
         end
 
         return repeat ? arr[1] : arr
 
     else
         # There is a single distribution / constraint
-        return getfield(Main, e.args[1])(e.args[2:end]...)
+        return getfield(ParameterDistributions, e.args[1])(e.args[2:end]...)
     end
 
 end
@@ -231,17 +234,46 @@ function get_distribution_from_expr(d::Expr)
     dist_type_symb = d.args[1]
 
     if dist_type_symb == Symbol("Parameterized")
-        dist = getfield(Main, d.args[2].args[1])
+        dist = getfield(Distributions, d.args[2].args[1])
         dist_args = d.args[2].args[2:end]
-        dist_type = getfield(Main, dist_type_symb)
+        dist_type = getfield(ParameterDistributions, dist_type_symb)
 
         return dist_type(dist(dist_args...))
 
     elseif dist_type_symb == Symbol("Samples")
         dist_args = construct_2d_array(d.args[2])
-        dist_type = getfield(Main, dist_type_symb)
+        dist_type = getfield(ParameterDistributions, dist_type_symb)
 
         return dist_type(dist_args)
+
+    elseif dist_type_symb == Symbol("constrained_gaussian")
+
+        function parse_kwargs(args)
+            kwargs = []
+            for arg in args
+                # Only parse repeats kwarg for now
+                arg.args[1] != :repeats &&
+                    throw(ArgumentError("Keyword argument $(arg.args[1]) can not be parsed from TOML."))
+                push!(kwargs, arg.args[1] => parse(Int64, string(arg.args[2])))
+            end
+            return kwargs
+        end
+
+        kwargs = []
+        index = 2
+        # Non-positional kwargs are the second argument
+        if d.args[2] isa Expr && d.args[2].args[1].head == :kw
+            kwargs = parse_kwargs(d.args[2].args)
+            index += 1
+            # Positional kwargs
+        elseif length(d.args) > 6 && d.args[7].head == :kw
+            kwargs = parse_kwargs([d.args[7]])
+        end
+
+        name, dist_mean, dist_std, lb, ub = d.args[index:(index + 4)]
+        name = string(name)
+        lower_bound, upper_bound = parse.(Float64, string.((lb, ub)))
+        return constrained_gaussian(name, dist_mean, dist_std, lower_bound, upper_bound; kwargs...)
 
     else
         throw(ArgumentError("Unknown distribution type from symbol: $(dist_type_symb)"))
