@@ -539,6 +539,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         x_in_bd = [0.5, 0.5, 0.5]
         Random.seed!(seed)
         lpdf3 = sum([logpdf(Beta(2, 2), x_in_bd[1])[1], logpdf(MvNormal(zeros(2), 0.1 * I), x_in_bd[2:3])[1]]) #throws deprecated warning without "."
+        @test_throws DimensionMismatch logpdf(u1, [1]) #u1 is 4D, 1 is 1-D
+
 
         Random.seed!(seed)
         @test isapprox(logpdf(u3, x_in_bd) - lpdf3, 0.0; atol = 1e-6)

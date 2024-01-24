@@ -668,13 +668,11 @@ function logpdf(d::VectorOfParameterized, xarray::VV) where {VV <: AbstractVecto
     dimensions = get_dimensions(d)
     lpdfsum = 0.0
     # perform the logpdf of each of the distributions, and returns their sum    
-    for (i, dd) in enumerate(d.distribution)
-        println(dd)
-        println(xarray[batches[i]])
-        if dimensions[i] == 1
-            lpdfsum += logpdf(dd, xarray[batches[i]][1])
+    for (i, dd, dimen, batch) in zip(1:length(d.distribution), d.distribution, dimensions, batches)
+        if dimen == 1
+            lpdfsum += logpdf(dd, xarray[batch][1]) # needs to be eval on a scalar
         else
-            lpdfsum += logpdf(dd, xarray[batches[i]])
+            lpdfsum += logpdf(dd, xarray[batch])
         end
     end
     return lpdfsum
