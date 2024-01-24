@@ -649,19 +649,33 @@ sample(d::VectorOfParameterized) = sample(Random.GLOBAL_RNG, d, 1)
 Obtains the independent logpdfs of the parameter distributions at `xarray`
 (non-Samples Distributions only), and returns their sum.
 """
-logpdf(d::Parameterized, xarray::AbstractVector{FT}) where {FT <: Real} = logpdf.(d.distribution, xarray)
+logpdf(d::Parameterized, x::FT) where {FT <: Real} = logpdf(d, [x]) # make into 1D array
 
-function logpdf(d::VectorOfParameterized, xarray::AbstractVector{FT}) where {FT <: Real}
+function logpdf(d::Parameterized, xarray::VV) where {VV <: AbstractVector}
+    dimension = ndims(d)
+    if dimension != length(xarray)
+        throw(
+            DimensionMismatch("cannot evaluate logpdf with distribution $dimension on array length $(length(xarray))"),
+        )
+    end
+    if dimension == 1 # if univariate, requires scalar evaluation
+        return logpdf(d.distribution, xarray[1])
+    else
+        return logpdf(d.distribution, xarray)
+    end
+end
+
+function logpdf(d::VectorOfParameterized, xarray::VV) where {VV <: AbstractVector}
     # get the index of xarray chunks to give to the different distributions.
     batches = batch(d)
     dimensions = get_dimensions(d)
     lpdfsum = 0.0
     # perform the logpdf of each of the distributions, and returns their sum    
-    for (i, dd) in enumerate(d.distribution)
-        if dimensions[i] == 1
-            lpdfsum += logpdf.(dd, xarray[batches[i]])[1]
+    for (i, dd, dimen, batch) in zip(1:length(d.distribution), d.distribution, dimensions, batches)
+        if dimen == 1
+            lpdfsum += logpdf(dd, xarray[batch][1]) # needs to be eval on a scalar
         else
-            lpdfsum += logpdf(dd, xarray[batches[i]])
+            lpdfsum += logpdf(dd, xarray[batch])
         end
     end
     return lpdfsum
@@ -672,7 +686,7 @@ function logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT
     if any(isa.(pd.distribution, Samples))
         throw(
             ErrorException(
-                "Cannot compute logpdf of Samples distributions. Consider using a Parameterized type for your prior.",
+                "No implementation of logpdf of Samples distributions. Consider using a Parameterized type for your prior.",
             ),
         )
     end
@@ -691,6 +705,8 @@ function logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT
     # perform the logpdf of each of the distributions, and returns their sum    
     return sum(sum(logpdf(d, xarray[batches[i]])) for (i, d) in enumerate(pd.distribution))
 end
+
+logpdf(pd::ParameterDistribution, x::FT) where {FT <: Real} = logpdf(pd, [x])
 
 #extending StatsBase cov,var
 """
