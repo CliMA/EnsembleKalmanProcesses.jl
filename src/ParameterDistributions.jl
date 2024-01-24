@@ -658,8 +658,11 @@ function logpdf(d::Parameterized, xarray::VV) where {VV <: AbstractVector}
             DimensionMismatch("cannot evaluate logpdf with distribution $dimension on array length $(length(xarray))"),
         )
     end
-
-    return logpdf(d.distribution, xarray)
+    if dimension == 1 # if univariate, requires scalar evaluation
+        return logpdf(d.distribution, xarray[1])
+    else
+        return logpdf(d.distribution, xarray)
+    end
 end
 
 function logpdf(d::VectorOfParameterized, xarray::VV) where {VV <: AbstractVector}
@@ -702,6 +705,8 @@ function logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT
     # perform the logpdf of each of the distributions, and returns their sum    
     return sum(sum(logpdf(d, xarray[batches[i]])) for (i, d) in enumerate(pd.distribution))
 end
+
+logpdf(pd::ParameterDistribution, x::FT) where {FT <: Real} = logpdf(pd, [x])
 
 #extending StatsBase cov,var
 """

@@ -543,11 +543,16 @@ using EnsembleKalmanProcesses.ParameterDistributions
         Random.seed!(seed)
         @test isapprox(logpdf(u3, x_in_bd) - lpdf3, 0.0; atol = 1e-6)
         @test_throws DimensionMismatch logpdf(u3, [0.5, 0.5])
-        # for Parameterized
+        # for Parameterized Multivar
         x_in_bd = [0.0, 0.0, 0.0, 0.0]
         @test isapprox(logpdf(u1, x_in_bd) - logpdf(MvNormal(zeros(4), 0.1 * I), x_in_bd)[1], 0.0, atol = 1e-6)
         @test_throws DimensionMismatch logpdf(u1, [1])
-
+        # for Parameterized Univar
+        u5 = constrained_gaussian("u5", 3.0, 1.0, -Inf, Inf) 
+        x_in_bd = 0.0
+        @test isapprox(logpdf(u5, x_in_bd) - logpdf(Normal(3.0, 1.0), x_in_bd)[1], 0.0, atol = 1e-6)
+       @test_throws DimensionMismatch logpdf(u1, [1,1])
+        
         #Test for cov, var        
         block_cov = cat([cov(d1), var(d2), cov(d3), cov(d4)]..., dims = (1, 2))
         @test isapprox(cov(v) - block_cov, zeros(ndims(v), ndims(v)); atol = 1e-6)
