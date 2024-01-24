@@ -538,13 +538,15 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test_throws ErrorException logpdf(u, zeros(ndims(u)))
         x_in_bd = [0.5, 0.5, 0.5]
         Random.seed!(seed)
-        lpdf3 = sum([logpdf(Beta(2, 2), x_in_bd[1])[1], logpdf(MvNormal(zeros(2), 0.1 * I), x_in_bd[2:3])[1]]) #throws deprecated warning without "."
-        @test_throws DimensionMismatch logpdf(u1, [1]) #u1 is 4D, 1 is 1-D
-
-
+        # for VectorOfParameterized
+        lpdf3 = sum([logpdf(Beta(2, 2), x_in_bd[1])[1], logpdf(MvNormal(zeros(2), 0.1 * I), x_in_bd[2:3])[1]]) #throws deprecated warning without "."     
         Random.seed!(seed)
         @test isapprox(logpdf(u3, x_in_bd) - lpdf3, 0.0; atol = 1e-6)
         @test_throws DimensionMismatch logpdf(u3, [0.5, 0.5])
+        # for Parameterized
+        x_in_bd = [0.0, 0.0, 0.0, 0.0]
+        @test isapprox(logpdf(u1, x_in_bd) - logpdf(MvNormal(zeros(4), 0.1 * I), x_in_bd)[1], 0.0, atol = 1e-6)
+        @test_throws DimensionMismatch logpdf(u1, [1])
 
         #Test for cov, var        
         block_cov = cat([cov(d1), var(d2), cov(d3), cov(d4)]..., dims = (1, 2))

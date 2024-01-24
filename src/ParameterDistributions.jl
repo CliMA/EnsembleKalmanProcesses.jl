@@ -652,7 +652,7 @@ Obtains the independent logpdfs of the parameter distributions at `xarray`
 logpdf(d::Parameterized, x::FT) where {FT <: Real} = logpdf(d, [x]) # make into 1D array
 
 function logpdf(d::Parameterized, xarray::VV) where {VV <: AbstractVector}
-    dimension = get_dimensions(d)
+    dimension = ndims(d)
     if dimension != length(xarray)
         throw(
             DimensionMismatch("cannot evaluate logpdf with distribution $dimension on array length $(length(xarray))"),
