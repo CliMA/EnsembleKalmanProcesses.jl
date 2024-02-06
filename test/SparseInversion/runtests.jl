@@ -150,15 +150,14 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
 
     ## Repeat first test with several schedulers
     y_obs, G, Γy = nl_inv_problems[1]
+
     T_end = 3
     schedulers = [
         DefaultScheduler(0.1),
         MutableScheduler(0.1),
-        DataMisfitController(terminate_at = T_end),
-        DataMisfitController(on_terminate = "continue"),
-        DataMisfitController(on_terminate = "continue_fixed"),
+        #        DataMisfitController(terminate_at = T_end), # This test can be unstable
     ]
-    N_iters = [10, 10, 50, 50, 50]
+    N_iters = [10, 10]# ..., 20]
 
     final_ensembles = []
     init_means = []

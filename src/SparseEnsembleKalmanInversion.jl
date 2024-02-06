@@ -56,7 +56,7 @@ function FailureHandler(process::SparseInversion, method::SampleSuccGauss)
         u[:, successful_ens] =
             sparse_eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
         if !isempty(failed_ens)
-            u[:, failed_ens] = sample_empirical_gaussian(u[:, successful_ens], n_failed)
+            u[:, failed_ens] = sample_empirical_gaussian(ekp.rng, u[:, successful_ens], n_failed)
         end
         return u
     end
@@ -206,7 +206,7 @@ function update_ensemble!(
 
     # Scale noise using Δt
     scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
-    noise = rand(ekp.rng, MvNormal(zeros(N_obs), scaled_obs_noise_cov), ekp.N_ens)
+    noise = sqrt(scaled_obs_noise_cov) * rand(ekp.rng, MvNormal(zeros(N_obs), I), ekp.N_ens)
 
     # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic

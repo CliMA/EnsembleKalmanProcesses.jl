@@ -71,13 +71,16 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
             eki_mult_inflation = deepcopy(ekiobj)
             eki_add_inflation = deepcopy(ekiobj)
             eki_add_inflation_prior = deepcopy(ekiobj)
+            eki_add_inflation_I = deepcopy(ekiobj)
 
             # multiplicative inflation after standard update
             EKP.multiplicative_inflation!(eki_mult_inflation)
             # additive inflation after standard update
-            EKP.additive_inflation!(eki_add_inflation)
+            EKP.additive_inflation!(eki_add_inflation, get_u_cov_final(eki_add_inflation))
             # additive inflation (scaling prior cov) after standard update
-            EKP.additive_inflation!(eki_add_inflation_prior; use_prior_cov = true)
+            EKP.additive_inflation!(eki_add_inflation_prior, get_u_cov_prior(eki_add_inflation_prior))
+            # additive inflation (scaling prior cov) after standard update
+            EKP.additive_inflation!(eki_add_inflation_I, I)
 
             # ensure multiplicative inflation approximately preserves ensemble mean
             @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_mult_inflation) atol = 0.2
@@ -85,6 +88,8 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
             @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_add_inflation) atol = 0.2
             # ensure additive inflation (scaling prior cov) approximately preserves ensemble mean
             @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_add_inflation_prior) atol = 0.2
+            # ensure additive inflation approximately preserves ensemble mean
+            @test get_u_mean_final(ekiobj) ≈ get_u_mean_final(eki_add_inflation_I) atol = 0.2
 
             # ensure inflation expands ensemble variance as expected
             expected_var_gain = 1 / (1 - Δt)
