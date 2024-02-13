@@ -100,9 +100,9 @@ struct SECNice{FT <: Real} <: LocalizationMethod
     tol_ug::FT
     "scaling for discrepancy principle for gg correlation"
     tol_gg::FT
-    
+
 end
-SECNice() = SECNice(1_000,1.0,1.0)
+SECNice() = SECNice(1_000, 1.0, 1.0)
 SECNice(n_samples) = SECNice(n_samples, 1.0, 1.0)
 """
     Localizer{LM <: LocalizationMethod, T}
@@ -227,8 +227,8 @@ function sec_fisher(cov, N_ens)
     V = Diagonal(v)
     V_inv = inv(V)
     R = V_inv * cov * V_inv
-    bd_tol = 1e8*eps()
-    clamp!(R,-1+bd_tol,1-bd_tol)
+    bd_tol = 1e8 * eps()
+    clamp!(R, -1 + bd_tol, 1 - bd_tol)
     R_sec = zeros(size(R))
     for i in 1:size(R)[1]
         for j in 1:i
@@ -258,10 +258,10 @@ end
 function approximate_corr_std(r, N_ens, n_samples)
     # ρ = arctanh(r) from Fisher
     # assume r input is the mean value, i.e. assume arctanh(E(r)) = E(arctanh(r))
-    
+
     ρ = r # approx solution is the identity
     #sample in ρ space
-    ρ_samples = rand(Normal(0.5*log((1+ρ) / (1-ρ)), 1/sqrt(N_ens-3)), n_samples) # N_ens
+    ρ_samples = rand(Normal(0.5 * log((1 + ρ) / (1 - ρ)), 1 / sqrt(N_ens - 3)), n_samples) # N_ens
 
     # map back through Fisher to get std of r from samples tanh(ρ)
     return std(tanh.(ρ_samples))
@@ -273,69 +273,65 @@ Function that performs sampling error correction as per Morzfeld, Vishny (2024).
 The input is assumed to be a covariance matrix, hence square.
 """
 function sec_nice(cov, n_samples, δ_ug, δ_gg, N_ens, p, d)
-    @info "begin_time"
-    t1 = time_ns()
     if N_ens < 6
         @warn "significant localization approximation error may occur for ensemble size below 6. Here, ensemble size = $N_ens"
     end
-    bd_tol = 1e8*eps()
-    
-    v = sqrt.(diag(cov)) 
+    bd_tol = 1e8 * eps()
+
+    v = sqrt.(diag(cov))
     V = Diagonal(v) #stds
     V_inv = inv(V)
-    corr = clamp.(V_inv * cov * V_inv,-1 + bd_tol,1 - bd_tol) # full corr
+    corr = clamp.(V_inv * cov * V_inv, -1 + bd_tol, 1 - bd_tol) # full corr
     # parameter sweep over the exponents
-    max_exponent = 2*5 # must be even
-    interp_steps = 10 
-    
-    ug_idx = [1:p,(p+1):p+d]
-    ugt_idx = [(p+1):p+d, 1:p] # don't loop over this one
-    gg_idx = [(p+1):p+d,(p+1):p+d]
+    max_exponent = 2 * 5 # must be even
+    interp_steps = 10
+
+    ug_idx = [1:p, (p + 1):(p + d)]
+    ugt_idx = [(p + 1):(p + d), 1:p] # don't loop over this one
+    gg_idx = [(p + 1):(p + d), (p + 1):(p + d)]
 
     corr_updated = copy(corr)
-    for (idx_set,δ) in zip([ug_idx,gg_idx],[δ_ug, δ_gg])                    
-        
+    for (idx_set, δ) in zip([ug_idx, gg_idx], [δ_ug, δ_gg])
+
         corr_tmp = corr[idx_set...]
         # use find the variability in the corr coeff matrix entries
-        std_corrs = approximate_corr_std.(corr_tmp, N_ens, n_samples) # slow
-        t2 = time_ns()
-        println((t2-t1)/1e9)
-      
-        std_tol = sum(std_corrs.^2)  
+        std_corrs = approximate_corr_std.(corr_tmp, N_ens, n_samples) # !! slowest part of code -> could speed up by precomputing/using an interpolation
+        std_tol = sqrt(sum(std_corrs .^ 2))
         α_min_exceeded = [max_exponent]
         for α in 2:2:max_exponent # even exponents give a PSD correction
-            corr_psd = corr_tmp .^ (α+1) # abs not needed as α even
+            corr_psd = corr_tmp .^ (α + 1) # abs not needed as α even
             # find the first exponent that exceeds the noise tolerance in norm
-            if norm(corr_psd - corr_tmp) > δ*std_tol
+            if norm(corr_psd - corr_tmp) > δ * std_tol
                 α_min_exceeded[1] = α
                 break
             end
         end
-      
-        ρ_exp = corr_tmp.^α_min_exceeded[1] 
-        ρ_exp2 = corr_tmp.^(α_min_exceeded[1]-2) # previous PSD correction 
-        
-        for α in LinRange(1.0,0.0,interp_steps) 
-            corr_interp = ((1-α)*(ρ_exp2)+α*ρ_exp) .* corr_tmp
-            if norm(corr_interp - corr_tmp) < δ*std_tol
+        corr_psd = corr_tmp .^ α_min_exceeded[1]
+        corr_psd_prev = corr_tmp .^ (α_min_exceeded[1] - 2) # previous PSD correction 
+
+        for α in LinRange(1.0, 0.0, interp_steps)
+            corr_interp = ((1 - α) * (corr_psd_prev) + α * corr_psd) .* corr_tmp
+            if norm(corr_interp - corr_tmp) < δ * std_tol
                 corr_updated[idx_set...] = corr_interp #update the correlation matrix block
                 break
             end
         end
-      
+
     end
-    
+
     # finally correct the ug'
     corr_updated[ugt_idx...] = corr_updated[ug_idx...]'
 
-    return   V * corr_updated * V # rebuild the cov matrix
-    
+    return V * corr_updated * V # rebuild the cov matrix
+
 end
 
 
 "Sampling error correction (Morzfeld, Vishny et al., 2024) constructor"
 function Localizer(localization::SECNice, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    return Localizer{SECNice, T}((cov) -> sec_nice(cov, localization.n_samples, localization.tol_ug, localization.tol_gg, J, p, d))
+    return Localizer{SECNice, T}(
+        (cov) -> sec_nice(cov, localization.n_samples, localization.tol_ug, localization.tol_gg, J, p, d),
+    )
 end
 
 
@@ -358,5 +354,3 @@ end
 
 
 end # module
-
-
