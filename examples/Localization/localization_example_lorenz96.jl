@@ -83,7 +83,7 @@ for i in 1:N_iter
     EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = true)
 end
 nonlocalized_error = get_error(ekiobj_vanilla)[end]
-
+@info "EKI - complete"
 # Test Bernoulli
 ekiobj_bernoulli = EKP.EnsembleKalmanProcess(
     initial_ensemble,
@@ -98,6 +98,7 @@ for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_bernoulli))
     EKP.update_ensemble!(ekiobj_bernoulli, g_ens, deterministic_forward_map = true)
 end
+@info "EKI (Benoulli) - complete"
 
 # Test SEC
 ekiobj_sec = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SEC(1.0))
@@ -106,6 +107,7 @@ for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec))
     EKP.update_ensemble!(ekiobj_sec, g_ens, deterministic_forward_map = true)
 end
+@info "EKI (SEC) - complete"
 
 # Test SEC with cutoff
 ekiobj_sec_cutoff =
@@ -115,6 +117,7 @@ for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec_cutoff))
     EKP.update_ensemble!(ekiobj_sec_cutoff, g_ens, deterministic_forward_map = true)
 end
+@info "EKI (SEC cut-off) - complete"
 
 # Test SECFisher
 ekiobj_sec_fisher =
@@ -124,6 +127,24 @@ for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec_fisher))
     EKP.update_ensemble!(ekiobj_sec_fisher, g_ens, deterministic_forward_map = true)
 end
+@info "EKI (SEC Fisher) - complete"
+
+# Test SECNice
+ekiobj_sec_nice = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    y,
+    Γ,
+    Inversion();
+    rng = rng,
+    localization_method = SECNice(5000, 0.8, 1.0),
+)
+
+for i in 1:N_iter
+    g_ens = G(get_ϕ_final(prior, ekiobj_sec_nice))
+    EKP.update_ensemble!(ekiobj_sec_nice, g_ens, deterministic_forward_map = true)
+end
+@info "EKI (SEC Nice) - complete"
+
 
 u_final = get_u_final(ekiobj_sec)
 g_final = get_g_final(ekiobj_sec)
@@ -135,6 +156,8 @@ plot!(get_error(ekiobj_bernoulli), label = "Bernoulli")
 plot!(get_error(ekiobj_sec), label = "SEC (Lee, 2021)")
 plot!(get_error(ekiobj_sec_fisher), label = "SECFisher (Flowerdew, 2015)")
 plot!(get_error(ekiobj_sec_cutoff), label = "SEC with cutoff")
+plot!(get_error(ekiobj_sec_nice), label = "SEC NICE")
+
 
 xlabel!("Iterations")
 ylabel!("Error")
