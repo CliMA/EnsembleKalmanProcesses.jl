@@ -301,7 +301,7 @@ function sec_nice(cov, n_samples, δ_ug, δ_gg, N_ens, p, d)
         t2 = time_ns()
         println((t2-t1)/1e9)
       
-        std_tol = sum(std_corrs[idx_set...].^2)  
+        std_tol = sum(std_corrs.^2)  
         α_min_exceeded = [max_exponent]
         for α in 2:2:max_exponent # even exponents give a PSD correction
             corr_psd = corr_tmp .^ (α+1) # abs not needed as α even
