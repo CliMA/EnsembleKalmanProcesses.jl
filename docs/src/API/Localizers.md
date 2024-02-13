@@ -10,6 +10,7 @@ RBF
 BernoulliDropout
 SEC
 SECFisher
+SECNice
 Delta
 NoLocalization
 ```

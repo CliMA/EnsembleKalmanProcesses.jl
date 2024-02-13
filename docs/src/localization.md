@@ -60,5 +60,18 @@ locs = [Delta(), RBF(1.0), RBF(0.1), BernoulliDropout(0.1), SEC(10.0), SECFisher
 for loc in locs
    ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); localization_method = loc)
 end
-``` 
+```
+!!! note
+    Currently Localization and SEC are implemented only for the `Inversion()` process, we are working on extensions to `TransformInversion()` 
+
+## The following example is found in `examples/Localization/localization_example_lorenz96.jl`
+In this example, originally taken from [Tong and Morzfeld (2022)](https://doi.org/10.48550/arXiv.2201.10821).
+A lorenz 96 system state of dimension 200, and configured to be in a chaotic parameter regime, is integrated forward with timestep ``\Delta t`` until time ``T``; the goal of this example is to perform ensemble inversion for the state at time ``T-20\Delta t``, given a noisy observation of the state at time ``T``.
+
+To perform this state we use ensemble inversion with ensembles of size 20. This problem is severely ill-posed, and we make up for this by imposing localization, sample-error correction methods to our state. Note that the SEC methods do not assume any spatial structure in the state, i.e. are well suited for inversions over parameter space.
+
+![SEC_compared](assets/sec_comparison_lorenz96.png)
+
+!!! note "Our recommendation"
+    Based on these results, our recommendation is to use the `SECNice()` approach for the `Inversion()` process.
 

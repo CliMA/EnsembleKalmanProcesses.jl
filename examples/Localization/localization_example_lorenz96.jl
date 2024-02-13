@@ -83,21 +83,29 @@ for i in 1:N_iter
     EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = true)
 end
 nonlocalized_error = get_error(ekiobj_vanilla)[end]
-
-# Test Bernoulli
-ekiobj_bernoulli = EKP.EnsembleKalmanProcess(
+@info "EKI - complete"
+# Test Inflated
+ekiobj_inflated = EKP.EnsembleKalmanProcess(
     initial_ensemble,
     y,
     Γ,
     Inversion();
     rng = rng,
-    localization_method = BernoulliDropout(0.98),
+    #  localization_method = BernoulliDropout(0.98),
 )
 
 for i in 1:N_iter
-    g_ens = G(get_ϕ_final(prior, ekiobj_bernoulli))
-    EKP.update_ensemble!(ekiobj_bernoulli, g_ens, deterministic_forward_map = true)
+    g_ens = G(get_ϕ_final(prior, ekiobj_inflated))
+    EKP.update_ensemble!(
+        ekiobj_inflated,
+        g_ens,
+        deterministic_forward_map = true,
+        additive_inflation = true,
+        additive_inflation_cov = 0.1 * I,
+    )
 end
+#@info "EKI (Benoulli) - complete"
+@info "EKI (inflated) - complete"
 
 # Test SEC
 ekiobj_sec = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SEC(1.0))
@@ -106,6 +114,7 @@ for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec))
     EKP.update_ensemble!(ekiobj_sec, g_ens, deterministic_forward_map = true)
 end
+@info "EKI (SEC) - complete"
 
 # Test SEC with cutoff
 ekiobj_sec_cutoff =
@@ -115,6 +124,7 @@ for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec_cutoff))
     EKP.update_ensemble!(ekiobj_sec_cutoff, g_ens, deterministic_forward_map = true)
 end
+@info "EKI (SEC cut-off) - complete"
 
 # Test SECFisher
 ekiobj_sec_fisher =
@@ -124,18 +134,44 @@ for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec_fisher))
     EKP.update_ensemble!(ekiobj_sec_fisher, g_ens, deterministic_forward_map = true)
 end
+@info "EKI (SEC Fisher) - complete"
+
+# Test SECNice
+ekiobj_sec_nice =
+    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SECNice())
+
+for i in 1:N_iter
+    g_ens = G(get_ϕ_final(prior, ekiobj_sec_nice))
+    EKP.update_ensemble!(ekiobj_sec_nice, g_ens, deterministic_forward_map = true)
+end
+@info "EKI (SEC Nice) - complete"
+
 
 u_final = get_u_final(ekiobj_sec)
 g_final = get_g_final(ekiobj_sec)
 cov_est = cov([u_final; g_final], [u_final; g_final], dims = 2, corrected = false)
 cov_localized = ekiobj_sec.localizer.localize(cov_est)
 
-fig = plot(get_error(ekiobj_vanilla), label = "No localization")
-plot!(get_error(ekiobj_bernoulli), label = "Bernoulli")
-plot!(get_error(ekiobj_sec), label = "SEC (Lee, 2021)")
-plot!(get_error(ekiobj_sec_fisher), label = "SECFisher (Flowerdew, 2015)")
-plot!(get_error(ekiobj_sec_cutoff), label = "SEC with cutoff")
+fig = plot(
+    get_error(ekiobj_vanilla),
+    label = "No localization",
+    c = :Accent_6,
+    lw = 6,
+    size = (800 * 1.618, 800),
+    xtickfont = 16,
+    ytickfont = 16,
+    guidefont = 16,
+    legendfont = 16,
+    bottom_margin = 5Plots.mm,
+    left_margin = 5Plots.mm,
+)
+plot!(get_error(ekiobj_inflated), label = "Inflation only", lw = 6)
+plot!(get_error(ekiobj_sec), label = "SEC (Lee, 2021)", lw = 6)
+plot!(get_error(ekiobj_sec_fisher), label = "SECFisher (Flowerdew, 2015)", lw = 6)
+plot!(get_error(ekiobj_sec_cutoff), label = "SEC with cutoff", lw = 6)
+plot!(get_error(ekiobj_sec_nice), label = "SEC NICE", lw = 6)
+
 
 xlabel!("Iterations")
 ylabel!("Error")
-savefig(fig, "result.png")
+savefig(fig, "sec_comparison_lorenz96.png")
