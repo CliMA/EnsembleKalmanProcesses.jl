@@ -130,8 +130,14 @@ end
 @info "EKI (SEC Fisher) - complete"
 
 # Test SECNice
-ekiobj_sec_nice =
-    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SECNice(1000))
+ekiobj_sec_nice = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    y,
+    Γ,
+    Inversion();
+    rng = rng,
+    localization_method = SECNice(5000, 0.8, 1.0),
+)
 
 for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec_nice))
