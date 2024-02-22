@@ -36,3 +36,8 @@ If you use the examples or code, please cite our article at JOSS in your publish
 ### Requirements
 Julia version 1.6+ 
 
+### Getting Started 
+![eki-getting-started](https://github.com/CliMA/EnsembleKalmanProcesses.jl/assets/45243236/e083ab8c-4f93-432f-9ad5-97aff22764ad)
+<!---
+# Link to Miro for editing photo (ask haakon for access): https://miro.com/app/board/uXjVNm_1teY=/?share_link_id=329380184889  
+-->

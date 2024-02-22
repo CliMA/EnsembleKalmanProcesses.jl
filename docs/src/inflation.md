@@ -1,4 +1,4 @@
-# Inflation 
+# [Inflation](@id inflation)
 Inflation is an approach that slows down collapse in ensemble Kalman methods.
 Two distinct forms of inflation are implemented in this package. Both involve perturbing the ensemble members following the standard update rule of the chosen Kalman process.
 Multiplicative inflation expands ensemble members away from their mean in a
