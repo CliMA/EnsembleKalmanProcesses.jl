@@ -84,6 +84,7 @@ pages = [
     "Inflation" => "inflation.md",
     "Parallelism and HPC" => "parallel_hpc.md",
     "Observations" => "observations.md",
+    "Troubleshooting" => "troubleshooting.md",
     "API" => api,
     "Contributing" => "contributing.md",
     "Glossary" => "glossary.md",
