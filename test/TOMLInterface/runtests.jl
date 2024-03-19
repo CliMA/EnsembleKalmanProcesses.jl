@@ -306,17 +306,6 @@ const EKP = EnsembleKalmanProcesses
         # Uncomment the line below to debug if the tests fail
         # save_path = "sample_tests"
         save_file = "parameters.toml"
-
-        pd = get_parameter_distribution(param_dict, uq_param_names)
-        @test_broken save_parameter_samples(
-            pd,
-            param_dict,
-            10,
-            save_path;
-            rng = Random.MersenneTwister(1234),
-            save_file,
-        )
-
         pd = get_parameter_distribution(param_dict, ["uq_param_4", "uq_param_5"])
         save_parameter_samples(pd, param_dict, 10, save_path; rng = Random.MersenneTwister(1234), save_file)
         for (i, fpath) in enumerate(readdir(save_path))

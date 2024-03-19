@@ -319,16 +319,18 @@ Arguments:
 the parameters in `param_array` into a toml file
 - `save_path` - Folder where the parameters will be saved
 - `save_file` - Name of the toml files to be generated
-- rng - The random number generator used in sampling
+- `rng` - Random number generator used in sampling
+- `pad_zeros` - Amount of digits to pad to 
 """
 function save_parameter_samples(
-    distribution::ParameterDistribution{Samples},
+    distribution::ParameterDistribution,
     default_param_data,
     num_samples,
     save_path;
     save_file = "parameters.toml",
     rng = Random.MersenneTwister(1234),
-) where {Samples <: ParameterDistributions.Samples}
+    pad_zeros = 3
+)
 
     save_parameter_ensemble(
         sample(rng, distribution, num_samples),
@@ -336,7 +338,7 @@ function save_parameter_samples(
         default_param_data::Dict,
         save_path,
         save_file;
-        pad_zeros = 3,
+        pad_zeros,
         apply_constraints = true,
     )
 end
