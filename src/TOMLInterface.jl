@@ -13,7 +13,7 @@ export save_parameter_ensemble
 export get_admissible_parameters
 export get_regularization
 export write_log_file
-
+export save_parameter_samples
 
 """
     get_parameter_values(param_dict, names)
@@ -300,6 +300,48 @@ function construct_2d_array(arr::Expr)
     return Float64.(vcat(arr_of_rows'...))
 end
 
+
+"""
+    save_parameter_samples(
+        distribution::ParameterDistribution{Samples},
+        default_param_data,
+        num_samples,
+        save_path;
+        save_file = "parameters.toml",
+        rng = Random.MersenneTwister(1234),
+    )
+Takes samples from the given `distribution` and saves them to individual TOML files
+in the folder specified by `save_path`
+
+Arguments:
+- `distribution` - ParameterDistribution{Samples} to sample from
+- `default_param_data` - Dict of default parameters to be combined and saved with
+the parameters in `param_array` into a toml file
+- `save_path` - Folder where the parameters will be saved
+- `save_file` - Name of the toml files to be generated
+- `rng` - Random number generator used in sampling
+- `pad_zeros` - Amount of digits to pad to 
+"""
+function save_parameter_samples(
+    distribution::ParameterDistribution,
+    default_param_data,
+    num_samples,
+    save_path;
+    save_file = "parameters.toml",
+    rng = Random.MersenneTwister(1234),
+    pad_zeros = 3,
+)
+
+    save_parameter_ensemble(
+        sample(rng, distribution, num_samples),
+        distribution,
+        default_param_data::Dict,
+        save_path,
+        save_file;
+        pad_zeros,
+        apply_constraints = true,
+    )
+end
 
 """
     save_parameter_ensemble(
