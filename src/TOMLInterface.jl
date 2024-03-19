@@ -329,7 +329,7 @@ function save_parameter_samples(
     save_path;
     save_file = "parameters.toml",
     rng = Random.MersenneTwister(1234),
-    pad_zeros = 3
+    pad_zeros = 3,
 )
 
     save_parameter_ensemble(
