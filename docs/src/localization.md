@@ -1,4 +1,4 @@
-# Localization and Sampling Error Correction (SEC)
+# [Localization and Sampling Error Correction (SEC)](@id localization)
 
 Ensemble Kalman inversion (EKI) seeks to find an optimal parameter vector ``\theta \in \mathbb{R}^p`` by minimizing the mismatch between some data ``y \in \mathbb{R}^d`` and the forward model output ``\mathcal{G}(\theta) \in \mathbb{R}^d``. Instead of relying on derivatives of the map ``\mathcal{G}`` with respect to ``\theta`` to find the optimum, EKI leverages sample covariances ``\mathrm{Cov}(\theta, \mathcal{G})`` and  ``\mathrm{Cov}(\mathcal{G}, \mathcal{G})`` diagnosed from an ensemble of ``J`` particles,
 
