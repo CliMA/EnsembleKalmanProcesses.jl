@@ -3,6 +3,7 @@ module Localizers
 using Distributions
 using LinearAlgebra
 using DocStringExtensions
+using Interpolations
 
 export NoLocalization, Delta, RBF, BernoulliDropout, SEC, SECFisher, SECNice
 export LocalizationMethod, Localizer
@@ -103,16 +104,20 @@ Thus no algorithm parameters are required, though some tuning of the discrepancy
 $(TYPEDFIELDS)
 
 """
-struct SECNice{FT <: Real} <: LocalizationMethod
+struct SECNice{FT <: Real, AV <: AbstractVector} <: LocalizationMethod
     "number of samples to approximate the std of correlation distribution (default 1000)"
     n_samples::Int
     "scaling for discrepancy principle for ug correlation (default 1.0)"
     tol_ug::FT
     "scaling for discrepancy principle for gg correlation (default 1.0)"
     tol_gg::FT
+    "A vector that will house a Interpolation object on first call to the localizer"
+    std_of_corr::AV
 end
 SECNice() = SECNice(1000, 1.0, 1.0)
 SECNice(n_samples) = SECNice(n_samples, 1.0, 1.0)
+SECNice(n_samples,tol_ug,tol_gg) = SECNice(n_samples, tol_ug, tol_gg, []) # always start with empty
+
 """
     Localizer{LM <: LocalizationMethod, T}
 
@@ -281,7 +286,7 @@ end
 Function that performs sampling error correction as per Morzfeld, Vishny (2024).
 The input is assumed to be a covariance matrix, hence square.
 """
-function sec_nice(cov, n_samples, δ_ug, δ_gg, N_ens, p, d)
+function sec_nice(cov, std_of_corr, δ_ug, δ_gg, N_ens, p, d)
     if N_ens < 6
         @warn "significant localization approximation error may occur for ensemble size below 6. Here, ensemble size = $N_ens"
     end
@@ -291,20 +296,22 @@ function sec_nice(cov, n_samples, δ_ug, δ_gg, N_ens, p, d)
     V = Diagonal(v) #stds
     V_inv = inv(V)
     corr = clamp.(V_inv * cov * V_inv, -1 + bd_tol, 1 - bd_tol) # full corr
+
     # parameter sweep over the exponents
     max_exponent = 2 * 5 # must be even
     interp_steps = 10
-
+    
     ug_idx = [1:p, (p + 1):(p + d)]
     ugt_idx = [(p + 1):(p + d), 1:p] # don't loop over this one
     gg_idx = [(p + 1):(p + d), (p + 1):(p + d)]
-
+    
     corr_updated = copy(corr)
     for (idx_set, δ) in zip([ug_idx, gg_idx], [δ_ug, δ_gg])
 
         corr_tmp = corr[idx_set...]
         # use find the variability in the corr coeff matrix entries
-        std_corrs = approximate_corr_std.(corr_tmp, N_ens, n_samples) # !! slowest part of code -> could speed up by precomputing/using an interpolation
+#        std_corrs = approximate_corr_std.(corr_tmp, N_ens, n_samples) # !! slowest part of code -> could speed up by precomputing/using an interpolation
+        std_corrs = std_of_corr.(corr_tmp) 
         std_tol = sqrt(sum(std_corrs .^ 2))
         α_min_exceeded = [max_exponent]
         for α in 2:2:max_exponent # even exponents give a PSD correction
@@ -338,8 +345,15 @@ end
 
 "Sampling error correction (Morzfeld, Vishny et al., 2024) constructor"
 function Localizer(localization::SECNice, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
+    if length(localization.std_of_corr) == 0 #i.e. if the user hasn't provided an interpolation
+        dr = 0.001
+        grid = LinRange(-1,1, Int(1/dr+1))
+        std_grid = approximate_corr_std.(grid, J, localization.n_samples) # odd number to include 0
+        push!(localization.std_of_corr, linear_interpolation(grid, std_grid)) # pw-linear interpolation
+    end
+    
     return Localizer{SECNice, T}(
-        (cov) -> sec_nice(cov, localization.n_samples, localization.tol_ug, localization.tol_gg, J, p, d),
+        (cov) -> sec_nice(cov, localization.std_of_corr[1], localization.tol_ug, localization.tol_gg, J, p, d),
     )
 end
 
