@@ -72,5 +72,5 @@ To perform this state estimation we use ensemble inversion with ensembles of siz
 ![SEC_compared](assets/sec_comparison_lorenz96.png)
 
 !!! note "Our recommendation"
-    Based on these results, our recommendation is to use the `SECNice()` approach for the `Inversion()` process. Not only does it perform wel, but additionally  it requires no tuning parameters, unlike for example `SEC()`.
+    Based on these results, our recommendation is to use the `SECNice()` approach for the `Inversion()` process. Not only does it perform well, but additionally  it requires no tuning parameters, unlike for example `SEC()`.
 
