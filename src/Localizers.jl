@@ -115,7 +115,7 @@ struct SECNice{FT <: Real, AV <: AbstractVector} <: LocalizationMethod
     std_of_corr::AV
 end
 SECNice() = SECNice(1000, 1.0, 1.0)
-SECNice(n_samples) = SECNice(n_samples, 1.0, 1.0)
+SECNice(δ_ug, δ_gg) = SECNice(1000, δ_ug, δ_gg) 
 SECNice(n_samples, δ_ug, δ_gg) = SECNice(n_samples, δ_ug, δ_gg, []) # always start with empty
 
 """
@@ -346,7 +346,7 @@ function sec_nice(cov, std_of_corr, δ_ug, δ_gg, N_ens, p, d)
 end
 
 
-"Sampling error correction (Morzfeld, Vishny et al., 2024) constructor"
+"Sampling error correction of Vishny, Morzfeld, et al. (2024) constructor"
 function Localizer(localization::SECNice, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
     if length(localization.std_of_corr) == 0 #i.e. if the user hasn't provided an interpolation
         dr = 0.001
