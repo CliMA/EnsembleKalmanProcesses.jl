@@ -77,7 +77,7 @@ SEC(α) = SEC{eltype(α)}(α, eltype(α)(0))
 
 Sampling error correction for EKI, as per Lee (2021), but using
 the method from Flowerdew (2015) based on the Fisher transformation.
-Correlations are shrinked by a factor determined by the sample
+Correlations are shrunk by a factor determined by the sample
 correlation and the ensemble size. 
 
 Flowerdew, J. (2015). Towards a theory of optimal localisation.
@@ -94,8 +94,8 @@ struct SECFisher <: LocalizationMethod end
 """
     SECNice{FT <: Real} <: LocalizationMethod
 
-Sample error correction as of Morzfeld, Vishny et al. (2024).
-Correlations are shrinked by a factor determined by correlation and ensemble size.
+Sampling error correction as of Vishny, Morzfeld, et al. (2024).
+Correlations are shrunk by a factor determined by correlation and ensemble size.
 The factors are automatically determined by a discrepancy principle.
 Thus no algorithm parameters are required, though some tuning of the discrepancy principle tolerances are made available.
 
@@ -108,15 +108,15 @@ struct SECNice{FT <: Real, AV <: AbstractVector} <: LocalizationMethod
     "number of samples to approximate the std of correlation distribution (default 1000)"
     n_samples::Int
     "scaling for discrepancy principle for ug correlation (default 1.0)"
-    tol_ug::FT
+    δ_ug::FT
     "scaling for discrepancy principle for gg correlation (default 1.0)"
-    tol_gg::FT
+    δ_gg::FT
     "A vector that will house a Interpolation object on first call to the localizer"
     std_of_corr::AV
 end
 SECNice() = SECNice(1000, 1.0, 1.0)
 SECNice(n_samples) = SECNice(n_samples, 1.0, 1.0)
-SECNice(n_samples, tol_ug, tol_gg) = SECNice(n_samples, tol_ug, tol_gg, []) # always start with empty
+SECNice(n_samples, δ_ug, δ_gg) = SECNice(n_samples, δ_ug, δ_gg, []) # always start with empty
 
 """
     Localizer{LM <: LocalizationMethod, T}
@@ -269,6 +269,9 @@ function Localizer(localization::SECFisher, p::IT, d::IT, J::IT, T = Float64) wh
     return Localizer{SECFisher, T}((cov) -> sec_fisher(cov, J))
 end
 
+"""
+The sampling distribution of a correlation coefficient for Gaussian random variables is, under the Fisher transformation, approximately Gaussian. To estimate the standard deviation in the sampling distribution of the correlation coefficient, we draw samples from a Gaussian, apply the inverse Fisher transformation to them, and estimate an empirical standard deviation from the transformed samples.
+"""
 function approximate_corr_std(r, N_ens, n_samples)
     # ρ = arctanh(r) from Fisher
     # assume r input is the mean value, i.e. assume arctanh(E(r)) = E(arctanh(r))
@@ -283,7 +286,7 @@ end
 
 
 """
-Function that performs sampling error correction as per Morzfeld, Vishny (2024).
+Function that performs sampling error correction as per Vishny, Morzfeld, et al. (2024).
 The input is assumed to be a covariance matrix, hence square.
 """
 function sec_nice(cov, std_of_corr, δ_ug, δ_gg, N_ens, p, d)
@@ -353,7 +356,7 @@ function Localizer(localization::SECNice, p::IT, d::IT, J::IT, T = Float64) wher
     end
 
     return Localizer{SECNice, T}(
-        (cov) -> sec_nice(cov, localization.std_of_corr[1], localization.tol_ug, localization.tol_gg, J, p, d),
+        (cov) -> sec_nice(cov, localization.std_of_corr[1], localization.δ_ug, localization.δ_gg, J, p, d),
     )
 end
 

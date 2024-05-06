@@ -67,7 +67,7 @@ end
 ## The following example is found in `examples/Localization/localization_example_lorenz96.jl`
 This example was originally taken from [Tong and Morzfeld (2022)](https://doi.org/10.48550/arXiv.2201.10821). Here, a single-scale lorenz 96 system state of dimension 200 is configured to be in a chaotic parameter regime, and integrated forward with timestep ``\Delta t`` until time ``T``. The goal is to perform ensemble inversion for the state at time ``T-20\Delta t``, given a noisy observation of the state at time ``T``.
 
-To perform this state estimation we use ensemble inversion with ensembles of size 20. This problem is severely ill-posed, and we make up for this by imposing sample-error correction methods to our state. Note that the SEC methods do not assume any spatial structure in the state, (differing from traditional state localization) and so are well suited for other types of inversions over parameter space.
+To perform this state estimation we use ensemble inversion with ensembles of size 20. This problem is severely rank-deficient, and we make up for this by imposing sampling-error correction methods to ensemble covariance matrices. Note that the SEC methods do not assume any spatial structure in the state, (differing from traditional state localization) and so are well suited for other types of inversions over parameter space.
 
 ![SEC_compared](assets/sec_comparison_lorenz96.png)
 
