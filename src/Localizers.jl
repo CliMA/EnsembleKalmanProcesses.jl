@@ -316,17 +316,17 @@ function sec_nice(cov, std_of_corr, δ_ug, δ_gg, N_ens, p, d)
         #        std_corrs = approximate_corr_std.(corr_tmp, N_ens, n_samples) # !! slowest part of code -> could speed up by precomputing/using an interpolation
         std_corrs = std_of_corr.(corr_tmp)
         std_tol = sqrt(sum(std_corrs .^ 2))
-        γ_min_exceeded = [max_exponent]
+        γ_min_exceeded = max_exponent
         for γ in 2:2:max_exponent # even exponents give a PSD correction
             corr_psd = corr_tmp .^ (γ + 1) # abs not needed as γ even
             # find the first exponent that exceeds the noise tolerance in norm
             if norm(corr_psd - corr_tmp) > δ * std_tol
-                γ_min_exceeded[1] = γ
+                γ_min_exceeded = γ
                 break
             end
         end
-        corr_update = corr_tmp .^ γ_min_exceeded[1]
-        corr_update_prev = corr_tmp .^ (γ_min_exceeded[1] - 2) # previous PSD correction 
+        corr_update = corr_tmp .^ γ_min_exceeded
+        corr_update_prev = corr_tmp .^ (γ_min_exceeded - 2) # previous PSD correction 
 
         for α in LinRange(1.0, 0.0, interp_steps)
             corr_interp = ((1 - α) * (corr_update_prev) + α * corr_update) .* corr_tmp
