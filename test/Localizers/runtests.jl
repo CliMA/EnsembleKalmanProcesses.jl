@@ -17,7 +17,7 @@ const EKP = EnsembleKalmanProcesses
 
     # Linear problem with d == p >> N_ens - Section 6.1 of Tong and Morzfeld (2022)
     G(u) = u
-    N_enss = [10,5] #SECNice requires test for N<6 and N>=6
+    N_enss = [10, 5] #SECNice requires test for N<6 and N>=6
     p = 50
     N_iter = 20
     # Generate random truth
@@ -34,7 +34,7 @@ const EKP = EnsembleKalmanProcesses
     for N_ens in N_enss
 
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-        
+
         # Solve problem without localization
         ekiobj_vanilla = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
         for i in 1:N_iter
@@ -43,26 +43,33 @@ const EKP = EnsembleKalmanProcesses
         end
         nonlocalized_error = get_error(ekiobj_vanilla)[end]
         # Test different localizers
-        loc_methods = [Delta(), RBF(1.0), RBF(0.1), BernoulliDropout(0.1), SEC(10.0), SECFisher(), SEC(1.0, 0.1), SECNice()]
+        loc_methods =
+            [Delta(), RBF(1.0), RBF(0.1), BernoulliDropout(0.1), SEC(10.0), SECFisher(), SEC(1.0, 0.1), SECNice()]
         for loc_method in loc_methods
-            ekiobj =
-                EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = loc_method)
+            ekiobj = EKP.EnsembleKalmanProcess(
+                initial_ensemble,
+                y,
+                Γ,
+                Inversion();
+                rng = rng,
+                localization_method = loc_method,
+            )
             @test isa(ekiobj.localizer, Localizer)
-            
+
             for i in 1:N_iter
                 g_ens = G(get_u_final(ekiobj))
                 EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
             end
-            
+
             # Check for expansion in some dimension
             eki_init_spread = tr(get_u_cov(ekiobj, 1))
             eki_final_spread = tr(get_u_cov_final(ekiobj))
             @test eki_final_spread < 2 * eki_init_spread
-            
-            
+
+
             # Test that localized version does better in the setting p >> N_ens
             @test get_error(ekiobj)[end] < nonlocalized_error
-            
+
             # Test Schur product theorem
             u_final = get_u_final(ekiobj)
             g_final = get_g_final(ekiobj)
@@ -73,6 +80,6 @@ const EKP = EnsembleKalmanProcesses
             @test isa(loc_method, EKP.get_localizer(ekiobj))
         end
     end
-    
+
 
 end
