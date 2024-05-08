@@ -273,15 +273,25 @@ end
 The sampling distribution of a correlation coefficient for Gaussian random variables is, under the Fisher transformation, approximately Gaussian. To estimate the standard deviation in the sampling distribution of the correlation coefficient, we draw samples from a Gaussian, apply the inverse Fisher transformation to them, and estimate an empirical standard deviation from the transformed samples.
 """
 function approximate_corr_std(r, N_ens, n_samples)
-    # ρ = arctanh(r) from Fisher
-    # assume r input is the mean value, i.e. assume arctanh(E(r)) = E(arctanh(r))
 
-    ρ = r # approx solution is the identity
-    #sample in ρ space
-    ρ_samples = rand(Normal(0.5 * log((1 + ρ) / (1 - ρ)), 1 / sqrt(N_ens - 3)), n_samples) # N_ens
-
-    # map back through Fisher to get std of r from samples tanh(ρ)
-    return std(tanh.(ρ_samples))
+    if N_ens>=6 # apply Fisher Transform
+        # ρ = arctanh(r) from Fisher
+        # assume r input is the mean value, i.e. assume arctanh(E(r)) = E(arctanh(r))
+        
+        ρ = r # approx solution is the identity
+        #sample in ρ space
+        ρ_samples = rand(Normal(0.5 * log((1 + ρ) / (1 - ρ)), 1 / sqrt(N_ens - 3)), n_samples) 
+        
+        # map back through Fisher to get std of r from samples tanh(ρ)
+        return std(tanh.(ρ_samples))
+    else # transformation not appropriate for N <=3
+        @warn "significant localization approximation error may occur for ensemble size below 6. Here, ensemble size = $N_ens"
+        # Here just generate samples with a correlation many times
+        samples = rand(Normal(0,r),N_ens,n_samples)
+        std_samples = std(samples, dims=1)
+        return std(std_samples)
+    end
+        
 end
 
 
@@ -290,9 +300,6 @@ Function that performs sampling error correction as per Vishny, Morzfeld, et al.
 The input is assumed to be a covariance matrix, hence square.
 """
 function sec_nice(cov, std_of_corr, δ_ug, δ_gg, N_ens, p, d)
-    if N_ens < 6
-        @warn "significant localization approximation error may occur for ensemble size below 6. Here, ensemble size = $N_ens"
-    end
     bd_tol = 1e8 * eps()
 
     v = sqrt.(diag(cov))
@@ -351,7 +358,7 @@ function Localizer(localization::SECNice, p::IT, d::IT, J::IT, T = Float64) wher
     if length(localization.std_of_corr) == 0 #i.e. if the user hasn't provided an interpolation
         dr = 0.001
         grid = LinRange(-1, 1, Int(1 / dr + 1))
-        std_grid = approximate_corr_std.(grid, J, localization.n_samples) # odd number to include 0
+        std_grid = approximate_corr_std.(grid, J, localization.n_samples) # odd number to include 0           
         push!(localization.std_of_corr, linear_interpolation(grid, std_grid)) # pw-linear interpolation
     end
 
