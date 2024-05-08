@@ -270,7 +270,8 @@ function Localizer(localization::SECFisher, p::IT, d::IT, J::IT, T = Float64) wh
 end
 
 """
-The sampling distribution of a correlation coefficient for Gaussian random variables is, under the Fisher transformation, approximately Gaussian. To estimate the standard deviation in the sampling distribution of the correlation coefficient, we draw samples from a Gaussian, apply the inverse Fisher transformation to them, and estimate an empirical standard deviation from the transformed samples.
+For `N_ens >= 6`: The sampling distribution of a correlation coefficient for Gaussian random variables is, under the Fisher transformation, approximately Gaussian. To estimate the standard deviation in the sampling distribution of the correlation coefficient, we draw samples from a Gaussian, apply the inverse Fisher transformation to them, and estimate an empirical standard deviation from the transformed samples.
+For `N_ens < 6`: Approximate the standard deviation of correlation coefficient empirically by sampling between two correlated Gaussians of known coefficient. Likely will be a poor approximation even with large numbers of samples due to Gaussian approximation.
 """
 function approximate_corr_std(r, N_ens, n_samples)
 
@@ -284,12 +285,17 @@ function approximate_corr_std(r, N_ens, n_samples)
         
         # map back through Fisher to get std of r from samples tanh(ρ)
         return std(tanh.(ρ_samples))
-    else # transformation not appropriate for N <=3
-        @warn "significant localization approximation error may occur for ensemble size below 6. Here, ensemble size = $N_ens"
-        # Here just generate samples with a correlation many times
-        samples = rand(Normal(0,r),N_ens,n_samples)
-        std_samples = std(samples, dims=1)
-        return std(std_samples)
+    else # transformation not appropriate for N < 6
+        # Generate sample pairs with a correlation coefficient r
+        samples_1 = rand(Normal(0,1),N_ens,n_samples)
+        samples_2 = rand(Normal(0,1),N_ens,n_samples)
+        samples_corr_with_1 = r*samples_1 + sqrt(1-r^2)*samples_2 # will have correlation r with samples_1
+
+        corrs=zeros(n_samples)
+        for i = 1:n_samples
+            corrs[i] = cor(samples_1[:,i],samples_corr_with_1[:,i])
+        end
+        return std(corrs)
     end
         
 end
