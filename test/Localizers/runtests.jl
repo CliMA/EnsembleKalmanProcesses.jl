@@ -17,7 +17,8 @@ const EKP = EnsembleKalmanProcesses
 
     # Linear problem with d == p >> N_ens - Section 6.1 of Tong and Morzfeld (2022)
     G(u) = u
-    N_ens = 10
+    N_enss = [10, 5] #SECNice requires test for N<6 and N>=6
+    mask = [repeat([1], 8)..., 2] # will do N_ens =10 for 8 exp then N_ens=5
     p = 50
     N_iter = 20
     # Generate random truth
@@ -31,20 +32,37 @@ const EKP = EnsembleKalmanProcesses
     end
     prior = combine_distributions(priors)
 
-    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
     # Solve problem without localization
-    ekiobj_vanilla = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
-    for i in 1:N_iter
-        g_ens_vanilla = G(get_u_final(ekiobj_vanilla))
-        EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla)
+    nonlocalized_errors = []
+    for N_ens in N_enss
+        initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+        ekiobj_vanilla = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
+        for i in 1:N_iter
+            g_ens_vanilla = G(get_u_final(ekiobj_vanilla))
+            EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla)
+        end
+        push!(nonlocalized_errors, get_error(ekiobj_vanilla)[end])
     end
-    nonlocalized_error = get_error(ekiobj_vanilla)[end]
 
     # Test different localizers
-    loc_methods = [Delta(), RBF(1.0), RBF(0.1), BernoulliDropout(0.1), SEC(10.0), SECFisher(), SEC(1.0, 0.1)]
+    loc_methods = [
+        Delta(),
+        RBF(1.0),
+        RBF(0.1),
+        BernoulliDropout(0.1),
+        SEC(10.0),
+        SECFisher(),
+        SEC(1.0, 0.1),
+        SECNice(),
+        SECNice(),
+    ]
 
-    for loc_method in loc_methods
+    for (mask_val, loc_method) in zip(mask, loc_methods)
+        N_ens = N_enss[mask_val]
+        nonlocalized_error = nonlocalized_errors[mask_val]
+
+        initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         ekiobj =
             EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = loc_method)
         @test isa(ekiobj.localizer, Localizer)
@@ -72,5 +90,6 @@ const EKP = EnsembleKalmanProcesses
         # Test localization getter method
         @test isa(loc_method, EKP.get_localizer(ekiobj))
     end
+
 
 end
