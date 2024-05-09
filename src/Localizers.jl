@@ -94,7 +94,7 @@ struct SECFisher <: LocalizationMethod end
 """
     SECNice{FT <: Real} <: LocalizationMethod
 
-Sampling error correction as of Vishny, Morzfeld, et al. (2024).
+Sampling error correction as of Vishny, Morzfeld, et al. (2024), [DOI](https://doi.org/10.22541/essoar.171501094.44068137/v1).
 Correlations are shrunk by a factor determined by correlation and ensemble size.
 The factors are automatically determined by a discrepancy principle.
 Thus no algorithm parameters are required, though some tuning of the discrepancy principle tolerances are made available.
@@ -271,7 +271,7 @@ end
 
 """
 For `N_ens >= 6`: The sampling distribution of a correlation coefficient for Gaussian random variables is, under the Fisher transformation, approximately Gaussian. To estimate the standard deviation in the sampling distribution of the correlation coefficient, we draw samples from a Gaussian, apply the inverse Fisher transformation to them, and estimate an empirical standard deviation from the transformed samples.
-For `N_ens < 6`: Approximate the standard deviation of correlation coefficient empirically by sampling between two correlated Gaussians of known coefficient. Likely will be a poor approximation even with large numbers of samples due to Gaussian approximation.
+For `N_ens < 6`: Approximate the standard deviation of correlation coefficient empirically by sampling between two correlated Gaussians of known coefficient. 
 """
 function approximate_corr_std(r, N_ens, n_samples)
 
