@@ -32,12 +32,14 @@ abstract type FailureHandlingMethod end
 # Accelerators
 abstract type Accelerator end
 
+# Level schedulers
+abstract type LevelScheduler end
 
 
 "Failure handling method that ignores forward model failures"
 struct IgnoreFailures <: FailureHandlingMethod end
 
-""""
+"""
     SampleSuccGauss <: FailureHandlingMethod
 
 Failure handling method that substitutes failed ensemble members by new samples from
@@ -130,6 +132,8 @@ struct EnsembleKalmanProcess{
     scheduler::LRS
     "accelerator object that informs EK update steps, stores additional state variables as needed"
     accelerator::ACC
+    ""
+    level_scheduler::LevelScheduler
     "stored vector of timesteps used in each EK iteration"
     Δt::Vector{FT}
     "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `TransformInversion` or `SparseInversion`)"
@@ -151,6 +155,7 @@ function EnsembleKalmanProcess(
     process::P;
     scheduler::Union{Nothing, LRS} = nothing,
     accelerator::Union{Nothing, ACC} = nothing,
+    level_scheduler::Union{Nothing, LS} = nothing,
     Δt = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
@@ -160,6 +165,7 @@ function EnsembleKalmanProcess(
     FT <: AbstractFloat,
     LRS <: LearningRateScheduler,
     ACC <: Accelerator,
+    LS <: LevelScheduler,
     P <: Process,
     FM <: FailureHandlingMethod,
     LM <: LocalizationMethod,
@@ -221,6 +227,17 @@ function EnsembleKalmanProcess(
         end
     end
 
+    # set up level scheduler
+    ls = if isnothing(level_scheduler)
+        SingleLevelScheduler(N_ens, LevelInfinity())
+    else
+        if !(typeof(process) <: Inversion)
+            throw(ArgumentError("Only `Inversion` (EKI) can currently be used with multilevel Monte Carlo."))
+        end
+
+        level_scheduler
+    end
+
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
     # localizer
@@ -239,6 +256,7 @@ function EnsembleKalmanProcess(
         err,
         lrs,
         acc,
+        ls,
         Δt,
         process,
         rng,
@@ -503,20 +521,24 @@ get_error(ekp::EnsembleKalmanProcess) = ekp.err
 """
     sample_empirical_gaussian(
         rng::AbstractRNG,
+        ekp::EnsembleKalmanProcess,
         u::AbstractMatrix{FT},
         n::IT;
         inflation::Union{FT, Nothing} = nothing,
+        ignored_indices = [],
     ) where {FT <: Real, IT <: Int}
 
 Returns `n` samples from an empirical Gaussian based on point estimates `u`, adding inflation if the covariance is singular.
 """
 function sample_empirical_gaussian(
     rng::AbstractRNG,
+    ekp::EnsembleKalmanProcess,
     u::AbstractMatrix{FT},
     n::IT;
     inflation::Union{FT, Nothing} = nothing,
+    ignored_indices = [],
 ) where {FT <: Real, IT <: Int}
-    cov_u_new = Symmetric(cov(u, dims = 2))
+    cov_u_new = Symmetric(posdef(compute_cov(ekp, u; corrected = true, ignored_indices)))
     if !isposdef(cov_u_new)
         @warn string("Sample covariance matrix over ensemble is singular.", "\n Applying variance inflation.")
         if isnothing(inflation)
@@ -525,16 +547,18 @@ function sample_empirical_gaussian(
         end
         cov_u_new = cov_u_new + inflation * I
     end
-    mean_u_new = mean(u, dims = 2)
+    mean_u_new = compute_mean(ekp, u; ignored_indices)
     return mean_u_new .+ sqrt(cov_u_new) * rand(rng, MvNormal(zeros(length(mean_u_new[:])), I), n)
 end
 
 function sample_empirical_gaussian(
+    ekp::EnsembleKalmanProcess,
     u::AbstractMatrix{FT},
     n::IT;
     inflation::Union{FT, Nothing} = nothing,
+    ignored_indices = [],
 ) where {FT <: Real, IT <: Int}
-    return sample_empirical_gaussian(Random.GLOBAL_RNG, u, n, inflation = inflation)
+    return sample_empirical_gaussian(Random.GLOBAL_RNG, ekp, u, n; inflation, ignored_indices)
 end
 
 
@@ -691,6 +715,8 @@ function update_ensemble!(
 end
 
 
+include("SampleStatistics.jl")
+
 ## include the different types of Processes and their exports:
 
 # struct Inversion
@@ -719,3 +745,6 @@ include("UnscentedKalmanInversion.jl")
 
 # struct Accelerator
 include("Accelerators.jl")
+
+# Level schedulers
+include("Multilevel.jl")

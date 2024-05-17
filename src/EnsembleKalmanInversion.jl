@@ -19,14 +19,13 @@ Provides a failsafe update that
  - updates the successful ensemble according to the EKI update,
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
-function FailureHandler(process::Inversion, method::SampleSuccGauss)
+function FailureHandler(::Inversion, ::SampleSuccGauss)
     function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens)
-        successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
-        n_failed = length(failed_ens)
-        u[:, successful_ens] =
-            eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
+        (failed_ens, sample_transform, sample_dim) = get_correlations(ekp.level_scheduler, failed_ens)
+        u = eki_update(ekp, u, g, y, obs_noise_cov; ignored_indices = failed_ens)
         if !isempty(failed_ens)
-            u[:, failed_ens] = sample_empirical_gaussian(ekp.rng, u[:, successful_ens], n_failed)
+            new_samples = sample_empirical_gaussian(ekp.rng, ekp, u, sample_dim; ignored_indices = failed_ens)
+            u[:, failed_ens] = new_samples[:, sample_transform]
         end
         return u
     end
@@ -39,7 +38,8 @@ end
         u::AbstractMatrix{FT},
         g::AbstractMatrix{FT},
         y::AbstractMatrix{FT},
-        obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
+        obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}};
+        ignored_indices = [],
     ) where {FT <: Real, IT, CT <: Real}
 
 Returns the updated parameter vectors given their current values and
@@ -53,14 +53,17 @@ function eki_update(
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
-    obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
+    obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}};
+    ignored_indices = [],
 ) where {FT <: Real, IT, CT <: Real}
 
-    cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
+    cov_est = compute_cov(ekp, [u; g]; corrected = false, ignored_indices) # [(N_par + N_obs)×(N_par + N_obs)]
 
     # Localization
     cov_localized = ekp.localizer.localize(cov_est)
+
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
+    cov_gg = posdef(cov_gg)
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
@@ -108,9 +111,10 @@ function update_ensemble!(
     # g: N_obs × N_ens
     u = get_u_final(ekp)
     N_obs = size(g, 1)
-    cov_init = cov(u, dims = 2)
 
     if ekp.verbose
+        cov_init = compute_cov(ekp, u; corrected = true)
+
         if get_N_iterations(ekp) == 0
             @info "Iteration 0 (prior)"
             @info "Covariance trace: $(tr(cov_init))"
@@ -123,7 +127,9 @@ function update_ensemble!(
 
     # Scale noise using Δt
     scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
-    noise = sqrt(scaled_obs_noise_cov) * rand(ekp.rng, MvNormal(zeros(N_obs), I), ekp.N_ens)
+    independent_noise_dim = get_N_indep(ekp.level_scheduler)
+    noise = scaled_obs_noise_cov * rand(ekp.rng, MvNormal(zeros(N_obs), I), independent_noise_dim)
+    noise = transform_noise(ekp.level_scheduler, noise)
 
     # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic
@@ -143,10 +149,10 @@ function update_ensemble!(
     # Store error
     compute_error!(ekp)
 
-    # Diagnostics
-    cov_new = cov(u, dims = 2)
-
     if ekp.verbose
+        # Diagnostics
+        cov_new = compute_cov(ekp, u; corrected = true)
+
         @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
     end
 

@@ -56,7 +56,7 @@ function FailureHandler(process::SparseInversion, method::SampleSuccGauss)
         u[:, successful_ens] =
             sparse_eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
         if !isempty(failed_ens)
-            u[:, failed_ens] = sample_empirical_gaussian(ekp.rng, u[:, successful_ens], n_failed)
+            u[:, failed_ens] = sample_empirical_gaussian(ekp.rng, ekp, u, n_failed; ignored_indices = failed_ens)
         end
         return u
     end
