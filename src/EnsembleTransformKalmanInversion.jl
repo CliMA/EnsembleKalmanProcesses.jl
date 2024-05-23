@@ -83,18 +83,29 @@ Inputs:
  - ekp :: The EnsembleKalmanProcess to update.
  - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - process :: Type of the EKP.
+ - u_idx :: indices of u to update (see `UpdateGroup`)
+ - g_idx :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
  - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, TransformInversion{FT}},
     g::AbstractMatrix{FT},
-    process::TransformInversion{FT};
+    process::TransformInversion{FT},
+    u_idx::Vector{Int},
+    g_idx::Vector{Int};
     failed_ens = nothing,
 ) where {FT, IT}
 
-    # u: N_par × N_ens 
-    # g: N_obs × N_ens
-    u = get_u_final(ekp)
+    # update only u_idx parameters/ with g_idx data
+    # u: length(u_idx) × N_ens   
+    # g: lenght(g_idx) × N_ens
+    u = get_u_final(ekp)[u_idx, :]
+    g = g[g_idx, :]
+    obs_noise_cov = ekp.obs_noise_cov[g_idx, g_idx]
+    obs_mean = ekp.obs_mean[g_idx]
+    # ISSUE. In general this is not true,
+    # Gamma_inv = ekp.process.Gamma_inv[g_idx,g_idx]
+
     N_obs = size(g, 1)
     cov_init = cov(u, dims = 2)
 
@@ -110,7 +121,7 @@ function update_ensemble!(
     fh = ekp.failure_handler
 
     # Scale noise using Δt
-    scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
+    scaled_obs_noise_cov = obs_noise_cov / ekp.Δt[end]
 
     y = ekp.obs_mean
 
@@ -122,12 +133,6 @@ function update_ensemble!(
     end
 
     u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
-
-    # store new parameters (and model outputs)
-    push!(ekp.g, DataContainer(g, data_are_columns = true))
-
-    # Store error
-    compute_error!(ekp)
 
     # Diagnostics
     cov_new = cov(u, dims = 2)

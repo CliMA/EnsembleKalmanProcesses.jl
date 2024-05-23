@@ -293,9 +293,6 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         push!(uki.process.obs_pred, g_mean) # N_ens x N_data
         push!(uki.process.u_mean, u_mean) # N_ens x N_params
         push!(uki.process.uu_cov, uu_cov) # N_ens x N_data
-        push!(uki.g, DataContainer(g, data_are_columns = true))
-
-        compute_error!(uki)
 
     end
     function failsafe_update(uki, u, g, failed_ens)
@@ -624,9 +621,6 @@ function update_ensemble_analysis!(
     push!(uki.process.obs_pred, g_mean) # N_ens x N_data
     push!(uki.process.u_mean, u_mean) # N_ens x N_params
     push!(uki.process.uu_cov, uu_cov) # N_ens x N_data
-    push!(uki.g, DataContainer(g, data_are_columns = true))
-
-    compute_error!(uki)
 
 end
 
@@ -644,13 +638,17 @@ Inputs:
  - `uki`        :: The EnsembleKalmanProcess to update.
  - `g_in`       :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - `process` :: Type of the EKP.
+ - `u_idx` :: indices of u to update (see `UpdateGroup`)
+ - `g_idx` :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
  - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
     with NaN entries.
 """
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, U},
     g_in::AbstractMatrix{FT},
-    process::U;
+    process::U,
+    u_idx::Vector{Int},
+    g_idx::Vector{Int};
     failed_ens = nothing,
 ) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     #catch works when g_in non-square 

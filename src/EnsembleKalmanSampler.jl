@@ -100,16 +100,20 @@ end
 Updates the ensemble according to a Sampler process. 
 
 Inputs:
- - ekp :: The EnsembleKalmanProcess to update.
- - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - process :: Type of the EKP.
- - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g`
+ - `ekp` :: The EnsembleKalmanProcess to update.
+ - `g` :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - `process` :: Type of the EKP.
+ - `u_idx` :: indices of u to update (see `UpdateGroup`)
+ - `g_idx` :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
+ - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
     with NaN entries.
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}},
     g::AbstractMatrix{FT},
-    process::Sampler{FT};
+    process::Sampler{FT},
+    u_idx::Vector{Int},
+    g_idx::Vector{Int};
     failed_ens = nothing,
 ) where {FT, IT}
 
@@ -137,13 +141,6 @@ function update_ensemble!(
     end
 
     u = fh.failsafe_update(ekp, u_old, g, failed_ens)
-
-    # store new parameters (and model outputs)
-    push!(ekp.g, DataContainer(g, data_are_columns = true))
-    # u_old is N_ens × N_par, g is N_ens × N_obs,
-    # but stored in data container with N_ens as the 2nd dim
-
-    compute_error!(ekp)
 
     # Diagnostics
     cov_new = cov(u, dims = 2)
