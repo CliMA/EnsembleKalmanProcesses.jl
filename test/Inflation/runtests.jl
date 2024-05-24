@@ -58,8 +58,10 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         g_ens = G(get_ϕ_final(prior, ekiobj))
 
         # ensure error is thrown when scaled time step >= 1
-        @test_throws ErrorException EKP.update_ensemble!(ekiobj, g_ens, 1:size(initial_ensemble,1), 1:size(g_ens,1),; multiplicative_inflation = true, s = 3.0)
-        @test_throws ErrorException EKP.update_ensemble!(ekiobj, g_ens, 1:size(initial_ensemble,1), 1:size(g_ens,1),; additive_inflation = true, s = 3.0)
+        idx_vec_in = collect(1:size(initial_ensemble, 1))
+        idx_vec_out = collect(1:size(g_ens, 1))
+        @test_throws ErrorException EKP.update_ensemble!(ekiobj, g_ens; multiplicative_inflation = true, s = 3.0)
+        @test_throws ErrorException EKP.update_ensemble!(ekiobj, g_ens; additive_inflation = true, s = 3.0)
 
         # EKI iterations
         for i in 1:N_iter
@@ -67,7 +69,7 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
             g_ens = G(get_ϕ_final(prior, ekiobj))
 
             # standard update
-            EKP.update_ensemble!(ekiobj, g_ens, 1:size(initial_ensemble,1), 1:size(g_ens,1), EKP.get_process(ekiobj))
+            EKP.update_ensemble!(ekiobj, g_ens)
             eki_mult_inflation = deepcopy(ekiobj)
             eki_add_inflation = deepcopy(ekiobj)
             eki_add_inflation_prior = deepcopy(ekiobj)
