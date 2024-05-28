@@ -134,12 +134,5 @@ function update_ensemble!(
 
     u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
 
-    # Diagnostics
-    cov_new = cov(u, dims = 2)
-
-    if ekp.verbose
-        @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
-    end
-
     return u
 end

@@ -676,12 +676,6 @@ function update_ensemble!(
 
     u_p = fh.failsafe_update(uki, u_p_old, g_in, failed_ens)
 
-
-    if uki.verbose
-        cov_new = get_u_cov_final(uki)
-        @info "Covariance-weighted error: $(get_error(uki)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
-    end
-
     return u_p
 end
 

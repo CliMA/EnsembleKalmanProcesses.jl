@@ -13,7 +13,8 @@ export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error, get_cov_blocks
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
-export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final, get_accelerator, get_process
+export get_u_mean_final,
+    get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final, get_accelerator, get_process
 export compute_error!
 export update_ensemble!
 export sample_empirical_gaussian, split_indices_by_success
@@ -702,6 +703,8 @@ function update_ensemble!(
     if isnothing(terminate)
         update_groups = get_update_groups(ekp)
         u = zeros(size(get_u_prior(ekp)))
+        cov_init = get_u_cov_final(ekp)
+
         for group in update_groups # for each group of params -> output
             u_idx = get_u_group(group) # subset of the parameters
             g_idx = get_g_group(group) # subset of the data/output
@@ -719,6 +722,12 @@ function update_ensemble!(
         # wrapping up
         push!(ekp.g, DataContainer(g, data_are_columns = true)) # store g
         compute_error!(ekp)
+
+        if ekp.verbose
+            cov_new = get_u_cov_final(ekp)
+            @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
+        end
+
     else
         return terminate # true if scheduler has not stepped
     end
