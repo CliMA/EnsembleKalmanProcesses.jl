@@ -1,13 +1,13 @@
 struct LSettings
     # Number of longitude steps
-    N::Int32 
+    N::Int32
     # Timestep
     dt::Float64
     # end time
     t_end::Float64
     # Initial perturbation
-    initial::Union{Array{Float64},Nothing}
-    
+    initial::Union{Array{Float64}, Nothing}
+
 end
 
 struct LParams{FT <: AbstractFloat, VV <: AbstractVector}
@@ -36,7 +36,7 @@ end
 
 # initial run
 function lorenz_solve(settings::LSettings, params::LParams)
-    X = fill(Float64(0.0), 2*settings.N,1) #fast+slow
+    X = fill(Float64(0.0), 2 * settings.N, 1) #fast+slow
     if !isnothing(settings.initial)
         X = X .+ settings.initial
     end
@@ -45,10 +45,10 @@ end
 
 # Solve the Lorenz 96 system 
 function lorenz_solve(X::Matrix, settings::LSettings, params::LParams)
-    X_next = X[:,end] #take the final state
+    X_next = X[:, end] #take the final state
     # Initialize
     nstep = Int32(ceil(settings.t_end / settings.dt))
-    xn = zeros(Float64, 2*settings.N, nstep)
+    xn = zeros(Float64, 2 * settings.N, nstep)
     t = zeros(Float64, nstep)
     # March forward in time
     for j in 1:nstep
@@ -67,11 +67,11 @@ end
 function rk_inner(x, N, params, t)
 
     #get lorenz parameters
-    (F,G,h,c,b) = (params.F,params.G,params.h,params.c,params.b)
+    (F, G, h, c, b) = (params.F, params.G, params.h, params.c, params.b)
     F_local = params.F[1] + params.F[2] * sin(params.F[3] * 2 * π * t)
-    
+
     slow_id = 1:N
-    fast_id = N+1:2*N
+    fast_id = (N + 1):(2 * N)
     xs = x[slow_id]
     xf = x[fast_id]
     slow = zeros(Float64, N)
@@ -80,30 +80,30 @@ function rk_inner(x, N, params, t)
     # Loop over N positions
 
     # dynamics - slow (F,G)
-#=
+    #=
+        # Damping system with coupling and force
+        for i = 1:N
+            slow[i] = - xs[i] + F_local - G*xf[i]
+        end
+        =#
     # Damping system with coupling and force
-    for i = 1:N
-        slow[i] = - xs[i] + F_local - G*xf[i]
-    end
-    =#
-    # Damping system with coupling and force
-    for i = 3:N-1
-        slow[i] = -xs[i - 1] * (xs[i - 2] - xs[i + 1])- xs[i] + F_local - G*xf[i]
+    for i in 3:(N - 1)
+        slow[i] = -xs[i - 1] * (xs[i - 2] - xs[i + 1]) - xs[i] + F_local - G * xf[i]
     end
     # Periodic BC
-    slow[2] = -xs[1] * (xs[N] - xs[3])- xs[2] + F_local - G*xf[2]
-    slow[1] = -xs[N] * (xs[N - 1] - xs[2])- xs[1] + F_local - G*xf[1]
-    slow[N] = -xs[N - 1] * (xs[N - 2] - xs[1])- xs[N] + F_local - G*xf[N]
-    
+    slow[2] = -xs[1] * (xs[N] - xs[3]) - xs[2] + F_local - G * xf[2]
+    slow[1] = -xs[N] * (xs[N - 1] - xs[2]) - xs[1] + F_local - G * xf[1]
+    slow[N] = -xs[N - 1] * (xs[N - 2] - xs[1]) - xs[N] + F_local - G * xf[N]
+
     # dynamics - fast (h,c,b)
     # L96 system  with  coupling to slow
     for i in 2:(N - 2)
-        fast[i] = -c*b*xf[i + 1] * (xf[i + 2] - xf[i - 1]) - c*xf[i] + h*c/b * xs[i]
+        fast[i] = -c * b * xf[i + 1] * (xf[i + 2] - xf[i - 1]) - c * xf[i] + h * c / b * xs[i]
     end
     # periodic boundary conditions
-    fast[1] = -c*b*xf[2] * (xf[3] -  xf[N]) - c*xf[1] + h*c/b * xs[1]
-    fast[N-1] = -c*b*xf[N] * (xf[1] - xf[N-2]) - c*xf[N-1] + h*c/b * xs[N-1]
-    fast[N] = -c*b*xf[1] * (xf[2] - xf[N-1]) - c*xf[N] + h*c/b * xs[N]
+    fast[1] = -c * b * xf[2] * (xf[3] - xf[N]) - c * xf[1] + h * c / b * xs[1]
+    fast[N - 1] = -c * b * xf[N] * (xf[1] - xf[N - 2]) - c * xf[N - 1] + h * c / b * xs[N - 1]
+    fast[N] = -c * b * xf[1] * (xf[2] - xf[N - 1]) - c * xf[N] + h * c / b * xs[N]
 
     # return
     xnew[slow_id] = slow
@@ -123,4 +123,3 @@ function RK4(xold, dt, N, F, t)
     # Output
     return xnew
 end
-
