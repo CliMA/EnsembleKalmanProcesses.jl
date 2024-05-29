@@ -34,14 +34,14 @@ case = "test"
 
 
 # A function to run the ensemble over ϕ_i, generating trajectories and data
-function run_G_ensemble(state, lsettings, ϕ_i, window, data_dim; F_true = nothing)
+function run_G_ensemble(state, lsettings, ϕ_i, window, data_dim)
     N_ens = size(ϕ_i, 2)
     data_sample = zeros(data_dim, N_ens)
 
     for j in 1:N_ens
         # ϕ_i is n_params x n_ens
         params_i = LParams(
-            F_true,            #ϕ_i[1:3,j], # F
+            ϕ_i[1:3, j], # F
             ϕ_i[1, j], # G
             ϕ_i[2, j], # h
             ϕ_i[3, j], # c
@@ -89,14 +89,18 @@ function main()
     ###  Define the parameter priors (needed later for inversion)
     ###
 
-    #    prior_F = ParameterDistribution("F",  constrained_gaussian(param_names[1], 0.1, 3.0, 0, Inf, repeats=3)
-    # prior for F could be used, but should really make the 1/year prior on different order of magnitude
-    prior_G = constrained_gaussian(param_names[2], 5.0, 2.0, 0, Inf)
-    prior_h = constrained_gaussian(param_names[3], 5.0, 2.0, 0, Inf)
-    prior_c = constrained_gaussian(param_names[4], 5.0, 2.0, 0, Inf)
-    prior_b = constrained_gaussian(param_names[5], 5.0, 2.0, 0, Inf)
-    #    priors = combine_distributions([prior_F, prior_G, prior_h, prior_c, prior_b])
-    priors = combine_distributions([prior_G, prior_h, prior_c, prior_b])
+    prior_F = ParameterDistribution(
+        Dict(
+            "name" => "F",
+            "distribution" => Parameterized(MvNormal([1.0, 0.0, -2.0], I)),
+            "constraint" => repeat([bounded_below(0)], 3),
+        ),
+    ) # gives 3-D dist on the order of~ [12,1,0.08]                                
+    prior_G = constrained_gaussian(param_names[2], 5.0, 4.0, 0, Inf)
+    prior_h = constrained_gaussian(param_names[3], 5.0, 4.0, 0, Inf)
+    prior_c = constrained_gaussian(param_names[4], 5.0, 4.0, 0, Inf)
+    prior_b = constrained_gaussian(param_names[5], 5.0, 4.0, 0, Inf)
+    priors = combine_distributions([prior_F, prior_G, prior_h, prior_c, prior_b])
 
     ###
     ### Configuration of the forward map
@@ -207,6 +211,11 @@ function main()
     save(joinpath(output_directory, case * "_datatrajectory_state1.pdf"), fig, pt_per_unit = 3)
 
     Γ = cov(data_samples, dims = 2) # estimate covariance from samples
+    # add a little additive and multiplicative inflation
+    Γ += 1e6 * eps() * I # 10^-12 just to make things nonzero
+    blocksize = Int64(size(Γ, 1) / 5) # known block structure
+    meanblocks = [mean([Γ[i, i] for i in ((j - 1) * blocksize + 1):(j * blocksize)]) for j in 1:5]
+    #Γ += 1e-4* kron(Diagonal(meanblocks),I(blocksize)) # this will add scaled noise to the diagonal scaled by the block
 
     y_mean = mean(data_samples, dims = 2)
     y = data_samples[:, shuffle(rng, 1:n_sample_cov)[1]] # random data point as the data
@@ -223,17 +232,15 @@ function main()
 
     @info "constructed and plotted perfect experiment data and noise"
 
-    Γ += 1e8 * eps() * I + 0.05 * Diagonal(Γ) # a bit of additive and multiplicative inflation
-
-    # may need to condition Gamma for posdef etc. or add shrinkage
+    # may need to condition Gamma for posdef etc. or add shrinkage estimation
 
     ###
-    ### Configure ensemble inversion
+    ### (a) Configure and solve ensemble inversion
     ###
 
     # EKP parameters
-    N_ens = 50 # number of ensemble members
-    N_iter = 8 # number of EKI iterations
+    N_ens = 30 # number of ensemble members
+    N_iter = 20 # number of EKI iterations
     # initial parameters: N_params x N_ens
     initial_params = construct_initial_ensemble(rng, priors, N_ens)
 
@@ -247,12 +254,13 @@ function main()
         verbose = true,
     )
     @info "Built EKP object"
+
     # EKI iterations
     println("EKP inversion error:")
     err = zeros(N_iter)
     for i in 1:N_iter
         ϕ_i = get_ϕ_final(priors, ekiobj) # the `ϕ` indicates that the `params_i` are in the constrained space    
-        g_ens = run_G_ensemble(spunup_state, lsettings, ϕ_i, window, length(y), F_true = F_true)
+        g_ens = run_G_ensemble(spunup_state, lsettings, ϕ_i, window, length(y))
         EKP.update_ensemble!(ekiobj, g_ens)
     end
     @info "Calibrated parameters with EKP"
@@ -267,7 +275,7 @@ function main()
     g_stored = get_g(ekiobj, return_array = false)
 
     @save output_directory * "parameter_storage.jld2" u_stored
-    @save output_directory * "data_storage.jld2" g_stored
+    @save output_directory * "output_storage.jld2" g_stored
 
     # Plots
     fig = Figure(size = (450, 450))
@@ -280,11 +288,11 @@ function main()
     dplot = 1:data_dim
     lines!(aprior, dplot, y, color = :black, label = "data") #plots each row as new plot
     lines!(apost, dplot, y, color = :black, label = "data") #plots each row as new plot
-    band!(aprior, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.1)) #estimated 2*std bands about a mean 
-    band!(apost, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.1))
+    band!(aprior, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.2)) #estimated 2*std bands about a mean 
+    band!(apost, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.2))
     for idx in 1:N_ens
-        lines!(aprior, dplot, g_prior[:, idx], color = :orange, alpha = 0.1, label = "prior") #plots each row as new plot
-        lines!(apost, dplot, g_post[:, idx], color = :blue, alpha = 0.1, label = "posterior") #plots each row as new plot
+        lines!(aprior, dplot, g_prior[:, idx], color = :orange, alpha = 0.2, label = "prior") #plots each row as new plot
+        lines!(apost, dplot, g_post[:, idx], color = :blue, alpha = 0.2, label = "posterior") #plots each row as new plot
     end
     axislegend(aprior, merge = true, unique = true)
     axislegend(apost, merge = true, unique = true)
@@ -293,7 +301,91 @@ function main()
     save(joinpath(output_directory, case * "_datasamples-prior-post.png"), fig, px_per_unit = 3)
     save(joinpath(output_directory, case * "_datasamples-prior-post.pdf"), fig, pt_per_unit = 3)
 
-    @info "constructed and plotted perfect experiment data and noise"
+    @info "plotted results of perfect experiment"
+
+    ###
+    ### (b) Repeat exp (a) with UpdateGroups
+    ###
+
+    # We see that 
+    bs = Int64(size(Γ, 1) / 5) # known block structure
+   
+    # recall the parameters are
+    # F[1:3],G,h,c,b
+    # and the data blocks are
+    # <X>, <Y>, <X^2>, <Y^2>, <XY>  X-slow, Y-fast
+
+    # F(3) -> <X>, <X^2>, 
+#    group_slow = UpdateGroup(collect(1:4), reduce(vcat, [collect(1:bs), collect(2 * bs + 1:3 * bs)]))
+#    group_slow = UpdateGroup(collect(1:3), reduce(vcat,[collect(1:bs),collect(2*bs+1:3*bs), collect(4*bs+1:5*bs)]))
+    # G,h,c,b -> <Y>, <Y^2>,<XY>
+    #group_fast = UpdateGroup(collect(4:7), collect(1:(5 * bs)))
+    group_fast = UpdateGroup(collect(4:7), reduce(vcat,[collect(bs+1:2*bs),collect(3*bs+1:5*bs)])) 
+
+group_slow = UpdateGroup(collect(1:3), reduce(vcat, [collect(1:bs), collect(2*bs+1:3*bs)]))
+group_fast = UpdateGroup(collect(6:7), reduce(vcat, [collect(bs+1:2*bs), collect(3*bs+1:4*bs)]))
+group_mixed = UpdateGroup(collect(4:5), collect(4*bs+1:5*bs))
+
+    ekiobj_grouped = EKP.EnsembleKalmanProcess(
+        initial_params,
+        y,
+        Γ,
+        Inversion(),
+        scheduler = DataMisfitController(terminate_at = 1e4),
+        failure_handler_method = SampleSuccGauss(),
+        verbose = true,
+        update_groups = [group_slow, group_fast,group_mixed],
+    )
+    @info "Built grouped EKP object"
+
+    # EKI iterations
+    println("EKP inversion error:")
+    err = zeros(N_iter)
+    for i in 1:N_iter
+        ϕ_i = get_ϕ_final(priors, ekiobj_grouped) # the `ϕ` indicates that the `params_i` are in the constrained space    
+        g_ens = run_G_ensemble(spunup_state, lsettings, ϕ_i, window, length(y))
+        EKP.update_ensemble!(ekiobj_grouped, g_ens)
+    end
+    @info "Calibrated parameters with grouped EKP"
+    # EKI results: Has the ensemble collapsed toward the truth?
+    println("True parameters: ")
+    println(true_params)
+
+    println("\nEKI results:")
+    println(get_ϕ_mean_final(priors, ekiobj_grouped))
+
+    u_stored = get_u(ekiobj_grouped, return_array = false)
+    g_stored = get_g(ekiobj_grouped, return_array = false)
+
+    @save output_directory * "parameter_storage_grouped.jld2" u_stored
+    @save output_directory * "output_storage_grouped.jld2" g_stored
+
+
+    # Plots
+    fig = Figure(size = (450, 450))
+    aprior = Axis(fig[1, 1][1, 1])
+    apost = Axis(fig[2, 1][1, 1])
+    g_prior = get_g(ekiobj_grouped, 1)
+    g_post = get_g_final(ekiobj_grouped)
+    data_std = sqrt.([Γ[i, i] for i in 1:size(Γ, 1)])
+    data_dim = length(y)
+    dplot = 1:data_dim
+    lines!(aprior, dplot, y, color = :black, label = "data") #plots each row as new plot
+    lines!(apost, dplot, y, color = :black, label = "data") #plots each row as new plot
+    band!(aprior, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.2)) #estimated 2*std bands about a mean 
+    band!(apost, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.2))
+    for idx in 1:N_ens
+        lines!(aprior, dplot, g_prior[:, idx], color = :orange, alpha = 0.2, label = "prior") #plots each row as new plot
+        lines!(apost, dplot, g_post[:, idx], color = :blue, alpha = 0.2, label = "posterior") #plots each row as new plot
+    end
+    axislegend(aprior, merge = true, unique = true)
+    axislegend(apost, merge = true, unique = true)
+
+    # save
+    save(joinpath(output_directory, case * "_datasamples-prior-post-grouped.png"), fig, px_per_unit = 3)
+    save(joinpath(output_directory, case * "_datasamples-prior-post-grouped.pdf"), fig, pt_per_unit = 3)
+
+    @info "plotted results of perfect experiment"
 
 end
 
