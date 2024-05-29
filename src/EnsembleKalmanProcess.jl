@@ -710,7 +710,7 @@ function update_ensemble!(
                 @info "Iteration 0 (prior)"
                 @info "Covariance trace: $(tr(cov_init))"
             end
-            
+
             @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
         end
 

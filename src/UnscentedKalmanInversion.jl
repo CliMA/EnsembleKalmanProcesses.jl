@@ -653,7 +653,7 @@ function update_ensemble!(
 ) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     #catch works when g_in non-square 
     u_p_old = get_u_final(uki)
-    
+
     fh = uki.failure_handler
 
     if isnothing(failed_ens)
