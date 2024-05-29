@@ -107,16 +107,6 @@ function update_ensemble!(
     # Gamma_inv = ekp.process.Gamma_inv[g_idx,g_idx]
 
     N_obs = size(g, 1)
-    cov_init = cov(u, dims = 2)
-
-    if ekp.verbose
-        if get_N_iterations(ekp) == 0
-            @info "Iteration 0 (prior)"
-            @info "Covariance trace: $(tr(cov_init))"
-        end
-
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
-    end
 
     fh = ekp.failure_handler
 

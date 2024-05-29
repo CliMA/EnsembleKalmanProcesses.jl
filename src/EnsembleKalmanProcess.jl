@@ -703,7 +703,16 @@ function update_ensemble!(
     if isnothing(terminate)
         update_groups = get_update_groups(ekp)
         u = zeros(size(get_u_prior(ekp)))
-        cov_init = get_u_cov_final(ekp)
+
+        if ekp.verbose
+            cov_init = get_u_cov_final(ekp)
+            if get_N_iterations(ekp) == 0
+                @info "Iteration 0 (prior)"
+                @info "Covariance trace: $(tr(cov_init))"
+            end
+            
+            @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
+        end
 
         for group in update_groups # for each group of params -> output
             u_idx = get_u_group(group) # subset of the parameters

@@ -120,18 +120,8 @@ function update_ensemble!(
     # u: N_ens × N_par
     # g: N_ens × N_obs
     u_old = get_u_final(ekp)
-    cov_init = get_u_cov_final(ekp)
 
     fh = ekp.failure_handler
-
-    if ekp.verbose
-        if get_N_iterations(ekp) == 0
-            @info "Iteration 0 (prior)"
-            @info "Covariance trace: $(tr(cov_init))"
-        end
-
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
-    end
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)

@@ -653,18 +653,7 @@ function update_ensemble!(
 ) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     #catch works when g_in non-square 
     u_p_old = get_u_final(uki)
-
-    if uki.verbose
-        cov_init = get_u_cov_final(uki)
-
-        if get_N_iterations(uki) == 0
-            @info "Iteration 0 (prior)"
-            @info "Covariance trace: $(tr(cov_init))"
-        end
-
-        @info "Iteration $(get_N_iterations(uki)+1) (T=$(sum(uki.Δt)))"
-    end
-
+    
     fh = uki.failure_handler
 
     if isnothing(failed_ens)
