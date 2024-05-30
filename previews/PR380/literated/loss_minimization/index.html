@@ -20,25 +20,25 @@ N_iterations = 10</code></pre><p>The initial ensemble is constructed by sampling
     g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
 
     EKP.update_ensemble!(ensemble_kalman_process, g_ens)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span></code></pre><p>and visualize the results:</p><pre><code class="language-julia hljs">u_init = get_u_prior(ensemble_kalman_process)
 
 anim_unique_minimum = @animate for i in 1:N_iterations
@@ -88,45 +88,45 @@ ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, 
     g_ens = hcat([G₂(params_i[:, i]) for i in 1:N_ensemble]...)
 
     EKP.update_ensemble!(ensemble_kalman_process, g_ens)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>HACK FIX TO LOCALIZER IN EKI
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Removed LOCALIZER IN EKI
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ EnsembleKalmanProcesses ~/work/EnsembleKalmanProcesses.jl/EnsembleKalmanProcesses.jl/src/EnsembleKalmanInversion.jl:62</span></code></pre><p>and visualize the results:</p><pre><code class="language-julia hljs">u_init = get_u_prior(ensemble_kalman_process)
 
 anim_two_minima = @animate for i in 1:N_iterations
@@ -166,4 +166,4 @@ anim_two_minima = @animate for i in 1:N_iterations
         label = &quot;particles&quot;,
         title = &quot;EKI iteration = &quot; * string(i),
     )
-end</code></pre><p>Our bias in the prior shifts the initial ensemble into the negative <span>$u_1$</span> direction, and thus increases the likelihood (over different instances of the random number generator) of finding the minimizer <span>$u=w_*$</span>.</p><img src="5129471b.gif" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../examples/lorenz_example/">« Lorenz</a><a class="docs-footer-nextpage" href="../loss_minimization_sparse_eki/">Sparse Minimization Loss »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.4.1 on <span class="colophon-date" title="Wednesday 29 May 2024 01:54">Wednesday 29 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><p>Our bias in the prior shifts the initial ensemble into the negative <span>$u_1$</span> direction, and thus increases the likelihood (over different instances of the random number generator) of finding the minimizer <span>$u=w_*$</span>.</p><img src="5129471b.gif" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../examples/lorenz_example/">« Lorenz</a><a class="docs-footer-nextpage" href="../loss_minimization_sparse_eki/">Sparse Minimization Loss »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.4.1 on <span class="colophon-date" title="Thursday 30 May 2024 18:38">Thursday 30 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
