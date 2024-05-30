@@ -59,10 +59,9 @@ function eki_update(
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
     # TODO ENCORPORATE THIS PROPERLY
-    @warn "HACK FIX TO LOCALIZER IN EKI"
-    loc = Localizer(NoLocalization(), size(u, 1), size(g, 1), size(u, 2), FT)
-    cov_localized = loc.localize(cov_est)
-
+    @warn "Removed LOCALIZER IN EKI"
+    cov_localized = cov_est
+    
     # Localization
     #cov_localized = ekp.localizer.localize(cov_est)
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))

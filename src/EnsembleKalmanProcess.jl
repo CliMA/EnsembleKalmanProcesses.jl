@@ -702,7 +702,12 @@ function update_ensemble!(
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
         update_groups = get_update_groups(ekp)
+        n_g_groups=length(get_g_group(update_groups))
         u = zeros(size(get_u_prior(ekp)))
+        # with several g_groups we want to do
+        # u_n+1 = u_n + sum(update{g_i})
+        # but get u_n+1 = sum(u_n + update{g_i}),remove the extra u_ns
+        u -= get_u_final(ekp)*(n_g_groups-1) 
 
         if ekp.verbose
             cov_init = get_u_cov_final(ekp)
@@ -714,11 +719,11 @@ function update_ensemble!(
             @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
         end
 
-        for group in update_groups # for each group of params -> output
-            u_idx = get_u_group(group) # subset of the parameters
-            g_idx = get_g_group(group) # subset of the data/output
-
-            u[u_idx, :] = update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)
+        # update each u_block with every g_block
+        for u_idx in get_u_group(update_groups)
+            for g_idx in get_g_group(update_groups)
+                u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)
+            end
         end
 
         accelerate!(ekp, u)
