@@ -702,24 +702,25 @@ function update_ensemble!(
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
         update_groups = get_update_groups(ekp)
-        n_g_groups=length(get_g_group(update_groups))
         u = zeros(size(get_u_prior(ekp)))
         # with several g_groups we want to do
         # u_n+1 = u_n + sum(update{g_i})
         # but get u_n+1 = sum(u_n + update{g_i}),remove the extra u_ns
+        n_g_groups=length(get_g_group(update_groups))
         u -= get_u_final(ekp)*(n_g_groups-1) 
-
+        
         if ekp.verbose
             cov_init = get_u_cov_final(ekp)
             if get_N_iterations(ekp) == 0
                 @info "Iteration 0 (prior)"
                 @info "Covariance trace: $(tr(cov_init))"
             end
-
+            
             @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
         end
-
+        
         # update each u_block with every g_block
+#        for (u_idx,g_idx) in zip(get_u_group(update_groups),get_g_group(update_groups))
         for u_idx in get_u_group(update_groups)
             for g_idx in get_g_group(update_groups)
                 u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)

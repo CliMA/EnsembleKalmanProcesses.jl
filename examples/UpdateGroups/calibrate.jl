@@ -212,9 +212,9 @@ save(joinpath(output_directory, case * "_datatrajectory_state1.pdf"), fig, pt_pe
 
 Γ = cov(data_samples, dims = 2) # estimate covariance from samples
 # add a little additive and multiplicative inflation
-Γ += 1e6 * eps() * I # 10^-12 just to make things nonzero
-blocksize = Int64(size(Γ, 1) / 5) # known block structure
-meanblocks = [mean([Γ[i, i] for i in ((j - 1) * blocksize + 1):(j * blocksize)]) for j in 1:5]
+Γ += 1e4 * eps() * I # 10^-12 just to make things nonzero
+#blocksize = Int64(size(Γ, 1) / 5) # known block structure
+#meanblocks = [mean([Γ[i, i] for i in ((j - 1) * blocksize + 1):(j * blocksize)]) for j in 1:5]
 #Γ += 1e-4* kron(Diagonal(meanblocks),I(blocksize)) # this will add scaled noise to the diagonal scaled by the block
 
 y_mean = mean(data_samples, dims = 2)
@@ -224,7 +224,8 @@ aΓ = Axis(fig[1, 1][1, 1])
 adata = Axis(fig[2, 1][1, 1])
 
 heatmap!(aΓ, Γ)
-series!(adata, (sqrt(inv(Γ))*data_samples)', solid_color = :black, label="normalized data") #plots each row as new plot
+sqrt_inv_Γ = sqrt(inv(Γ))
+series!(adata, (sqrt_inv_Γ*data_samples)', solid_color = :black, label="normalized data") #plots each row as new plot
 # save
 save(joinpath(output_directory, case * "_datasamples.png"), fig, px_per_unit = 3)
 save(joinpath(output_directory, case * "_datasamples.pdf"), fig, pt_per_unit = 3)
@@ -238,7 +239,7 @@ save(joinpath(output_directory, case * "_datasamples.pdf"), fig, pt_per_unit = 3
 ###
 
 # EKP parameters
-N_ens = 30 # number of ensemble members
+N_ens = 20 # number of ensemble members
 N_iter = 20 # number of EKI iterations
 # initial parameters: N_params x N_ens
 initial_params = construct_initial_ensemble(rng, priors, N_ens)
@@ -285,13 +286,13 @@ g_post = get_g_final(ekiobj)
 data_std = sqrt.([Γ[i, i] for i in 1:size(Γ, 1)])
 data_dim = length(y)
 dplot = 1:data_dim
-lines!(aprior, dplot, y, color = :black, label = "data") #plots each row as new plot
-lines!(apost, dplot, y, color = :black, label = "data") #plots each row as new plot
-    band!(aprior, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.2)) #estimated 2*std bands about a mean 
-band!(apost, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.2))
+lines!(aprior, dplot, sqrt_inv_Γ*y, color = (:black, 0.5), label = "data") #plots each row as new plot
+lines!(apost, dplot, sqrt_inv_Γ*y, color = (:black, 0.5), label = "data") #plots each row as new plot
+    band!(aprior, dplot, sqrt_inv_Γ*(y_mean - 2 * data_std)[:], sqrt_inv_Γ*(y_mean + 2 * data_std)[:], color = (:grey, 0.2)) #estimated 2*std bands about a mean 
+band!(apost, dplot, sqrt_inv_Γ*(y_mean - 2 * data_std)[:], sqrt_inv_Γ*(y_mean + 2 * data_std)[:], color = (:grey, 0.2))
 for idx in 1:N_ens
-    lines!(aprior, dplot, g_prior[:, idx], color = :orange, alpha = 0.2, label = "prior") #plots each row as new plot
-    lines!(apost, dplot, g_post[:, idx], color = :blue, alpha = 0.2, label = "posterior") #plots each row as new plot
+    lines!(aprior, dplot, sqrt_inv_Γ*g_prior[:, idx], color = :orange, alpha = 0.1, label = "prior") #plots each row as new plot
+    lines!(apost, dplot, sqrt_inv_Γ*g_post[:, idx], color = :blue, alpha = 0.1, label = "posterior") #plots each row as new plot
 end
 axislegend(aprior, merge = true, unique = true)
 axislegend(apost, merge = true, unique = true)
@@ -315,11 +316,11 @@ bs = Int64(size(Γ, 1) / 5) # known block structure
 # <X>, <Y>, <X^2>, <Y^2>, <XY>  X-slow, Y-fast
 
     # F(3) -> <X>, <X^2>, 
-    group_slow = UpdateGroup(collect(1:4), reduce(vcat, [collect(1:bs), collect(2 * bs + 1:3 * bs), collect(4*bs+1:5*bs)]))
-#    group_slow = UpdateGroup(collect(1:3), reduce(vcat,[collect(1:bs),collect(2*bs+1:3*bs), collect(4*bs+1:5*bs)]))
+#    group_slow = UpdateGroup(collect(1:4), reduce(vcat, [collect(1:bs), collect(2 * bs + 1:3 * bs), collect(4*bs+1:5*bs)]))
+    group_slow = UpdateGroup(collect(1:3), reduce(vcat,[collect(1:bs),collect(2*bs+1:3*bs)]))#, collect(4*bs+1:5*bs)]))
 # G,h,c,b -> <Y>, <Y^2>,<XY>
 #group_fast = UpdateGroup(collect(4:7), collect(1:(5 * bs)))
-    group_fast = UpdateGroup(collect(5:7), reduce(vcat,[collect(bs+1:2*bs),collect(3*bs+1:5*bs)])) 
+    group_fast = UpdateGroup(collect(4:7), reduce(vcat,[collect(bs+1:2*bs),collect(3*bs+1:5*bs)])) 
 
 
 
@@ -368,13 +369,13 @@ g_post = get_g_final(ekiobj_grouped)
 data_std = sqrt.([Γ[i, i] for i in 1:size(Γ, 1)])
 data_dim = length(y)
 dplot = 1:data_dim
-lines!(aprior, dplot, y, color = :black, label = "data") #plots each row as new plot
-lines!(apost, dplot, y, color = :black, label = "data") #plots each row as new plot
-band!(aprior, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.2)) #estimated 2*std bands about a mean 
-band!(apost, dplot, (y_mean - 2 * data_std)[:], (y_mean + 2 * data_std)[:], color = (:grey, 0.2))
+lines!(aprior, dplot, sqrt_inv_Γ*y, color = (:black,0.5), label = "data") #plots each row as new plot
+lines!(apost, dplot, sqrt_inv_Γ*y, color = (:black,0.5), label = "data") #plots each row as new plot
+band!(aprior, dplot, sqrt_inv_Γ*(y_mean - 2 * data_std)[:], sqrt_inv_Γ*(y_mean + 2 * data_std)[:], color = (:grey, 0.2)) #estimated 2*std bands about a mean 
+band!(apost, dplot, sqrt_inv_Γ*(y_mean - 2 * data_std)[:], sqrt_inv_Γ*(y_mean + 2 * data_std)[:], color = (:grey, 0.2))
 for idx in 1:N_ens
-    lines!(aprior, dplot, g_prior[:, idx], color = :orange, alpha = 0.2, label = "prior") #plots each row as new plot
-    lines!(apost, dplot, g_post[:, idx], color = :blue, alpha = 0.2, label = "posterior") #plots each row as new plot
+    lines!(aprior, dplot, sqrt_inv_Γ*g_prior[:, idx], color = :orange, alpha = 0.1, label = "prior") #plots each row as new plot
+    lines!(apost, dplot, sqrt_inv_Γ*g_post[:, idx], color = :blue, alpha = 0.1, label = "posterior") #plots each row as new plot
 end
 axislegend(aprior, merge = true, unique = true)
 axislegend(apost, merge = true, unique = true)
