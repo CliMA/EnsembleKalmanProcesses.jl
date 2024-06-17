@@ -14,6 +14,7 @@ export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error, get_cov_blocks
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
 export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final, get_accelerator
+export get_observation_series, get_obs, get_obs_noise_cov
 export compute_error!
 export update_ensemble!
 export sample_empirical_gaussian, split_indices_by_success
@@ -79,7 +80,7 @@ $(TYPEDFIELDS)
 
     EnsembleKalmanProcess(
         params::AbstractMatrix{FT},
-        obs_mean,
+        observation_series::OS,
         obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
         process::P;
         scheduler = DefaultScheduler(1),
@@ -88,13 +89,12 @@ $(TYPEDFIELDS)
         failure_handler_method::FM = IgnoreFailures(),
         localization_method::LM = NoLocalization(),
         verbose::Bool = false,
-    ) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod}
+    ) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod, OS <: ObservationSeries}
 
 Inputs:
 
  - `params`                 :: Initial parameter ensemble
- - `obs_mean`               :: Vector of observations
- - `obs_noise_cov`          :: Noise covariance associated with the observations `obs_mean`
+ - `observation_series`     :: Container for observations (and possible minibatching)
  - `process`                :: Algorithm used to evolve the ensemble
  - `scheduler`              :: Adaptive timestep calculator 
  - `Δt`                     :: Initial time step or learning rate
@@ -116,10 +116,8 @@ struct EnsembleKalmanProcess{
 }
     "array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
     u::Array{DataContainer{FT}}
-    "vector of the observed vector size [`N_obs`]"
-    obs_mean::Vector{FT}
-    "covariance matrix of the observational noise, of size [`N_obs × N_obs`]"
-    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}}
+    "Container for the observation(s) - and minibatching mechanism"
+    observation_series::ObservationSeries
     "ensemble size"
     N_ens::IT
     "Array of stores for forward model outputs, each of size  [`N_obs × N_ens`]"
@@ -146,8 +144,7 @@ end
 
 function EnsembleKalmanProcess(
     params::AbstractMatrix{FT},
-    obs_mean,
-    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+    observation_series::OS,
     process::P;
     scheduler::Union{Nothing, LRS} = nothing,
     accelerator::Union{Nothing, ACC} = nothing,
@@ -163,6 +160,7 @@ function EnsembleKalmanProcess(
     P <: Process,
     FM <: FailureHandlingMethod,
     LM <: LocalizationMethod,
+    OS <: ObservationSeries,
 }
 
     #initial parameters stored as columns
@@ -170,7 +168,8 @@ function EnsembleKalmanProcess(
 
     # dimensionality
     N_par, N_ens = size(init_params) #stored with data as columns
-    N_obs = length(obs_mean)
+    obs = get_obs(observation_series)
+    N_obs = length(obs)
 
     IT = typeof(N_ens)
     #store for model evaluations
@@ -232,8 +231,7 @@ function EnsembleKalmanProcess(
 
     EnsembleKalmanProcess{FT, IT, P, RS, AC}(
         [init_params],
-        obs_mean,
-        obs_noise_cov,
+        observation_series,
         N_ens,
         g,
         err,
@@ -248,6 +246,28 @@ function EnsembleKalmanProcess(
     )
 end
 
+function EnsembleKalmanProcess(
+    params::AbstractMatrix{FT},
+    observation::OB,
+    args...;
+    kwargs...,
+) where {FT <: AbstractFloat, OB <: Observation}
+    observation_series = ObservationSeries(observation)
+    return EnsembleKalmanProcess(params, observation_series, args...; kwargs...)
+end
+
+function EnsembleKalmanProcess(
+    params::AbstractMatrix{FT},
+    obs,
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+    args...;
+    kwargs...,
+) where {FT <: AbstractFloat}
+
+    observation = Observation(Dict("samples" => obs, "covariances" => obs_noise_cov, "names" => "observation"))
+
+    return EnsembleKalmanProcess(params, observation, args...; kwargs...)
+end
 
 include("LearningRateSchedulers.jl")
 
@@ -429,7 +449,7 @@ end
 
 """
     get_process(ekp::EnsembleKalmanProcess)
-Return process type of EnsembleKalmanProcess.
+Return `process` field of EnsembleKalmanProcess.
 """
 function get_process(ekp::EnsembleKalmanProcess)
     return ekp.process
@@ -437,7 +457,7 @@ end
 
 """
     get_localizer(ekp::EnsembleKalmanProcess)
-Return localizer type of EnsembleKalmanProcess.
+Return `localizer` field of EnsembleKalmanProcess.
 """
 function get_localizer(ekp::EnsembleKalmanProcess)
     return Localizers.get_localizer(ekp.localizer)
@@ -445,7 +465,7 @@ end
 
 """
     get_scheduler(ekp::EnsembleKalmanProcess)
-Return scheduler type of EnsembleKalmanProcess.
+Return `scheduler` field of EnsembleKalmanProcess.
 """
 function get_scheduler(ekp::EnsembleKalmanProcess)
     return ekp.scheduler
@@ -453,12 +473,51 @@ end
 
 """
     get_accelerator(ekp::EnsembleKalmanProcess)
-Return accelerator type of EnsembleKalmanProcess.
+Return `accelerator` field of EnsembleKalmanProcess.
 """
 function get_accelerator(ekp::EnsembleKalmanProcess)
     return ekp.accelerator
 end
 
+"""
+    get_observation_series(ekp::EnsembleKalmanProcess)
+Return `obs_noise_cov` field of EnsembleKalmanProcess.
+"""
+function get_observation_series(ekp::EnsembleKalmanProcess)
+    return ekp.observation_series
+end
+
+"""
+    get_obs_noise_cov(ekp::EnsembleKalmanProcess; build=true)
+convenience function to get the obs_noise_cov from the current batch in ObservationSeries
+build=false:, returns a vector of blocks,
+build=true: returns a block matrix,
+"""
+function get_obs_noise_cov(ekp::EnsembleKalmanProcess, build = true)
+    return get_obs_noise_cov(get_observation_series(ekp), build = build)
+end
+
+"""
+    get_obs(ekp::EnsembleKalmanProcess; build=true)
+Get the observation from the current batch in ObservationSeries
+build=false: returns a vector of vectors,
+build=true: returns a concatenated vector,
+"""
+function get_obs(ekp::EnsembleKalmanProcess; build = true)
+    return get_obs(get_observation_series(ekp), build = build)
+end
+
+"""
+    update_minibatch!(ekp::EnsembleKalmanProcess)
+update to the next minibatch in the ObservationSeries
+"""
+function update_minibatch!(ekp::EnsembleKalmanProcess)
+    return update_minibatch!(get_observation_series(ekp))
+end
+
+function get_current_minibatch(ekp::EnsembleKalmanProcess)
+    return get_current_minibatch(get_observation_series(ekp))
+end
 
 """
     construct_initial_ensemble(
@@ -486,8 +545,8 @@ The error is stored within the `EnsembleKalmanProcess`.
 """
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
-    diff = ekp.obs_mean - mean_g
-    X = ekp.obs_noise_cov \ diff # diff: column vector
+    diff = get_obs(ekp) - mean_g
+    X = get_obs_noise_cov(ekp) \ diff # diff: column vector
     newerr = dot(diff, X)
     push!(ekp.err, newerr)
 end
@@ -686,6 +745,10 @@ function update_ensemble!(
     else
         return terminate # true if scheduler has not stepped
     end
+
+    # update to next minibatch (if minibatching)
+    next_minibatch = update_minibatch!(ekp)
+
     return nothing
 
 end

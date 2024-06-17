@@ -110,9 +110,9 @@ function update_ensemble!(
     fh = ekp.failure_handler
 
     # Scale noise using Δt
-    scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
+    scaled_obs_noise_cov = get_obs_noise_cov(ekp) / ekp.Δt[end]
 
-    y = ekp.obs_mean
+    y = get_obs(ekp)
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)

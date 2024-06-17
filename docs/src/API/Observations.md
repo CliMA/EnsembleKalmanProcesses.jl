@@ -1,7 +1,7 @@
 # Observations
 
 ```@meta
-CurrentModule = EnsembleKalmanProcesses.Observations
+CurrentModule = EnsembleKalmanProcesses
 ```
 
 ```@docs

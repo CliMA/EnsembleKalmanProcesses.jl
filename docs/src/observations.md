@@ -18,6 +18,6 @@ Here is a typical construction of the object:
 yt = rand(MvNormal(μ, Γy), 100) # generate 100 samples
 name = "zero-mean mvnormal"
 
-true_data = Observations.Observation(yt, Γy, name)
+true_data = Observation(yt, Γy, name)
 ```
 Currently, the data is retrieved by accessing the stored variables, e.g the fifth data sample is given by `truth_data.samples[5]`, or the covariance matrix by `truth_data.cov`.

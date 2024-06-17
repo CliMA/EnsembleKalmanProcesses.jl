@@ -71,9 +71,9 @@ function eks_update(
 
     # Building tmp matrices for EKS update:
     E = g' .- g_mean
-    R = g' .- ekp.obs_mean
+    R = g' .- get_obs(ekp)
     # D: N_ens × N_ens
-    D = (1 / ekp.N_ens) * (E' * (ekp.obs_noise_cov \ R))
+    D = (1 / ekp.N_ens) * (E' * (get_obs_noise_cov(ekp) \ R))
 
     # Default: Δt = 1 / (norm(D) + eps(FT))
     Δt = ekp.Δt[end]

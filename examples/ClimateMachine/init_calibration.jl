@@ -2,7 +2,6 @@ using Distributions
 using ArgParse
 # Import EnsembleKalmanProcesses modules
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributions
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 

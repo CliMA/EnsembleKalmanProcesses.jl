@@ -86,9 +86,9 @@ function sparse_qp(
     H_uc::AbstractMatrix{FT} = H_u,
 ) where {FT, IT}
 
-    P = H_g' * (ekp.obs_noise_cov \ H_g) + cov_vv_inv
+    P = H_g' * (get_obs_noise_cov(ekp) \ H_g) + cov_vv_inv
     P = 0.5 * (P + P')
-    q = -(cov_vv_inv * v_j + H_g' * (ekp.obs_noise_cov \ y_j))
+    q = -(cov_vv_inv * v_j + H_g' * (get_obs_noise_cov(ekp) \ y_j))
     N_params = size(H_uc)[1]
     P1 = vcat(
         hcat(P, fill(FT(0), size(P)[1], N_params)),
@@ -205,12 +205,12 @@ function update_ensemble!(
     fh = ekp.failure_handler
 
     # Scale noise using Δt
-    scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
+    scaled_obs_noise_cov = get_obs_noise_cov(ekp) / ekp.Δt[end]
     noise = sqrt(scaled_obs_noise_cov) * rand(ekp.rng, MvNormal(zeros(N_obs), I), ekp.N_ens)
 
     # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic
-    y = deterministic_forward_map ? (ekp.obs_mean .+ noise) : (ekp.obs_mean .+ zero(noise))
+    y = deterministic_forward_map ? (get_obs(ekp) .+ noise) : (get_obs(ekp) .+ zero(noise))
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
