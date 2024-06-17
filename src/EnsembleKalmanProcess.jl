@@ -13,7 +13,8 @@ export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error, get_cov_blocks
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
-export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final, get_accelerator
+export get_u_mean_final,
+    get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final, get_accelerator, get_process
 export compute_error!
 export update_ensemble!
 export sample_empirical_gaussian, split_indices_by_success
@@ -113,6 +114,7 @@ struct EnsembleKalmanProcess{
     P <: Process,
     LRS <: LearningRateScheduler,
     ACC <: Accelerator,
+    VV <: AbstractVector,
 }
     "array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
     u::Array{DataContainer{FT}}
@@ -132,6 +134,8 @@ struct EnsembleKalmanProcess{
     accelerator::ACC
     "stored vector of timesteps used in each EK iteration"
     Δt::Vector{FT}
+    "vector of update groups, defining which parameters should be updated by which data"
+    update_groups::VV
     "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `TransformInversion` or `SparseInversion`)"
     process::P
     "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility. Defaults to `Random.GLOBAL_RNG`."
@@ -152,12 +156,14 @@ function EnsembleKalmanProcess(
     scheduler::Union{Nothing, LRS} = nothing,
     accelerator::Union{Nothing, ACC} = nothing,
     Δt = nothing,
+    update_groups::Union{Nothing, VV} = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG,
     failure_handler_method::FM = IgnoreFailures(),
     localization_method::LM = NoLocalization(),
     verbose::Bool = false,
 ) where {
     FT <: AbstractFloat,
+    VV <: AbstractVector,
     LRS <: LearningRateScheduler,
     ACC <: Accelerator,
     P <: Process,
@@ -171,8 +177,18 @@ function EnsembleKalmanProcess(
     # dimensionality
     N_par, N_ens = size(init_params) #stored with data as columns
     N_obs = length(obs_mean)
-
     IT = typeof(N_ens)
+
+
+    # defined groups of parameters to be updated by groups of data
+    if isnothing(update_groups)
+        groups = [UpdateGroup(1:N_par, 1:N_obs)] # vec length 1
+    else
+        groups = update_groups
+    end
+    update_group_consistency(groups, N_par, N_obs) # consistency checks
+    VVV = typeof(groups)
+
     #store for model evaluations
     g = []
     # error store
@@ -230,7 +246,7 @@ function EnsembleKalmanProcess(
         @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))\nScheduler: $(nameof(typeof(lrs)))\nAccelerator: $(nameof(typeof(acc)))"
     end
 
-    EnsembleKalmanProcess{FT, IT, P, RS, AC}(
+    EnsembleKalmanProcess{FT, IT, P, RS, AC, VVV}(
         [init_params],
         obs_mean,
         obs_noise_cov,
@@ -240,6 +256,7 @@ function EnsembleKalmanProcess(
         lrs,
         acc,
         Δt,
+        groups,
         process,
         rng,
         fh,
@@ -425,6 +442,14 @@ Get number of times update has been called (equals `size(g)`, or `size(u)-1`).
 """
 function get_N_iterations(ekp::EnsembleKalmanProcess)
     return size(ekp.u, 1) - 1
+end
+
+"""
+    get_update_groups(ekp::EnsembleKalmanProcess)
+Return update_groups type of EnsembleKalmanProcess.
+"""
+function get_update_groups(ekp::EnsembleKalmanProcess)
+    return ekp.update_groups
 end
 
 """
@@ -676,11 +701,46 @@ function update_ensemble!(
 
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
-        u = update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
+        update_groups = get_update_groups(ekp)
+        u = zeros(size(get_u_prior(ekp)))
+        # with several g_groups we want to do
+        # u_n+1 = u_n + sum(update{g_i})
+        # but get u_n+1 = sum(u_n + update{g_i}),remove the extra u_ns
+        n_g_groups=length(get_g_group(update_groups))
+        u -= get_u_final(ekp)*(n_g_groups-1) 
+        
+        if ekp.verbose
+            cov_init = get_u_cov_final(ekp)
+            if get_N_iterations(ekp) == 0
+                @info "Iteration 0 (prior)"
+                @info "Covariance trace: $(tr(cov_init))"
+            end
+            
+            @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
+        end
+        
+        # update each u_block with every g_block
+#        for (u_idx,g_idx) in zip(get_u_group(update_groups),get_g_group(update_groups))
+        for u_idx in get_u_group(update_groups)
+            for g_idx in get_g_group(update_groups)
+                u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)
+            end
+        end
+
         accelerate!(ekp, u)
+
         if s > 0.0
             multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
             additive_inflation ? additive_inflation!(ekp, additive_inflation_cov, s = s) : nothing
+        end
+
+        # wrapping up
+        push!(ekp.g, DataContainer(g, data_are_columns = true)) # store g
+        compute_error!(ekp)
+
+        if ekp.verbose
+            cov_new = get_u_cov_final(ekp)
+            @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
         end
 
     else
@@ -715,7 +775,6 @@ export Unscented
 export Gaussian_2d
 export construct_initial_ensemble, construct_mean, construct_cov
 include("UnscentedKalmanInversion.jl")
-
 
 # struct Accelerator
 include("Accelerators.jl")
