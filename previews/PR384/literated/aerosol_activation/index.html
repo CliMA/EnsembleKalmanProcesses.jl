@@ -53,20 +53,22 @@ rho_seasalt = 2170.0;</code></pre><p>We define a wrapper function that runs the 
     N_act = AA.total_N_activated(param_set, aerosol_distr, T, p, w, q)
     M_act = AA.total_M_activated(param_set, aerosol_distr, T, p, w, q)
     return [N_act, M_act]
-end</code></pre><p>This example is run in a &quot;perfect model setting&quot;, meaning the model that we calibrate is also used to generate observations. We use the total number and mass of activated aerosol particles as our observational data.</p><pre><code class="language-julia hljs">observation_data_names = [&quot;N_act&quot;, &quot;M_act&quot;];</code></pre><p>We generate artificial truth samples based on the default values of parameters we are calibrating.</p><pre><code class="language-julia hljs">n_samples = 10
-G_t = run_activation_model(molar_mass_true, osmotic_coeff_true)
-y_t = zeros(length(G_t), n_samples)
+end</code></pre><p>This example is run in a &quot;perfect model setting&quot;, meaning the model that we calibrate is also used to generate observations. We use the total number and mass of activated aerosol particles as our observational data.</p><pre><code class="language-julia hljs">observation_data_names = [&quot;N_act_and_M_act&quot;];</code></pre><p>We generate artificial truth samples based on the default values of parameters we are calibrating.</p><pre><code class="language-julia hljs">G_t = run_activation_model(molar_mass_true, osmotic_coeff_true)
 
 Γy = convert(Array, LinearAlgebra.Diagonal([0.01 * G_t[1], 0.01 * G_t[2]]))
-μ = zeros(length(G_t));</code></pre><p>And add noise to the generated truth sample.</p><pre><code class="language-julia hljs">for i in 1:n_samples
-    y_t[:, i] = G_t .+ rand(Distributions.MvNormal(μ, Γy))
-end
+μ = zeros(length(G_t));</code></pre><p>And add noise to the generated truth sample.</p><pre><code class="language-julia hljs">y_t = G_t .+ rand(Distributions.MvNormal(μ, Γy))
 
-truth_array = EKP.Observation(y_t, Γy, observation_data_names)</code></pre><p>One could try for the truth to be a mean of the generated array. Or do the calibration for all individual truth samples and then compute the mean of calibrated parameters. For now we are just taking one truth array member.</p><pre><code class="language-julia hljs">truth_sample = truth_array.samples[1];</code></pre><p>We use 50 ensemble members and do 10 iterations.</p><pre><code class="language-julia hljs">N_ens = 50
+observation = EKP.Observation(
+    Dict(
+        &quot;samples&quot; =&gt; y_t,
+        &quot;covariances&quot; =&gt; Γy,
+        &quot;names&quot; =&gt; observation_data_names,
+    ),
+)</code></pre><p>We use 50 ensemble members and do 10 iterations.</p><pre><code class="language-julia hljs">N_ens = 50
 N_iter = 10
 
 initial_par = EKP.construct_initial_ensemble(rng, priors, N_ens)
-ekiobj = EKP.EnsembleKalmanProcess(initial_par, truth_sample, truth_array.obs_noise_cov, EKP.Inversion())</code></pre><p>Finally, we can run the Ensemble Kalman Process calibration.</p><pre><code class="language-julia hljs">ϕ_n_values = []
+ekiobj = EKP.EnsembleKalmanProcess(initial_par, observation, EKP.Inversion())</code></pre><p>Finally, we can run the Ensemble Kalman Process calibration.</p><pre><code class="language-julia hljs">ϕ_n_values = []
 for n in 1:N_iter
     ϕ_n = EKP.get_ϕ_final(priors, ekiobj)
     G_n = [run_activation_model(ϕ_n[:, i]...) for i in 1:N_ens]
@@ -140,5 +142,5 @@ plot_ensemble_means(2)</code></pre><pre class="documenter-example-output"><code 
 osmotic_coeff_ekp = round(mean(ϕ_n_values[N_iter][2, 1:N_ens]), digits = 6)
 
 println(&quot;Molar mass [kg/mol]: &quot;, molar_mass_ekp, &quot; vs &quot;, molar_mass_true)
-println(&quot;Osmotic coefficient [-]: &quot;, osmotic_coeff_ekp, &quot; vs &quot;, osmotic_coeff_true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Molar mass [kg/mol]: 0.094398 vs 0.058443
-Osmotic coefficient [-]: 1.127754 vs 0.9</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../loss_minimization_sparse_eki/">« Sparse Minimization Loss</a><a class="docs-footer-nextpage" href="../../examples/darcy/">Darcy flow »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.4.1 on <span class="colophon-date" title="Monday 17 June 2024 20:37">Monday 17 June 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+println(&quot;Osmotic coefficient [-]: &quot;, osmotic_coeff_ekp, &quot; vs &quot;, osmotic_coeff_true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Molar mass [kg/mol]: 0.086562 vs 0.058443
+Osmotic coefficient [-]: 0.850159 vs 0.9</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../loss_minimization_sparse_eki/">« Sparse Minimization Loss</a><a class="docs-footer-nextpage" href="../../examples/darcy/">Darcy flow »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.4.1 on <span class="colophon-date" title="Friday 21 June 2024 18:00">Friday 21 June 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
