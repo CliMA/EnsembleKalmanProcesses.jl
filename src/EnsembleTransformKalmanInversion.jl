@@ -9,10 +9,7 @@ An ensemble transform Kalman inversion process.
 
 $(TYPEDFIELDS)
 """
-struct TransformInversion{FT <: AbstractFloat} <: Process
-    "Inverse of the observation error covariance matrix"
-    Γ_inv::Union{AbstractMatrix{FT}, UniformScaling{FT}}
-end
+struct TransformInversion <: Process end
 
 function FailureHandler(process::TransformInversion, method::IgnoreFailures)
     failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens) = etki_update(ekp, u, g, y, obs_noise_cov)
@@ -52,14 +49,14 @@ Returns the updated parameter vectors given their current values and
 the corresponding forward model evaluations.
 """
 function etki_update(
-    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion{FT}},
+    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
     y::AbstractVector{FT},
     obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
 ) where {FT <: Real, IT, CT <: Real}
     m = size(u, 2)
-    Γ_inv = ekp.process.Γ_inv
+    Γ_inv = get_obs_noise_cov_inv(ekp) 
 
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
     Y = FT.((g .- mean(g, dims = 2)) / sqrt(m - 1))
@@ -86,9 +83,9 @@ Inputs:
  - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
 """
 function update_ensemble!(
-    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion{FT}},
+    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
     g::AbstractMatrix{FT},
-    process::TransformInversion{FT};
+    process::TransformInversion;
     failed_ens = nothing,
 ) where {FT, IT}
 

@@ -157,7 +157,7 @@ end
     # NOT that the accelerated processes are more effective than the default, as this is not guaranteed.
     # Specific cost values are printed to give an idea of acceleration.
     processes = [
-        repeat([Inversion(), TransformInversion(inv(Γy)), Unscented(prior; impose_prior = true)], 2)...,
+        repeat([Inversion(), TransformInversion(), Unscented(prior; impose_prior = true)], 2)...,
         Sampler(prior),
     ]
     schedulers = [
@@ -807,7 +807,7 @@ end
             initial_ensemble,
             y_obs,
             Γy,
-            TransformInversion(inv(Γy));
+            TransformInversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
             scheduler = deepcopy(scheduler),
@@ -817,7 +817,7 @@ end
             initial_ensemble,
             y_obs,
             Γy,
-            TransformInversion(inv(Γy));
+            TransformInversion();
             rng = rng,
             failure_handler_method = IgnoreFailures(),
             scheduler = deepcopy(scheduler),
@@ -919,7 +919,7 @@ end
         end
     end
 
-    for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000])
+    for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000]) # 0.02,0.075,2.25,150s
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
         y_obs_test, G_test, Γ_test, A_test =
@@ -929,7 +929,7 @@ end
             initial_ensemble,
             y_obs_test,
             Γ_test,
-            TransformInversion(inv(Γ_test));
+            TransformInversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
         )
