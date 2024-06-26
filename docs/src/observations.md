@@ -7,7 +7,7 @@ The Observations object facilitates convenient storing, grouping and minibatchin
 2. The `Minibatcher` facilitate data streaming (minibatching), where a user can submit large group of observations, that are then batched up and looped over in epochs.
 3. The `ObservationSeries` contains the list of `Observation`s and `Minibatcher` and the utilities to get the current batch etc.
 
-!!! note "But I just pass in a vector of data and a covariance - Is that OK?"
+!!! note "I usually just pass in a vector of data and a covariance to EKP"
     Users can indeed set up an experiment with just one data sample and covariance matrix for the noise. However internally these are still stored as an `ObservationSeries` with a special minibatcher that does nothing (created by `no_minibatcher(size)`). 
 
 ## Recommended constructor: A single stacked observation
@@ -129,7 +129,7 @@ get_obs_noise_cov(observation_series) # returns block-diagonal matrix with block
 
 minibatches are updated internally to the `update_ensemble!(ekp,...)` step via a call to
 ```@example ex2
-update_minibatch!(ObservationSeries)
+update_minibatch!(observation_series)
 get_current_minibatch(observation_series)
 ```
 
