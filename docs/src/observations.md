@@ -18,7 +18,7 @@ Here the user has data for two independent variables: the five-dimensional `y` a
 
 We recommend users build using a dictionary,
 ```@example
-using EnsembleKalmanProcesses, for `Observation`
+using EnsembleKalmanProcesses # for `Observation`
 using LinearAlgebra # for `I`
 
 # observe variable y with some diagonal noise
@@ -58,10 +58,38 @@ get_obs_noise_cov(full_obs) # returns block-diagonal matrix with blocks [cov_y 0
 
 Imagine the user has 1000 independent data samples  for two independent variables above.
 Rather than stacking all the data together at once (forming a full system of size `1000*20*5` to update at each step) instead the user wishes to stream the data and do updates with random batches of 20 observations at each iteration.
+```@setup ex1
+using EnsembleKalmanProcesses
+using LinearAlgebra
+y = ones(5)
+cov_y = 0.01*I(5)
 
-```@example
+z = zeros(20)
+cov_z = Tridiagonal(0.1*ones(19), ones(20), 0.1*ones(19))
+
+y_obs = Observation(
+    Dict(
+        "samples" => y,
+        "covariances" => cov_y,
+        "names" => "y",
+    ),
+)
+
+z_obs = Observation(
+    Dict(
+        "samples" => z,
+        "covariances" => cov_z,
+        "names" => "z",
+    ),
+)
+full_obs = combine_observations([y_obs,z_obs])
+thousand_full_obs = repeat([full_obs],1000)
+
+```
+
+```@example ex1
 # given a vector of 1000 `Observation` called thousand_full_obs
-using EnsembleKalmanProcesses # for `RandomFixedSizeMinibatcher`, `ObservationSeries`
+using EnsembleKalmanProcesses # for `RandomFixedSizeMinibatcher`, `ObservationSeries`, `Minibatcher`
 
 minibatcher = RandomFixedSizeMinibatcher(20) # batches the epoch of size 1000, into batches of size 20
 
