@@ -919,7 +919,7 @@ end
         end
     end
 
-    for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000]) # 0.02,0.075,2.25,150s
+    for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000]) # as of Observations change: 0.02, 0.1, 1.2, 70s
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
         y_obs_test, G_test, Γ_test, A_test =
@@ -937,7 +937,6 @@ end
         for i in 1:N_iter
             params_i = get_ϕ_final(prior, ekiobj)
             g_ens = G_test(params_i)
-
             dt = @elapsed EKP.update_ensemble!(ekiobj, g_ens)
             T += dt
         end
