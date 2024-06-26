@@ -493,7 +493,7 @@ convenience function to get the obs_noise_cov from the current batch in Observat
 build=false:, returns a vector of blocks,
 build=true: returns a block matrix,
 """
-function get_obs_noise_cov(ekp::EnsembleKalmanProcess, build = true)
+function get_obs_noise_cov(ekp::EnsembleKalmanProcess; build = true)
     return get_obs_noise_cov(get_observation_series(ekp), build = build)
 end
 
@@ -503,7 +503,7 @@ convenience function to get the obs_noise_cov (inverse) from the current batch i
 build=false:, returns a vector of blocks,
 build=true: returns a block matrix,
 """
-function get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess, build = true)
+function get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess; build = true)
     return get_obs_noise_cov_inv(get_observation_series(ekp), build = build)
 end
 
@@ -733,7 +733,6 @@ function update_ensemble!(
     Δt_new::NFT = nothing,
     ekp_kwargs...,
 ) where {FT, NFT <: Union{Nothing, AbstractFloat}, MorUS <: Union{AbstractMatrix, UniformScaling}}
-
     #catch works when g non-square 
     if !(size(g)[2] == ekp.N_ens)
         throw(
@@ -746,6 +745,7 @@ function update_ensemble!(
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
         u = update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
+        
         accelerate!(ekp, u)
         if s > 0.0
             multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
@@ -758,7 +758,6 @@ function update_ensemble!(
 
     # update to next minibatch (if minibatching)
     next_minibatch = update_minibatch!(ekp)
-
     return nothing
 
 end
