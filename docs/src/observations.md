@@ -2,9 +2,7 @@
 
 The Observations object facilitates convenient storing, grouping and minibatching over observations.
 
-## Summary
-
-### The key objects
+## The key objects
 1. The `Observation` is a container for an observed variables ("samples"), their noise covariances ("covariances"), and names ("names"). They are easily stackable to help build larger heterogenous observations
 2. The `Minibatcher` facilitate data streaming (minibatching), where a user can submit large group of observations, that are then batched up and looped over in epochs.
 3. The `ObservationSeries` contains the list of `Observation`s and `Minibatcher` and the utilities to get the current batch etc.
@@ -12,22 +10,23 @@ The Observations object facilitates convenient storing, grouping and minibatchin
 !!! note "But I just pass in a vector of data and a covariance - Is that OK?"
     Users can indeed set up an experiment with just one data sample and covariance matrix for the noise. However internally these are still stored as an `ObservationSeries` with a special minibatcher that does nothing (created by `no_minibatcher(size)`). 
 
-### Recommended constructor: A single stacked observation
+## Recommended constructor: A single stacked observation
 
-Here the user has data for two independent variables: the five-dimensional `y` and the twenty-dimensional `z`. The observations of `y` are all independent, while the observations of `z` have some structure.
+Here the user has data for two independent variables: the five-dimensional `y` and the eight-dimensional `z`. The observations of `y` are all independent, while the observations of `z` have some structure.
 
-We recommend users build using a dictionary,
-```@example
+We recommend users build an `Observation` using the `Dict` constructor and make use of the `combine_observations()` utility.
+```@example ex1
 using EnsembleKalmanProcesses # for `Observation`
-using LinearAlgebra # for `I`
+using LinearAlgebra # for `I`, `Tridiagonal`
 
 # observe variable y with some diagonal noise
 y = ones(5)
 cov_y = 0.01*I
 
 # observe variable z with some tri-diagonal noise
-z = zeros(20)
-cov_z = Tridiagonal(0.1*ones(19), ones(20), 0.1*ones(19))
+zdim = 8
+z = zeros(zdim)
+cov_z = Tridiagonal(0.1*ones(zdim-1), ones(zdim), 0.1*ones(zdim-1))
 
 y_obs = Observation(
     Dict(
@@ -46,32 +45,45 @@ z_obs = Observation(
 )
 
 full_obs = combine_observations([y_obs,z_obs]) # conveniently stacks the observations
-
-# getting information out
-get_obs(full_obs) # returns [y,z]
-get_obs_noise_cov(full_obs) # returns block-diagonal matrix with blocks [cov_y 0; 0 cov_z]
-
-# getters `get_*` can be used for the internally stored information too e.g. `get_names(full_obs)`
 ```
 
-### Recommended constructor: Many stacked observations
+```@example ex1
+# getting information out
+get_obs(full_obs) # returns [y,z]
+```
+```@example ex1
+get_obs_noise_cov(full_obs) # returns block-diagonal matrix with blocks [cov_y 0; 0 cov_z]
+```
+getters `get_*` can be used for the internally stored information too including:
+``` @example ex1
+get_names(full_obs)
+```
+There are some other fields stored such as indices of the `y` and `z` components
+```@example ex1
+get_indices(full_obs)
+```
 
-Imagine the user has 1000 independent data samples  for two independent variables above.
-Rather than stacking all the data together at once (forming a full system of size `1000*20*5` to update at each step) instead the user wishes to stream the data and do updates with random batches of 20 observations at each iteration.
-```@setup ex1
+## Recommended constructor: Many stacked observations
+
+Imagine the user has 100 independent data samples  for two independent variables above, where the `k`th `y` sample is = `k*ones(5)` for each `k=1:100`.
+Rather than stacking all the data together at once (forming a full system of size `100*(8+5)` to update at each step) instead the user wishes to stream the data and do updates with random batches of 5 observations at each iteration.
+```@setup ex2
 using EnsembleKalmanProcesses
 using LinearAlgebra
-y = ones(5)
-cov_y = 0.01*I(5)
 
-z = zeros(20)
-cov_z = Tridiagonal(0.1*ones(19), ones(20), 0.1*ones(19))
+hundred_full_obs = []
+for k = 1:100
+    y = k*ones(5)
+    cov_y = 0.01*I(5)
 
-y_obs = Observation(
-    Dict(
+    z = zeros(8)
+    cov_z = Tridiagonal(0.1*ones(7), ones(8), 0.1*ones(7))
+
+    y_obs = Observation(
+          Dict(
         "samples" => y,
         "covariances" => cov_y,
-        "names" => "y",
+        "names" => "y_$k",
     ),
 )
 
@@ -79,36 +91,53 @@ z_obs = Observation(
     Dict(
         "samples" => z,
         "covariances" => cov_z,
-        "names" => "z",
+        "names" => "z_$k",
     ),
 )
-full_obs = combine_observations([y_obs,z_obs])
-thousand_full_obs = repeat([full_obs],1000)
-
+push!(hundred_full_obs, combine_observations([y_obs,z_obs]))
+end
+T = promote_type((typeof(h) for h in hundred_full_obs)...)
+hundred_full_obs = [convert(T, h) for h in hundred_full_obs]
 ```
 
-```@example ex1
-# given a vector of 1000 `Observation` called thousand_full_obs
+```@example ex2
+# given a vector of 100 `Observation`s called hundred_full_obs, where `y_k = k*y`
 using EnsembleKalmanProcesses # for `RandomFixedSizeMinibatcher`, `ObservationSeries`, `Minibatcher`
 
-minibatcher = RandomFixedSizeMinibatcher(20) # batches the epoch of size 1000, into batches of size 20
+minibatcher = RandomFixedSizeMinibatcher(5) # batches the epoch of size 100, into batches of size 5
 
 observation_series = ObservationSeries(
     Dict(
-        "observations" => thousand_full_obs,
+        "observations" => hundred_full_obs,
         "minibatcher" => minibatcher,
     ),
 )
-
-# some example methods to get information out at the current minibatch:
-get_current_minibatch(observation_series) # returns [i₁, i₂, ..., i₂₀],  the current minibatch subset of indices 1:1000
-get_obs(observation_series) # returns [yi₁, zi₁, yi₂, zi₂,..., yi₂₀, zi₂₀], the data sample for the current minibatch
-get_obs_noise_cov(observation_series) # returns block-diagonal matrix with blocks [cov_yi₁  0 ... 0 ; 0 cov_zi₁ 0 ... 0; ... ; 0 ... 0 cov_yi₂₀ 0; 0 ... 0 cov_zi₂₀]
 ```
+
+```@example ex2
+# some example methods to get information out at the current minibatch:
+get_current_minibatch(observation_series) # returns [i₁, ..., i₅],  the current minibatch subset of indices 1:100
+```
+
+```@example ex2
+get_obs(observation_series) # returns [yi₁, zi₁, ..., yi₅, zi₅], the data sample for the current minibatch
+```
+
+```@example ex2
+get_obs_noise_cov(observation_series) # returns block-diagonal matrix with blocks [cov_yi₁  0 ... 0 ; 0 cov_zi₁ 0 ... 0; ... ; 0 ... 0 cov_yi₅ 0; 0 ... 0 cov_zi₅]
+```
+
+minibatches are updated internally to the `update_ensemble!(ekp,...)` step via a call to
+```@example ex2
+update_minibatch!(ObservationSeries)
+get_current_minibatch(observation_series)
+```
+
+
 
 ## Minibatchers
 
-Minibatchers are modular and must be derived from the `Minibatcher` `abstract type`. They contain a method `create_new_epoch!(minibatcher,args...;kwargs)` that creates a sampling of an epoch of data. For example, if we have 1000 data observations, the epoch is `1:1000`, and a typical minibatching is a random partitioning of `1:1000` into a batch-size (e.g., 20) leading to 50 minibatches.  
+Minibatchers are modular and must be derived from the `Minibatcher` `abstract type`. They contain a method `create_new_epoch!(minibatcher,args...;kwargs)` that creates a sampling of an epoch of data. For example, if we have 100 data observations, the epoch is `1:100`, and one possible minibatching is a random partitioning of `1:100` into a batch-size (e.g., 5) leading to 20 minibatches.  
 
 Some of the implemented Minibatchers
 - `FixedMinibatcher(given_batches, "order")`, (default `method = "order"`), minibatches are fixed and run through in order for all epochs
