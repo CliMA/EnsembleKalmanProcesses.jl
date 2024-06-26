@@ -940,7 +940,7 @@ end
         end
         # Skip timing of first due to precompilation
         if i >= 2
-            @info "ETKI with $n_obs_test observations took $T seconds."
+            @info "ETKI with $n_obs_test observations took $T seconds. (average update taking: $(T/Float64(N_iter)))"
         end
     end
 end
