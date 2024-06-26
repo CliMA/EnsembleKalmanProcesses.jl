@@ -156,10 +156,8 @@ end
     # Note: this test only requires that the final ensemble is an improvement on the initial ensemble,
     # NOT that the accelerated processes are more effective than the default, as this is not guaranteed.
     # Specific cost values are printed to give an idea of acceleration.
-    processes = [
-        repeat([Inversion(), TransformInversion(), Unscented(prior; impose_prior = true)], 2)...,
-        Sampler(prior),
-    ]
+    processes =
+        [repeat([Inversion(), TransformInversion(), Unscented(prior; impose_prior = true)], 2)..., Sampler(prior)]
     schedulers = [
         repeat([DefaultScheduler(0.1)], 3)..., # for constant timestep Nesterov
         repeat([DataMisfitController(terminate_at = 100)], 3)..., # for general Nesterov

@@ -745,7 +745,7 @@ function update_ensemble!(
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
         u = update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
-        
+
         accelerate!(ekp, u)
         if s > 0.0
             multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
