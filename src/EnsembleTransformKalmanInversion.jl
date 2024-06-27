@@ -145,6 +145,7 @@ function update_ensemble!(
     g::AbstractMatrix{FT},
     process::TransformInversion;
     failed_ens = nothing,
+    kwargs...
 ) where {FT, IT}
 
     # u: N_par × N_ens 
@@ -164,11 +165,6 @@ function update_ensemble!(
 
     fh = ekp.failure_handler
 
-    # Scale noise using Δt
-    #scaled_obs_noise_cov = get_obs_noise_cov(ekp) / ekp.Δt[end]
-
-    #y = get_obs(ekp)
-
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
     end
@@ -176,8 +172,8 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    #        u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
     u = fh.failsafe_update(ekp, u, g, failed_ens)
+
     # store new parameters (and model outputs)
     push!(ekp.g, DataContainer(g, data_are_columns = true))
     # Store error
