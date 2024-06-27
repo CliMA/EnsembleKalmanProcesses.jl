@@ -42,7 +42,7 @@ Observation(
         "names" => "one_two_three"
     ),
 )
-
+```
 can stack up multiple observations with combine_observations, or by providing vectors of samples, covariances and names to the dictionary.
 
 # Fields
@@ -219,7 +219,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if build=true`, returns the stacked vector of observed samples `samples`(default), otherwise it calls `get_samples`
+if `build=true`, returns the stacked vector of observed samples `samples`(default), otherwise it calls `get_samples`
 """
 function get_obs(o::Observation; build = true)
     if !build # return the blocks directly
@@ -238,7 +238,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if build=true`, returns the block matrix of observation covariances `covs` (default), otherwise it calls `get_covs`
+if `build=true`, returns the block matrix of observation covariances `covs` (default), otherwise it calls `get_covs`
 """
 function get_obs_noise_cov(o::Observation; build = true)
 
@@ -265,7 +265,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if build=true`, returns the block matrix of the inverses of the observation covariances `inv_covs` (default), otherwise it calls `get_inv_covs`
+if `build=true`, returns the block matrix of the inverses of the observation covariances `inv_covs` (default), otherwise it calls `get_inv_covs`
 """
 function get_obs_noise_cov_inv(o::Observation; build = true)
 
@@ -553,7 +553,7 @@ ObservationSeries(
         "minibatcher" => minibatcher
     ),
 )
-
+```
 # Fields
 
 $(TYPEDFIELDS)
