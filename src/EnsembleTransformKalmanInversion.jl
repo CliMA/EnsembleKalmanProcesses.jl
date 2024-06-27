@@ -145,7 +145,7 @@ function update_ensemble!(
     g::AbstractMatrix{FT},
     process::TransformInversion;
     failed_ens = nothing,
-    kwargs...
+    kwargs...,
 ) where {FT, IT}
 
     # u: N_par × N_ens 

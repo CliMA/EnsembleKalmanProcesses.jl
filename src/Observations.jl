@@ -34,6 +34,18 @@ export get_samples,
 
 Structure that contains a (possibly stacked) observation. Defined by sample(s), noise covariance(s), and name(s)
 
+Typical Constructor
+```
+Observation(
+    Dict(
+        "samples" => [1,2,3],
+        "covariances" => I(3),
+        "names" => "one_two_three"
+    ),
+)
+
+can stack up multiple observations with combine_observations, or by providing vectors of samples, covariances and names to the dictionary.
+
 # Fields
 
 $(TYPEDFIELDS)
@@ -427,6 +439,27 @@ get_names(os::ObservationSeries) = os.names
 get_current_minibatch_index(os::ObservationSeries) = os.current_minibatch_index
 get_minibatcher(os::ObservationSeries) = os.minibatcher
 
+"""
+    ObservationSeries
+
+Structure that contains multiple `Observation`s along with an optional `Minibatcher`. Stores all observations in `EnsembleKalmanProcess`, as well as defining the behavior of the `get_obs`, `get_obs_noise_cov`, and `get_obs_noise_cov_inv` methods
+
+Typical Constructor
+```
+ObservationSeries(
+    Dict(
+        "" => [1,2,3],
+        "covariances" => I(3),
+        "names" => "one_two_three"
+    ),
+)
+
+can stack up multiple observations with combine_observations, or by providing vectors of samples, covariances and names to the dictionary.
+
+# Fields
+
+$(TYPEDFIELDS)
+"""
 function ObservationSeries(
     obs_vec_in::AV,
     minibatcher::MM,
