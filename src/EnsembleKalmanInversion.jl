@@ -122,12 +122,12 @@ function update_ensemble!(
     fh = ekp.failure_handler
 
     # Scale noise using Δt
-    scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
+    scaled_obs_noise_cov = get_obs_noise_cov(ekp) / ekp.Δt[end]
     noise = sqrt(scaled_obs_noise_cov) * rand(ekp.rng, MvNormal(zeros(N_obs), I), ekp.N_ens)
 
-    # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
+    # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic
-    y = deterministic_forward_map ? (ekp.obs_mean .+ noise) : (ekp.obs_mean .+ zero(noise))
+    y = deterministic_forward_map ? (get_obs(ekp) .+ noise) : (get_obs(ekp) .+ zero(noise))
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)

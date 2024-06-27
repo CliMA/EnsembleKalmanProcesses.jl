@@ -198,11 +198,11 @@ function calculate_timestep!(
     # g_mean: 1 x N_obs
     M, J = size(g)
     g_mean = mean(g, dims = 2)
-    y_mean = ekp.obs_mean
-    if isa(ekp.obs_noise_cov, UniformScaling)
-        Γ = ekp.obs_noise_cov.λ * I(M) # converts into MxM matrix, 
+    y_mean = get_obs(ekp)
+    if isa(get_obs_noise_cov(ekp), UniformScaling)
+        Γ = get_obs_noise_cov(ekp).λ * I(M) # converts into MxM matrix, 
     else
-        Γ = ekp.obs_noise_cov
+        Γ = get_obs_noise_cov(ekp)
     end
     # (G(u) - E[G(u)])ᵀΓ⁻¹(G(u) - E[y])
     D = (1 / J) * ((g .- g_mean)' * (Γ \ (g .- y_mean)))
@@ -259,10 +259,10 @@ function calculate_timestep!(
 
     if isempty(ekp.Δt)
         push!(scheduler.iteration, 1)
-        if isa(ekp.obs_noise_cov, UniformScaling)
-            Γ = ekp.obs_noise_cov.λ * I(M) # converts into MxM matrix
+        if isa(get_obs_noise_cov(ekp), UniformScaling)
+            Γ = get_obs_noise_cov(ekp).λ * I(M) # converts into MxM matrix
         else
-            Γ = ekp.obs_noise_cov
+            Γ = get_obs_noise_cov(ekp)
         end
         inv_sqrt_Γ = inv(sqrt(posdef_correct(Γ)))
         push!(scheduler.inv_sqrt_noise, inv_sqrt_Γ)
@@ -291,7 +291,7 @@ function calculate_timestep!(
         end
     end
 
-    y_mean = ekp.obs_mean
+    y_mean = get_obs(ekp)
 
     Φ = [0.5 * norm(inv_sqrt_Γ * (g[:, j] - reshape(y_mean, :, 1)))^2 for j in 1:J]
     Φ_mean = mean(Φ)

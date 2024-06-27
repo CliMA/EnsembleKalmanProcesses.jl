@@ -10,9 +10,8 @@ using Random
 using JLD2
 
 using Plots
-# CES 
+# EKP 
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributions
 const EKP = EnsembleKalmanProcesses
 
@@ -83,7 +82,7 @@ end
 ###
 ###  Define the data from which we want to learn the parameters
 ###
-data_names = ["y0", "y1"]
+data_names = ["y0_y1"]
 
 
 ###
@@ -175,8 +174,7 @@ else
 end
 
 # Construct observation object
-truth = Observations.Observation(yt, Γy, data_names)
-truth_sample = truth.mean
+truth = Observation(Dict("samples" => vec(mean(yt, dims = 2)), "covariances" => Γy, "names" => data_names))
 ###
 ###  Calibrate: Ensemble Kalman Inversion
 ###
@@ -199,7 +197,7 @@ update_freq = 0
 #       n_param+2  : sample n_param+2 sigma points
 N_ens = 2n_param + 1
 process = Unscented(mean(priors), cov(priors); α_reg = α_reg, update_freq = update_freq, sigma_points = "symmetric")
-ukiobj = EKP.EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
+ukiobj = EKP.EnsembleKalmanProcess(truth, process)
 
 
 # UKI iterations

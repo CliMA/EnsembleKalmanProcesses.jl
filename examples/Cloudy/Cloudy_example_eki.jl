@@ -17,7 +17,6 @@ using Random
 
 # Import Calibrate-Emulate-Sample modules
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributions
 using EnsembleKalmanProcesses.DataContainers
 
@@ -71,7 +70,7 @@ priors = combine_distributions([prior_N0, prior_θ, prior_k])
 ###  Define the data from which we want to learn the parameters
 ###
 
-data_names = ["M0", "M1", "M2"]
+data_names = ["M0_M1_M2"]
 moments = [0.0, 1.0, 2.0]
 n_moments = length(moments)
 
@@ -111,8 +110,7 @@ for i in 1:n_samples
     y_t[:, i] = G_t .+ rand(MvNormal(μ, Γy))
 end
 
-truth = Observations.Observation(y_t, Γy, data_names)
-truth_sample = truth.mean
+truth = Observation(Dict("samples" => vec(mean(y_t, dims = 2)), "covariances" => Γy, "names" => data_names))
 
 
 ###
@@ -124,13 +122,7 @@ N_iter = 8 # number of EKI iterations
 # initial parameters: N_par x N_ens
 
 initial_par = construct_initial_ensemble(rng, priors, N_ens)
-ekiobj = EnsembleKalmanProcess(
-    initial_par,
-    truth_sample,
-    truth.obs_noise_cov,
-    Inversion(),
-    timestepper = DefaultTimestepper(0.1),
-)
+ekiobj = EnsembleKalmanProcess(initial_par, truth, Inversion(), timestepper = DefaultTimestepper(0.1))
 
 # Initialize a ParticleDistribution with dummy parameters. The parameters 
 # will then be set within `run_dyn_model`

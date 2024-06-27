@@ -114,7 +114,7 @@ for i in 1:n_samples
     y_t[:, i] = G_t .+ rand(MvNormal(μ, Γy))
 end
 
-truth = Observations.Observation(y_t, Γy, data_names)
+truth = Observation(y_t, Γy, data_names)
 ```
 
 

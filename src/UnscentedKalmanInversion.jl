@@ -218,8 +218,29 @@ function Unscented(prior::ParameterDistribution; kwargs...)
 
 end
 
-
 # Special constructor for UKI Object
+function EnsembleKalmanProcess(
+    observation_series::OS,
+    process::Unscented{FT, IT};
+    kwargs...,
+) where {FT <: AbstractFloat, IT <: Int, OS <: ObservationSeries}
+    # use the distribution stored in process to generate initial ensemble
+    init_params = update_ensemble_prediction!(process, 0.0)
+
+    return EnsembleKalmanProcess(init_params, observation_series, process; kwargs...)
+end
+
+function EnsembleKalmanProcess(
+    observation::OB,
+    process::Unscented{FT, IT};
+    kwargs...,
+) where {FT <: AbstractFloat, IT <: Int, OB <: Observation}
+
+    observation_series = ObservationSeries(observation)
+    return EnsembleKalmanProcess(observation_series, process; kwargs...)
+end
+
+
 function EnsembleKalmanProcess(
     obs_mean::AbstractVector{FT},
     obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
@@ -227,10 +248,8 @@ function EnsembleKalmanProcess(
     kwargs...,
 ) where {FT <: AbstractFloat, IT <: Int}
 
-    # use the distribution stored in process to generate initial ensemble
-    init_params = update_ensemble_prediction!(process, 0.0)
-
-    return EnsembleKalmanProcess(init_params, obs_mean, obs_noise_cov, process; kwargs...)
+    observation = Observation(Dict("samples" => obs_mean, "covariances" => obs_noise_cov, "names" => "observation"))
+    return EnsembleKalmanProcess(observation, process; kwargs...)
 end
 
 function FailureHandler(process::Unscented, method::IgnoreFailures)
@@ -255,8 +274,8 @@ Provides a failsafe update that
 function FailureHandler(process::Unscented, method::SampleSuccGauss)
     function succ_gauss_analysis!(uki, u_p, g, failed_ens)
 
-        obs_mean = uki.obs_mean
-        Σ_ν = uki.process.Σ_ν_scale * uki.obs_noise_cov
+        obs_mean = get_obs(uki)
+        Σ_ν = uki.process.Σ_ν_scale * get_obs_noise_cov(uki)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
 
         ############# Prediction step
@@ -593,8 +612,8 @@ function update_ensemble_analysis!(
     g::AbstractMatrix{FT},
 ) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
 
-    obs_mean = uki.obs_mean
-    Σ_ν = uki.process.Σ_ν_scale * uki.obs_noise_cov
+    obs_mean = get_obs(uki)
+    Σ_ν = uki.process.Σ_ν_scale * get_obs_noise_cov(uki)
 
     ############# Prediction step:
 
@@ -713,8 +732,8 @@ end
 
 function compute_error!(uki::EnsembleKalmanProcess{FT, IT, U}) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     mean_g = uki.process.obs_pred[end]
-    diff = uki.obs_mean - mean_g
-    X = uki.obs_noise_cov \ diff # diff: column vector
+    diff = get_obs(uki) - mean_g
+    X = get_obs_noise_cov(uki) \ diff # diff: column vector
     newerr = dot(diff, X)
     push!(uki.err, newerr)
 end

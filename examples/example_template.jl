@@ -3,9 +3,9 @@
 
 # Import external modules
 
-# Import CES modules
+# Import EKP modules
+using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using EnsembleKalmanProcesses.DataStorage
 
@@ -29,9 +29,13 @@ noise_covariance = prescribed_observational_noise_covariance
 ##
 ## Store the observation and covariance
 ##
+truth_sample = truth_data[1]
 
-truth = Observations.Obs(truth_data, observational_noise_covariance, data_names)
-truth_sample = truth.samples[1]
+truth =
+    Observation(Dict("samples" => truth_sample, "covariances" => observational_noise_covariance, "names" => data_names))
+# note that you can stack data(i.e. different observed variables) conveniently with combine_observations([truth1,truth2])
+# if you have a lot of data you can also minibatch it conveniently by using an ObservationSeries - see the docs
+
 
 ##
 ## Now define the priors:
@@ -47,8 +51,7 @@ priors = ParameterDistribution(prior_dict)
 params = construct_initial_ensemble(priors, N_ens)
 
 # constructor for the EKI object
-ekiobj =
-    EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_params, truth_sample, truth.obs_noise_cov, Inversion())
+ekiobj = EnsembleKalmanProcessModule.EnsembleKalmanProcess(initial_params, truth, Inversion())
 
 #outer EKI loop
 for i in 1:N_iterations

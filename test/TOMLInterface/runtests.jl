@@ -6,7 +6,6 @@ using LinearAlgebra
 
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.TOMLInterface
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributions
 const EKP = EnsembleKalmanProcesses
 

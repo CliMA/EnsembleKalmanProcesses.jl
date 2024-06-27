@@ -34,7 +34,6 @@ using JLD2
 
 # CES 
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.DataContainers
 using EnsembleKalmanProcesses.ParameterDistributions
 
@@ -109,7 +108,7 @@ end
 ###
 ###  Define the data from which we want to learn the parameters
 ###
-data_names = ["y0", "y1"]
+data_names = ["y0_y1"]
 
 
 ###
@@ -202,8 +201,7 @@ end
 
 
 # Construct observation object
-truth = Observations.Observation(yt, Γy, data_names)
-truth_sample = truth.mean
+truth = Observation(Dict("samples" => vec(mean(yt, dims = 2)), "covariances" => Γy, "names" => data_names))
 ###
 ###  Calibrate: Ensemble Kalman Inversion
 ###
@@ -218,7 +216,7 @@ N_iter = 5 # number of EKI iterations
 # initial parameters: N_params x N_ens
 initial_params = construct_initial_ensemble(rng, priors, N_ens)
 
-ekiobj = EKP.EnsembleKalmanProcess(initial_params, truth_sample, truth.obs_noise_cov, Inversion())
+ekiobj = EKP.EnsembleKalmanProcess(initial_params, truth, Inversion())
 
 # EKI iterations
 println("EKP inversion error:")
