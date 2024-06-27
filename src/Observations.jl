@@ -19,7 +19,6 @@ export get_samples,
     get_rng,
     get_minibatch_size,
     get_observations,
-    get_minibatches,
     get_current_minibatch_index,
     get_minibatcher,
     update_minibatch!,
@@ -69,10 +68,39 @@ struct Observation{
     indices::AV5
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+gets the `samples` field from the `Observation` object
+"""
 get_samples(o::Observation) = o.samples
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `covs` field from the `Observation` object
+"""
 get_covs(o::Observation) = o.covs
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `inv_covs` field from the `Observation` object
+"""
 get_inv_covs(o::Observation) = o.inv_covs
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `names` field from the `Observation` object
+"""
 get_names(o::Observation) = o.names
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `indices` field from the `Observation` object
+"""
 get_indices(o::Observation) = o.indices
 
 function Observation(obs_dict::Dict)
@@ -147,7 +175,11 @@ function Observation(obs_dict::Dict)
 
 end
 
-# combines observations into one long effective observation
+"""
+$(TYPEDSIGNATURES)
+
+combines a vector of `Observation` objects into a single `Observation`
+"""
 function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
     n_obs = length(obs_vec)
 
@@ -184,6 +216,11 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
     return Observation(snew2, cnew2, icnew2, nnew2, inew2)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+if build=true`, returns the stacked vector of observed samples `samples`(default), otherwise it calls `get_samples`
+"""
 function get_obs(o::Observation; build = true)
     if !build # return the blocks directly
         return get_samples(o)
@@ -198,6 +235,11 @@ function get_obs(o::Observation; build = true)
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+if build=true`, returns the block matrix of observation covariances `covs` (default), otherwise it calls `get_covs`
+"""
 function get_obs_noise_cov(o::Observation; build = true)
 
     if !build # return the blocks directly
@@ -220,6 +262,11 @@ function get_obs_noise_cov(o::Observation; build = true)
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+if build=true`, returns the block matrix of the inverses of the observation covariances `inv_covs` (default), otherwise it calls `get_inv_covs`
+"""
 function get_obs_noise_cov_inv(o::Observation; build = true)
 
     if !build # return the blocks directly
@@ -273,8 +320,15 @@ function Base.:(==)(m_a::M1, m_b::M2) where {M1 <: Minibatcher, M2 <: Minibatche
     return all(x)
 end
 
+"""
+    FixedMinibatcher <: Minibatcher
 
+A `Minibatcher` that takes in a given epoch of batches. It creates a new epoch by either copying-in-order, or by shuffling, the provided batches.
 
+# Fields
+
+$(TYPEDFIELDS)
+"""
 struct FixedMinibatcher{AV1 <: AbstractVector, SS <: AbstractString, ARNG <: AbstractRNG} <: Minibatcher
     "explicit indices of the minibatched epoch"
     minibatches::AV1
@@ -301,25 +355,51 @@ struct FixedMinibatcher{AV1 <: AbstractVector, SS <: AbstractString, ARNG <: Abs
         return new{typeof(mnew), typeof(method), typeof(rng)}(mnew, method, rng)
     end
 end
+
 function FixedMinibatcher(minibatches::AV) where {AV <: AbstractVector}
     # method 
     def_method = "order"
     def_rng = Random.default_rng()
     return FixedMinibatcher(minibatches, def_method, def_rng)
 end
+"""
+$(TYPEDSIGNATURES)
 
-function no_minibatcher(size::Int = 1) #optional to provide size
+constructs a `FixedMinibatcher` of given `epoch_size`, that generates an epoch of `1:epoch_size` and one minibatch that constitutes the whole epoch
+"""
+function no_minibatcher(epoch_size::Int = 1) #optional to provide size
     # method
-    def_minibatch = [collect(1:size)]
+    def_minibatch = [collect(1:epoch_size)]
     def_method = "order"
     def_rng = Random.default_rng()
     return FixedMinibatcher(def_minibatch, def_method, def_rng)
 end
 
+"""
+$(TYPEDSIGNATURES)
 
+gets the `minibatches` field from the `FixedMinibatcher` object
+"""
 get_minibatches(m::FM) where {FM <: FixedMinibatcher} = m.minibatches
+"""
+$(TYPEDSIGNATURES)
+
+gets the `method` field from the `FixedMinibatcher` object
+"""
 get_method(m::FM) where {FM <: FixedMinibatcher} = m.method
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `rng` field from the `FixedMinibatcher` object
+"""
 get_rng(m::FM) where {FM <: FixedMinibatcher} = m.rng
+
+"""
+$(TYPEDSIGNATURES)
+
+updates the epoch by either copying ("order") the initialization minibatches, or by randomizing ("random") their order
+"""
 function create_new_epoch!(m::FM, args...; kwargs...) where {FM <: FixedMinibatcher}
     minibatches = get_minibatches(m)
     method = get_method(m)
@@ -344,6 +424,15 @@ function create_new_epoch!(m::FM, args...; kwargs...) where {FM <: FixedMinibatc
 
 end
 
+"""
+    RandomFixedSizeMinibatcher <: Minibatcher
+
+A `Minibatcher` that takes in a given epoch of batches. It creates a new epoch by either copying-in-order, or by shuffling, the provided batches.
+
+# Fields
+
+$(TYPEDFIELDS)
+"""
 struct RandomFixedSizeMinibatcher{SS <: AbstractString, ARNG <: AbstractRNG, AV2 <: AbstractVector} <: Minibatcher
     "fixed size of minibatches"
     minibatch_size::Int
@@ -366,11 +455,39 @@ RandomFixedSizeMinibatcher(minibatch_size::Int, rng::ARNG) where {ARNG <: Abstra
     RandomFixedSizeMinibatcher(minibatch_size, "extend", rng)
 RandomFixedSizeMinibatcher(minibatch_size::Int) = RandomFixedSizeMinibatcher(minibatch_size, Random.default_rng())
 
+"""
+$(TYPEDSIGNATURES)
+
+gets the `minibatch_size` field from the `RandomFixesSizeMinibatcher` object
+"""
 get_minibatch_size(m::RFSM) where {RFSM <: RandomFixedSizeMinibatcher} = m.minibatch_size
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `method` field from the `RandomFixesSizeMinibatcher` object
+"""
 get_method(m::RFSM) where {RFSM <: RandomFixedSizeMinibatcher} = m.method
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `rng` field from the `RandomFixesSizeMinibatcher` object
+"""
 get_rng(m::RFSM) where {RFSM <: RandomFixedSizeMinibatcher} = m.rng
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `minibatches` field from the `RandomFixesSizeMinibatcher` object
+"""
 get_minibatches(m::RFSM) where {RFSM <: RandomFixedSizeMinibatcher} = m.minibatches
 
+"""
+$(TYPEDSIGNATURES)
+
+updates the epoch by randomizing the provided epoch indices. If the length of minibatches do not divide the length of the epoch, then the remainder is either ignored (default) or a final larger batch is created
+"""
 function create_new_epoch!(
     m::RFSM,
     epoch_in::AV,
@@ -420,6 +537,27 @@ end
 #####
 # Container for Multiple Observations and Minibatching
 #####
+
+
+"""
+    ObservationSeries
+
+Structure that contains multiple `Observation`s along with an optional `Minibatcher`. Stores all observations in `EnsembleKalmanProcess`, as well as defining the behavior of the `get_obs`, `get_obs_noise_cov`, and `get_obs_noise_cov_inv` methods
+
+Typical Constructor
+```
+ObservationSeries(
+    Dict(
+        "observations" => vec_of_observations,
+        "names" => names_of_observations,
+        "minibatcher" => minibatcher
+    ),
+)
+
+# Fields
+
+$(TYPEDFIELDS)
+"""
 struct ObservationSeries{AV1 <: AbstractVector, MM <: Minibatcher, AV2 <: AbstractVector, AV3 <: AbstractVector}
     "A vector of `Observation`s to be used in the experiment"
     observations::AV1
@@ -433,33 +571,41 @@ struct ObservationSeries{AV1 <: AbstractVector, MM <: Minibatcher, AV2 <: Abstra
     minibatches::AV3
 end
 
-get_observations(os::ObservationSeries) = os.observations
-get_minibatches(os::ObservationSeries) = os.minibatches
-get_names(os::ObservationSeries) = os.names
-get_current_minibatch_index(os::ObservationSeries) = os.current_minibatch_index
-get_minibatcher(os::ObservationSeries) = os.minibatcher
+"""
+$(TYPEDSIGNATURES)
+
+gets the `observations` field from the `ObservationSeries` object
+"""
+get_observations(os::OS) where {OS <: ObservationSeries} = os.observations
 
 """
-    ObservationSeries
+$(TYPEDSIGNATURES)
 
-Structure that contains multiple `Observation`s along with an optional `Minibatcher`. Stores all observations in `EnsembleKalmanProcess`, as well as defining the behavior of the `get_obs`, `get_obs_noise_cov`, and `get_obs_noise_cov_inv` methods
-
-Typical Constructor
-```
-ObservationSeries(
-    Dict(
-        "" => [1,2,3],
-        "covariances" => I(3),
-        "names" => "one_two_three"
-    ),
-)
-
-can stack up multiple observations with combine_observations, or by providing vectors of samples, covariances and names to the dictionary.
-
-# Fields
-
-$(TYPEDFIELDS)
+gets the `minibatches` field from the `ObservationSeries` object
 """
+get_minibatches(os::OS) where {OS <: ObservationSeries} = os.minibatches
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `names` field from the `ObservationSeries` object
+"""
+get_names(os::OS) where {OS <: ObservationSeries} = os.names
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `current_minibatch_index` field from the `ObservationSeries` object
+"""
+get_current_minibatch_index(os::OS) where {OS <: ObservationSeries} = os.current_minibatch_index
+
+"""
+$(TYPEDSIGNATURES)
+
+gets the `minibatcher` field from the `ObservationSeries` object
+"""
+get_minibatcher(os::OS) where {OS <: ObservationSeries} = os.minibatcher
+
 function ObservationSeries(
     obs_vec_in::AV,
     minibatcher::MM,
@@ -558,8 +704,12 @@ function ObservationSeries(obs_series_dict::Dict)
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
 
-
+Within an epoch: iterates the current minibatch index by one.
+At the end of an epoch: obtains a new epoch of minibatches from the `Minibatcher` updates the epoch index by one, and minibatch index to one.
+"""
 function update_minibatch!(os::OS) where {OS <: ObservationSeries}
     index = get_current_minibatch_index(os)
     minibatches_in_epoch = get_minibatches(os)[index["epoch"]]
@@ -579,12 +729,22 @@ function update_minibatch!(os::OS) where {OS <: ObservationSeries}
 end
 
 # stored as vector of vectors
+"""
+$(TYPEDSIGNATURES)
+
+get the current minibatch that is pointed to by the `current_minibatch_indices` field
+"""
 function get_current_minibatch(os::OS) where {OS <: ObservationSeries}
     minibatches = get_minibatches(os)
     epoch = get_current_minibatch_index(os)["epoch"]
     return minibatches[epoch][get_current_minibatch_index(os)["minibatch"]]
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+if `build=true` then gets the observed sample, stacked over the current minibatch. `build=false` lists the `samples` for all observations 
+"""
 function get_obs(os::OS; build = true) where {OS <: ObservationSeries}
     minibatch = get_current_minibatch(os) # gives the indices of the minibatch
     minibatch_length = length(minibatch)
@@ -607,6 +767,11 @@ function get_obs(os::OS; build = true) where {OS <: ObservationSeries}
 
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+if `build=true` then gets the observation covariance matrix, blocked over the current minibatch. `build=false` lists the `covs` for all observations 
+"""
 function get_obs_noise_cov(os::OS; build = true) where {OS <: ObservationSeries}
     minibatch = get_current_minibatch(os) # gives the indices of the minibatch
     minibatch_length = length(minibatch)
@@ -636,6 +801,11 @@ function get_obs_noise_cov(os::OS; build = true) where {OS <: ObservationSeries}
 
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+if `build=true` then gets the inverse of the observation covariance matrix, blocked over the current minibatch. `build=false` lists the `inv_covs` for all observations 
+"""
 function get_obs_noise_cov_inv(os::OS; build = true) where {OS <: ObservationSeries}
     minibatch = get_current_minibatch(os) # gives the indices of the minibatch
     minibatch_length = length(minibatch)
