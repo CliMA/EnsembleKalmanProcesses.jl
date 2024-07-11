@@ -932,7 +932,8 @@ end
             failure_handler_method = SampleSuccGauss(),
         )
         T = 0.0
-        for i in 1:N_iter
+        N_iter_new = 5
+        for i in 1:N_iter_new
             params_i = get_ϕ_final(prior, ekiobj)
             g_ens = G_test(params_i)
             dt = @elapsed EKP.update_ensemble!(ekiobj, g_ens)
@@ -940,7 +941,7 @@ end
         end
         # Skip timing of first due to precompilation
         if i >= 2
-            @info "ETKI with $n_obs_test observations took $T seconds. (average update taking: $(T/Float64(N_iter)))"
+            @info "$N_iter_new iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(N_iter)))"
         end
     end
 end
