@@ -168,8 +168,8 @@ function EnsembleKalmanProcess(
 
     # dimensionality
     N_par, N_ens = size(init_params) #stored with data as columns
-    obs = get_obs(observation_series)
-    N_obs = length(obs)
+    obs_over_minibatch = get_obs(observation_series) # get stacked observation over minibatch
+    obs_size_over_minibatch = length(obs_over_minibatch) # number of dims in the stacked observation
 
     IT = typeof(N_ens)
     #store for model evaluations
@@ -223,7 +223,7 @@ function EnsembleKalmanProcess(
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
     # localizer
-    loc = Localizer(localization_method, N_par, N_obs, N_ens, FT)
+    loc = Localizer(localization_method, N_par, obs_size_over_minibatch, N_ens, FT)
 
     if verbose
         @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))\nScheduler: $(nameof(typeof(lrs)))\nAccelerator: $(nameof(typeof(acc)))"
