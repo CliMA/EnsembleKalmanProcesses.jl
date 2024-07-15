@@ -127,7 +127,7 @@ function update_ensemble!(
 
     # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic
-    y = deterministic_forward_map ? (get_obs(ekp) .+ noise) : (get_obs(ekp) .+ zero(noise))
+    y = deterministic_forward_map ? (get_obs(ekp) .+ noise) : get_obs(ekp)
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
