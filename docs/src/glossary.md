@@ -26,3 +26,6 @@ on GitHub.
 | Observation map | ``\mathcal{H}``  | `H` |
 | Prior covariance (unconstrained space) | ``\Gamma_{\theta}``  | `prior_cov` |
 | Prior mean (unconstrained space) | ``m_\theta``  | `prior_mean` |
+
+!!! note "On batching"
+    When observations or parameters are being batched, then their size (e.g., `N_obs` or `N_par`) will refer to the size of elements of each batch, summed over the batch. For example, when calibrating 100 observations of a 15-dimensional output space, but using a minibatching procedure with batch size 5, then `N_obs = 75`.

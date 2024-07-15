@@ -10,7 +10,7 @@ The Observations object facilitates convenient storing, grouping and minibatchin
 !!! note "I usually just pass in a vector of data and a covariance to EKP"
     Users can indeed set up an experiment with just one data sample and covariance matrix for the noise. However internally these are still stored as an `ObservationSeries` with a special minibatcher that does nothing (created by `no_minibatcher(size)`). 
 
-## Recommended constructor: A single stacked observation
+## Recommended constructor: A single (stacked) observation
 
 Here the user has data for two independent variables: the five-dimensional `y` and the eight-dimensional `z`. The observations of `y` are all independent, while the observations of `z` have some structure.
 
@@ -67,6 +67,10 @@ get_indices(full_obs)
 
 Imagine the user has 100 independent data samples  for two independent variables above, where the `k`th `y` sample is = `k*ones(5)` for each `k=1:100`.
 Rather than stacking all the data together at once (forming a full system of size `100*(8+5)` to update at each step) instead the user wishes to stream the data and do updates with random batches of 5 observations at each iteration.
+
+!!! note "Why would I choose to minibatch?"
+    The memory- and time-scaling of many EKP methods is worse-than-linear in the observation dimension, therefore there is often large computational benefit to minibatch EKP updates. Such costs must be weighed against the cost of additional forward map evaluations needed to minibatching over one full epoch. 
+
 ```@setup ex2
 using EnsembleKalmanProcesses
 using LinearAlgebra
@@ -146,8 +150,25 @@ Some of the implemented Minibatchers
 - `RandomFixedSizeMinibatcher(minibatch_size, "trim")`, (default `method = "trim"`) creates minibatches of size `minibatch_size` by randomly sampling the epoch, if the minibatch size does not divide into the number of samples it will ignore the remainder (and thus preserving a constant batch size)
 - `RandomFixedSizeMinibatcher(minibatch_size, "extend")`, creates minibatches of size `minibatch_size` by randomly sampling the epoch, if the minibatch size does not divide into the number of samples it will include the remainder in the final batch (and thus will cover the entirety of the data, with a larger final batch)
 
-## Observation Series
+## Identifiers
 
-One can additionally provide a vector of `names` to name each `Observation` in the `ObservationSeries` by giving using the `Dict` entry `"names" => names`
+One can additionally provide a vector of `names` to name each `Observation` in the `ObservationSeries` by giving using the `Dict` entry `"names" => names`.
 
+To think about the differences between the identifiers for `Observation` and `ObservationSeries` consider an application of observing the average state of a dynamical system over 100 time windows. The time windows will be batched over during the calibration.
+
+The compiled information is given in the object:
+```julia
+yz_observation_series::ObservationSeries
+```
+As this contains many time windows, setting the names of the `ObservationSeries` objects to index the time window is a sensible identifier, for example,
+```julia
+get_names(yz_observation_series)
+> ["window_1", "window_2", ..., "window_100"]
+```
+The individual `Observation`s should refer only to the state being measured, sosuitable identifiers might be, for example,
+```julia
+obs = get_observations(yz_observation_series)[1] # get first observation in the series
+get_names(obs)
+> ["y_window_average", "z_window_average"]
+```
 
