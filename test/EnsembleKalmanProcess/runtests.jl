@@ -917,7 +917,8 @@ end
         end
     end
 
-    for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000]) # as of Observations change: 0.02, 0.1, 1.2, 70s
+    for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000])
+        
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
         y_obs_test, G_test, Γ_test, A_test =
@@ -932,8 +933,7 @@ end
             failure_handler_method = SampleSuccGauss(),
         )
         T = 0.0
-        N_iter_new = 5
-        for i in 1:N_iter_new
+        for i in 1:N_iter 
             params_i = get_ϕ_final(prior, ekiobj)
             g_ens = G_test(params_i)
             dt = @elapsed EKP.update_ensemble!(ekiobj, g_ens)
@@ -941,7 +941,11 @@ end
         end
         # Skip timing of first due to precompilation
         if i >= 2
-            @info "$N_iter_new iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(N_iter)))"
+            @info "$N_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(N_iter)))"
+            if T/Float64(N_iter) > 0.2
+                @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(N_iter)). Significant slowdowns encountered in ETKI"
+            end
+            
         end
     end
 end
