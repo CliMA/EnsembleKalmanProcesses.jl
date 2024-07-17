@@ -254,8 +254,8 @@ function calculate_timestep!(
     # check if no minibatching
     os = get_observation_series(ekp)
     index = get_current_minibatch_index(os)
-    len_epoch = length(get_minibatches(os)[index["epoch"]]) 
-    
+    len_epoch = length(get_minibatches(os)[index["epoch"]])
+
     if isempty(ekp.Δt)
         push!(scheduler.iteration, 1)
         inv_sqrt_Γ = sqrt(posdef_correct(get_obs_noise_cov_inv(ekp)))

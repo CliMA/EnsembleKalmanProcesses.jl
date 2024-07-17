@@ -558,13 +558,13 @@ function compute_error!(ekp::EnsembleKalmanProcess)
     diff = get_obs(ekp) - mean_g
     #   X = get_obs_noise_cov(ekp) \ diff # diff: column vector
 
-    Γ_inv = get_obs_noise_cov_inv(ekp,build=false)
-    γ_sizes = [size(γ_inv,1) for γ_inv in Γ_inv]
-    X = zeros(sum(γ_sizes), size(diff,2)) # stores Y' * Γ_inv
+    Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
+    γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
+    X = zeros(sum(γ_sizes), size(diff, 2)) # stores Y' * Γ_inv
     shift = [0]
     for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
         idx = (shift[1] + 1):(shift[1] + γs)
-        X[idx,:] = γ_inv * diff[idx, :]
+        X[idx, :] = γ_inv * diff[idx, :]
         shift[1] = maximum(idx)
     end
     newerr = dot(diff, X)

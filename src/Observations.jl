@@ -294,7 +294,6 @@ function get_obs_noise_cov_inv(o::Observation; build = true)
         for (idx, c) in zip(indices, inv_covs)
             inv_cov_full[idx, idx] .= c
         end
-
         return inv_cov_full
     end
 end
@@ -791,7 +790,7 @@ function get_obs_noise_cov(os::OS; build = true) where {OS <: ObservationSeries}
     else
         minibatch_covs = []
         for observation in observations_vec
-            push!(minibatch_covs, get_obs_noise_cov(observation, build = build)) # 
+            push!(minibatch_covs, get_obs_noise_cov(observation, build = build))
         end
     end
     if !build # return the blocks directly

@@ -66,17 +66,17 @@ function etki_update(
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
     Y = FT.((g .- mean(g, dims = 2)) / sqrt(m - 1))
     tmp = get_buffer(get_process(ekp)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
-    if length(tmp) == 0 
+    if length(tmp) == 0
         # initialize buffer
-        Γ_inv = get_obs_noise_cov_inv(ekp, build=false)
-        
-        γ_sizes = [size(γ_inv,1) for γ_inv in Γ_inv]
+        Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
+
+        γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
         shift = [0]
-        tmp1 = zeros(size(Y,2),sum(γ_sizes)) # stores Y' * Γ_inv
+        tmp1 = zeros(size(Y, 2), sum(γ_sizes)) # stores Y' * Γ_inv
 
         for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
             idx = (shift[1] + 1):(shift[1] + γs)
-            tmp1[:,idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
+            tmp1[:, idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
             shift[1] = maximum(idx)
         end
         push!(tmp, tmp1) # store in [1]
@@ -87,14 +87,14 @@ function etki_update(
 
         Ω = inv(tmp[2]) # = inv (I + Y' * Γ_inv * Y) 
         w = FT.(Ω * tmp[1] * (y .- mean(g, dims = 2)))
-       
+
         return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
     elseif (size(tmp[1], 1) >= size(Y, 2)) && (size(tmp[1], 2) >= size(Y, 1)) # enough to check tmp[1]
         ms_1, ms_2 = size(Y)
         # if buffer is bigger than we need, reuse it and don't build Γ_inv to save some space
 
         Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
-        γ_sizes = [size(γ_inv,1) for γ_inv in Γ_inv]
+        γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
 
         shift = [0]
         # block-build: I + Y'*Γ_inv * Y
@@ -113,19 +113,19 @@ function etki_update(
             tmp[2][i, i] += 1.0
         end
         Ω = inv(tmp[2][1:ms_2, 1:ms_2])
-        
+
         return mean(u, dims = 2) .+ X * (Ω * w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
     else
         # reinitialize buffer
-        Γ_inv = get_obs_noise_cov_inv(ekp, build=false)
-        
-        γ_sizes = [size(γ_inv,1) for γ_inv in Γ_inv]
+        Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
+
+        γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
         shift = [0]
-        tmp1 = zeros(size(Y,2),sum(γ_sizes)) # stores Y' * Γ_inv
+        tmp1 = zeros(size(Y, 2), sum(γ_sizes)) # stores Y' * Γ_inv
 
         for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
             idx = (shift[1] + 1):(shift[1] + γs)
-            tmp1[:,idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
+            tmp1[:, idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
             shift[1] = maximum(idx)
         end
         tmp[1] = tmp1
