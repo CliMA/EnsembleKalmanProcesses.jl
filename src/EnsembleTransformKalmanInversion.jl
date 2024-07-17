@@ -66,36 +66,42 @@ function etki_update(
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
     Y = FT.((g .- mean(g, dims = 2)) / sqrt(m - 1))
     tmp = get_buffer(get_process(ekp)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
-    if length(tmp) == 0 #for size 10^4 obs this takes 0.7s
-        #normal update to initialize buffer
-        Γ_inv = get_obs_noise_cov_inv(ekp) #bottleneck
-        Γ_inv *= inv_noise_scaling
-        push!(tmp, Y' * Γ_inv) # store in [1]
-        push!(tmp, tmp[1] * Y) # store in [2]
+    if length(tmp) == 0 
+        # initialize buffer
+        Γ_inv = get_obs_noise_cov_inv(ekp, build=false)
+        
+        γ_sizes = [size(γ_inv,1) for γ_inv in Γ_inv]
+        shift = [0]
+        tmp1 = zeros(size(Y,2),sum(γ_sizes)) # stores Y' * Γ_inv
+
+        for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
+            idx = (shift[1] + 1):(shift[1] + γs)
+            tmp1[:,idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
+            shift[1] = maximum(idx)
+        end
+        push!(tmp, tmp1) # store in [1]
+        push!(tmp, tmp1 * Y) # store in [2]
         for i in 1:size(Y, 2)
             tmp[2][i, i] += 1.0
         end
 
-        Ω = inv(tmp[2]) # = inv (I + Y' * Γ_inv * Y)
-
+        Ω = inv(tmp[2]) # = inv (I + Y' * Γ_inv * Y) 
         w = FT.(Ω * tmp[1] * (y .- mean(g, dims = 2)))
+       
         return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
     elseif (size(tmp[1], 1) >= size(Y, 2)) && (size(tmp[1], 2) >= size(Y, 1)) # enough to check tmp[1]
-        # for size 10^4 obs this takes 0.005s
         ms_1, ms_2 = size(Y)
         # if buffer is bigger than we need, reuse it and don't build Γ_inv to save some space
 
         Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
-        # these are a hack to find the size of γ_inv when its a UniformScaling and has no size..
-        yvec = get_obs(ekp, build = false)
-        y_sizes = [length(yi) for yi in yvec]
+        γ_sizes = [size(γ_inv,1) for γ_inv in Γ_inv]
 
         shift = [0]
         # block-build: I + Y'*Γ_inv * Y
 
         # col(Y') * γ_inv = (γ_inv * row(Y))'
-        for (ys, γ_inv) in zip(y_sizes, Γ_inv)
-            idx = (shift[1] + 1):(shift[1] + ys)
+        for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
+            idx = (shift[1] + 1):(shift[1] + γs)
             tmp[1][1:ms_2, idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
             shift[1] = maximum(idx)
         end
@@ -107,13 +113,23 @@ function etki_update(
             tmp[2][i, i] += 1.0
         end
         Ω = inv(tmp[2][1:ms_2, 1:ms_2])
+        
         return mean(u, dims = 2) .+ X * (Ω * w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
     else
-        #normal update to reinitialize buffer
-        Γ_inv = get_obs_noise_cov_inv(ekp) #bottleneck
-        Γ_inv *= inv_noise_scaling
-        tmp[1] = Y' * Γ_inv
-        tmp[2] = tmp[1] * Y
+        # reinitialize buffer
+        Γ_inv = get_obs_noise_cov_inv(ekp, build=false)
+        
+        γ_sizes = [size(γ_inv,1) for γ_inv in Γ_inv]
+        shift = [0]
+        tmp1 = zeros(size(Y,2),sum(γ_sizes)) # stores Y' * Γ_inv
+
+        for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
+            idx = (shift[1] + 1):(shift[1] + γs)
+            tmp1[:,idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
+            shift[1] = maximum(idx)
+        end
+        tmp[1] = tmp1
+        tmp[2] = tmp1 * Y
         for i in 1:size(Y, 2)
             tmp[2][i, i] += 1.0
         end

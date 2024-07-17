@@ -556,7 +556,17 @@ The error is stored within the `EnsembleKalmanProcess`.
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
     diff = get_obs(ekp) - mean_g
-    X = get_obs_noise_cov(ekp) \ diff # diff: column vector
+    #   X = get_obs_noise_cov(ekp) \ diff # diff: column vector
+
+    Γ_inv = get_obs_noise_cov_inv(ekp,build=false)
+    γ_sizes = [size(γ_inv,1) for γ_inv in Γ_inv]
+    X = zeros(sum(γ_sizes), size(diff,2)) # stores Y' * Γ_inv
+    shift = [0]
+    for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
+        idx = (shift[1] + 1):(shift[1] + γs)
+        X[idx,:] = γ_inv * diff[idx, :]
+        shift[1] = maximum(idx)
+    end
     newerr = dot(diff, X)
     push!(ekp.err, newerr)
 end
@@ -745,7 +755,6 @@ function update_ensemble!(
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
         u = update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
-
         accelerate!(ekp, u)
         if s > 0.0
             multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
