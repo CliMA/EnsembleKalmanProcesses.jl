@@ -199,14 +199,8 @@ function calculate_timestep!(
     M, J = size(g)
     g_mean = mean(g, dims = 2)
     y_mean = get_obs(ekp)
-    if isa(get_obs_noise_cov(ekp), UniformScaling)
-        Γ = get_obs_noise_cov(ekp).λ * I(M) # converts into MxM matrix, 
-    else
-        Γ = get_obs_noise_cov(ekp)
-    end
-    # (G(u) - E[G(u)])ᵀΓ⁻¹(G(u) - E[y])
-    D = (1 / J) * ((g .- g_mean)' * (Γ \ (g .- y_mean)))
-
+    Γinv = get_obs_noise_cov_inv(ekp)
+    D = (1 / J) * ((g .- g_mean)' * Γinv * (g .- y_mean))
     numerator = max(scheduler.numerator, eps())
     nugget = max(scheduler.nugget, eps())
 
@@ -257,18 +251,22 @@ function calculate_timestep!(
     M, J = size(g)
     T = scheduler.terminate_at
 
+    # check if no minibatching
+    os = get_observation_series(ekp)
+    index = get_current_minibatch_index(os)
+    len_epoch = length(get_minibatches(os)[index["epoch"]]) 
+    
     if isempty(ekp.Δt)
         push!(scheduler.iteration, 1)
-        if isa(get_obs_noise_cov(ekp), UniformScaling)
-            Γ = get_obs_noise_cov(ekp).λ * I(M) # converts into MxM matrix
-        else
-            Γ = get_obs_noise_cov(ekp)
-        end
-        inv_sqrt_Γ = inv(sqrt(posdef_correct(Γ)))
+        inv_sqrt_Γ = sqrt(posdef_correct(get_obs_noise_cov_inv(ekp)))
         push!(scheduler.inv_sqrt_noise, inv_sqrt_Γ)
-    else
+    elseif len_epoch == 1 # only no minibatching
         scheduler.iteration[end] += 1
         inv_sqrt_Γ = scheduler.inv_sqrt_noise[end]
+    else
+        scheduler.iteration[end] += 1
+        inv_sqrt_Γ = sqrt(posdef_correct(get_obs_noise_cov_inv(ekp)))
+        scheduler.inv_sqrt_noise[1] = inv_sqrt_Γ
     end
     n = scheduler.iteration[end]
     sum_Δt = (n == 1) ? 0.0 : sum(ekp.Δt)
