@@ -21,7 +21,7 @@ using LinearAlgebra # for `I`, `Tridiagonal`
 
 
 # specify an observation of y with diagonal noise covariance
-ydim=5
+ydim = 5
 y = ones(ydim)
 cov_y = 0.01*I
 
