@@ -168,8 +168,8 @@ function EnsembleKalmanProcess(
 
     # dimensionality
     N_par, N_ens = size(init_params) #stored with data as columns
-    obs_over_minibatch = get_obs(observation_series) # get stacked observation over minibatch
-    obs_size_over_minibatch = length(obs_over_minibatch) # number of dims in the stacked observation
+    obs_for_minibatch = get_obs(observation_series) # get stacked observation over minibatch
+    obs_size_for_minibatch = length(obs_for_minibatch) # number of dims in the stacked observation
 
     IT = typeof(N_ens)
     #store for model evaluations
@@ -223,7 +223,7 @@ function EnsembleKalmanProcess(
     # failure handler
     fh = FailureHandler(process, failure_handler_method)
     # localizer
-    loc = Localizer(localization_method, N_par, obs_size_over_minibatch, N_ens, FT)
+    loc = Localizer(localization_method, N_par, obs_size_for_minibatch, N_ens, FT)
 
     if verbose
         @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))\nScheduler: $(nameof(typeof(lrs)))\nAccelerator: $(nameof(typeof(acc)))"
@@ -481,7 +481,7 @@ end
 
 """
     get_observation_series(ekp::EnsembleKalmanProcess)
-Return `obs_noise_cov` field of EnsembleKalmanProcess.
+Return `observation_series` field of EnsembleKalmanProcess.
 """
 function get_observation_series(ekp::EnsembleKalmanProcess)
     return ekp.observation_series
@@ -556,7 +556,6 @@ The error is stored within the `EnsembleKalmanProcess`.
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
     diff = get_obs(ekp) - mean_g
-    #   X = get_obs_noise_cov(ekp) \ diff # diff: column vector
 
     Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
     γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]

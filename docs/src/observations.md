@@ -12,18 +12,20 @@ The Observations object facilitates convenient storing, grouping and minibatchin
 
 ## Recommended constructor: A single (stacked) observation
 
-Here the user has data for two independent variables: the five-dimensional `y` and the eight-dimensional `z`. The observations of `y` are all independent, while the observations of `z` have some structure.
+Here the user has data for two independent variables: the five-dimensional `y` and the eight-dimensional `z`. The observational noise of `y` is uncorrelated in all components, while the observations of `z` there is a known correlation.
 
 We recommend users build an `Observation` using the `Dict` constructor and make use of the `combine_observations()` utility.
 ```@example ex1
 using EnsembleKalmanProcesses # for `Observation`
 using LinearAlgebra # for `I`, `Tridiagonal`
 
-# observe variable y with some diagonal noise
-y = ones(5)
+
+# specify an observation of y with diagonal noise covariance
+ydim=5
+y = ones(ydim)
 cov_y = 0.01*I
 
-# observe variable z with some tri-diagonal noise
+# specify an observation of z with tridiagonal noise covariance
 zdim = 8
 z = zeros(zdim)
 cov_z = Tridiagonal(0.1*ones(zdim-1), ones(zdim), 0.1*ones(zdim-1))
@@ -54,18 +56,18 @@ get_obs(full_obs) # returns [y,z]
 ```@example ex1
 get_obs_noise_cov(full_obs) # returns block-diagonal matrix with blocks [cov_y 0; 0 cov_z]
 ```
-getters `get_*` can be used for the internally stored information too including:
+getters `get_*` can be used for all internals,
 ``` @example ex1
-get_names(full_obs)
+get_names(full_obs) # returns ["y", "z"]
 ```
 There are some other fields stored such as indices of the `y` and `z` components
 ```@example ex1
-get_indices(full_obs)
+get_indices(full_obs) # returns [1:ydim, ydim+1:ydim+zdim]
 ```
 
 ## Recommended constructor: Many stacked observations
 
-Imagine the user has 100 independent data samples  for two independent variables above, where the `k`th `y` sample is = `k*ones(5)` for each `k=1:100`.
+Imagine the user has 100 independent data samples for two independent variables above
 Rather than stacking all the data together at once (forming a full system of size `100*(8+5)` to update at each step) instead the user wishes to stream the data and do updates with random batches of 5 observations at each iteration.
 
 !!! note "Why would I choose to minibatch?"
@@ -74,38 +76,37 @@ Rather than stacking all the data together at once (forming a full system of siz
 ```@setup ex2
 using EnsembleKalmanProcesses
 using LinearAlgebra
+using Distributions
 
 hundred_full_obs = []
+y = ones(5)
+cov_y = 0.01*I(5)
+
+z = zeros(8)
+cov_z = Tridiagonal(0.1*ones(7), ones(8), 0.1*ones(7))
+
 for k = 1:100
-    y = k*ones(5)
-    cov_y = 0.01*I(5)
-
-    z = zeros(8)
-    cov_z = Tridiagonal(0.1*ones(7), ones(8), 0.1*ones(7))
-
     y_obs = Observation(
-          Dict(
-        "samples" => y,
-        "covariances" => cov_y,
-        "names" => "y_$k",
-    ),
-)
+        Dict(
+            "samples" => rand(MvNormal(y,cov_y)),
+            "covariances" => cov_y,
+            "names" => "y_$k",
+        ),
+    )
 
-z_obs = Observation(
-    Dict(
-        "samples" => z,
-        "covariances" => cov_z,
-        "names" => "z_$k",
-    ),
-)
-push!(hundred_full_obs, combine_observations([y_obs,z_obs]))
+    z_obs = Observation(
+        Dict(
+            "samples" => rand(MvNormal(z,cov_z)),,
+            "covariances" => cov_z,
+            "names" => "z_$k",
+        ),
+    )
+    push!(hundred_full_obs, combine_observations([y_obs,z_obs]))
 end
-T = promote_type((typeof(h) for h in hundred_full_obs)...)
-hundred_full_obs = [convert(T, h) for h in hundred_full_obs]
 ```
 
 ```@example ex2
-# given a vector of 100 `Observation`s called hundred_full_obs, where `y_k = k*y`
+# given a vector of 100 `Observation`s called hundred_full_obs,
 using EnsembleKalmanProcesses # for `RandomFixedSizeMinibatcher`, `ObservationSeries`, `Minibatcher`
 
 minibatcher = RandomFixedSizeMinibatcher(5) # batches the epoch of size 100, into batches of size 5
@@ -165,7 +166,7 @@ As this contains many time windows, setting the names of the `ObservationSeries`
 get_names(yz_observation_series)
 > ["window_1", "window_2", ..., "window_100"]
 ```
-The individual `Observation`s should refer only to the state being measured, sosuitable identifiers might be, for example,
+The individual `Observation`s should refer only to the state being measured, so suitable identifiers might be, for example,
 ```julia
 obs = get_observations(yz_observation_series)[1] # get first observation in the series
 get_names(obs)

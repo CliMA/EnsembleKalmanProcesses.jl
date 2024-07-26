@@ -199,8 +199,8 @@ function calculate_timestep!(
     M, J = size(g)
     g_mean = mean(g, dims = 2)
     y_mean = get_obs(ekp)
-    Γinv = get_obs_noise_cov_inv(ekp)
-    D = (1 / J) * ((g .- g_mean)' * Γinv * (g .- y_mean))
+    Γ_inv = get_obs_noise_cov_inv(ekp)
+    D = (1 / J) * ((g .- g_mean)' * Γ_inv * (g .- y_mean))
     numerator = max(scheduler.numerator, eps())
     nugget = max(scheduler.nugget, eps())
 
