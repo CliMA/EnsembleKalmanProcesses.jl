@@ -65,78 +65,42 @@ function etki_update(
     m = size(u, 2)
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
     Y = FT.((g .- mean(g, dims = 2)) / sqrt(m - 1))
+
+    # we have three options with the buffer:
+    # (1) in the first iteration, create a buffer
+    # (2) if a future iteration requires a smaller buffer, use the existing tmp
+    # (3) if a future iteration requires a larger buffer, create this in tmp
+
+    # Create/Enlarge buffers if needed
     tmp = get_buffer(get_process(ekp)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
-    if length(tmp) == 0
-        # initialize buffer
-        Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
-
-        γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
-        shift = [0]
-        tmp1 = zeros(size(Y, 2), sum(γ_sizes)) # stores Y' * Γ_inv
-
-        for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
-            idx = (shift[1] + 1):(shift[1] + γs)
-            tmp1[:, idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
-            shift[1] = maximum(idx)
-        end
-        push!(tmp, tmp1) # store in [1]
-        push!(tmp, tmp1 * Y) # store in [2]
-        for i in 1:size(Y, 2)
-            tmp[2][i, i] += 1.0
-        end
-
-        Ω = inv(tmp[2]) # = inv (I + Y' * Γ_inv * Y) 
-        w = FT.(Ω * tmp[1] * (y .- mean(g, dims = 2)))
-
-        return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
-    elseif (size(tmp[1], 1) >= size(Y, 2)) && (size(tmp[1], 2) >= size(Y, 1)) # enough to check tmp[1]
-        ms_1, ms_2 = size(Y)
-        # if buffer is bigger than we need, reuse it and don't build Γ_inv to save some space
-
-        Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
-        γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
-
-        shift = [0]
-        # block-build: I + Y'*Γ_inv * Y
-
-        # col(Y') * γ_inv = (γ_inv * row(Y))'
-        for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
-            idx = (shift[1] + 1):(shift[1] + γs)
-            tmp[1][1:ms_2, idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
-            shift[1] = maximum(idx)
-        end
-        w = FT.(tmp[1][1:ms_2, 1:ms_1] * (y .- mean(g, dims = 2))) # use tmp = Y' * Γ_inv 
-
-        tmp[2][1:ms_2, 1:ms_2] = tmp[1][1:ms_2, 1:ms_1] * Y
-
-        for i in 1:ms_2
-            tmp[2][i, i] += 1.0
-        end
-        Ω = inv(tmp[2][1:ms_2, 1:ms_2])
-
-        return mean(u, dims = 2) .+ X * (Ω * w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
-    else
-        # reinitialize buffer
-        Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
-
-        γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
-        shift = [0]
-        tmp1 = zeros(size(Y, 2), sum(γ_sizes)) # stores Y' * Γ_inv
-
-        for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
-            idx = (shift[1] + 1):(shift[1] + γs)
-            tmp1[:, idx] = (inv_noise_scaling * γ_inv * Y[idx, :])'
-            shift[1] = maximum(idx)
-        end
-        tmp[1] = tmp1
-        tmp[2] = tmp1 * Y
-        for i in 1:size(Y, 2)
-            tmp[2][i, i] += 1.0
-        end
-        Ω = inv(tmp[2]) # = inv(I + Y' * Γ_inv * Y)
-        w = FT.(Ω * tmp[1] * (y .- mean(g, dims = 2)))
-        return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
+    ys1, ys2 = size(Y)
+    if length(tmp) == 0  # no buffer
+        push!(tmp, zeros(ys2, ys1)) # stores Y' * Γ_inv
+        push!(tmp, zeros(ys2, ys2)) # stores Y' * Γ_inv * Y
+    elseif (size(tmp[1], 1) < ys2) || (size(tmp[1], 2) < ys1) # existing buffer is too small
+        tmp[1] = zeros(ys2, ys1)
+        tmp[2] = zeros(ys2, ys2)
     end
+
+    # construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv   
+    Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
+    γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
+    shift = [0]
+    for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
+        idx = (shift[1] + 1):(shift[1] + γs)
+        tmp[1][1:ys2, idx] = (inv_noise_scaling * γ_inv * Y[idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))'
+        shift[1] = maximum(idx)
+    end
+
+    tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
+
+    for i in 1:ys2
+        tmp[2][i, i] += 1.0
+    end
+    Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = inv(I + Y' * Γ_inv * Y)
+    w = FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y .- mean(g, dims = 2))) #  w = Ω * Y' * Γ_inv * (y .- g_mean))
+
+    return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
 
 end
 
