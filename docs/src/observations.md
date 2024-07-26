@@ -96,7 +96,7 @@ for k = 1:100
 
     z_obs = Observation(
         Dict(
-            "samples" => rand(MvNormal(z,cov_z)),,
+            "samples" => rand(MvNormal(z,cov_z)),
             "covariances" => cov_z,
             "names" => "z_$k",
         ),
