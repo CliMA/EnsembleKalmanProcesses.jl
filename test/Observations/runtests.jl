@@ -43,9 +43,17 @@ using EnsembleKalmanProcesses
         end
     end
 
-    # 1) via a dict [singleton]
+    # 1) via a dict [singleton] 
     obs_dict = Dict("samples" => samples[1], "covariances" => covariances[1], "names" => names[1])
     observation_1 = Observation(obs_dict)
+    @test get_samples(observation_1) == [samples[1]] # all stored as a vec
+    @test get_covs(observation_1) == [covariances[1]]
+    @test all(isapprox.(get_inv_covs(observation_1)[1], inv_covariances[1], atol = 1e-10)) # inversion approximate
+    @test get_names(observation_1) == [names[1]]
+    @test get_indices(observation_1) == [indices[1]]
+
+    # 2) via args [singleton] 
+    observation_1 = Observation(samples[1], covariances[1], names[1])
     @test get_samples(observation_1) == [samples[1]] # all stored as a vec
     @test get_covs(observation_1) == [covariances[1]]
     @test all(isapprox.(get_inv_covs(observation_1)[1], inv_covariances[1], atol = 1e-10)) # inversion approximate
@@ -66,7 +74,16 @@ using EnsembleKalmanProcesses
     @test get_names(observation_2_4) == names[2:4]
     @test get_indices(observation_2_4) == [id .- maximum(indices[1]) for id in indices[2:4]] # shifted 
 
-    # 2) via combining Observations
+    # 3) via a list of args  (not pass inv_covs)
+    observation_2_4_new = Observation(samples[2:4], covariances[2:4], names[2:4])
+    @test get_samples(observation_2_4_new) == samples[2:4]
+    @test get_covs(observation_2_4_new) == covariances[2:4]
+    @test all(isapprox.(get_inv_covs(observation_2_4_new), inv.(covariances[2:4]), atol = 1e-10)) # inversion approximate
+    @test get_names(observation_2_4_new) == names[2:4]
+    @test get_indices(observation_2_4_new) == [id .- maximum(indices[1]) for id in indices[2:4]] # shifted 
+
+
+    # 4) via combining Observations
     observation = combine_observations([observation_1, observation_2_4])
     @test get_samples(observation) == samples
     @test get_covs(observation) == covariances

@@ -33,17 +33,21 @@ export get_samples,
 
 Structure that contains a (possibly stacked) observation. Defined by sample(s), noise covariance(s), and name(s)
 
-Typical Constructor
+Typical Constructors:
 ```
 Observation(
     Dict(
         "samples" => [1,2,3],
         "covariances" => I(3),
-        "names" => "one_two_three"
+        "names" => "one_two_three",
     ),
 )
 ```
-can stack up multiple observations with combine_observations, or by providing vectors of samples, covariances and names to the dictionary.
+or
+```
+Observation([1,2,3], I(3), "one_two_three")
+```
+One can stack up multiple observations with combine_observations, or by providing vectors of samples, covariances and names to the dictionary.
 
 # Fields
 
@@ -196,6 +200,24 @@ function Observation(obs_dict::Dict)
     return Observation(snew, cnew, icnew, nnew, indices)
 
 end
+
+function Observation(
+    sample::AV,
+    obs_noise_cov::AMorUS,
+    name::AS,
+) where {AV <: AbstractVector, AMorUS <: Union{AbstractMatrix, UniformScaling}, AS <: AbstractString}
+    return Observation(Dict("samples" => sample, "covariances" => obs_noise_cov, "names" => name))
+end
+
+function Observation(
+    samples::AV1,
+    obs_noise_covs::AV2,
+    names::AV3,
+) where {AV1 <: AbstractVector, AV2 <: AbstractVector, AV3 <: AbstractVector}
+    return Observation(Dict("samples" => samples, "covariances" => obs_noise_covs, "names" => names))
+end
+
+
 
 """
 $(TYPEDSIGNATURES)
