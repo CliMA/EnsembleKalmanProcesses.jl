@@ -82,8 +82,8 @@ function etki_update(
         tmp[2] = zeros(ys2, ys2)
     end
 
-    # construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv   
-    Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
+    # construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv
+    Γ_inv = get_obs_noise_cov_inv(ekp, build = false) # returns blocks of Γ_inv 
     γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
     shift = [0]
     for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
