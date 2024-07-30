@@ -22,10 +22,11 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
-Convex = "0.15"
+Convex = "0.15, 0.16"
 Distributions = "~0.24.14, ^0.25"
 DocStringExtensions = "^0.8, 0.9"
 GaussianRandomFields = "2"
+Interpolations = "0.15"
 LinearAlgebra = "1"
 MathOptInterface = "1"
 Optim = "1.7"
