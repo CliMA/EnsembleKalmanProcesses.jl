@@ -180,7 +180,7 @@ The major disadvantage of ETKI is that it cannot be used with localization or sa
 
 ## Using ETKI
 
-An ETKI struct can be created using the `EnsembleKalmanProcess` constructor by specifying the `TransformInversion` process type, with ``\Gamma^{-1}`` passed as an argument: 
+An ETKI struct can be created using the `EnsembleKalmanProcess` constructor by specifying the `TransformInversion` process type: 
 
 ```julia
 using EnsembleKalmanProcesses
@@ -190,7 +190,7 @@ J = 50  # number of ensemble members
 initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble from prior
 
 ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov,
-                               TransformInversion(inv(obs_noise_cov)))
+                               TransformInversion())
 ```
 
 The rest of the inversion process is the same as for regular EKI.

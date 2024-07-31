@@ -156,10 +156,8 @@ end
     # Note: this test only requires that the final ensemble is an improvement on the initial ensemble,
     # NOT that the accelerated processes are more effective than the default, as this is not guaranteed.
     # Specific cost values are printed to give an idea of acceleration.
-    processes = [
-        repeat([Inversion(), TransformInversion(inv(Γy)), Unscented(prior; impose_prior = true)], 2)...,
-        Sampler(prior),
-    ]
+    processes =
+        [repeat([Inversion(), TransformInversion(), Unscented(prior; impose_prior = true)], 2)..., Sampler(prior)]
     schedulers = [
         repeat([DefaultScheduler(0.1)], 3)..., # for constant timestep Nesterov
         repeat([DataMisfitController(terminate_at = 100)], 3)..., # for general Nesterov
@@ -344,7 +342,7 @@ end
             else #no initial ensemble for UKI
                 ekpobj = EKP.EnsembleKalmanProcess(y_obs, Γy, process, rng = copy(rng), scheduler = scheduler)
             end
-            initial_obs_noise_cov = deepcopy(ekpobj.obs_noise_cov)
+            initial_obs_noise_cov = deepcopy(get_obs_noise_cov(ekpobj))
             for i in 1:N_iter
                 params_i = get_ϕ_final(prior, ekpobj)
                 g_ens = G(params_i)
@@ -363,7 +361,7 @@ end
             push!(init_means, vec(mean(get_u_prior(ekpobj), dims = 2)))
             push!(final_means, vec(mean(get_u_final(ekpobj), dims = 2)))
             # ensure obs_noise_cov matrix remains unchanged
-            @test initial_obs_noise_cov == ekpobj.obs_noise_cov
+            @test initial_obs_noise_cov == get_obs_noise_cov(ekpobj)
 
             # this test is fine so long as N_iter is large enough to hit the termination time
             if nameof(typeof(scheduler)) == DataMisfitController
@@ -509,6 +507,10 @@ end
             failure_handler_method = IgnoreFailures(),
             scheduler = deepcopy(scheduler),
         )
+
+        ## some getters in EKP
+        @test get_obs(ekiobj) == y_obs
+        @test get_obs_noise_cov(ekiobj) == Γy
 
         g_ens = G(get_ϕ_final(prior, ekiobj))
         g_ens_t = permutedims(g_ens, (2, 1))
@@ -803,7 +805,7 @@ end
             initial_ensemble,
             y_obs,
             Γy,
-            TransformInversion(inv(Γy));
+            TransformInversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
             scheduler = deepcopy(scheduler),
@@ -813,7 +815,7 @@ end
             initial_ensemble,
             y_obs,
             Γy,
-            TransformInversion(inv(Γy));
+            TransformInversion();
             rng = rng,
             failure_handler_method = IgnoreFailures(),
             scheduler = deepcopy(scheduler),
@@ -916,6 +918,7 @@ end
     end
 
     for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000])
+
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
         y_obs_test, G_test, Γ_test, A_test =
@@ -925,7 +928,7 @@ end
             initial_ensemble,
             y_obs_test,
             Γ_test,
-            TransformInversion(inv(Γ_test));
+            TransformInversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
         )
@@ -933,13 +936,16 @@ end
         for i in 1:N_iter
             params_i = get_ϕ_final(prior, ekiobj)
             g_ens = G_test(params_i)
-
             dt = @elapsed EKP.update_ensemble!(ekiobj, g_ens)
             T += dt
         end
         # Skip timing of first due to precompilation
         if i >= 2
-            @info "ETKI with $n_obs_test observations took $T seconds."
+            @info "$N_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(N_iter)))"
+            if T / Float64(N_iter) > 0.2
+                @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(N_iter)). Significant slowdowns encountered in ETKI"
+            end
+
         end
     end
 end

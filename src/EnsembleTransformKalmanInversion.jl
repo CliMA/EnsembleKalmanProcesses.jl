@@ -9,13 +9,17 @@ An ensemble transform Kalman inversion process.
 
 $(TYPEDFIELDS)
 """
-struct TransformInversion{FT <: AbstractFloat} <: Process
-    "Inverse of the observation error covariance matrix"
-    Γ_inv::Union{AbstractMatrix{FT}, UniformScaling{FT}}
+struct TransformInversion <: Process
+    "used to store matrices: buffer[1] = Y' *Γ_inv, buffer[2] = Y' * Γ_inv * Y"
+    buffer::AbstractVector
 end
 
+TransformInversion() = TransformInversion([])
+
+get_buffer(p::TI) where {TI <: TransformInversion} = p.buffer
+
 function FailureHandler(process::TransformInversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens) = etki_update(ekp, u, g, y, obs_noise_cov)
+    failsafe_update(ekp, u, g, failed_ens) = etki_update(ekp, u, g)
     return FailureHandler{TransformInversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -27,10 +31,10 @@ Provides a failsafe update that
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::TransformInversion, method::SampleSuccGauss)
-    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens)
+    function failsafe_update(ekp, u, g, failed_ens)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
-        u[:, successful_ens] = etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, obs_noise_cov)
+        u[:, successful_ens] = etki_update(ekp, u[:, successful_ens], g[:, successful_ens])
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(ekp.rng, u[:, successful_ens], n_failed)
         end
@@ -44,29 +48,60 @@ end
         ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
         u::AbstractMatrix{FT},
         g::AbstractMatrix{FT},
-        y::AbstractVector{FT},
-        obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
     ) where {FT <: Real, IT, CT <: Real}
 
 Returns the updated parameter vectors given their current values and
 the corresponding forward model evaluations.
 """
 function etki_update(
-    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion{FT}},
+    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
-    y::AbstractVector{FT},
-    obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
-) where {FT <: Real, IT, CT <: Real}
-    m = size(u, 2)
-    Γ_inv = ekp.process.Γ_inv
+) where {FT <: Real, IT}
 
+    y = get_obs(ekp)
+    inv_noise_scaling = ekp.Δt[end]
+
+    m = size(u, 2)
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
     Y = FT.((g .- mean(g, dims = 2)) / sqrt(m - 1))
-    Ω = inv(I + Y' * Γ_inv * Y)
-    w = FT.(Ω * Y' * Γ_inv * (y .- mean(g, dims = 2)))
 
-    return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]  
+    # we have three options with the buffer:
+    # (1) in the first iteration, create a buffer
+    # (2) if a future iteration requires a smaller buffer, use the existing tmp
+    # (3) if a future iteration requires a larger buffer, create this in tmp
+
+    # Create/Enlarge buffers if needed
+    tmp = get_buffer(get_process(ekp)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
+    ys1, ys2 = size(Y)
+    if length(tmp) == 0  # no buffer
+        push!(tmp, zeros(ys2, ys1)) # stores Y' * Γ_inv
+        push!(tmp, zeros(ys2, ys2)) # stores Y' * Γ_inv * Y
+    elseif (size(tmp[1], 1) < ys2) || (size(tmp[1], 2) < ys1) # existing buffer is too small
+        tmp[1] = zeros(ys2, ys1)
+        tmp[2] = zeros(ys2, ys2)
+    end
+
+    # construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv
+    Γ_inv = get_obs_noise_cov_inv(ekp, build = false) # returns blocks of Γ_inv 
+    γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
+    shift = [0]
+    for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
+        idx = (shift[1] + 1):(shift[1] + γs)
+        tmp[1][1:ys2, idx] = (inv_noise_scaling * γ_inv * Y[idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))'
+        shift[1] = maximum(idx)
+    end
+
+    tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
+
+    for i in 1:ys2
+        tmp[2][i, i] += 1.0
+    end
+    Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = inv(I + Y' * Γ_inv * Y)
+    w = FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y .- mean(g, dims = 2))) #  w = Ω * Y' * Γ_inv * (y .- g_mean))
+
+    return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
+
 end
 
 """
@@ -86,10 +121,11 @@ Inputs:
  - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
 """
 function update_ensemble!(
-    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion{FT}},
+    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
     g::AbstractMatrix{FT},
-    process::TransformInversion{FT};
+    process::TransformInversion;
     failed_ens = nothing,
+    kwargs...,
 ) where {FT, IT}
 
     # u: N_par × N_ens 
@@ -109,11 +145,6 @@ function update_ensemble!(
 
     fh = ekp.failure_handler
 
-    # Scale noise using Δt
-    scaled_obs_noise_cov = ekp.obs_noise_cov / ekp.Δt[end]
-
-    y = ekp.obs_mean
-
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
     end
@@ -121,11 +152,10 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
+    u = fh.failsafe_update(ekp, u, g, failed_ens)
 
     # store new parameters (and model outputs)
     push!(ekp.g, DataContainer(g, data_are_columns = true))
-
     # Store error
     compute_error!(ekp)
 

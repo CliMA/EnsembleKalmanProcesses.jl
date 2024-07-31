@@ -139,32 +139,21 @@ nothing # hide
 # calibrate is also used to generate observations.
 # We use the total number and mass of activated aerosol particles as
 # our observational data.
-observation_data_names = ["N_act", "M_act"];
+observation_data_names = ["N_act_and_M_act"];
 nothing # hide
 
 # We generate artificial truth samples based on the default values
 # of parameters we are calibrating.
-n_samples = 10
 G_t = run_activation_model(molar_mass_true, osmotic_coeff_true)
-y_t = zeros(length(G_t), n_samples)
 
 Γy = convert(Array, LinearAlgebra.Diagonal([0.01 * G_t[1], 0.01 * G_t[2]]))
 μ = zeros(length(G_t));
 nothing # hide
 
 # And add noise to the generated truth sample.
-for i in 1:n_samples
-    y_t[:, i] = G_t .+ rand(Distributions.MvNormal(μ, Γy))
-end
+y_t = G_t .+ rand(Distributions.MvNormal(μ, Γy))
 
-truth_array = EKP.Observations.Observation(y_t, Γy, observation_data_names)
-nothing # hide
-
-# One could try for the truth to be a mean of the generated array.
-# Or do the calibration for all individual truth samples and then
-# compute the mean of calibrated parameters.
-# For now we are just taking one truth array member.
-truth_sample = truth_array.samples[1];
+observation = EKP.Observation(Dict("samples" => y_t, "covariances" => Γy, "names" => observation_data_names))
 nothing # hide
 
 # We use 50 ensemble members and do 10 iterations.
@@ -172,7 +161,7 @@ N_ens = 50
 N_iter = 10
 
 initial_par = EKP.construct_initial_ensemble(rng, priors, N_ens)
-ekiobj = EKP.EnsembleKalmanProcess(initial_par, truth_sample, truth_array.obs_noise_cov, EKP.Inversion())
+ekiobj = EKP.EnsembleKalmanProcess(initial_par, observation, EKP.Inversion())
 nothing # hide
 
 # Finally, we can run the Ensemble Kalman Process calibration.
