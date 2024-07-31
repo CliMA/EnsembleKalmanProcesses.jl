@@ -126,8 +126,8 @@ function update_ensemble!(
     noise = sqrt(scaled_obs_noise_cov) * rand(ekp.rng, MvNormal(zeros(N_obs), I), ekp.N_ens)
 
     # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
-    # G is deterministic
-    y = deterministic_forward_map ? (get_obs(ekp) .+ noise) : get_obs(ekp)
+    # G is deterministic, else just repeat the observation
+    y = deterministic_forward_map ? (get_obs(ekp) .+ noise) : repeat(get_obs(ekp), 1, ekp.N_ens) 
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
