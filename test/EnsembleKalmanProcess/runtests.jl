@@ -516,7 +516,7 @@ end
             failure_handler_method = SampleSuccGauss(),
             scheduler = deepcopy(scheduler),
         )
- 
+
         ## some getters in EKP
         @test get_obs(ekiobj) == y_obs
         @test get_obs_noise_cov(ekiobj) == Γy
@@ -545,7 +545,7 @@ end
                     g_ens_t = permutedims(g_ens, (2, 1))
                     @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
                 end
-                
+
                 # test the deterministic flag on only one iteration for errors
                 EKP.update_ensemble!(ekiobj_nonoise_update, g_ens, deterministic_forward_map = false)
                 @info "No error with flag deterministic_forward_map = false"
