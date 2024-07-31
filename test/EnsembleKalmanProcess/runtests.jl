@@ -507,7 +507,7 @@ end
             failure_handler_method = IgnoreFailures(),
             scheduler = deepcopy(scheduler),
         )
-        ekiobj_no_noise_update = EKP.EnsembleKalmanProcess(
+        ekiobj_nonoise_update = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs,
             Γy,
