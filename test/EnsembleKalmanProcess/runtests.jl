@@ -507,6 +507,15 @@ end
             failure_handler_method = IgnoreFailures(),
             scheduler = deepcopy(scheduler),
         )
+        ekiobj_nonoise_update = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y_obs,
+            Γy,
+            Inversion();
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = deepcopy(scheduler),
+        )
 
         ## some getters in EKP
         @test get_obs(ekiobj) == y_obs
@@ -529,7 +538,6 @@ end
             if i in iters_with_failure
                 g_ens[:, 1] .= NaN
             end
-
             EKP.update_ensemble!(ekiobj, g_ens)
             push!(g_ens_vec, g_ens)
             if i == 1
@@ -537,6 +545,11 @@ end
                     g_ens_t = permutedims(g_ens, (2, 1))
                     @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
                 end
+
+                # test the deterministic flag on only one iteration for errors
+                EKP.update_ensemble!(ekiobj_nonoise_update, g_ens, deterministic_forward_map = false)
+                @info "No error with flag deterministic_forward_map = false"
+
             end
             # Correct handling of failures
             @test !any(isnan.(params_i))
