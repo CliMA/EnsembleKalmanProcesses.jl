@@ -74,7 +74,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
         y_obs, G, Γy = inv_problem
 
         process = SparseInversion(γ, threshold_value, uc_idx, reg)
-
+        scheduler = DefaultScheduler(1)
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs,
@@ -83,6 +83,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
             localization_method = loc_method,
+            scheduler = deepcopy(scheduler),
         )
         ekiobj_unsafe = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -91,6 +92,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
             process;
             rng = rng,
             failure_handler_method = IgnoreFailures(),
+            scheduler = deepcopy(scheduler),
         )
 
         # EKI iterations

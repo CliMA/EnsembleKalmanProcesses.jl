@@ -65,8 +65,8 @@ struct FailureHandler{P <: Process, FM <: FailureHandlingMethod}
 end
 
 
-function default_options_dict(p::P) where {P <: Process}
-    if nameof(typeof(process)) ∈ [:Inversion, :SparseInversoin]
+function default_options_dict(process::P) where {P <: Process}
+    if nameof(typeof(process)) == :Inversion
         return Dict(
             "scheduler" => DataMisfitController(terminate_at = 1),
             "localization_method" => SECNice(),
@@ -84,17 +84,25 @@ function default_options_dict(p::P) where {P <: Process}
         return Dict(
             "scheduler" => EKSStableScheduler(1.0, eps()),
             "localization_method" => NoLocalization(),
-            "failure_handler_method" => SampleSuccGauss(),
-            "accelerator" => NesterovAccelerator(),
+            "failure_handler_method" => IgnoreFailures(),
+            "accelerator" => DefaultAccelerator(),
         )
     elseif nameof(typeof(process)) == :Unscented
         return Dict(
             "scheduler" => DataMisfitController(terminate_at = 1),
             "localization_method" => NoLocalization(),
             "failure_handler_method" => SampleSuccGauss(),
-            "accelerator" => NesterovAccelerator(),
+            "accelerator" => DefaultAccelerator(),
+        )
+    elseif nameof(typeof(process)) == :SparseInversion
+        return Dict(
+            "scheduler" => DefaultScheduler(),
+            "localization_method" => SECNice(),
+            "failure_handler_method" => SampleSuccGauss(),
+            "accelerator" => DefaultAccelerator(),
         )
     end
+
 end
 
 ## begin general constructor and function definitions
@@ -208,7 +216,7 @@ function EnsembleKalmanProcess(
     accelerator = configuration["accelerator"]
     AC = typeof(accelerator)
     if !(AC <: DefaultAccelerator)
-        set_ICs!(acc, params)
+        set_ICs!(accelerator, params)
         if P <: Sampler
             @warn "Acceleration is experimental for Sampler processes and may affect convergence."
         end
@@ -216,11 +224,16 @@ function EnsembleKalmanProcess(
 
     # failure handler
     failure_handler = FailureHandler(process, configuration["failure_handler_method"])
+
     # localizer
+    if (typeof(process) <: TransformInversion) & !(typeof(configuration["localization_method"]) == NoLocalization)
+        throw(ArgumentError("`TransformInversion` cannot currently be used with localization."))
+    end
     localizer = Localizer(configuration["localization_method"], N_par, obs_size_for_minibatch, N_ens, FT)
 
+
     if verbose
-        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))\nScheduler: $(nameof(typeof(lrs)))\nAccelerator: $(nameof(typeof(acc)))"
+        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localization_method)))\nFailure handler: $(nameof(typeof(failure_handler_method)))\nScheduler: $(nameof(typeof(scheduler)))\nAccelerator: $(nameof(typeof(accelerator)))"
     end
 
     EnsembleKalmanProcess{FT, IT, P, RS, AC}(
@@ -230,7 +243,7 @@ function EnsembleKalmanProcess(
         g,
         err,
         scheduler,
-        accelator,
+        accelerator,
         Δt,
         process,
         rng,
@@ -261,10 +274,6 @@ function EnsembleKalmanProcess(
     OS <: ObservationSeries,
 }
 
-    # some error handling
-    if (typeof(process) <: TransformInversion) & !(typeof(localization_method) == NoLocalization)
-        throw(ArgumentError("`TransformInversion` cannot currently be used with localization."))
-    end
     if !(isnothing(Δt))
         @warn "the `Δt = x` keyword argument is deprecated, ignoring... for the same behavior please set `scheduler = DefaultScheduler(x)`, or `scheduler = EKSStableScheduler()` for using the `Sampler` "
     end
@@ -272,20 +281,20 @@ function EnsembleKalmanProcess(
     # get defaults for scheduler, accelerator, failure handling, localization
     configuration = default_options_dict(process)
     # override if necessary
-    if isnothing!(scheduler)
+    if !isnothing(scheduler)
         configuration["scheduler"] = scheduler
     end
-    if isnothing!(accelerator)
+    if !isnothing(accelerator)
         configuration["accelerator"] = accelerator
     end
-    if isnothing!(failure_handler_method)
-        configuration["failure_handling_method"] = failure_handler_method
+    if !isnothing(failure_handler_method)
+        configuration["failure_handler_method"] = failure_handler_method
     end
-    if isnothing!(localization_method)
+    if !isnothing(localization_method)
         configuration["localization_method"] = localization_method
     end
 
-    return EnsembleKalmanProcess(params, observation_series, process, configuration, rng, verbose)
+    return EnsembleKalmanProcess(params, observation_series, process, configuration, rng = rng, verbose = verbose)
 end
 
 function EnsembleKalmanProcess(
@@ -795,6 +804,7 @@ function update_ensemble!(
 
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
+
         u = update_ensemble!(ekp, g, get_process(ekp); ekp_kwargs...)
         accelerate!(ekp, u)
         if s > 0.0

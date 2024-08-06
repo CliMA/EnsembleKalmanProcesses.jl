@@ -5,8 +5,10 @@ using Test
 using Plots
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses.Localizers
 import EnsembleKalmanProcesses: construct_mean, construct_cov, construct_sigma_ensemble
 const EKP = EnsembleKalmanProcesses
+
 
 # Read inverse problem definitions
 include("inverse_problem.jl")
@@ -117,12 +119,12 @@ end
         accelerator = FirstOrderNesterovAccelerator(),
     )
 
-    ekiobj_noacc = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
-    eksobj_noacc = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior))
-    ekiobj_noacc_specified =
+    ekiobj_noacc =
         EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion(), accelerator = DefaultAccelerator())
-    eksobj_noacc_specified =
+    eksobj_noacc =
         EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior), accelerator = DefaultAccelerator())
+    ekiobj_default = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
+    eksobj_default = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior))
 
     ## test EKP object's accelerator type is consistent (EKP constructor reassigns object in some cases)
     @test typeof(ekiobj.accelerator) <: NesterovAccelerator
@@ -133,8 +135,8 @@ end
     @test typeof(eksobj_firstorder.accelerator) <: FirstOrderNesterovAccelerator
     @test typeof(ekiobj_noacc.accelerator) <: DefaultAccelerator
     @test typeof(eksobj_noacc.accelerator) <: DefaultAccelerator
-    @test typeof(ekiobj_noacc_specified.accelerator) <: DefaultAccelerator
-    @test typeof(eksobj_noacc_specified.accelerator) <: DefaultAccelerator
+    @test typeof(ekiobj_default.accelerator) <: NesterovAccelerator
+    @test typeof(eksobj_default.accelerator) <: DefaultAccelerator
 
     ## test NesterovAccelerators satisfy desired ICs
     @test ekiobj.accelerator.u_prev == initial_ensemble
@@ -163,6 +165,7 @@ end
         repeat([DataMisfitController(terminate_at = 100)], 3)..., # for general Nesterov
         EKSStableScheduler(), # for general Nesterov
     ]
+
     for (process, scheduler) in zip(processes, schedulers)
         accelerators = [
             DefaultAccelerator(),
@@ -174,6 +177,8 @@ end
 
         init_means = []
         final_means = []
+
+
 
         for (accelerator, N_iter) in zip(accelerators, N_iters)
             process_copy = deepcopy(process)
@@ -243,7 +248,7 @@ end
 
 
 
-    # Default
+    # "Default" (i.e. a constant. not the default option in EKI)
     Δt = 3
     dlrs1 = EKP.DefaultScheduler()
     @test dlrs1.Δt_default == Float64(1)
@@ -306,7 +311,7 @@ end
     ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
     eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior))
 
-    @test ekiobj.scheduler == DefaultScheduler{Float64}(1.0)
+    @test ekiobj.scheduler == DataMisfitController(terminate_at = 1)
     @test eksobj.scheduler == EKSStableScheduler{Float64}(1.0, eps())
 
     #test
@@ -488,6 +493,8 @@ end
         else
             scheduler = DefaultScheduler()
         end
+        #remove localizers for now
+        localization_method = Localizers.NoLocalization()
 
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -497,6 +504,7 @@ end
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
             scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
         ekiobj_unsafe = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -506,6 +514,7 @@ end
             rng = rng,
             failure_handler_method = IgnoreFailures(),
             scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
         ekiobj_nonoise_update = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -515,6 +524,7 @@ end
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
             scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
         )
 
         ## some getters in EKP
@@ -944,6 +954,7 @@ end
             TransformInversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
+            scheduler = DefaultScheduler(1),
         )
         T = 0.0
         for i in 1:N_iter

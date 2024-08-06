@@ -37,10 +37,20 @@ const EKP = EnsembleKalmanProcesses
     nonlocalized_errors = []
     for N_ens in N_enss
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-        ekiobj_vanilla = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
+        ekiobj_vanilla = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y,
+            Γ,
+            Inversion();
+            rng = rng,
+            localization_method = NoLocalization(),
+        )
         for i in 1:N_iter
             g_ens_vanilla = G(get_u_final(ekiobj_vanilla))
-            EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla)
+            terminate = EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla)
+            if !isnothing(terminate)
+                break
+            end
         end
         push!(nonlocalized_errors, get_error(ekiobj_vanilla)[end])
     end
@@ -69,7 +79,10 @@ const EKP = EnsembleKalmanProcesses
 
         for i in 1:N_iter
             g_ens = G(get_u_final(ekiobj))
-            EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
+            terminate = EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
+            if !isnothing(terminate)
+                break
+            end
         end
 
         # Check for expansion in some dimension
