@@ -32,7 +32,7 @@ const EKP = EnsembleKalmanProcesses
     end
     prior = combine_distributions(priors)
 
-
+    scheduler = DefaultScheduler(1)
     # Solve problem without localization
     nonlocalized_errors = []
     for N_ens in N_enss
@@ -44,13 +44,11 @@ const EKP = EnsembleKalmanProcesses
             Inversion();
             rng = rng,
             localization_method = NoLocalization(),
+            scheduler = scheduler,
         )
         for i in 1:N_iter
             g_ens_vanilla = G(get_u_final(ekiobj_vanilla))
-            terminate = EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla)
-            if !isnothing(terminate)
-                break
-            end
+            EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla)
         end
         push!(nonlocalized_errors, get_error(ekiobj_vanilla)[end])
     end
@@ -73,16 +71,20 @@ const EKP = EnsembleKalmanProcesses
         nonlocalized_error = nonlocalized_errors[mask_val]
 
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-        ekiobj =
-            EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = loc_method)
+        ekiobj = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y,
+            Γ,
+            Inversion();
+            rng = rng,
+            localization_method = loc_method,
+            scheduler = scheduler,
+        )
         @test isa(ekiobj.localizer, Localizer)
 
         for i in 1:N_iter
             g_ens = G(get_u_final(ekiobj))
-            terminate = EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
-            if !isnothing(terminate)
-                break
-            end
+            EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
         end
 
         # Check for expansion in some dimension
