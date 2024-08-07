@@ -93,12 +93,7 @@ N_iter = 20 # number of EKI iterations
 
 # We sample the initial ensemble from the prior, and create the EKP object as an EKI algorithm using the `Inversion()` keyword
 initial_params = construct_initial_ensemble(rng, prior, N_ens)
-ekiobj = EKP.EnsembleKalmanProcess(
-    initial_params,
-    truth_sample,
-    obs_noise_cov,
-    Inversion(),
-)
+ekiobj = EKP.EnsembleKalmanProcess(initial_params, truth_sample, obs_noise_cov, Inversion())
 
 # We perform the inversion loop. Remember that within calls to `get_ϕ_final` the EKP transformations are applied, thus the ensemble that is returned will be the positively-bounded permeability field evaluated at all the discretization points. 
 println("Begin inversion")
@@ -108,10 +103,10 @@ for i in 1:N_iter
     params_i = get_ϕ_final(prior, ekiobj)
     g_ens = run_G_ensemble(darcy, params_i)
     terminate = EKP.update_ensemble!(ekiobj, g_ens)
-    push!(err,get_error(ekiobj)[end]) #mean((params_true - mean(params_i,dims=2)).^2)
+    push!(err, get_error(ekiobj)[end]) #mean((params_true - mean(params_i,dims=2)).^2)
     println("Iteration: " * string(i) * ", Error: " * string(err[i]))
     if !isnothing(terminate)
-        final_it[1] = i-1
+        final_it[1] = i - 1
         break
     end
 end

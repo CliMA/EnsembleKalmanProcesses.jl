@@ -173,7 +173,7 @@ for n in 1:N_iter
     G_ens = hcat(G_n...)
     terminate = EKP.update_ensemble!(ekiobj, G_ens)
     if !isnothing(terminate)
-        final_it[1] = n-1
+        final_it[1] = n - 1
         break
     end
     global ϕ_n_values = vcat(ϕ_n_values, [ϕ_n])

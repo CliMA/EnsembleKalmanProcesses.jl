@@ -136,8 +136,8 @@ dummy = ones(n_par)
 dist_type = ParticleDistributions.GammaPrimitiveParticleDistribution(dummy...)
 model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, tspan)
 
-err = [] 
-final_iter=[N_iter] 
+err = []
+final_iter = [N_iter]
 for n in 1:N_iter
     # Return transformed parameters in physical/constrained space
     ϕ_n = get_ϕ_final(priors, ukiobj)
@@ -157,7 +157,7 @@ for n in 1:N_iter
         string(norm(ukiobj.process.uu_cov[n])),
     )
     if !isnothing(terminate)
-        final_it[1] = n-1
+        final_it[1] = n - 1
         break
     end
 end

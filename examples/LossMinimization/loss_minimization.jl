@@ -67,7 +67,7 @@ ensemble_kalman_process = EKP.EnsembleKalmanProcess(
     G_target,
     Γ_stabilization,
     Inversion(),
-    scheduler=DefaultScheduler(1),
+    scheduler = DefaultScheduler(1),
     accelerator = DefaultAccelerator(),
     localization_method = EnsembleKalmanProcesses.Localizers.NoLocalization(),
 )
@@ -170,7 +170,7 @@ ensemble_kalman_process = EKP.EnsembleKalmanProcess(
     G_target,
     Γ_stabilization,
     Inversion(),
-    scheduler=DefaultScheduler(1),
+    scheduler = DefaultScheduler(1),
     accelerator = DefaultAccelerator(),
     localization_method = EnsembleKalmanProcesses.Localizers.NoLocalization(),
 )

@@ -99,7 +99,7 @@ final_ensemble = get_ϕ_final(prior, ensemble_kalman_process)
 
 # To visualize the success of the inversion, we plot model with the true
 # parameters, the initial ensemble, and the final ensemble.
-p= plot(trange, model(theta_true...), c = :black, label = "Truth", legend = :bottomright, linewidth = 2)
+p = plot(trange, model(theta_true...), c = :black, label = "Truth", legend = :bottomright, linewidth = 2)
 plot!(
     p,
     trange,
@@ -107,7 +107,13 @@ plot!(
     c = :red,
     label = ["Initial ensemble" "" "" "" ""],
 )
-plot!(p,trange, [model(final_ensemble[:, i]...) for i in 1:N_ensemble], c = :blue, label = ["Final ensemble" "" "" "" ""])
+plot!(
+    p,
+    trange,
+    [model(final_ensemble[:, i]...) for i in 1:N_ensemble],
+    c = :blue,
+    label = ["Final ensemble" "" "" "" ""],
+)
 
 xlabel!("Time")
 
