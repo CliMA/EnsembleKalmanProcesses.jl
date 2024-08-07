@@ -1,5 +1,9 @@
 # Learning the permeability field in a Darcy flow
 
+!!! info "How do I run this code?"
+    The full code is found in the [`examples/`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples) directory of the github repository
+
+
 In this example, we illustrate a simple function learning problem.
 We are presented with an unknown field that is discretized with a finite-dimensional approximation (e.g. spatial discretization).
 When learning this field, if one represents each pointwise value at a gridpoint as a parameter, increasing the spatial resolution leads to increasingly high dimensional learning problems, thus giving poor computational scaling and increasingly ill-posed inverse problems from fixed data.

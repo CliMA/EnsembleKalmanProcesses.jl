@@ -1,5 +1,8 @@
 # # Minimization of simple loss functions
 #
+# !!! info "How do I run this code?"
+#    The full code is found in the [`examples/`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples) directory of the github repository
+#
 # First we load the required packages.
 
 using Distributions, LinearAlgebra, Random, Plots
@@ -59,7 +62,15 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
 # We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
 # target, the stabilization and the process type (for EKI this is `Inversion`, initialized 
 # with `Inversion()`). 
-ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, Inversion())
+ensemble_kalman_process = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    G_target,
+    Γ_stabilization,
+    Inversion(),
+    scheduler=DefaultScheduler(1),
+    accelerator = DefaultAccelerator(),
+    localization_method = EnsembleKalmanProcesses.Localizers.NoLocalization(),
+)
 nothing # hide
 # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
 # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
@@ -154,7 +165,15 @@ N_iterations = 20
 
 initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
 
-ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, Inversion())
+ensemble_kalman_process = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    G_target,
+    Γ_stabilization,
+    Inversion(),
+    scheduler=DefaultScheduler(1),
+    accelerator = DefaultAccelerator(),
+    localization_method = EnsembleKalmanProcesses.Localizers.NoLocalization(),
+)
 
 # We calibrate by *(i)* obtaining the parameters, *(ii)* calculating the
 # loss function on the parameters (and concatenate), and last *(iii)* generate a new set of

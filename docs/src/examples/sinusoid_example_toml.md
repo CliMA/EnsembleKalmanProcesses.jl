@@ -1,5 +1,8 @@
 # TOML interface for fitting parameters of a sinusoid
 
+!!! info "How do I run this code?"
+    The full code is found in the [`examples/`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples) directory of the github repository
+
 Here we revisit the [simple sinusoid example](@ref sinusoid-example), with the purpose of demonstrating how the EKP tools can interact with models in a non-intrusive fashion. In particular, this example will be useful for users whose model is written in another language, requires HPC management, or requires additional data processing stages.
 
 We can generally orchestrate the different stages of the calibration process using a script file. Here we employ a Linux bash script:
