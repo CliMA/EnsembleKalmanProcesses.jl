@@ -166,14 +166,19 @@ nothing # hide
 
 # Finally, we can run the Ensemble Kalman Process calibration.
 ϕ_n_values = []
+final_it = [N_iter]
 for n in 1:N_iter
     ϕ_n = EKP.get_ϕ_final(priors, ekiobj)
     G_n = [run_activation_model(ϕ_n[:, i]...) for i in 1:N_ens]
     G_ens = hcat(G_n...)
-    EKP.update_ensemble!(ekiobj, G_ens)
-
+    terminate = EKP.update_ensemble!(ekiobj, G_ens)
+    if !isnothing(terminate)
+        final_it[1] = n-1
+        break
+    end
     global ϕ_n_values = vcat(ϕ_n_values, [ϕ_n])
 end
+N_iter = final_it[1]
 nothing # hide
 
 # We define some simple functions for plotting the data.
