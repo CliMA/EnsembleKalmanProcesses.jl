@@ -1,6 +1,6 @@
-# This example requires Cloudy to be installed (it's best to install the master
-# branch), which can be done by:
-#] add Cloudy#master
+@info "This experiment is very sensitive to the Cloudy version. It is known to work with Cloudy commit: b4fa7e3"
+#julia --project; ]; add Cloudy#b4fa7e3
+
 using Cloudy
 using Cloudy.ParticleDistributions
 using Cloudy.KernelTensors
