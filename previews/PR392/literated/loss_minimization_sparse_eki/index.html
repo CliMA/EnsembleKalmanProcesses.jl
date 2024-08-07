@@ -18,13 +18,53 @@ threshold_value = 1e-2
 reg = 1e-3
 uc_idx = [1, 2]
 
-process = SparseInversion(γ, threshold_value, uc_idx, reg)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SparseInversion{Float64}(1.0, 0.01, [1, 2], 0.001)</code></pre><p>We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the target, the stabilization and the process type (for sparse EKI this is <code>SparseInversion</code>).</p><pre><code class="language-julia hljs">ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, process, accelerator = NesterovAccelerator())</code></pre><p>Then we calibrate by <em>(i)</em> obtaining the parameters, <em>(ii)</em> calculate the loss function on the parameters (and concatenate), and last <em>(iii)</em> generate a new set of parameters using the model outputs:</p><pre><code class="language-julia hljs">for i in 1:N_iterations
+process = SparseInversion(γ, threshold_value, uc_idx, reg)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SparseInversion{Float64}(1.0, 0.01, [1, 2], 0.001)</code></pre><p>We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the target, the stabilization and the process type (for sparse EKI this is <code>SparseInversion</code>).</p><pre><code class="language-julia hljs">ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, G_target, Γ_stabilization, process)</code></pre><p>Then we calibrate by <em>(i)</em> obtaining the parameters, <em>(ii)</em> calculate the loss function on the parameters (and concatenate), and last <em>(iii)</em> generate a new set of parameters using the model outputs:</p><pre><code class="language-julia hljs">for i in 1:N_iterations
     params_i = get_u_final(ensemble_kalman_process)
 
     g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
 
     EKP.update_ensemble!(ensemble_kalman_process, g_ens)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 9.19 seconds, 884.971 MiB of memory allocated
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 9.21 seconds, 884.657 MiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
@@ -104,46 +144,6 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 155.672 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 156.922 KiB of memory allocated
@@ -252,4 +252,4 @@ anim_unique_minimum = @animate for i in 1:N_iterations
         label = &quot;particles&quot;,
         title = &quot;EKI iteration = &quot; * string(i),
     )
-end</code></pre><p>The results show that the minimizer of <span>$G_1$</span> is <span>$u=u_*$</span>.</p><img src="6b8edb6f.gif" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../loss_minimization/">« Minimization Loss</a><a class="docs-footer-nextpage" href="../aerosol_activation/">Aerosol activation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 7 August 2024 22:31">Wednesday 7 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><p>The results show that the minimizer of <span>$G_1$</span> is <span>$u=u_*$</span>.</p><img src="c1743f89.gif" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../loss_minimization/">« Minimization Loss</a><a class="docs-footer-nextpage" href="../aerosol_activation/">Aerosol activation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 7 August 2024 22:39">Wednesday 7 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
