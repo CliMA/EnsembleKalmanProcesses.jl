@@ -16,7 +16,7 @@ We shall compare the following configurations of implemented schedulers.
 !!! info "Recommended Scheduler"
     For typical problems [we provide a default scheduler](@ref defaults) depending on the process. For example, when constructing an `Inversion()`-type `EnsembleKalmanProcess`, by default this effectively adds the scheduler
     ```julia
-scheduler = DataMisfitController(terminate_at = 1) # adaptive step-sizestop at algorithm time "T=1"
+    scheduler = DataMisfitController(terminate_at = 1) # adaptive step-sizestop at algorithm time "T=1"
     ```
 
 To modify the scheduler, use the keyword argument
