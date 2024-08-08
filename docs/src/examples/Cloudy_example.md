@@ -1,6 +1,11 @@
 # [Cloudy Example](@id Cloudy-example)
 
+!!! info "How do I run this code?"
+    The full code is found in the [`examples/`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples) directory of the github repository
 
+!!! warn "version control for Cloudy"
+    Due to rapid developments in Cloudy, this example will not work with the latest version. It is known to work pinned to specific commit `b4fa7e3`, please add Cloudy to the example Project using command `add Cloudy#b4fa7e3` in `Pkg` to avoid errors.
+    
 ### Overview
 
 This example is based on Cloudy, a microphysics model that simulates how cloud droplets collide and coalesce into larger drops. Collision-coalescence is a crucial process for the formation of rain. 

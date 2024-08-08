@@ -1,5 +1,8 @@
 # HPC interfacing example: ClimateMachine
 
+!!! info "How do I run this code?"
+    The full code is found in the [`examples/`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples) directory of the github repository
+
 ### Overview
 
 This examples uses EnsembleKalmanProcesses.jl to calibrate a climate model, showcasing a workflow which is compatible with HPC resources managed with the SLURM workload manager. The workflow is based on read-write input/output files, and as such it is capable of interfacing with dynamical models in different code languages, or with complicated processing stages. The dynamical model for this example is ClimateMachine.jl, an Earth system model currently under development at [CliMA](https://clima.caltech.edu).

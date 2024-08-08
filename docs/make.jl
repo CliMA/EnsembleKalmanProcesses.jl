@@ -74,6 +74,7 @@ pages = [
     "Home" => "index.md",
     "Installation instructions" => "installation_instructions.md",
     "Examples" => examples,
+    "Default configuration" => "defaults.md",
     "Ensemble Kalman Inversion" => "ensemble_kalman_inversion.md",
     "Ensemble Kalman Sampler" => "ensemble_kalman_sampler.md",
     "Unscented Kalman Inversion" => "unscented_kalman_inversion.md",
