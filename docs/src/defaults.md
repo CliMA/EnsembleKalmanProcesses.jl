@@ -62,13 +62,8 @@ accelerator = DefaultAccelerator()
 ```
 
 ## "Vanilla" settings: How to turn off features
-The following object will be created with no additional features.
 
-To modify the defaults the following modules should be loaded in:
-```julia
-using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.Localizers
-```
+The following shows how one can recover a method with no additional features
 
 ```
 EnsembleKalmanProcess(
@@ -81,3 +76,10 @@ EnsembleKalmanProcess(
     accelerator = DefaultAccelerator(), # no acceleration
 )
 ```
+
+!!! note
+You will need to call the `Localizers` module via
+```julia
+using EnsembleKalmanProcesses.Localizers
+```
+to get the `localization_method` structures
