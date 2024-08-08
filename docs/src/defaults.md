@@ -1,4 +1,4 @@
-## Default Configurations
+## [Default Configurations](@id defaults)
 
 Sensible defaults have been chosen for the methodology to give broadly the best solution. The configurations can be revealed by adding the keyword
 ```julia
@@ -61,7 +61,7 @@ failure_handler_method = SampleSuccGauss()
 accelerator = DefaultAccelerator()
 ```
 
-## "Vanilla" settings - how to turn off features
+## "Vanilla" settings: How to turn off features
 The following object will be created with no additional features.
 
 To modify the defaults the following modules should be loaded in:
