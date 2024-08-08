@@ -4,79 +4,73 @@ Sensible defaults have been chosen for the methodology to give broadly the best 
 ```julia
 EnsembleKalmanProcess(...,verbose = true)
 ```
-To obtain the defaults, one constructs a type of Ensemble Kalman Process with
+To use the defaults, one constructs a type of Ensemble Kalman Process with
 ```julia
 EnsembleKalmanProcess(initial_parameters, observation, process)
 ```
-and the following configurations (listed below) will be automatically created depending on the `process` type chosen. Please see the relevant documentation pages for each configurable.
+and the following configurations (listed below) will be automatically created depending on the `process` type chosen, they are listed as keyword arguments that are effectively added into `EnsembleKalmanProcess()` on creation. 
 
 !!! info "Recommended"
     For the simplest and most flexible update we recommend the `Inversion()` process. 
     ```julia
     EnsembleKalmanProcess(initial_parameters, observation, Inversion())
     ```
-
+Please see the relevant documentation pages for each configurable if you wish to modify them.
 ##  `process <: Inversion` 
 
 ```julia
-Dict(
-    "scheduler" => DataMisfitController(terminate_at = 1),
-    "localization_method" => SECNice(),
-    "failure_handler_method" => SampleSuccGauss(),
-    "accelerator" => NesterovAccelerator(),
-)
+scheduler = DataMisfitController(terminate_at = 1)
+localization_method = Localizers.SECNice()
+failure_handler_method = SampleSuccGauss()
+accelerator = NesterovAccelerator()
 ```
 
 ## `process <: TransformInversion`
 
 ```julia
-Dict(
-    "scheduler" => DataMisfitController(terminate_at = 1),
-    "localization_method" => NoLocalization(),
-    "failure_handler_method" => SampleSuccGauss(),
-    "accelerator" => DefaultAccelerator(),
-)
+scheduler = DataMisfitController(terminate_at = 1)
+localization_method = Localizers.NoLocalization()
+failure_handler_method = SampleSuccGauss()
+accelerator = DefaultAccelerator()
 ```
 
 ## `process <: SparseInversion`
 
 ```julia
-Dict(
-    "scheduler" => DefaultScheduler(),
-    "localization_method" => SECNice(),
-    "failure_handler_method" => SampleSuccGauss(),
-    "accelerator" => DefaultAccelerator(),
-)
+scheduler = DefaultScheduler()
+localization_method = Localizers.SECNice()
+failure_handler_method = SampleSuccGauss()
+accelerator = DefaultAccelerator()
 ```
 
 ## `process <: Sampler`
 
 ```julia
-Dict(
-    "scheduler" => EKSStableScheduler(1.0, eps()),
-    "localization_method" => NoLocalization(),
-    "failure_handler_method" => IgnoreFailures(),
-    "accelerator" => DefaultAccelerator(),
-)
+scheduler = EKSStableScheduler(1.0, eps())
+localization_method = Localizers.NoLocalization()
+failure_handler_method = IgnoreFailures()
+accelerator = DefaultAccelerator()
 ```
 
 ## `process <: Unscented`
 
 ```julia
-Dict(
-    "scheduler" => DataMisfitController(terminate_at = 1),
-    "localization_method" => NoLocalization(),
-    "failure_handler_method" => SampleSuccGauss(),
-    "accelerator" => DefaultAccelerator(),
-)
+scheduler = DataMisfitController(terminate_at = 1)
+localization_method = Localizers.NoLocalization()
+failure_handler_method = SampleSuccGauss()
+accelerator = DefaultAccelerator()
 ```
 
-## "Vanilla" settings - turning off features
-All the configurable features can be set with keywords. The following object will be created with no additional features.
+## "Vanilla" settings - how to turn off features
+The following object will be created with no additional features.
 
+To modify the defaults the following modules should be loaded in:
 ```julia
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.Localizers
+```
+
+```
 EnsembleKalmanProcess(
     initial_parameters,
     observation,
@@ -86,3 +80,4 @@ EnsembleKalmanProcess(
     failure_handler_method = IgnoreFailures(), # no failure handling
     accelerator = DefaultAccelerator(), # no acceleration
 )
+```
