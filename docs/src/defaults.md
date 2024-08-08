@@ -78,8 +78,8 @@ EnsembleKalmanProcess(
 ```
 
 !!! note
-You will need to call the `Localizers` module via
-```julia
-using EnsembleKalmanProcesses.Localizers
-```
-to get the `localization_method` structures
+    You will need to call the `Localizers` module via
+    ```julia
+    using EnsembleKalmanProcesses.Localizers
+    ```
+    to get the `localization_method` structures
