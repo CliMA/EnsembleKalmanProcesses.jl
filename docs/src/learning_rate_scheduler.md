@@ -14,10 +14,10 @@ We shall compare the following configurations of implemented schedulers.
 5. Misfit controlling timestep (Continuing beyond Terminate condition) `DataMisfitController(on_terminate="continue")` - brown
 
 !!! info "Recommended Scheduler"
-For typical problems [we provide a default scheduler](@ref defaults) depending on the process. For example, when constructing an `Inversion()`-type `EnsembleKalmanProcess`, by default this effectively adds the scheduler
-```julia
+    For typical problems [we provide a default scheduler](@ref defaults) depending on the process. For example, when constructing an `Inversion()`-type `EnsembleKalmanProcess`, by default this effectively adds the scheduler
+    ```julia
 scheduler = DataMisfitController(terminate_at = 1) # adaptive step-sizestop at algorithm time "T=1"
-```
+    ```
 
 To modify the scheduler, use the keyword argument
 ```julia
@@ -101,5 +101,5 @@ Optimizing the objective function (continuing ``T \to \infty``):
 - The UKI behavior is largely similar to EKI here, except that ensemble spread is retained in the ``T\to\infty`` limit in all cases, from inflation of the parameter covariance (``\Sigma_\omega``) within our implementation.
 
 
-!!! warn "EnsembleKalmanSampler"
+!!! warning "EnsembleKalmanSampler"
     We observe blow-up in EKS, when not using the `EKSStableScheduler`.
