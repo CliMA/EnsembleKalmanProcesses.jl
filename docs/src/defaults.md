@@ -8,7 +8,7 @@ To use the defaults, one constructs a type of Ensemble Kalman Process with
 ```julia
 EnsembleKalmanProcess(initial_parameters, observation, process)
 ```
-and the following configurations (listed below) will be automatically created depending on the `process` type chosen, they are listed as keyword arguments that are effectively added into `EnsembleKalmanProcess()` on creation. 
+and the following configurations (listed below) will be automatically created depending on the `process` type chosen, they are listed as keyword arguments that will be automatically added into `EnsembleKalmanProcess()` on creation. 
 
 !!! info "Recommended"
     For the simplest and most flexible update we recommend the `Inversion()` process. 
