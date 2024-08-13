@@ -61,7 +61,7 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
 
 # We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
 # target, the stabilization and the process type (for EKI this is `Inversion`, initialized 
-# with `Inversion()`). 
+# with `Inversion()`). We also remove the cutting-edge defaults and instead use the vanilla options.
 ensemble_kalman_process = EKP.EnsembleKalmanProcess(
     initial_ensemble,
     G_target,
