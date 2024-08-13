@@ -1,6 +1,6 @@
 This page documents ensemble Kalman inversion (EKI), as well as two variants, [ensemble transform Kalman inversion](@ref etki) (ETKI) and [sparsity-inducing ensemble Kalman inversion](@ref seki) (SEKI).
 
-# [Ensemble Kalman Inversion](@ref eki)
+# [Ensemble Kalman Inversion](@id eki)
 
 One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is ensemble
 Kalman inversion ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)).

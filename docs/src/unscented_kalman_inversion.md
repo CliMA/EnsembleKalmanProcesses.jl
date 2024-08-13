@@ -1,4 +1,4 @@
-# [Unscented Kalman Inversion](@ref uki)
+# [Unscented Kalman Inversion](@id uki)
 
 One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the unscented Kalman inversion ([Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)). The unscented Kalman inversion (UKI) is a derivative-free method for approximate Bayesian inference. We seek to find the posterior parameter distribution ``\theta \in \mathbb{R}^p`` from the inverse problem
 ```math
