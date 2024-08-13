@@ -7,11 +7,11 @@ We demonstrate the behaviour of different learning rate schedulers through solut
 In this example we have a model that produces the exponential of a sinusoid ``f(A, v) = \exp(A \sin(t) + v), \forall t \in [0,2\pi]``. Given an initial guess of the parameters as ``A^* \sim \mathcal{N}(2,1)`` and ``v^* \sim \mathcal{N}(0,25)``, the inverse problem is to estimate the parameters from a noisy observation of only the maximum and mean value of the true model output.
 
 We shall compare the following configurations of implemented schedulers. 
-1. Fixed, "long" timestep `DefaultScheduler(0.5)` - orange
-2. Fixed, "short" timestep `DefaultScheduler(0.02)` - green
+1. Fixed, "long" step `DefaultScheduler(0.5)` - orange
+2. Fixed, "short" step `DefaultScheduler(0.02)` - green
 3. Adaptive timestep (designed originally to ensure EKS remains stable) `EKSStableScheduler()` [Kovachki & Stuart 2018](https://doi.org/10.1088/1361-6420/ab1c3a) - red
-4. Misfit controlling timestep (Terminating) `DataMisfitController()` [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) - purple
-5. Misfit controlling timestep (Continuing beyond Terminate condition) `DataMisfitController(on_terminate="continue")` - brown
+4. Adaptive Misfit controlling step (Terminating) `DataMisfitController()` [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) - purple
+5. Adaptive Misfit controlling step (Continuing beyond Terminate condition) `DataMisfitController(on_terminate="continue")` - brown
 
 !!! info "Recommended Scheduler"
     For typical problems [we provide a default scheduler](@ref defaults) depending on the process. For example, when constructing an `Inversion()`-type `EnsembleKalmanProcess`, by default this effectively adds the scheduler
@@ -23,17 +23,19 @@ To modify the scheduler, use the keyword argument
 ```julia
 ekpobj = EKP.EnsembleKalmanProcess(args...; scheduler = scheduler, kwargs...)
 ```
-Several choices are available:
+Several other choices are available:
 ```julia
-scheduler = MutableScheduler(2) # modifiable stepsize
+scheduler = MutableScheduler(2) # modifiable stepsize at each iteration with default "2"
 scheduler = EKSStableScheduler(numerator=10.0, nugget = 0.01) # Stable for EKS
-scheduler = DataMisfitController(terminate_at = 1000) # stop at algorithm time "T=1"
+scheduler = DataMisfitController(terminate_at = 1000) # stop at algorithm time "T=1000"
 ```
 Please see the [learning rate schedulers API](@ref scheduler_api) for defaults and other details
 
-## Early termination (adaptive step-sizes)
+## Early termination (with adaptive learning rate)
 
-Early termination can be implemented in the calibration loop as 
+When using an adaptive learning rate, early termination may be triggered when a scheduler-specific condition is satisfied prior to the final user prescribed `N_iter`.
+Early termination is implemented as a return from `update_ensembe!(` and can be integrated into the calibration loop as follows
+
 ```julia
 using EnsembleKalmanProcesses # for get_ϕ_final, update_ensemble!
 # given
@@ -51,7 +53,7 @@ for i in 1:N_iter
     end
 end 
 ```
-The final iteration may be less than `N_iter`.
+Note - in this loop the final iteration may be less than `N_iter`.
 
 ## Timestep and termination time
 

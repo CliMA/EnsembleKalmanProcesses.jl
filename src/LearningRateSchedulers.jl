@@ -275,7 +275,7 @@ function calculate_timestep!(
     if sum_Δt >= T
         if sum_Δt_min1 < T # "Just reached termination"
             if scheduler.on_terminate == "stop"
-                @warn "Termination condition of timestepping scheme `DataMisfitController` has been exceeded. Preventing futher updates\n Set on_terminate=\"continue\" in `DataMisfitController` to ignore termination"
+                @warn "Termination condition of timestepping scheme `DataMisfitController` has been exceeded, returning `true` from `update_ensemble!` and preventing futher updates\n Set on_terminate=\"continue\" in `DataMisfitController` to ignore termination"
                 return true #returns a terminate call
             elseif scheduler.on_terminate == "continue_fixed"
                 @warn "Termination condition of timestepping scheme `DataMisfitController` has been exceeded. \non_terminate=\"continue_fixed\" selected. Proceeding with the final fixed timestep of $(ekp.Δt[end])."
