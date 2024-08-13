@@ -16,8 +16,8 @@ and the following configurations (listed below) will be automatically created de
     EnsembleKalmanProcess(initial_parameters, observation, Inversion())
     ```
 Please see the relevant documentation pages for each configurable if you wish to modify them.
-##  `process <: Inversion` 
-
+## `process <: Inversion` 
+Process documentation [here](@ref eki)
 ```julia
 scheduler = DataMisfitController(terminate_at = 1)
 localization_method = Localizers.SECNice()
@@ -26,7 +26,7 @@ accelerator = NesterovAccelerator()
 ```
 
 ## `process <: TransformInversion`
-
+Process documentation [here](@ref etki)
 ```julia
 scheduler = DataMisfitController(terminate_at = 1)
 localization_method = Localizers.NoLocalization()
@@ -35,6 +35,7 @@ accelerator = DefaultAccelerator()
 ```
 
 ## `process <: SparseInversion`
+Process documentation [here](@ref seki)
 
 ```julia
 scheduler = DefaultScheduler()
@@ -44,7 +45,7 @@ accelerator = DefaultAccelerator()
 ```
 
 ## `process <: Sampler`
-
+Process documentation [here](@ref eks)
 ```julia
 scheduler = EKSStableScheduler(1.0, eps())
 localization_method = Localizers.NoLocalization()
@@ -53,6 +54,7 @@ accelerator = DefaultAccelerator()
 ```
 
 ## `process <: Unscented`
+Process documentation [here](@ref uki)
 
 ```julia
 scheduler = DataMisfitController(terminate_at = 1)
