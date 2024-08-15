@@ -18,9 +18,15 @@ struct DefaultScheduler{FT} <: LearningRateScheduler where {FT <: AbstractFloat}
     Δt_default::FT
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Sets `Δt_default = 1.0`
+"""
 function DefaultScheduler()
     return DefaultScheduler{Float64}(Float64(1))
 end
+
 function DefaultScheduler(it::IT) where {IT <: Int}
     return DefaultScheduler{Float64}(Float64(it))
 end
@@ -46,6 +52,13 @@ function MutableScheduler(ft::R) where {R <: Real}
         return MutableScheduler{R}([ft])
     end
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Sets `Δt_mutable = [1.0]`
+
+"""
 function MutableScheduler()
     return MutableScheduler{Float64}(Float64[1])
 end
@@ -81,6 +94,11 @@ function EKSStableScheduler(numerator::R, nugget::RR) where {R <: Real, RR <: Re
 
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Sets `numerator = 1.0` and `nugget = eps()`
+"""
 function EKSStableScheduler()
     return EKSStableScheduler{Float64}(Float64(1), Float64(eps()))
 end
@@ -113,6 +131,11 @@ struct DataMisfitController{FT, M, S} <:
     on_terminate::S
 end # Iglesias Yan 2021
 
+"""
+$(TYPEDSIGNATURES)
+
+Sets `terminate_at = 1.0` and `on_terminate="stop"`
+"""
 function DataMisfitController(; terminate_at = 1.0, on_terminate = "stop")
     FT = Float64
     M = Matrix{FT}
