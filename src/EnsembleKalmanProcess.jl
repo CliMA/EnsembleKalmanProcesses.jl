@@ -215,9 +215,9 @@ function EnsembleKalmanProcess(
     # set up accelerator
     accelerator = configuration["accelerator"]
     AC = typeof(accelerator)
-    if !(AC <: DefaultAccelerator)
+    if !(isa(AC, DefaultAccelerator))
         set_ICs!(accelerator, params)
-        if P <: Sampler
+        if isa(P, Sampler)
             @warn "Acceleration is experimental for Sampler processes and may affect convergence."
         end
     end
@@ -226,7 +226,7 @@ function EnsembleKalmanProcess(
     failure_handler = FailureHandler(process, configuration["failure_handler_method"])
 
     # localizer
-    if (typeof(process) <: TransformInversion) & !(typeof(configuration["localization_method"]) == NoLocalization)
+    if isa(process, TransformInversion) && !(isa(configuration["localization_method"], NoLocalization))
         throw(ArgumentError("`TransformInversion` cannot currently be used with localization."))
     end
     localizer = Localizer(configuration["localization_method"], N_par, obs_size_for_minibatch, N_ens, FT)
