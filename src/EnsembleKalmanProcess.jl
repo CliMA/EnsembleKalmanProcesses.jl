@@ -66,35 +66,35 @@ end
 
 
 function default_options_dict(process::P) where {P <: Process}
-    if nameof(typeof(process)) == :Inversion
+    if isa(process, Inversion)
         return Dict(
             "scheduler" => DataMisfitController(terminate_at = 1),
             "localization_method" => SECNice(),
             "failure_handler_method" => SampleSuccGauss(),
             "accelerator" => NesterovAccelerator(),
         )
-    elseif nameof(typeof(process)) == :TransformInversion
+    elseif isa(process, TransformInversion)
         return Dict(
             "scheduler" => DataMisfitController(terminate_at = 1),
             "localization_method" => NoLocalization(),
             "failure_handler_method" => SampleSuccGauss(),
             "accelerator" => DefaultAccelerator(),
         )
-    elseif nameof(typeof(process)) == :Sampler
+    elseif isa(process, Sampler)
         return Dict(
             "scheduler" => EKSStableScheduler(1.0, eps()),
             "localization_method" => NoLocalization(),
             "failure_handler_method" => IgnoreFailures(),
             "accelerator" => DefaultAccelerator(),
         )
-    elseif nameof(typeof(process)) == :Unscented
+    elseif isa(process, Unscented)
         return Dict(
             "scheduler" => DataMisfitController(terminate_at = 1),
             "localization_method" => NoLocalization(),
             "failure_handler_method" => SampleSuccGauss(),
             "accelerator" => DefaultAccelerator(),
         )
-    elseif nameof(typeof(process)) == :SparseInversion
+    elseif isa(process, SparseInversion)
         return Dict(
             "scheduler" => DefaultScheduler(),
             "localization_method" => SECNice(),
