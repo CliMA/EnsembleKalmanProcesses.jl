@@ -57,7 +57,6 @@ end
 $(TYPEDSIGNATURES)
 
 Sets `Δt_mutable = [1.0]`
-
 """
 function MutableScheduler()
     return MutableScheduler{Float64}(Float64[1])

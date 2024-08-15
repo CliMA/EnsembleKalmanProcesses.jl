@@ -215,7 +215,7 @@ function EnsembleKalmanProcess(
     # set up accelerator
     accelerator = configuration["accelerator"]
     AC = typeof(accelerator)
-    if !(isa(accelerator, DefaultAccelerator)
+    if !(isa(accelerator, DefaultAccelerator))
         set_ICs!(accelerator, params)
         if isa(process, Sampler)
             @warn "Acceleration is experimental for Sampler processes and may affect convergence."
