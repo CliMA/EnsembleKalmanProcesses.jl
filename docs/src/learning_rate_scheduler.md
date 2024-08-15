@@ -10,7 +10,7 @@ We shall compare the following configurations of implemented schedulers.
 1. Fixed, "long" step `DefaultScheduler(0.5)` - orange
 2. Fixed, "short" step `DefaultScheduler(0.02)` - green
 3. Adaptive timestep (designed originally to ensure EKS remains stable) `EKSStableScheduler()` [Kovachki & Stuart 2018](https://doi.org/10.1088/1361-6420/ab1c3a) - red
-4. Adaptive Misfit controlling step (Terminating) `DataMisfitController()` [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) - purple
+4. Adaptive Misfit controlling step (Terminating at `T=1`) `DataMisfitController(terminate_at=1)` [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) - purple
 5. Adaptive Misfit controlling step (Continuing beyond Terminate condition) `DataMisfitController(on_terminate="continue")` - brown
 
 !!! info "Recommended Scheduler"
@@ -33,8 +33,7 @@ Please see the [learning rate schedulers API](@ref scheduler_api) for defaults a
 
 ## Early termination (with adaptive learning rate)
 
-When using an adaptive learning rate, early termination may be triggered when a scheduler-specific condition is satisfied prior to the final user prescribed `N_iter`.
-Early termination is implemented as a return from `update_ensembe!(` and can be integrated into the calibration loop as follows
+When using an adaptive learning rate, early termination may be triggered when a scheduler-specific condition is satisfied prior to the final user prescribed `N_iter`. See how to set the termination condition for such schedulers in the [API documentation](@ref scheduler_api). When triggered, early termination is returns a not-`nothing` value from `update_ensembe!(` and can be integrated into the calibration loop as follows
 
 ```julia
 using EnsembleKalmanProcesses # for get_ϕ_final, update_ensemble!

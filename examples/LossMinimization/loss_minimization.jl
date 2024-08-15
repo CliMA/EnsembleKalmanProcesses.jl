@@ -1,7 +1,7 @@
 # # Minimization of simple loss functions
 #
 # !!! info "How do I run this code?"
-#    The full code is found in the [`examples/`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples) directory of the github repository
+#     The full code is found in the [`examples/`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples) directory of the github repository
 #
 # First we load the required packages.
 
