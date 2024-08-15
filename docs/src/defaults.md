@@ -65,8 +65,7 @@ accelerator = DefaultAccelerator()
 
 ## "Vanilla" settings: How to turn off features
 
-The following shows how one can recover a method with no additional features
-
+As the defaults now implement recent features. The following snippet shows how one can use keyword arguments to construct an EKP with no additional features or variants.
 ```
 EnsembleKalmanProcess(
     initial_parameters,
