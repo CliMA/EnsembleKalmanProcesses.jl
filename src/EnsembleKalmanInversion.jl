@@ -104,7 +104,7 @@ function update_ensemble!(
     failed_ens = nothing,
 ) where {FT, IT}
 
-    if !(nameof(typeof(get_accelerator(ekp))) == :DefaultAccelerator)
+    if !(isa(get_accelerator(ekp), DefaultAccelerator))
         add_stochastic_perturbation = false # doesn't play well with accelerator, but not needed
     else
         add_stochastic_perturbation = deterministic_forward_map
