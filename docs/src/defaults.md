@@ -7,7 +7,7 @@ However there are several rules of thumb, for calibrating a parameter vector `\t
 
 Parameter dimension        | Ensemble size 
 --------------------------------|----------------------------------------------------------------
-``\mathrm{dim}(\theta)\leq 10`` | ``N_{\mathrm{ens}} = 10\mathrm{dim}(\theta)``
+``\mathrm{dim}(\theta)\leq 10`` | ``N_{\mathrm{ens}} = 10 \cdot \mathrm{dim}(\theta)``
 ``10 \leq \mathrm{dim}(\theta)\leq 100`` | ``N_{\mathrm{ens}} = 100``
 ``100\leq \mathrm{dim}(\theta)``| ``N_{\mathrm{ens}} = 100`` and [SEC](@ref localization)
 
