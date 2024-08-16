@@ -30,16 +30,16 @@ If either the loss decreases too slowly/diverges or the final fits appear inadeq
 ## [Common warning/error messages](@id common-messages)
 - ```julia
   Info: "Termination condition of scheduler `DataMisfitController` will be exceeded during the next iteration."
-  Warning: Termination condition of timestepping scheme `DataMisfitController` has been exceeded, returning `true` from `update_ensemble!` and preventing futher updates. Set on_terminate="continue" in `DataMisfitController` to ignore termination
-```
-The `DataMisfitController` is an adaptive scheduler/timestepper that terminates at a given value of algorithm time (rather than always a maximum iteration). See [here](@ref learning-rate-schedulers) for details on changing the termination condition. Or how to handle this in your iteration loop
+  Warning: Termination condition of scheduler `DataMisfitController` has been exceeded, returning `true` from `update_ensemble!` and preventing futher updates. Set on_terminate="continue" in `DataMisfitController` to ignore termination
+  ```
+The `DataMisfitController` is an adaptive scheduler that can terminate the algorithm at a given value of algorithm time (rather than juat a given number of iterations). See [here](@ref learning-rate-schedulers) for details on changing the termination condition. Or how to handle this in your iteration loop.
 
 - ```julia
-Warning: Acceleration is experimental for Sampler processes and may affect convergence.
-```
+  Warning: Acceleration is experimental for Sampler processes and may affect convergence.
+  ```
 This is found when providing something other than `accelerator = DefaultAccelerator()` in EKP
 - ```julia
-Info: 1 particle failure(s) detected. Handler used: IgnoreFailures.
-Info: 1 particle failure(s) detected. Handler used: SampleSuccGauss.
-```
+  Info: 1 particle failure(s) detected. Handler used: IgnoreFailures.
+  Info: 1 particle failure(s) detected. Handler used: SampleSuccGauss.
+  ```
 Both these messages have detected `NaN`s in the forward map evaluation array. One can choose how to handle failed ensemble members with the EKP keyword `failure_handler_method` for more information on the failure handling methods see [here for EKI/ETKI/SEKI](@ref failure-eki) or [here for UKI](@ref failure-uki). EKS does not yet have a consistent failure handler method.
