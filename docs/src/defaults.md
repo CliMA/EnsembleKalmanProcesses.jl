@@ -5,22 +5,22 @@
 The ensemble size is generally not determinable in advance.
 However there are several rules of thumb, for calibrating a parameter vector `\theta`, that can be used as a starting point.
 
-``\mathrm{dim}(\theta)``        | ``N_{\mathrm{ens}}`` 
+Parameter dimension        | Ensemble size 
 --------------------------------|----------------------------------------------------------------
 ``\mathrm{dim}(\theta)\leq 10`` | ``N_{\mathrm{ens}} = 10\mathrm{dim}(\theta)``
-``\mathrm{dim}(\theta)\geq 10`` | ``N_{\mathrm{ens}} = 100``
-``\mathrm{dim}(\theta)\geq 100``| ``N_{\mathrm{ens}} = 100`` and use [sampling error correction](@ref localization)
+``10 \leq \mathrm{dim}(\theta)\leq 100`` | ``N_{\mathrm{ens}} = 100``
+``100\leq \mathrm{dim}(\theta)``| ``N_{\mathrm{ens}} = 100`` and [SEC](@ref localization)
 
 !!! note "for the `Unscented` process"
-    The [UKI method](@ref uki) always creates an ensemble size proportional to the input dimension, and it is not configurable by the user.
+    The [UKI method](@ref uki) always creates an ensemble size proportional to `` \mathrm{dim}(\theta)``. It is not configurable by the user.
 
 ## Prebuilt defaults
 
 Sensible defaults have been chosen for the methodology to give broadly the best solution. The configurations can be revealed by adding the keyword
 ```julia
-EnsembleKalmanProcess(...,verbose = true)
+EnsembleKalmanProcess(..., verbose = true)
 ```
-To use the defaults, one constructs a type of Ensemble Kalman Process with
+To use the defaults, one constructs an Ensemble Kalman Process with
 ```julia
 EnsembleKalmanProcess(initial_parameters, observation, process)
 ```
@@ -32,7 +32,15 @@ and the following configurations (listed below) will be automatically created de
     EnsembleKalmanProcess(initial_parameters, observation, Inversion())
     ```
 
-Please see the relevant documentation pages for each configurable if you wish to modify them. 
+Please see the relevant documentation pages for each configurable if you wish to modify them.
+
+### Quick links!
+- [scheduler = `...`](@ref learning-rate-schedulers)
+- [localization_method = `...`](@ref localization)
+- failure_handler_method = `...` for [EKI/ETKI/SEKI](@ref failure_eki) or [UKI](@ref failure-uki)
+- accelerator = ... [Docs coming soon!]. See our [accelerator examples](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Accelerators) to play with acceleration methods.
+  
+  
 
 ## `process <: Inversion` 
 Process documentation [here](@ref eki)
