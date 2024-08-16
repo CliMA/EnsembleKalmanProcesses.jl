@@ -42,4 +42,4 @@ This is found when providing something other than `accelerator = DefaultAccelera
   Info: 1 particle failure(s) detected. Handler used: IgnoreFailures.
   Info: 1 particle failure(s) detected. Handler used: SampleSuccGauss.
   ```
-Both these messages have detected `NaN`s in the forward map evaluation array. One can choose how to handle failed ensemble members with the EKP keyword `failure_handler_method` for more information on the failure handling methods see [here for EKI/ETKI/SEKI](@ref failure-eki) or [here for UKI](@ref failure-uki). EKS does not yet have a consistent failure handler method.
+Both these messages arise when the EKP `update_ensemble!` has detected `NaN`s in the forward map evaluation array. One can choose how to handle failed ensemble members with the EKP keyword `failure_handler_method` for more information on the failure handling methods see [here for EKI/ETKI/SEKI](@ref failure-eki) or [here for UKI](@ref failure-uki). Note that EKS does not yet have a consistent failure handler method.
