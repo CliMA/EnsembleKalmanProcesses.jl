@@ -3,7 +3,7 @@
 ## Recommended Ensemble Size
 
 The ensemble size is generally not determinable in advance.
-However there are several rules of thumb, for calibrating a parameter vector `\theta`, that can be used as a starting point.
+However there are several rules of thumb, for calibrating a parameter vector ``\theta``, that can be used as a starting point.
 
 Parameter dimension        | Ensemble size 
 --------------------------------|----------------------------------------------------------------
