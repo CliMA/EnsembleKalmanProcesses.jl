@@ -37,7 +37,7 @@ Please see the relevant documentation pages for each configurable if you wish to
 ### Quick links!
 - [scheduler = `...`](@ref learning-rate-schedulers)
 - [localization_method = `...`](@ref localization)
-- failure_handler_method = `...` for [EKI/ETKI/SEKI](@ref failure_eki) or [UKI](@ref failure-uki)
+- failure_handler_method = `...` for [EKI/ETKI/SEKI](@ref failure-eki) or [UKI](@ref failure-uki)
 - accelerator = ... [Docs coming soon!]. See our [accelerator examples](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Accelerators) to play with acceleration methods.
   
   
