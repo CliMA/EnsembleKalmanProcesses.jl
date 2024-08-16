@@ -167,7 +167,7 @@ sigma_optim = get_u_cov_final(ukiobj)
 
 There are two examples: [Lorenz96](@ref Lorenz-example) and [Cloudy](@ref Cloudy-example).
 
-## Handling forward model failures
+## [Handling forward model failures](@id failure-uki)
 
 In situations where the forward model ``\mathcal{G}`` represents a diagnostic of a complex computational model, there might be cases where for some parameter combinations ``\theta``, attempting to evaluate ``\mathcal{G}(\theta)`` may result in model failure (defined as returning a `NaN` from the point of view of this package). In such cases, the UKI update equations must be modified to handle model failures.
 

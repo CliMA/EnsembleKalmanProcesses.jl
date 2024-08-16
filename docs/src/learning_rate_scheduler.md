@@ -31,7 +31,7 @@ scheduler = DataMisfitController(terminate_at = 1000) # stop at algorithm time "
 ```
 Please see the [learning rate schedulers API](@ref scheduler_api) for defaults and other details
 
-## Early termination (with adaptive learning rate)
+## [Early termination (with adaptive learning rate)](@id early-terminate)
 
 When using an adaptive learning rate, early termination may be triggered when a scheduler-specific condition is satisfied prior to the final user prescribed `N_iter`. See how to set the termination condition for such schedulers in the [API documentation](@ref scheduler_api). When triggered, early termination is returns a not-`nothing` value from `update_ensembe!(` and can be integrated into the calibration loop as follows
 

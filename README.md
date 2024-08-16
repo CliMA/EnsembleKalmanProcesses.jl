@@ -36,6 +36,16 @@ If you use the examples or code, please cite our article at JOSS in your publish
 ### Requirements
 Julia version 1.6+ 
 
+# Quick links!
+
+- [How do I build prior distributions](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/parameter_distributions/)
+- [How do I build my observations and encode batching](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/observations/)
+- [What ensemble size should I take? Which process should I use? and what is the recommended configuration?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/defaults/)
+- [What can be parallelized? How do I do it in Julia?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/parallel_hpc/)
+- [What is going on in my own code?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/troubleshooting/)
+- [What is this error/warning/message?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/troubleshooting/)
+- [Where can I walk through a simple example?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/literated/sinusoid_example/)
+
 ### Getting Started 
 ![eki-getting-started](https://github.com/CliMA/EnsembleKalmanProcesses.jl/assets/45243236/e083ab8c-4f93-432f-9ad5-97aff22764ad)
 <!---

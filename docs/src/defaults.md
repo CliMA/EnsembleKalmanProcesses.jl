@@ -1,5 +1,21 @@
 ## [Default Configurations](@id defaults)
 
+## Recommended Ensemble Size
+
+The ensemble size is generally not determinable in advance.
+However there are several rules of thumb, for calibrating a parameter vector `\theta`, that can be used as a starting point.
+
+``\mathrm{dim}(\theta)``        | ``N_{\mathrm{ens}}`` 
+--------------------------------|----------------------------------------------------------------
+``\mathrm{dim}(\theta)\leq 10`` | ``N_{\mathrm{ens}} = 10\mathrm{dim}(\theta)``
+``\mathrm{dim}(\theta)\geq 10`` | ``N_{\mathrm{ens}} = 100``
+``\mathrm{dim}(\theta)\geq 100``| ``N_{\mathrm{ens}} = 100`` and use [sampling error correction](@id localization)
+
+!!! note "for the `Unscented` process"
+    The [UKI method](@ref uki) always creates an ensemble size proportional to the input dimension, and it is not configurable by the user.
+
+## Prebuilt defaults
+
 Sensible defaults have been chosen for the methodology to give broadly the best solution. The configurations can be revealed by adding the keyword
 ```julia
 EnsembleKalmanProcess(...,verbose = true)
@@ -10,12 +26,14 @@ EnsembleKalmanProcess(initial_parameters, observation, process)
 ```
 and the following configurations (listed below) will be automatically created depending on the `process` type chosen, they are listed as keyword arguments that will be automatically added into `EnsembleKalmanProcess()` on creation. 
 
-!!! info "Recommended"
+!!! info "Recommended process"
     For the simplest and most flexible update we recommend the `Inversion()` process. 
     ```julia
     EnsembleKalmanProcess(initial_parameters, observation, Inversion())
     ```
-Please see the relevant documentation pages for each configurable if you wish to modify them.
+
+Please see the relevant documentation pages for each configurable if you wish to modify them. 
+
 ## `process <: Inversion` 
 Process documentation [here](@ref eki)
 ```julia
