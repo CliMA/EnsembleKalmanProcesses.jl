@@ -14,6 +14,12 @@ Parameter dimension        | Ensemble size
 !!! note "for the `Unscented` process"
     The [UKI method](@ref uki) always creates an ensemble size proportional to `` \mathrm{dim}(\theta)``. It is not configurable by the user.
 
+### Quick links!
+- What does `scheduler = ...` do? See [here.](@ref learning-rate-schedulers)
+- What does `localization_method = ...` do? See [here.](@ref localization)
+- What does `failure_handler_method = ...` do? See [here](@ref failure-eki) for EKI variants and [here](@ref failure-uki) for UKI specifically.
+- What does `accelerator = ...` do? [Docs coming soon...] See our [accelerator examples](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Accelerators) to play with the acceleration methods.
+
 ## Prebuilt defaults
 
 Sensible defaults have been chosen for the methodology to give broadly the best solution. The configurations can be revealed by adding the keyword
@@ -33,13 +39,6 @@ and the following configurations (listed below) will be automatically created de
     ```
 
 Please see the relevant documentation pages for each configurable if you wish to modify them.
-
-### Quick links!
-- What does `scheduler = ...` do? See [here.](@ref learning-rate-schedulers)
-- What does `localization_method = ...` do? See [here.](@ref localization)
-- What does `failure_handler_method = ...` do? See [here](@ref failure-eki) for EKI variants and [here](@ref failure-uki) for UKI specifically.
-- What does `accelerator = ...` do? [Docs coming soon...] See our [accelerator examples](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Accelerators) to play with the acceleration methods.
-  
   
 
 ## `process <: Inversion` 
