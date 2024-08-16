@@ -1,4 +1,4 @@
-# Ensemble Kalman Sampling
+# [Ensemble Kalman Sampling](@id eks)
 
 ### What Is It and What Does It Do?
 The Ensemble Kalman Sampler (EKS) ([Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1251655), [Cleary et al, 2020](https://doi.org/10.1016/j.jcp.2020.109716), [Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1304891)) is a derivative-free tool for approximate Bayesian inference. It does so by approximately sampling from the posterior distribution. That is, EKS provides both point estimation (through the mean of the final ensemble) and uncertainty quantification (through the covariance of the final ensemble), this is in contrast to EKI, which only provides point estimation.

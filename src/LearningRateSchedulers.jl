@@ -18,9 +18,15 @@ struct DefaultScheduler{FT} <: LearningRateScheduler where {FT <: AbstractFloat}
     Δt_default::FT
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Sets `Δt_default = 1.0`
+"""
 function DefaultScheduler()
     return DefaultScheduler{Float64}(Float64(1))
 end
+
 function DefaultScheduler(it::IT) where {IT <: Int}
     return DefaultScheduler{Float64}(Float64(it))
 end
@@ -46,6 +52,12 @@ function MutableScheduler(ft::R) where {R <: Real}
         return MutableScheduler{R}([ft])
     end
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Sets `Δt_mutable = [1.0]`
+"""
 function MutableScheduler()
     return MutableScheduler{Float64}(Float64[1])
 end
@@ -81,6 +93,11 @@ function EKSStableScheduler(numerator::R, nugget::RR) where {R <: Real, RR <: Re
 
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Sets `numerator = 1.0` and `nugget = eps()`
+"""
 function EKSStableScheduler()
     return EKSStableScheduler{Float64}(Float64(1), Float64(eps()))
 end
@@ -113,6 +130,11 @@ struct DataMisfitController{FT, M, S} <:
     on_terminate::S
 end # Iglesias Yan 2021
 
+"""
+$(TYPEDSIGNATURES)
+
+Sets `terminate_at = 1.0` and `on_terminate="stop"`
+"""
 function DataMisfitController(; terminate_at = 1.0, on_terminate = "stop")
     FT = Float64
     M = Matrix{FT}
@@ -275,7 +297,7 @@ function calculate_timestep!(
     if sum_Δt >= T
         if sum_Δt_min1 < T # "Just reached termination"
             if scheduler.on_terminate == "stop"
-                @warn "Termination condition of timestepping scheme `DataMisfitController` has been exceeded. Preventing futher updates\n Set on_terminate=\"continue\" in `DataMisfitController` to ignore termination"
+                @warn "Termination condition of timestepping scheme `DataMisfitController` has been exceeded, returning `true` from `update_ensemble!` and preventing futher updates\n Set on_terminate=\"continue\" in `DataMisfitController` to ignore termination"
                 return true #returns a terminate call
             elseif scheduler.on_terminate == "continue_fixed"
                 @warn "Termination condition of timestepping scheme `DataMisfitController` has been exceeded. \non_terminate=\"continue_fixed\" selected. Proceeding with the final fixed timestep of $(ekp.Δt[end])."

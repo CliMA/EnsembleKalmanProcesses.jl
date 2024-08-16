@@ -32,12 +32,20 @@ const EKP = EnsembleKalmanProcesses
     end
     prior = combine_distributions(priors)
 
-
+    scheduler = DefaultScheduler(1)
     # Solve problem without localization
     nonlocalized_errors = []
     for N_ens in N_enss
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-        ekiobj_vanilla = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
+        ekiobj_vanilla = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y,
+            Γ,
+            Inversion();
+            rng = rng,
+            localization_method = NoLocalization(),
+            scheduler = scheduler,
+        )
         for i in 1:N_iter
             g_ens_vanilla = G(get_u_final(ekiobj_vanilla))
             EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla)
@@ -63,8 +71,15 @@ const EKP = EnsembleKalmanProcesses
         nonlocalized_error = nonlocalized_errors[mask_val]
 
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-        ekiobj =
-            EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = loc_method)
+        ekiobj = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y,
+            Γ,
+            Inversion();
+            rng = rng,
+            localization_method = loc_method,
+            scheduler = scheduler,
+        )
         @test isa(ekiobj.localizer, Localizer)
 
         for i in 1:N_iter

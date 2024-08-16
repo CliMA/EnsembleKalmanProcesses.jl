@@ -7,31 +7,34 @@ We demonstrate the behaviour of different learning rate schedulers through solut
 In this example we have a model that produces the exponential of a sinusoid ``f(A, v) = \exp(A \sin(t) + v), \forall t \in [0,2\pi]``. Given an initial guess of the parameters as ``A^* \sim \mathcal{N}(2,1)`` and ``v^* \sim \mathcal{N}(0,25)``, the inverse problem is to estimate the parameters from a noisy observation of only the maximum and mean value of the true model output.
 
 We shall compare the following configurations of implemented schedulers. 
-1. Fixed, "long" timestep `DefaultScheduler(0.5)` - orange
-2. Fixed, "short" timestep `DefaultScheduler(0.02)` - green
+1. Fixed, "long" step `DefaultScheduler(0.5)` - orange
+2. Fixed, "short" step `DefaultScheduler(0.02)` - green
 3. Adaptive timestep (designed originally to ensure EKS remains stable) `EKSStableScheduler()` [Kovachki & Stuart 2018](https://doi.org/10.1088/1361-6420/ab1c3a) - red
-4. Misfit controlling timestep (Terminating) `DataMisfitController()` [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) - purple
-5. Misfit controlling timestep (Continuing beyond Terminate condition) `DataMisfitController(on_terminate="continue")` - brown
+4. Adaptive Misfit controlling step (Terminating at `T=1`) `DataMisfitController(terminate_at=1)` [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) - purple
+5. Adaptive Misfit controlling step (Continuing beyond Terminate condition) `DataMisfitController(on_terminate="continue")` - brown
 
-One can define the schedulers as
-```julia
-scheduler = DefaultScheduler(0.5) # fixed stepsize, default values: 1
-```
-Then when constructing an EnsembleKalmanProcess, one uses the keyword argument
+!!! info "Recommended Scheduler"
+    For typical problems [we provide a default scheduler](@ref defaults) depending on the process. For example, when constructing an `Inversion()`-type `EnsembleKalmanProcess`, by default this effectively adds the scheduler
+    ```julia
+    scheduler = DataMisfitController(terminate_at = 1) # adaptive step-sizestop at algorithm time "T=1"
+    ```
+
+To modify the scheduler, use the keyword argument
 ```julia
 ekpobj = EKP.EnsembleKalmanProcess(args...; scheduler = scheduler, kwargs...)
 ```
-A variety of other schedulers can be defined similarly:
+Several other choices are available:
 ```julia
-scheduler = MutableScheduler(2) # modifiable stepsize
+scheduler = MutableScheduler(2) # modifiable stepsize at each iteration with default "2"
 scheduler = EKSStableScheduler(numerator=10.0, nugget = 0.01) # Stable for EKS
-scheduler = DataMisfitController(on_terminate = "continue") # non-terminating
+scheduler = DataMisfitController(terminate_at = 1000) # stop at algorithm time "T=1000"
 ```
 Please see the [learning rate schedulers API](@ref scheduler_api) for defaults and other details
 
-### Early termination
+## Early termination (with adaptive learning rate)
 
-Early termination can be implemented in the calibration loop as 
+When using an adaptive learning rate, early termination may be triggered when a scheduler-specific condition is satisfied prior to the final user prescribed `N_iter`. See how to set the termination condition for such schedulers in the [API documentation](@ref scheduler_api). When triggered, early termination is returns a not-`nothing` value from `update_ensembe!(` and can be integrated into the calibration loop as follows
+
 ```julia
 using EnsembleKalmanProcesses # for get_ϕ_final, update_ensemble!
 # given
@@ -49,6 +52,7 @@ for i in 1:N_iter
     end
 end 
 ```
+Note - in this loop the final iteration may be less than `N_iter`.
 
 ## Timestep and termination time
 
@@ -95,12 +99,8 @@ Finding the Posterior (terminating at ``T=1``):
 Optimizing the objective function (continuing ``T \to \infty``):
 - Large fixed step (orange). This is very efficient, but can get stuck when drawn too large, (perhaps unintuitive from a gradient-descent perspective). It typically also collapses the ensemble. On average it gives lower error to the true parameters than DMC. 
  - Both EKSStable and DMC with continuation schedulers, perform very similarly. Both retain good ensemble spread during convergence, and collapse after finding a local optimum. This optimum on average has the best error to the true parameters in this experiment. They appear to consistently find the same optimum as ``T\to\infty`` but DMC finds this in fewer iterations.
-- The UKI behavior is largely similar to EKI here, except that ensemble spread is retained in the ``T\to\infty`` limit in all cases, from inflation of the parameter covariance (``\Sigma_\omega``) within our implementation. 
+- The UKI behavior is largely similar to EKI here, except that ensemble spread is retained in the ``T\to\infty`` limit in all cases, from inflation of the parameter covariance (``\Sigma_\omega``) within our implementation.
 
-### DMC as a default in future?
 
-This experiment motivates the possibility of making DMC (with/without) continuation a default timestepper in future releases, for EKI/SEKI/UKI. Currently we will retain constant timestepping as default while we investigate further.
-
-!!! warning "Ensemble Kalman Sampler"
+!!! warning "EnsembleKalmanSampler"
     We observe blow-up in EKS, when not using the `EKSStableScheduler`.
-

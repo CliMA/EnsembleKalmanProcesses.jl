@@ -1,5 +1,8 @@
 # # [Fitting parameters of a sinusoid](@id sinusoid-example)
-
+#
+# !!! info "How do I run this code?"
+#     The full code is found in the [`examples/`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples) directory of the github repository
+#
 # In this example we have a model that produces a sinusoid
 # ``f(A, v) = A \sin(\phi + t) + v, \forall t \in [0,2\pi]``, with a random
 # phase ``\phi``. Given an initial guess of the parameters as
@@ -96,16 +99,25 @@ final_ensemble = get_ϕ_final(prior, ensemble_kalman_process)
 
 # To visualize the success of the inversion, we plot model with the true
 # parameters, the initial ensemble, and the final ensemble.
-plot(trange, model(theta_true...), c = :black, label = "Truth", legend = :bottomright, linewidth = 2)
+p = plot(trange, model(theta_true...), c = :black, label = "Truth", legend = :bottomright, linewidth = 2)
 plot!(
+    p,
     trange,
     [model(get_ϕ(prior, ensemble_kalman_process, 1)[:, i]...) for i in 1:N_ensemble],
     c = :red,
     label = ["Initial ensemble" "" "" "" ""],
 )
-plot!(trange, [model(final_ensemble[:, i]...) for i in 1:N_ensemble], c = :blue, label = ["Final ensemble" "" "" "" ""])
+plot!(
+    p,
+    trange,
+    [model(final_ensemble[:, i]...) for i in 1:N_ensemble],
+    c = :blue,
+    label = ["Final ensemble" "" "" "" ""],
+)
 
 xlabel!("Time")
 
 # We see that the final ensemble is much closer to the truth. Note that the
 # random phase shift is of no consequence.
+
+savefig(p, "output.png")

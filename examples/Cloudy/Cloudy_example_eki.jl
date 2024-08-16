@@ -1,6 +1,6 @@
-# This example requires Cloudy to be installed (it's best to install the master
-# branch), which can be done by:
-#] add Cloudy#master
+@info "This experiment is very sensitive to the Cloudy version. It is known to work with Cloudy commit: b4fa7e3"
+#julia --project; ]; add Cloudy#b4fa7e3
+
 using Cloudy
 using Cloudy.ParticleDistributions
 using Cloudy.KernelTensors
@@ -92,8 +92,8 @@ tspan = (0.0, 1.0)
 ###  Generate (artificial) truth samples
 ###
 
-model_settings_true = ModelSettings(kernel, dist_true, moments, tspan)
-G_t = run_dyn_model(ϕ_true, model_settings_true)
+model_settings_true = DynamicalModel.ModelSettings(kernel, dist_true, moments, tspan)
+G_t = DynamicalModel.run_dyn_model(ϕ_true, model_settings_true)
 n_samples = 100
 y_t = zeros(length(G_t), n_samples)
 # In a perfect model setting, the "observational noise" represents the 
@@ -117,12 +117,12 @@ truth = Observation(Dict("samples" => vec(mean(y_t, dims = 2)), "covariances" =>
 ###  Calibrate: Ensemble Kalman Inversion
 ###
 
-N_ens = 50 # number of ensemble members
-N_iter = 8 # number of EKI iterations
+N_ens = 30 # number of ensemble members
+N_iter = 15 # number of EKI iterations
 # initial parameters: N_par x N_ens
 
 initial_par = construct_initial_ensemble(rng, priors, N_ens)
-ekiobj = EnsembleKalmanProcess(initial_par, truth, Inversion(), timestepper = DefaultTimestepper(0.1))
+ekiobj = EnsembleKalmanProcess(initial_par, truth, Inversion())
 
 # Initialize a ParticleDistribution with dummy parameters. The parameters 
 # will then be set within `run_dyn_model`
@@ -130,14 +130,20 @@ dummy = ones(n_par)
 dist_type = ParticleDistributions.GammaPrimitiveParticleDistribution(dummy...)
 model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, tspan)
 # EKI iterations
+final_it = [0]
 for n in 1:N_iter
     # Return transformed parameters in physical/constrained space
     ϕ_n = get_ϕ_final(priors, ekiobj)
     # Evaluate forward map
-    G_n = [run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:N_ens]
+    G_n = [DynamicalModel.run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:N_ens]
     G_ens = hcat(G_n...)  # reformat
-    EnsembleKalmanProcesses.update_ensemble!(ekiobj, G_ens)
+    terminate = EnsembleKalmanProcesses.update_ensemble!(ekiobj, G_ens)
+    if !isnothing(terminate)
+        final_it[1] = n
+        break
+    end
 end
+n_iter = final_it[1]
 
 # EKI results: Has the ensemble collapsed toward the truth?
 θ_true = transform_constrained_to_unconstrained(priors, ϕ_true)
@@ -156,7 +162,7 @@ g_stored = get_g(ekiobj, return_array = false)
 gr(size = (1200, 400))
 
 u_init = get_u_prior(ekiobj)
-anim_eki_unconst_cloudy = @animate for i in 1:N_iter
+anim_eki_unconst_cloudy = @animate for i in 1:n_iter
     u_i = get_u(ekiobj, i)
 
     p1 = plot(u_i[1, :], u_i[2, :], seriestype = :scatter, xlims = extrema(u_init[1, :]), ylims = extrema(u_init[2, :]))
@@ -210,7 +216,7 @@ gif(anim_eki_unconst_cloudy, joinpath(figure_save_directory, "eki_unconst_cloudy
 
 # plots - constrained
 ϕ_init = transform_unconstrained_to_constrained(priors, u_init)
-anim_eki_cloudy = @animate for i in 1:N_iter
+anim_eki_cloudy = @animate for i in 1:n_iter
     ϕ_i = get_ϕ(priors, ekiobj, i)
 
     p1 = plot(ϕ_i[1, :], ϕ_i[2, :], seriestype = :scatter, xlims = extrema(ϕ_init[1, :]), ylims = extrema(ϕ_init[2, :]))

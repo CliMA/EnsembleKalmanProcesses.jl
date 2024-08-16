@@ -104,6 +104,11 @@ function update_ensemble!(
     failed_ens = nothing,
 ) where {FT, IT}
 
+    if !(isa(get_accelerator(ekp), DefaultAccelerator))
+        add_stochastic_perturbation = false # doesn't play well with accelerator, but not needed
+    else
+        add_stochastic_perturbation = deterministic_forward_map
+    end
     # u: N_par × N_ens 
     # g: N_obs × N_ens
     u = get_u_final(ekp)
@@ -127,7 +132,7 @@ function update_ensemble!(
 
     # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic, else just repeat the observation
-    y = deterministic_forward_map ? (get_obs(ekp) .+ noise) : repeat(get_obs(ekp), 1, ekp.N_ens)
+    y = add_stochastic_perturbation ? (get_obs(ekp) .+ noise) : repeat(get_obs(ekp), 1, ekp.N_ens)
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)

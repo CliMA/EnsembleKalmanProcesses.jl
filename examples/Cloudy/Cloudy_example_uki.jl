@@ -1,6 +1,6 @@
-# This example requires Cloudy to be installed (it's best to install the master
-# branch), which can be done by:
-#] add Cloudy#master
+@info "This experiment is very sensitive to the Cloudy version. It is known to work with Cloudy commit: b4fa7e3"
+#julia --project; ]; add Cloudy#b4fa7e3
+
 using Cloudy
 using Cloudy.ParticleDistributions
 using Cloudy.KernelTensors
@@ -92,8 +92,8 @@ tspan = (0.0, 1.0)
 ###  Generate (artificial) truth samples
 ###
 
-model_settings_true = ModelSettings(kernel, dist_true, moments, tspan)
-G_t = run_dyn_model(ϕ_true, model_settings_true)
+model_settings_true = DynamicalModel.ModelSettings(kernel, dist_true, moments, tspan)
+G_t = DynamicalModel.run_dyn_model(ϕ_true, model_settings_true)
 n_samples = 100
 y_t = zeros(length(G_t), n_samples)
 # In a perfect model setting, the "observational noise" represents the 
@@ -136,16 +136,17 @@ dummy = ones(n_par)
 dist_type = ParticleDistributions.GammaPrimitiveParticleDistribution(dummy...)
 model_settings = DynamicalModel.ModelSettings(kernel, dist_type, moments, tspan)
 
-err = zeros(N_iter)
+err = []
+final_iter = [N_iter]
 for n in 1:N_iter
     # Return transformed parameters in physical/constrained space
     ϕ_n = get_ϕ_final(priors, ukiobj)
     # Evaluate forward map
     println("size: ", size(ϕ_n))
-    G_n = [run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:size(ϕ_n)[2]]
+    G_n = [DynamicalModel.run_dyn_model(ϕ_n[:, i], model_settings) for i in 1:size(ϕ_n)[2]]
     G_ens = hcat(G_n...)  # reformat
-    EnsembleKalmanProcesses.update_ensemble!(ukiobj, G_ens)
-    err[n] = get_error(ukiobj)[end]
+    terminate = EnsembleKalmanProcesses.update_ensemble!(ukiobj, G_ens)
+    push!(err, get_error(ukiobj)[end])
     println(
         "Iteration: " *
         string(n) *
@@ -155,7 +156,12 @@ for n in 1:N_iter
 " *
         string(norm(ukiobj.process.uu_cov[n])),
     )
+    if !isnothing(terminate)
+        final_it[1] = n - 1
+        break
+    end
 end
+n_iter = final_it[1]
 
 
 # UKI results: the mean is in ukiobj.process.u_mean
@@ -174,27 +180,27 @@ g_stored = get_g(ukiobj, return_array = false)
 @save data_save_directory * "data_storage_uki.jld2" g_stored
 
 ####
-θ_mean_arr = hcat([get_u_mean(ukiobj, i) for i in 1:N_iter]...)
+θ_mean_arr = hcat([get_u_mean(ukiobj, i) for i in 1:n_iter]...)
 N_θ = length(get_u_mean(ukiobj, 1))
-θθ_std_arr = zeros(Float64, (N_θ, N_iter + 1))
-for i in 1:(N_iter + 1)
+θθ_std_arr = zeros(Float64, (N_θ, n_iter + 1))
+for i in 1:(n_iter + 1)
     for j in 1:N_θ
         θθ_std_arr[j, i] = sqrt(get_u_cov(ukiobj, i)[j, j])
     end
 end
 
 
-ites = Array(LinRange(1, N_iter + 1, N_iter + 1))
+ites = Array(LinRange(1, n_iter + 1, n_iter + 1))
 plot(ites, grid = false, θ_mean_arr[1, :], yerror = 3.0 * θθ_std_arr[1, :], label = "u1")
-plot!(ites, fill(θvec_true[1], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+plot!(ites, fill(θvec_true[1], n_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
 plot!(ites, grid = false, θ_mean_arr[2, :], yerror = 3.0 * θθ_std_arr[2, :], label = "u2", xaxis = "Iterations")
-plot!(ites, fill(θvec_true[2], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+plot!(ites, fill(θvec_true[2], n_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
 plot!(ites, grid = false, θ_mean_arr[3, :], yerror = 3.0 * θθ_std_arr[3, :], label = "u3", xaxis = "Iterations")
-plot!(ites, fill(θvec_true[3], N_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
+plot!(ites, fill(θvec_true[3], n_iter + 1), linestyle = :dash, linecolor = :grey, label = nothing)
 
 gr(size = (1200, 400))
 
-anim_uki_unconst_cloudy = @animate for i in 1:N_iter
+anim_uki_unconst_cloudy = @animate for i in 1:n_iter
     θ_mean, θθ_cov = get_u_mean(ukiobj, i), get_u_cov(ukiobj, i)
     θ1, θ2, fθ1θ2 = Gaussian_2d(θ_mean[1:2], θθ_cov[1:2, 1:2], 100, 100)
     p1 = contour(θ1, θ2, fθ1θ2)
