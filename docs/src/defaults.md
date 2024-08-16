@@ -9,7 +9,7 @@ However there are several rules of thumb, for calibrating a parameter vector `\t
 --------------------------------|----------------------------------------------------------------
 ``\mathrm{dim}(\theta)\leq 10`` | ``N_{\mathrm{ens}} = 10\mathrm{dim}(\theta)``
 ``\mathrm{dim}(\theta)\geq 10`` | ``N_{\mathrm{ens}} = 100``
-``\mathrm{dim}(\theta)\geq 100``| ``N_{\mathrm{ens}} = 100`` and use [sampling error correction](@id localization)
+``\mathrm{dim}(\theta)\geq 100``| ``N_{\mathrm{ens}} = 100`` and use [sampling error correction](@ref localization)
 
 !!! note "for the `Unscented` process"
     The [UKI method](@ref uki) always creates an ensemble size proportional to the input dimension, and it is not configurable by the user.
