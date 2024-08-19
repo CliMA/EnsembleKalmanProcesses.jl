@@ -38,9 +38,9 @@ Julia version 1.6+
 
 # Quick links!
 
-- [How do I build prior distributions](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/parameter_distributions/)
-- [How do I build my observations and encode batching](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/observations/)
-- [What ensemble size should I take? Which process should I use? and what is the recommended configuration?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/defaults/)
+- [How do I build prior distributions?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/parameter_distributions/)
+- [How do I build my observations and encode batching?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/observations/)
+- [What ensemble size should I take? Which process should I use? What is the recommended configuration?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/defaults/)
 - [What can be parallelized? How do I do it in Julia?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/parallel_hpc/)
 - [What is going on in my own code?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/troubleshooting/)
 - [What is this error/warning/message?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/troubleshooting/)

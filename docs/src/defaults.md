@@ -3,11 +3,11 @@
 ## Recommended Ensemble Size
 
 The ensemble size is generally not determinable in advance.
-However there are several rules of thumb, for calibrating a parameter vector ``\theta``, that can be used as a starting point.
+However there are several rules of thumb for calibrating a parameter vector ``\theta`` that can be used as a starting point.
 
 Parameter dimension        | Ensemble size 
 --------------------------------|----------------------------------------------------------------
-``\mathrm{dim}(\theta)\leq 10`` | ``N_{\mathrm{ens}} = 10 \cdot \mathrm{dim}(\theta)``
+``\mathrm{dim}(\theta)\leq 10`` | ``N_{\mathrm{ens}} \geq 10 \cdot \mathrm{dim}(\theta)``
 ``10 \leq \mathrm{dim}(\theta)\leq 100`` | ``N_{\mathrm{ens}} = 100``
 ``100\leq \mathrm{dim}(\theta)``| ``N_{\mathrm{ens}} = 100`` and [SEC](@ref localization)
 
@@ -22,7 +22,7 @@ Parameter dimension        | Ensemble size
 
 ## Prebuilt defaults
 
-Sensible defaults have been chosen for the methodology to give broadly the best solution. The configurations can be revealed by adding the keyword
+Defaults have been chosen for the methodology based on prior experience. The configurations can be revealed by adding the keyword
 ```julia
 EnsembleKalmanProcess(..., verbose = true)
 ```

@@ -21,13 +21,13 @@ Localizers.jl                               | Covariance localization kernels
 
 # Quick links!
 
-- [How do I build prior distributions](@ref parameter-distributions)
-- [How do I build my observations and encode batching](@ref observations)
-- [What ensemble size should I take? Which process should I use? and what is the recommended configuration?](@ref defaults)
+- [How do I build prior distributions?](@ref parameter-distributions)
+- [How do I build my observations and encode batching?](@ref observations)
+- [What ensemble size should I take? Which process should I use? What is the recommended configuration?](@ref defaults)
 - [What can be parallelized? How do I do it in Julia?](@ref parallel-hpc)
 - [What is going on in my own code?](@ref troubleshooting)
 - [What is this error/warning/message?](@ref troubleshooting)
-- Where can walk through a simple example?
+- Where can i walk through a simple example?
 Learning the amplitude and vertical shift of a sine curve
 ![Ensemble of parameter estimates by iteration](assets/sinusoid_example.gif)
 [See full example for the code.](literated/sinusoid_example.md)
