@@ -1,4 +1,4 @@
-# Observations
+# [Observations] (@id observations)
 
 The Observations object facilitates convenient storing, grouping and minibatching over observations.
 

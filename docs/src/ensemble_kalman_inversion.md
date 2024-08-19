@@ -125,7 +125,7 @@ To obtain the optimal value in the constrained space, we use the getter with the
 ϕ_optim = get_ϕ_mean_final(prior, ekiobj) # the optimal physical parameter value
 ```
 
-## Handling forward model failures
+## [Handling forward model failures](@id failure-eki)
 
 In situations where the forward model ``\mathcal{G}`` represents a diagnostic of a complex computational model, there might be cases where for some parameter combinations ``\theta``, attempting to evaluate ``\mathcal{G}(\theta)`` may result in model failure (defined as returning a `NaN` from the point of view of this package). In such cases, the EKI update equation (2) must be modified to handle model failures.
 
