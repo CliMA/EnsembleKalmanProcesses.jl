@@ -482,13 +482,13 @@ end
 
     #check for small ens    
     initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior, 9)
-    @test_throws (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs, Γy, Inversion())
+    @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs, Γy, Inversion())
     prior_6dims = constrained_gaussian("6dims", 0, 1, -Inf, Inf, repeats = 6)
     initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior_6dims, 59)
-    @test_throws (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs, Γy, Inversion())
+    @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs, Γy, Inversion())
     prior_60dims = constrained_gaussian("60dims", 0, 1, -Inf, Inf, repeats = 60)
     initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior_60dims, 99)
-    @test_throws (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs, Γy, Inversion())
+    @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs, Γy, Inversion())
 
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
