@@ -87,7 +87,7 @@ end
     inv_sqrt_Γy = sqrt(inv(Γy))
 
     rng = Random.MersenneTwister(rng_seed)
-    N_ens_tmp = 5
+    N_ens_tmp = 10
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens_tmp)
 
     # build accelerated and non-accelerated processes
@@ -479,6 +479,17 @@ end
     rng = Random.MersenneTwister(rng_seed)
 
     iters_with_failure = [5, 8, 9, 15]
+
+    #check for small ens    
+    initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior, 9)
+    @test_throws (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs, Γy, Inversion())
+    prior_6dims = constrained_gaussian("6dims", 0, 1, -Inf, Inf, repeats = 6)
+    initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior_6dims, 59)
+    @test_throws (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs, Γy, Inversion())
+    prior_60dims = constrained_gaussian("60dims", 0, 1, -Inf, Inf, repeats = 60)
+    initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior_60dims, 99)
+    @test_throws (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs, Γy, Inversion())
+
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
     ekiobj = nothing
