@@ -779,7 +779,6 @@ mean(d::VectorOfParameterized) = reduce(vcat, mean.(d.distribution))
 mean(pd::ParameterDistribution) = reduce(vcat, mean.(pd.distribution))
 
 #apply transforms
-
 function transform_constrained_to_unconstrained(
     d::PDT,
     constraints::AbstractVector,
@@ -845,8 +844,16 @@ Here, `x` is an iterable of parameters sample ensembles for different EKP iterat
 """
 function transform_constrained_to_unconstrained(
     pd::ParameterDistribution,
-    x, # ::Iterable{AbstractMatrix{FT}},
+    x,
 )
+    if !hasmethod(iterate,[typeof(x)]) # no way of iterating
+        throw(ArgumentError("transformations can be applied to `Matrix` or `Iterable{Matrix}` types only. Got $(typeof(x))."))
+    end
+    
+    if !isa(x[1],AbstractMatrix)
+        throw(ArgumentError("transformations can be applied to `Matrix` or `Iterable{Matrix}` types only. Got $(typeof(x))."))
+    end
+    
     transf_x = []
     for elem in x
         push!(transf_x, transform_constrained_to_unconstrained(pd, elem))
@@ -927,8 +934,16 @@ Here, `x` is an iterable of parameters sample ensembles for different EKP iterat
 """
 function transform_unconstrained_to_constrained(
     pd::ParameterDistribution,
-    x, # ::Iterable{AbstractMatrix{FT}},
+    x, # iterable{Matrix}
 )
+    if !hasmethod(iterate,[typeof(x)]) # no way of iterating
+        throw(ArgumentError("transformations can be applied to `Matrix` or `Iterable{Matrix}` types only. Got $(typeof(x))."))
+    end
+        
+    if !isa(x[1],AbstractMatrix)
+        throw(ArgumentError("transformations can be applied to `Matrix` or `Iterable{Matrix}` types only. Got $(typeof(x))."))
+    end
+    
     transf_x = []
     for elem in x
         push!(transf_x, transform_unconstrained_to_constrained(pd, elem))
