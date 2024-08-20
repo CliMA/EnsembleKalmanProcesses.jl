@@ -351,12 +351,12 @@ function get_g(ekp::EnsembleKalmanProcess, iteration::IT; return_array = true) w
 end
 
 """
-    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT)
+    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT; return_array=true)
 
 Returns the constrained parameters at the given iteration.
 """
-function get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
-    return transform_unconstrained_to_constrained(prior, get_u(ekp, iteration))
+function get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT; return_array = true) where {IT <: Integer}
+    return transform_unconstrained_to_constrained(prior, get_u(ekp, iteration, return_array=return_array))
 end
 
 """
@@ -382,12 +382,13 @@ function get_g(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess)
+    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess; return_array=true)
 
-Returns the constrained parameters from all iterations. The outer dimension is given by the number of iterations.
+Returns the constrained parameters from all iterations. The outer dimension is given by the number of iterations,
+and the inner objects are `DataContainer` objects unless `return_array` is true.
 """
-get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess) =
-    transform_unconstrained_to_constrained(prior, get_u(ekp))
+get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess; return_array = true) =
+    transform_unconstrained_to_constrained(prior, get_u(ekp, return_array = return_array))
 
 """
     get_u_mean(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
@@ -436,7 +437,7 @@ function get_g_mean(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Inte
 end
 
 """
-    get_u_final(ekp::EnsembleKalmanProcess, return_array=true)
+    get_u_final(ekp::EnsembleKalmanProcess; return_array=true)
 
 Get the unconstrained parameters at the last iteration, returning a `DataContainer` Object if `return_array` is false.
 """
@@ -445,7 +446,7 @@ function get_u_final(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_u_prior(ekp::EnsembleKalmanProcess, return_array=true)
+    get_u_prior(ekp::EnsembleKalmanProcess; return_array=true)
 
 Get the unconstrained parameters as drawn from the prior, returning a `DataContainer` Object if `return_array` is false.
 """
@@ -454,7 +455,7 @@ function get_u_prior(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_g_final(ekp::EnsembleKalmanProcess, return_array=true)
+    get_g_final(ekp::EnsembleKalmanProcess; return_array=true)
 
 Get forward model outputs at the last iteration, returns a `DataContainer` Object if `return_array` is false.
 """
@@ -463,12 +464,12 @@ function get_g_final(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_ϕ_final(ekp::EnsembleKalmanProcess)
+    get_ϕ_final(ekp::EnsembleKalmanProcess; return_array=true)
 
 Get the constrained parameters at the last iteration.
 """
-get_ϕ_final(prior::ParameterDistribution, ekp::EnsembleKalmanProcess) =
-    transform_unconstrained_to_constrained(prior, get_u_final(ekp))
+get_ϕ_final(prior::ParameterDistribution, ekp::EnsembleKalmanProcess; return_array = true) =
+    transform_unconstrained_to_constrained(prior, get_u_final(ekp, return_array = return_array))
 
 """
     get_u_mean_final(ekp::EnsembleKalmanProcess)
