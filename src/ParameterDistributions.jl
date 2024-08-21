@@ -833,7 +833,7 @@ function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Ab
 end
 
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::R) where {R <: Real}
-    return transform_constrained_to_unconstrained(pd, [x])[1, 1]
+    return transform_constrained_to_unconstrained(pd, [x])[1]
 end
 """
     transform_constrained_to_unconstrained(d::ParameterDistribution, x::Dict)
@@ -961,7 +961,7 @@ function transform_unconstrained_to_constrained(
     build_flag::Bool = true,
 ) where {R <: Real}
     out = transform_unconstrained_to_constrained(pd, [x], build_flag = build_flag)
-    return size(out) == (1, 1) ? out[1, 1] : out
+    return size(out) == (1,) ? out[1] : out
 end
 
 """
