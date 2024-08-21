@@ -355,8 +355,13 @@ end
 
 Returns the constrained parameters at the given iteration.
 """
-function get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT; return_array = true) where {IT <: Integer}
-    return transform_unconstrained_to_constrained(prior, get_u(ekp, iteration, return_array=return_array))
+function get_ϕ(
+    prior::ParameterDistribution,
+    ekp::EnsembleKalmanProcess,
+    iteration::IT;
+    return_array = true,
+) where {IT <: Integer}
+    return transform_unconstrained_to_constrained(prior, get_u(ekp, iteration, return_array = return_array))
 end
 
 """
