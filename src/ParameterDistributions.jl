@@ -803,8 +803,9 @@ Each column of `x` is a sample, and each row is a parameter.
 The return type is a vector if `x` is a vector, and is assumed to represent a column, unless the parameter distribution is one-dimensional
 """
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::AbstractVecOrMat{T}) where {T <: Real}
+
+    nd = ndims(pd, function_parameter_opt = "eval")
     if isa(x, AbstractVector)
-        nd = ndims(pd, function_parameter_opt = "eval")
         if nd == 1
             xmat = reshape(x, 1, :)
         else
@@ -908,7 +909,7 @@ Apply the transformation to map unconstrained parameter sample(s) `x` into the c
 Each column of `x` is a sample, and each row is a parameter.
 
 The return type is a vector if `x` is a vector, and is assumed to represent a column, unless the parameter distribution is one-dimensional
-The build_flag will reconstruct any function parameters onto their flattened, discretized, domains.
+The build_flag = true will reconstruct any function parameter coefficients on discretized, domains and apply constraints. while build_flag = false takes as input the discretized function parameter, and only applies a constraint.
 """
 function transform_unconstrained_to_constrained(
     pd::ParameterDistribution,
@@ -916,7 +917,7 @@ function transform_unconstrained_to_constrained(
     build_flag::Bool = true,
 ) where {T <: Real}
 
-    nd = ndims(pd, function_parameter_opt = "dof") # dof for input sizes, eval for output sizes
+    nd = build_flag ? ndims(pd, function_parameter_opt = "dof") : ndims(pd, function_parameter_opt = "eval")
     if isa(x, AbstractVector)
         if nd == 1
             xmat = reshape(x, 1, :)
