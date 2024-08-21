@@ -24,6 +24,7 @@ Localizers.jl                               | Covariance localization kernels
 - [How do I build prior distributions?](@ref parameter-distributions)
 - [How do I build my observations and encode batching?](@ref observations)
 - [What ensemble size should I take? Which process should I use? What is the recommended configuration?](@ref defaults)
+- [What is the difference between `get_u` and `get_ϕ`? Why do the stored parameters apperar to be outside their bounds?](@ref parameter-distributions)
 - [What can be parallelized? How do I do it in Julia?](@ref parallel-hpc)
 - [What is going on in my own code?](@ref troubleshooting)
 - [What is this error/warning/message?](@ref troubleshooting)
