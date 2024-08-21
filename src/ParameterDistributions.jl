@@ -813,6 +813,14 @@ function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Ab
     else
         xmat = x
     end
+    if size(xmat, 1) != nd
+        throw(
+            ArgumentError(
+                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape [parameter dimension, sample size]",
+            ),
+        )
+    end
+
     param_names = get_name(pd)
     pd_batch_idxs = batch(pd, function_parameter_opt = "eval") # e.g. [collect(1:2), collect(3:3), collect(5:9)]
     pd_constraints = get_all_constraints(pd, return_dict = true)
@@ -908,8 +916,8 @@ function transform_unconstrained_to_constrained(
     build_flag::Bool = true,
 ) where {T <: Real}
 
+    nd = ndims(pd, function_parameter_opt = "dof") # dof for input sizes, eval for output sizes
     if isa(x, AbstractVector)
-        nd = ndims(pd, function_parameter_opt = "eval")
         if nd == 1
             xmat = reshape(x, 1, :)
         else
@@ -917,6 +925,13 @@ function transform_unconstrained_to_constrained(
         end
     else
         xmat = x
+    end
+    if size(xmat, 1) != nd
+        throw(
+            ArgumentError(
+                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape [parameter dimension, sample size]",
+            ),
+        )
     end
 
     param_names = get_name(pd)
