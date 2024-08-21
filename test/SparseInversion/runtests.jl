@@ -114,7 +114,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
                 @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
                 EKP.update_ensemble!(ekiobj, g_ens)
             else
-                EKP.update_ensemble!(ekiobj, g_ens, Δt_new = ekiobj.Δt[1])
+                EKP.update_ensemble!(ekiobj, g_ens, Δt_new = get_Δt(ekiobj)[1])
             end
             @test !any(isnan.(params_i))
         end
@@ -124,7 +124,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
-        @test isequal(get_error(ekiobj), ekiobj.err)
+        @test isequal(get_error(ekiobj), ekiobj.error)
 
         # EKI results: Test if ensemble has collapsed toward the true constrained parameter
         # values
@@ -196,7 +196,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
         # this test is fine so long as N_iter is large enough to hit the termination time
         if nameof(typeof(scheduler)) == DataMisfitController
             if (scheduler.terminate_at, scheduler.on_terminate) == (Float64(T_end), "stop")
-                @test sum(ekiobj.Δt) ≈ scheduler.terminate_at
+                @test sum(get_Δt(ekiobj)) ≈ scheduler.terminate_at
             end
         end
 
