@@ -171,7 +171,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test sample5_constrained ≈ sample5_constrained_direct atol = tol
         @test sample6_constrained ≈ sample6_constrained_direct atol = tol
 
-# specifying from unc. to cons. function evaluations with flag
+        # specifying from unc. to cons. function evaluations with flag
         @test sample5_constrained ≈ transform_unconstrained_to_constrained(pd, vec(sample5), build_flag = false)
         @test all(
             isapprox.(

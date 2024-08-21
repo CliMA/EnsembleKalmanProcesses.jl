@@ -14,7 +14,8 @@ export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error, get_cov_blocks
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
 export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
-export get_scheduler, get_localizer, get_localizer_type, get_accelerator, get_rng, get_Δt, get_failure_handler, get_N_ens, get_process
+export get_scheduler,
+    get_localizer, get_localizer_type, get_accelerator, get_rng, get_Δt, get_failure_handler, get_N_ens, get_process
 export get_observation_series, get_obs, get_obs_noise_cov, get_obs_noise_cov_inv
 export compute_error!
 export update_ensemble!

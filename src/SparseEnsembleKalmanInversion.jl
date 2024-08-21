@@ -158,8 +158,7 @@ function sparse_eki_update(
         u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], H_uc = H_uc)
 
         # Prune parameters using threshold
-        u[process.uc_idx, j] =
-            u[process.uc_idx, j] .* (abs.(u[process.uc_idx, j]) .> process.threshold_value)
+        u[process.uc_idx, j] = u[process.uc_idx, j] .* (abs.(u[process.uc_idx, j]) .> process.threshold_value)
 
         # Add small noise to constrained elements of u
         if isposdef(process.reg)
