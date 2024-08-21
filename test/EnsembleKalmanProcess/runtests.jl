@@ -544,7 +544,10 @@ end
         g_ens_t = permutedims(g_ens, (2, 1))
 
         @test size(g_ens) == (n_obs, N_ens)
-
+        @test get_N_ens(ekiobj) == ekiobj.N_ens
+        @test get_rng(ekiobj) == ekiobj.rng
+        @test get_failure_handler(ekiobj) == ekiobj.failure_handler
+        @test get_Δt(ekiobj) == ekiobj.Δt
         # EKI iterations
         u_i_vec = Array{Float64, 2}[]
         g_ens_vec = Array{Float64, 2}[]

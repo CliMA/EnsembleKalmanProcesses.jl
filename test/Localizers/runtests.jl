@@ -80,7 +80,7 @@ const EKP = EnsembleKalmanProcesses
             localization_method = loc_method,
             scheduler = scheduler,
         )
-        @test isa(ekiobj.localizer, Localizer)
+        @test isa(get_localizer(ekiobj), Localizer)
 
         for i in 1:N_iter
             g_ens = G(get_u_final(ekiobj))
@@ -103,7 +103,7 @@ const EKP = EnsembleKalmanProcesses
         cov_localized = ekiobj.localizer.localize(cov_est)
         @test rank(cov_est) < rank(cov_localized)
         # Test localization getter method
-        @test isa(loc_method, EKP.get_localizer(ekiobj))
+        @test isa(loc_method, EKP.get_localizer_type(ekiobj))
     end
 
 
