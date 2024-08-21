@@ -816,7 +816,7 @@ function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Ab
     if size(xmat, 1) != nd
         throw(
             ArgumentError(
-                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape [parameter dimension, sample size]",
+                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape (parameter dimension, sample size)",
             ),
         )
     end
@@ -929,7 +929,7 @@ function transform_unconstrained_to_constrained(
     if size(xmat, 1) != nd
         throw(
             ArgumentError(
-                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape [parameter dimension, sample size]",
+                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape (parameter dimension, sample size)",
             ),
         )
     end
