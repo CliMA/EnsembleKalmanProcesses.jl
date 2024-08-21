@@ -668,7 +668,7 @@ function compute_error!(ekp::EnsembleKalmanProcess)
         shift[1] = maximum(idx)
     end
     newerr = dot(diff, X)
-    push!(ekp.error, newerr)
+    push!(get_error(ekp), newerr)
 end
 
 """
@@ -761,7 +761,7 @@ Inputs:
 """
 function multiplicative_inflation!(ekp::EnsembleKalmanProcess; s::FT = 1.0) where {FT <: Real}
 
-    scaled_Δt = s * ekp.Δt[end]
+    scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
         error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
@@ -794,7 +794,7 @@ function additive_inflation!(
     s::FT = 1.0,
 ) where {FT <: Real, MorUS <: Union{AbstractMatrix, UniformScaling}}
 
-    scaled_Δt = s * ekp.Δt[end]
+    scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
         error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
@@ -805,7 +805,7 @@ function additive_inflation!(
     Σ_sqrt = sqrt(scaled_Δt / (1 - scaled_Δt) .* inflation_cov)
 
     # add multivariate noise with 0 mean and scaled covariance
-    u_updated = u .+ Σ_sqrt * rand(ekp.rng, MvNormal(zeros(size(u, 1)), I), size(u, 2))
+    u_updated = u .+ Σ_sqrt * rand(get_rng(ekp), MvNormal(zeros(size(u, 1)), I), size(u, 2))
     ekp.u[end] = DataContainer(u_updated, data_are_columns = true)
 end
 
@@ -844,10 +844,10 @@ function update_ensemble!(
     ekp_kwargs...,
 ) where {FT, NFT <: Union{Nothing, AbstractFloat}, MorUS <: Union{AbstractMatrix, UniformScaling}}
     #catch works when g non-square 
-    if !(size(g)[2] == ekp.N_ens)
+    if !(size(g)[2] == get_N_ens(ekp))
         throw(
             DimensionMismatch(
-                "ensemble size $(ekp.N_ens) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
+                "ensemble size $(get_N_ens(ekp)) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
             ),
         )
     end

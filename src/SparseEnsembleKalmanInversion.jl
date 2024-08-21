@@ -56,7 +56,7 @@ function FailureHandler(process::SparseInversion, method::SampleSuccGauss)
         u[:, successful_ens] =
             sparse_eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
         if !isempty(failed_ens)
-            u[:, failed_ens] = sample_empirical_gaussian(ekp.rng, u[:, successful_ens], n_failed)
+            u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
         return u
     end
@@ -99,7 +99,7 @@ function sparse_qp(
     G = hcat(vcat(H_uc, -1.0 * H_uc), vcat(-1.0 * H_uc_abs, -1.0 * H_uc_abs))
     h = fill(FT(0), 2 * N_params, 1)
     G1 = vcat(G, hcat(fill(FT(0), 1, size(P)[1]), fill(FT(1), 1, N_params)))
-    h1 = vcat(h, ekp.process.γ)
+    h1 = vcat(h, get_process(ekp).γ)
     x = Variable(size(P1)[1])
     problem = minimize(0.5 * quadform(x, P1; assume_psd = true) + q1' * x, [G1 * x <= h1])
     solve!(problem, MOI.OptimizerWithAttributes(SCS.Optimizer, "verbose" => 0))
@@ -131,9 +131,9 @@ function sparse_eki_update(
 ) where {FT <: Real, CT <: Real, IT}
 
     cov_est = cov([u; g], [u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
-
+    process = get_process(ekp)
     # Localization
-    cov_localized = ekp.localizer.localize(cov_est)
+    cov_localized = get_localizer(ekp).localize(cov_est)
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
 
     v = hcat(u', g')
@@ -148,7 +148,7 @@ function sparse_eki_update(
     H_u = hcat(1.0 * I(size(u)[1]), fill(FT(0), size(u)[1], size(g)[1]))
     H_g = hcat(fill(FT(0), size(g)[1], size(u)[1]), 1.0 * I(size(g)[1]))
 
-    H_uc = H_u[ekp.process.uc_idx, :]
+    H_uc = H_u[process.uc_idx, :]
 
     cov_vv_inv = cov_vv \ (1.0 * I(size(cov_vv)[1]))
 
@@ -158,13 +158,13 @@ function sparse_eki_update(
         u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], H_uc = H_uc)
 
         # Prune parameters using threshold
-        u[ekp.process.uc_idx, j] =
-            u[ekp.process.uc_idx, j] .* (abs.(u[ekp.process.uc_idx, j]) .> ekp.process.threshold_value)
+        u[process.uc_idx, j] =
+            u[process.uc_idx, j] .* (abs.(u[process.uc_idx, j]) .> process.threshold_value)
 
         # Add small noise to constrained elements of u
-        if isposdef(ekp.process.reg)
-            len_u_sparse = length(u[ekp.process.uc_idx, j])
-            u[ekp.process.uc_idx, j] += rand(ekp.rng, MvNormal(zeros(len_u_sparse), ekp.process.reg * I(len_u_sparse)))
+        if isposdef(process.reg)
+            len_u_sparse = length(u[process.uc_idx, j])
+            u[process.uc_idx, j] += rand(get_rng(ekp), MvNormal(zeros(len_u_sparse), process.reg * I(len_u_sparse)))
         end
     end
     return u
@@ -202,11 +202,11 @@ function update_ensemble!(
     u = get_u_final(ekp)
     N_obs = size(g, 1)
     cov_init = cov(u, dims = 2)
-    fh = ekp.failure_handler
+    fh = get_failure_handler(ekp)
 
     # Scale noise using Δt
-    scaled_obs_noise_cov = get_obs_noise_cov(ekp) / ekp.Δt[end]
-    noise = sqrt(scaled_obs_noise_cov) * rand(ekp.rng, MvNormal(zeros(N_obs), I), ekp.N_ens)
+    scaled_obs_noise_cov = get_obs_noise_cov(ekp) / get_Δt(ekp)[end]
+    noise = sqrt(scaled_obs_noise_cov) * rand(get_rng(ekp), MvNormal(zeros(N_obs), I), get_N_ens(ekp))
 
     # Add obs_mean (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic

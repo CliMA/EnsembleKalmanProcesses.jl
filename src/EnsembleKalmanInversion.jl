@@ -26,7 +26,7 @@ function FailureHandler(process::Inversion, method::SampleSuccGauss)
         u[:, successful_ens] =
             eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
         if !isempty(failed_ens)
-            u[:, failed_ens] = sample_empirical_gaussian(ekp.rng, u[:, successful_ens], n_failed)
+            u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
         return u
     end
@@ -59,7 +59,7 @@ function eki_update(
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
     # Localization
-    cov_localized = ekp.localizer.localize(cov_est)
+    cov_localized = get_localizer(ekp).localize(cov_est)
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
 
     # N_obs × N_obs \ [N_obs × N_ens]
@@ -121,18 +121,18 @@ function update_ensemble!(
             @info "Covariance trace: $(tr(cov_init))"
         end
 
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
+        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(get_Δt(ekp))))"
     end
 
-    fh = ekp.failure_handler
+    fh = get_failure_handler(ekp)
 
     # Scale noise using Δt
-    scaled_obs_noise_cov = get_obs_noise_cov(ekp) / ekp.Δt[end]
-    noise = sqrt(scaled_obs_noise_cov) * rand(ekp.rng, MvNormal(zeros(N_obs), I), ekp.N_ens)
+    scaled_obs_noise_cov = get_obs_noise_cov(ekp) / get_Δt(ekp)[end]
+    noise = sqrt(scaled_obs_noise_cov) * rand(get_rng(ekp), MvNormal(zeros(N_obs), I), get_N_ens(ekp))
 
     # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic, else just repeat the observation
-    y = add_stochastic_perturbation ? (get_obs(ekp) .+ noise) : repeat(get_obs(ekp), 1, ekp.N_ens)
+    y = add_stochastic_perturbation ? (get_obs(ekp) .+ noise) : repeat(get_obs(ekp), 1, get_N_ens(ekp))
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)

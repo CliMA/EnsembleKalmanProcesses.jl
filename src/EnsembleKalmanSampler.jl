@@ -73,18 +73,18 @@ function eks_update(
     E = g' .- g_mean
     R = g' .- get_obs(ekp)
     # D: N_ens × N_ens
-    D = (1 / ekp.N_ens) * (E' * (get_obs_noise_cov(ekp) \ R))
+    D = (1 / get_N_ens(ekp)) * (E' * (get_obs_noise_cov(ekp) \ R))
 
     # Default: Δt = 1 / (norm(D) + eps(FT))
-    Δt = ekp.Δt[end]
+    Δt = get_Δt(ekp)[end]
 
     noise = MvNormal(zeros(size(u_cov, 1)), I)
-
+    process = get_process(ekp)
     implicit =
-        (1 * Matrix(I, size(u)[2], size(u)[2]) + Δt * (ekp.process.prior_cov' \ u_cov')') \
-        (u' .- Δt * (u' .- u_mean) * D .+ Δt * u_cov * (ekp.process.prior_cov \ ekp.process.prior_mean))
+        (1 * Matrix(I, size(u)[2], size(u)[2]) + Δt * (process.prior_cov' \ u_cov')') \
+        (u' .- Δt * (u' .- u_mean) * D .+ Δt * u_cov * (process.prior_cov \ process.prior_mean))
 
-    u = implicit' + sqrt(2 * Δt) * (sqrt(u_cov) * rand(ekp.rng, noise, ekp.N_ens))'
+    u = implicit' + sqrt(2 * Δt) * (sqrt(u_cov) * rand(get_rng(ekp), noise, get_N_ens(ekp)))'
 
     return u
 end
@@ -118,7 +118,7 @@ function update_ensemble!(
     u_old = get_u_final(ekp)
     cov_init = get_u_cov_final(ekp)
 
-    fh = ekp.failure_handler
+    fh = get_failure_handler(ekp)
 
     if ekp.verbose
         if get_N_iterations(ekp) == 0
@@ -126,7 +126,7 @@ function update_ensemble!(
             @info "Covariance trace: $(tr(cov_init))"
         end
 
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
+        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(get_Δt(ekp))))"
     end
 
     if isnothing(failed_ens)

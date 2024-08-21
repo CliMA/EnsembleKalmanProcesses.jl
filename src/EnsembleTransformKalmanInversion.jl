@@ -36,7 +36,7 @@ function FailureHandler(process::TransformInversion, method::SampleSuccGauss)
         n_failed = length(failed_ens)
         u[:, successful_ens] = etki_update(ekp, u[:, successful_ens], g[:, successful_ens])
         if !isempty(failed_ens)
-            u[:, failed_ens] = sample_empirical_gaussian(ekp.rng, u[:, successful_ens], n_failed)
+            u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
         return u
     end
@@ -60,7 +60,7 @@ function etki_update(
 ) where {FT <: Real, IT}
 
     y = get_obs(ekp)
-    inv_noise_scaling = ekp.Δt[end]
+    inv_noise_scaling = get_Δt(ekp)[end]
 
     m = size(u, 2)
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
@@ -140,10 +140,10 @@ function update_ensemble!(
             @info "Covariance trace: $(tr(cov_init))"
         end
 
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
+        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(get_Δt(ekp))))"
     end
 
-    fh = ekp.failure_handler
+    fh = get_failure_handler(ekp)
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)

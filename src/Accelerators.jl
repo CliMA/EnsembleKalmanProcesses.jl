@@ -107,17 +107,17 @@ function accelerate!(
     u::MA,
 ) where {FT <: AbstractFloat, IT <: Int, P <: Process, LRS <: LearningRateScheduler, MA <: AbstractMatrix}
     ## update "v" state:
-    Δt_prev = length(ekp.Δt) == 1 ? ekp.Δt[end] : ekp.Δt[end - 1]
-    Δt = ekp.Δt[end]
-    θ_prev = ekp.accelerator.θ_prev
+    Δt_prev = length(get_Δt(ekp)) == 1 ? get_Δt(ekp)[end] : get_Δt(ekp)[end - 1]
+    Δt = get_Δt(ekp)[end]
+    θ_prev = get_accelerator(ekp).θ_prev
 
     b = θ_prev^2
     θ = (-b + sqrt(b^2 + 4 * b)) / 2
 
-    v = u .+ θ * (1 / θ_prev - 1) * (u .- ekp.accelerator.u_prev)
+    v = u .+ θ * (1 / θ_prev - 1) * (u .- get_accelerator(ekp).u_prev)
     ## update "u" state: 
-    ekp.accelerator.u_prev = u
-    ekp.accelerator.θ_prev = θ
+    get_accelerator(ekp).u_prev = u
+    get_accelerator(ekp).θ_prev = θ
 
     ## push "v" state to EKP object
     push!(ekp.u, DataContainer(v, data_are_columns = true))
@@ -182,10 +182,10 @@ function accelerate!(
     u::MA,
 ) where {FT <: AbstractFloat, IT <: Int, P <: Process, LRS <: LearningRateScheduler, MA <: AbstractMatrix}
     ## update "v" state:
-    v = u .+ ekp.accelerator.λ * (u .- ekp.accelerator.u_prev)
+    v = u .+ get_accelerator(ekp).λ * (u .- get_accelerator(ekp).u_prev)
 
     ## update "u" state: 
-    ekp.accelerator.u_prev = u
+    get_accelerator(ekp).u_prev = u
 
     ## push "v" state to EKP object
     push!(ekp.u, DataContainer(v, data_are_columns = true))
@@ -239,10 +239,10 @@ function accelerate!(
 ) where {FT <: AbstractFloat, IT <: Int, P <: Process, LRS <: LearningRateScheduler, MA <: AbstractMatrix}
     ## update "v" state:
     k = get_N_iterations(ekp) + 3 # get_N_iterations starts at 0
-    v = u .+ (1 - ekp.accelerator.r / k) * (u .- ekp.accelerator.u_prev)
+    v = u .+ (1 - get_accelerator(ekp).r / k) * (u .- get_accelerator(ekp).u_prev)
 
     ## update "u" state: 
-    ekp.accelerator.u_prev = u
+    get_accelerator(ekp).u_prev = u
 
     ## push "v" state to EKP object
     push!(ekp.u, DataContainer(v, data_are_columns = true))

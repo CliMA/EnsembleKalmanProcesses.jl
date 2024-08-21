@@ -182,9 +182,9 @@ function calculate_timestep!(
     scheduler::DefaultScheduler,
 ) where {M <: AbstractMatrix, NFT <: Union{Nothing, AbstractFloat}}
     if !isnothing(Δt_new)
-        push!(ekp.Δt, Δt_new)
+        push!(get_Δt(ekp), Δt_new)
     else
-        push!(ekp.Δt, scheduler.Δt_default)
+        push!(get_Δt(ekp), scheduler.Δt_default)
     end
     nothing
 end
@@ -196,13 +196,13 @@ function calculate_timestep!(
     scheduler::MutableScheduler,
 ) where {M <: AbstractMatrix, NFT <: Union{Nothing, AbstractFloat}}
     if !isnothing(Δt_new)
-        push!(ekp.Δt, Δt_new)
+        push!(get_Δt(ekp), Δt_new)
         push!(scheduler.Δt_mutable, Δt_new) # change final stored timestep value
-    elseif isnothing(Δt_new) && isempty(ekp.Δt)
-        push!(ekp.Δt, 1.0)
+    elseif isnothing(Δt_new) && isempty(get_Δt(ekp))
+        push!(get_Δt(ekp), 1.0)
         push!(scheduler.Δt_mutable, 1.0) # change final stored timestep value
     else
-        push!(ekp.Δt, scheduler.Δt_mutable[end])
+        push!(get_Δt(ekp), scheduler.Δt_mutable[end])
     end
     nothing
 end
@@ -228,7 +228,7 @@ function calculate_timestep!(
 
 
     Δt = numerator / (norm(D) + nugget)
-    push!(ekp.Δt, Δt)
+    push!(get_Δt(ekp), Δt)
     nothing
 end
 
@@ -278,7 +278,7 @@ function calculate_timestep!(
     index = get_current_minibatch_index(os)
     len_epoch = length(get_minibatches(os)[index["epoch"]])
 
-    if isempty(ekp.Δt)
+    if isempty(get_Δt(ekp))
         push!(scheduler.iteration, 1)
         inv_sqrt_Γ = sqrt(posdef_correct(get_obs_noise_cov_inv(ekp)))
         push!(scheduler.inv_sqrt_noise, inv_sqrt_Γ)
@@ -291,8 +291,8 @@ function calculate_timestep!(
         scheduler.inv_sqrt_noise[1] = inv_sqrt_Γ
     end
     n = scheduler.iteration[end]
-    sum_Δt = (n == 1) ? 0.0 : sum(ekp.Δt)
-    sum_Δt_min1 = (n <= 2) ? 0.0 : sum(ekp.Δt[1:(end - 1)])
+    sum_Δt = (n == 1) ? 0.0 : sum(get_Δt(ekp))
+    sum_Δt_min1 = (n <= 2) ? 0.0 : sum(get_Δt(ekp)[1:(end - 1)])
     # On termination condition:
     if sum_Δt >= T
         if sum_Δt_min1 < T # "Just reached termination"
@@ -300,13 +300,13 @@ function calculate_timestep!(
                 @warn "Termination condition of scheduler `DataMisfitController` has been exceeded, returning `true` from `update_ensemble!` and preventing futher updates\n Set on_terminate=\"continue\" in `DataMisfitController` to ignore termination"
                 return true #returns a terminate call
             elseif scheduler.on_terminate == "continue_fixed"
-                @warn "Termination condition of scheduler `DataMisfitController` has been exceeded. \non_terminate=\"continue_fixed\" selected. Proceeding with the final fixed timestep of $(ekp.Δt[end])."
+                @warn "Termination condition of scheduler `DataMisfitController` has been exceeded. \non_terminate=\"continue_fixed\" selected. Proceeding with the final fixed timestep of $(get_Δt(ekp)[end])."
             elseif scheduler.on_terminate == "continue"
                 @warn "Termination condition of scheduler `DataMisfitController` has been exceeded. \non_terminate=\"continue\" selected. Proceeding with algorithm"
             end
         end
         if scheduler.on_terminate == "continue_fixed"
-            push!(ekp.Δt, ekp.Δt[end])
+            push!(get_Δt(ekp), get_Δt(ekp)[end])
             return nothing
         end
     end
@@ -326,7 +326,7 @@ function calculate_timestep!(
     end
 
     # in theory the following should be the same.
-    push!(ekp.Δt, Δt)
+    push!(get_Δt(ekp), Δt)
 
     if (sum_Δt < T) && (sum_Δt + Δt >= T)
         @info "Termination condition of scheduler `DataMisfitController` will be exceeded during the next iteration."
