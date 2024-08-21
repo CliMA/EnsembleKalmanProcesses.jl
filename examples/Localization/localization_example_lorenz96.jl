@@ -150,7 +150,7 @@ end
 u_final = get_u_final(ekiobj_sec)
 g_final = get_g_final(ekiobj_sec)
 cov_est = cov([u_final; g_final], [u_final; g_final], dims = 2, corrected = false)
-cov_localized = ekiobj_sec.localizer.localize(cov_est)
+cov_localized = get_localizer(ekiobj_sec).localize(cov_est)
 
 fig = plot(
     get_error(ekiobj_vanilla),

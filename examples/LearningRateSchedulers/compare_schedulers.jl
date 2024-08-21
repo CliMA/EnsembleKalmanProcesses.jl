@@ -182,7 +182,7 @@ for (rng_idx, rng) in enumerate(rngs)
         final_u_err[idx, rng_idx] = u_err[end]
         final_u_spread[idx, rng_idx] = u_spread[end]
 
-        Δt = ensemble_kalman_process.Δt
+        Δt = get_Δt(ensemble_kalman_process)
         alg_time = [sum(Δt[1:i]) for i in 1:length(Δt)]
         pushfirst!(alg_time, 0.0)
         misfit = get_error(ensemble_kalman_process)
