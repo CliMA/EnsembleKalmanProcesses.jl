@@ -735,11 +735,7 @@ function compute_error!(uki::EnsembleKalmanProcess{FT, IT, U}) where {FT <: Abst
     diff = get_obs(uki) - mean_g
     X = get_obs_noise_cov(uki) \ diff # diff: column vector
     newerr = dot(diff, X)
-    push!(uki.err, newerr)
-end
-
-function get_error(uki::EnsembleKalmanProcess{FT, IT, U}) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
-    return uki.err
+    push!(get_error(uki), newerr)
 end
 
 

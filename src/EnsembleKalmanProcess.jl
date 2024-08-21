@@ -13,7 +13,8 @@ export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error, get_cov_blocks
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
-export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final, get_accelerator
+export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
+export get_scheduler, get_localizer, get_accelerator, get_rng, get_Δt, get_failure_handler
 export get_observation_series, get_obs, get_obs_noise_cov, get_obs_noise_cov_inv
 export compute_error!
 export update_ensemble!
@@ -514,6 +515,31 @@ function get_N_iterations(ekp::EnsembleKalmanProcess)
     return size(ekp.u, 1) - 1
 end
 
+# basic getters
+"""
+    get_N_ens(ekp::EnsembleKalmanProcess)
+Return `N_ens` field of EnsembleKalmanProcess.
+"""
+function get_N_ens(ekp::EnsembleKalmanProcess)
+    return ekp.N_ens
+end
+
+"""
+    get_Δt(ekp::EnsembleKalmanProcess)
+Return `Δt` field of EnsembleKalmanProcess.
+"""
+function get_Δt(ekp::EnsembleKalmanProcess)
+    return ekp.Δt
+end
+
+"""
+    get_failuer_handler(ekp::EnsembleKalmanProcess)
+Return `failure_handler` field of EnsembleKalmanProcess.
+"""
+function get_failure_handler(ekp::EnsembleKalmanProcess)
+    return ekp.failure_handler
+end
+
 """
     get_process(ekp::EnsembleKalmanProcess)
 Return `process` field of EnsembleKalmanProcess.
@@ -544,6 +570,14 @@ Return `accelerator` field of EnsembleKalmanProcess.
 """
 function get_accelerator(ekp::EnsembleKalmanProcess)
     return ekp.accelerator
+end
+
+"""
+    get_rng(ekp::EnsembleKalmanProcess)
+Return `rng` field of EnsembleKalmanProcess.
+"""
+function get_rng(ekp::EnsembleKalmanProcess)
+    return ekp.rng
 end
 
 """
@@ -634,7 +668,7 @@ function compute_error!(ekp::EnsembleKalmanProcess)
         shift[1] = maximum(idx)
     end
     newerr = dot(diff, X)
-    push!(ekp.err, newerr)
+    push!(ekp.error, newerr)
 end
 
 """
@@ -642,7 +676,7 @@ end
 
 Returns the mean forward model output error as a function of algorithmic time.
 """
-get_error(ekp::EnsembleKalmanProcess) = ekp.err
+get_error(ekp::EnsembleKalmanProcess) = ekp.error
 
 
 """
