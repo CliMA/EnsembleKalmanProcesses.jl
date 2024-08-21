@@ -26,6 +26,15 @@ get_ϕ_mean_final
 compute_error!
 get_error
 get_N_iterations
+get_N_ens
+get_accelerator
+get_scheduler
+get_process
+get_rng
+get_Δt
+get_failure_handler
+get_localizer
+get_localizer_type
 construct_initial_ensemble
 update_ensemble!
 sample_empirical_gaussian
