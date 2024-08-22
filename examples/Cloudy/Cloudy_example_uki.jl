@@ -154,7 +154,7 @@ for n in 1:N_iter
         string(err[n]) *
         " norm(Cov):
 " *
-        string(norm(ukiobj.process.uu_cov[n])),
+        string(norm(get_process(ukiobj).uu_cov[n])),
     )
     if !isnothing(terminate)
         final_it[1] = n - 1

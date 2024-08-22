@@ -37,7 +37,7 @@ The `DataMisfitController` is an adaptive scheduler that can terminate the algor
 - ```julia
   Warning: Acceleration is experimental for Sampler processes and may affect convergence.
   ```
-This is found when providing something other than `accelerator = DefaultAccelerator()` in EKP
+This is found when providing something other than `accelerator = DefaultAccelerator()` in EKS.
 - ```julia
   Info: 1 particle failure(s) detected. Handler used: IgnoreFailures.
   Info: 1 particle failure(s) detected. Handler used: SampleSuccGauss.

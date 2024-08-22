@@ -127,32 +127,32 @@ end
     eksobj_default = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior))
 
     ## test EKP object's accelerator type is consistent (EKP constructor reassigns object in some cases)
-    @test typeof(ekiobj.accelerator) <: NesterovAccelerator
-    @test typeof(eksobj.accelerator) <: NesterovAccelerator
-    @test typeof(ekiobj_const.accelerator) <: ConstantNesterovAccelerator
-    @test typeof(eksobj_const.accelerator) <: ConstantNesterovAccelerator
-    @test typeof(ekiobj_firstorder.accelerator) <: FirstOrderNesterovAccelerator
-    @test typeof(eksobj_firstorder.accelerator) <: FirstOrderNesterovAccelerator
-    @test typeof(ekiobj_noacc.accelerator) <: DefaultAccelerator
-    @test typeof(eksobj_noacc.accelerator) <: DefaultAccelerator
-    @test typeof(ekiobj_default.accelerator) <: NesterovAccelerator
-    @test typeof(eksobj_default.accelerator) <: DefaultAccelerator
+    @test typeof(get_accelerator(ekiobj)) <: NesterovAccelerator
+    @test typeof(get_accelerator(eksobj)) <: NesterovAccelerator
+    @test typeof(get_accelerator(ekiobj_const)) <: ConstantNesterovAccelerator
+    @test typeof(get_accelerator(eksobj_const)) <: ConstantNesterovAccelerator
+    @test typeof(get_accelerator(ekiobj_firstorder)) <: FirstOrderNesterovAccelerator
+    @test typeof(get_accelerator(eksobj_firstorder)) <: FirstOrderNesterovAccelerator
+    @test typeof(get_accelerator(ekiobj_noacc)) <: DefaultAccelerator
+    @test typeof(get_accelerator(eksobj_noacc)) <: DefaultAccelerator
+    @test typeof(get_accelerator(ekiobj_default)) <: NesterovAccelerator
+    @test typeof(get_accelerator(eksobj_default)) <: DefaultAccelerator
 
     ## test NesterovAccelerators satisfy desired ICs
-    @test ekiobj.accelerator.u_prev == initial_ensemble
-    @test ekiobj.accelerator.θ_prev == 1.0
-    @test eksobj.accelerator.u_prev == initial_ensemble
-    @test eksobj.accelerator.θ_prev == 1.0
+    @test get_accelerator(ekiobj).u_prev == initial_ensemble
+    @test get_accelerator(ekiobj).θ_prev == 1.0
+    @test get_accelerator(eksobj).u_prev == initial_ensemble
+    @test get_accelerator(eksobj).θ_prev == 1.0
 
-    @test ekiobj_const.accelerator.λ ≈ 0.9
-    @test ekiobj_const.accelerator.u_prev == initial_ensemble
-    @test eksobj_const.accelerator.λ ≈ 0.9
-    @test eksobj_const.accelerator.u_prev == initial_ensemble
+    @test get_accelerator(ekiobj_const).λ ≈ 0.9
+    @test get_accelerator(ekiobj_const).u_prev == initial_ensemble
+    @test get_accelerator(eksobj_const).λ ≈ 0.9
+    @test get_accelerator(eksobj_const).u_prev == initial_ensemble
 
-    @test ekiobj_firstorder.accelerator.r ≈ 3.0
-    @test ekiobj_firstorder.accelerator.u_prev == initial_ensemble
-    @test eksobj_firstorder.accelerator.r ≈ 3.0
-    @test eksobj_firstorder.accelerator.u_prev == initial_ensemble
+    @test get_accelerator(ekiobj_firstorder).r ≈ 3.0
+    @test get_accelerator(ekiobj_firstorder).u_prev == initial_ensemble
+    @test get_accelerator(eksobj_firstorder).r ≈ 3.0
+    @test get_accelerator(eksobj_firstorder).u_prev == initial_ensemble
 
     ## test method convergence
     # Note: this test only requires that the final ensemble is an improvement on the initial ensemble,
@@ -310,9 +310,9 @@ end
 
     ekiobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Inversion())
     eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior))
-
-    @test ekiobj.scheduler == DataMisfitController(terminate_at = 1)
-    @test eksobj.scheduler == EKSStableScheduler{Float64}(1.0, eps())
+    @test ekiobj.scheduler == get_scheduler(ekiobj)
+    @test get_scheduler(ekiobj) == DataMisfitController(terminate_at = 1)
+    @test get_scheduler(eksobj) == EKSStableScheduler{Float64}(1.0, eps())
 
     #test
     processes = [
@@ -361,7 +361,7 @@ end
                     break
                 end
                 # ensure Δt is updated
-                @test length(ekpobj.Δt) == i
+                @test length(get_Δt(ekpobj)) == i
             end
             push!(init_means, vec(mean(get_u_prior(ekpobj), dims = 2)))
             push!(final_means, vec(mean(get_u_final(ekpobj), dims = 2)))
@@ -371,7 +371,7 @@ end
             # this test is fine so long as N_iter is large enough to hit the termination time
             if nameof(typeof(scheduler)) == DataMisfitController
                 if (scheduler.terminate_at, scheduler.on_terminate) == (Float64(T_end), "stop")
-                    @test sum(ekpobj.Δt) ≈ scheduler.terminate_at
+                    @test sum(get_Δt(ekpobj)) ≈ scheduler.terminate_at
                 end
             end
         end
@@ -544,7 +544,10 @@ end
         g_ens_t = permutedims(g_ens, (2, 1))
 
         @test size(g_ens) == (n_obs, N_ens)
-
+        @test get_N_ens(ekiobj) == ekiobj.N_ens
+        @test get_rng(ekiobj) == ekiobj.rng
+        @test get_failure_handler(ekiobj) == ekiobj.failure_handler
+        @test get_Δt(ekiobj) == ekiobj.Δt
         # EKI iterations
         u_i_vec = Array{Float64, 2}[]
         g_ens_vec = Array{Float64, 2}[]
@@ -601,7 +604,7 @@ end
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
-        @test isequal(get_error(ekiobj), ekiobj.err)
+        @test isequal(get_error(ekiobj), ekiobj.error)
 
         # EKI results: Test if ensemble has collapsed toward the true parameter 
         # values
@@ -621,13 +624,13 @@ end
         ϕ_final_mean = get_ϕ_mean_final(prior, ekiobj)
         ϕ_init_mean = get_ϕ_mean(prior, ekiobj, 1)
 
-        if nameof(typeof(ekiobj.localizer)) == EKP.Localizers.NoLocalization
+        if isa(get_localizer(ekiobj), EKP.Localizers.NoLocalization)
             @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
             @test norm(y_obs .- G(eki_final_result))^2 < norm(y_obs .- G(eki_init_result))^2
             @test norm(y_obs .- g_mean_final)^2 < norm(y_obs .- g_mean_init)^2
         end
 
-        if i_prob <= n_lin_inv_probs && nameof(typeof(ekiobj.localizer)) == EKP.Localizers.NoLocalization
+        if i_prob <= n_lin_inv_probs && isa(get_localizer(ekiobj), EKP.Localizers.NoLocalization)
 
             posterior_cov_inv = (A' * (Γy \ A) + 1 * Matrix(I, n_par, n_par) / prior_cov)
             ols_mean = (A' * (Γy \ A)) \ (A' * (Γy \ y_obs))
@@ -777,13 +780,13 @@ end
         @test get_u(ukiobj) == u_i_vec
         @test isequal(get_g(ukiobj), g_ens_vec)
         @test isequal(get_g_final(ukiobj), g_ens_vec[end])
-        @test isequal(get_error(ukiobj), ukiobj.err)
+        @test isequal(get_error(ukiobj), ukiobj.error)
 
         @test isa(construct_mean(ukiobj, rand(rng, 2 * n_par + 1)), Float64)
         @test isa(construct_mean(ukiobj, rand(rng, 5, 2 * n_par + 1)), Vector{Float64})
         @test isa(construct_cov(ukiobj, rand(rng, 2 * n_par + 1)), Float64)
         @test isa(construct_cov(ukiobj, rand(rng, 5, 2 * n_par + 1)), Matrix{Float64})
-        @test isposdef(construct_cov(ukiobj, construct_sigma_ensemble(ukiobj.process, [0.0; 0.0], [1.0 0; 0 0])))
+        @test isposdef(construct_cov(ukiobj, construct_sigma_ensemble(get_process(ukiobj), [0.0; 0.0], [1.0 0; 0 0])))
 
         # UKI results: Test if ensemble has collapsed toward the true parameter 
         # values
@@ -907,7 +910,7 @@ end
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
-        @test isequal(get_error(ekiobj), ekiobj.err)
+        @test isequal(get_error(ekiobj), ekiobj.error)
 
         # ETKI results: Test if ensemble has collapsed toward the true parameter 
         # values
@@ -927,13 +930,13 @@ end
         ϕ_final_mean = get_ϕ_mean_final(prior, ekiobj)
         ϕ_init_mean = get_ϕ_mean(prior, ekiobj, 1)
 
-        if nameof(typeof(ekiobj.localizer)) == EKP.Localizers.NoLocalization
+        if isa(get_localizer(ekiobj), EKP.Localizers.NoLocalization)
             @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
             @test norm(y_obs .- G(eki_final_result))^2 < norm(y_obs .- G(eki_init_result))^2
             @test norm(y_obs .- g_mean_final)^2 < norm(y_obs .- g_mean_init)^2
         end
 
-        if i_prob <= n_lin_inv_probs && nameof(typeof(ekiobj.localizer)) == EKP.Localizers.NoLocalization
+        if i_prob <= n_lin_inv_probs && isa(get_localizer(ekiobj), EKP.Localizers.NoLocalization)
 
             posterior_cov_inv = (A' * (Γy \ A) + 1 * Matrix(I, n_par, n_par) / prior_cov)
             ols_mean = (A' * (Γy \ A)) \ (A' * (Γy \ y_obs))

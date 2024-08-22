@@ -779,7 +779,6 @@ mean(d::VectorOfParameterized) = reduce(vcat, mean.(d.distribution))
 mean(pd::ParameterDistribution) = reduce(vcat, mean.(pd.distribution))
 
 #apply transforms
-
 function transform_constrained_to_unconstrained(
     d::PDT,
     constraints::AbstractVector,
@@ -801,22 +800,42 @@ Apply the transformation to map (possibly constrained) parameter sample(s) `x` i
 
 Each column of `x` is a sample, and each row is a parameter.
 
-The return type is a vector if `x` is a vector, and a matrix otherwise.
+The return type is a vector if `x` is a vector, and is assumed to represent a column, unless the parameter distribution is one-dimensional
 """
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::AbstractVecOrMat{T}) where {T <: Real}
+
+    nd = ndims(pd, function_parameter_opt = "eval")
+    if isa(x, AbstractVector)
+        if nd == 1
+            xmat = reshape(x, 1, :)
+        else
+            xmat = reshape(x, :, 1)
+        end
+    else
+        xmat = x
+    end
+    if size(xmat, 1) != nd
+        throw(
+            ArgumentError(
+                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape (parameter dimension, sample size)",
+            ),
+        )
+    end
+
     param_names = get_name(pd)
     pd_batch_idxs = batch(pd, function_parameter_opt = "eval") # e.g. [collect(1:2), collect(3:3), collect(5:9)]
     pd_constraints = get_all_constraints(pd, return_dict = true)
 
-    x_out = Matrix{T}(undef, ndims(pd; function_parameter_opt = "eval"), length(axes(x, 2)))
+    x_out = Matrix{T}(undef, ndims(pd; function_parameter_opt = "eval"), size(xmat, 2))
     for (name, idxs, d) in zip(param_names, pd_batch_idxs, pd.distribution)
-        view(x_out, idxs, :) .= transform_constrained_to_unconstrained(d, pd_constraints[name], view(x, idxs, :))
+        view(x_out, idxs, :) .= transform_constrained_to_unconstrained(d, pd_constraints[name], view(xmat, idxs, :))
     end
-    x isa AbstractVector && return vec(x_out)
-    return x_out
+    return isa(x, AbstractVector) ? vec(x_out) : x_out
 end
 
-
+function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::R) where {R <: Real}
+    return transform_constrained_to_unconstrained(pd, [x])[1]
+end
 """
     transform_constrained_to_unconstrained(d::ParameterDistribution, x::Dict)
 
@@ -838,15 +857,28 @@ end
 
 
 """
-    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Array{Array{<:Real,2},1})
+    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::iterable{AbstractVecOrMat})
 
 Apply the transformation to map parameter sample ensembles `x` from the (possibly) constrained space into unconstrained space.
 Here, `x` is an iterable of parameters sample ensembles for different EKP iterations.
 """
-function transform_constrained_to_unconstrained(
-    pd::ParameterDistribution,
-    x, # ::Iterable{AbstractMatrix{FT}},
-)
+function transform_constrained_to_unconstrained(pd::ParameterDistribution, x)
+    if !hasmethod(iterate, [typeof(x)]) # no way of iterating
+        throw(
+            ArgumentError(
+                "transformations can be applied to `VecOrMat` or `Iterable{VecOrMat}` types only. Got $(typeof(x)).",
+            ),
+        )
+    end
+
+    if !isa(x[1], AbstractVecOrMat)
+        throw(
+            ArgumentError(
+                "transformations can be applied to `VecOrMat` or `Iterable{VecOrMat}` types only. Got $(typeof(x)).",
+            ),
+        )
+    end
+
     transf_x = []
     for elem in x
         push!(transf_x, transform_constrained_to_unconstrained(pd, elem))
@@ -870,19 +902,39 @@ end
 
 
 """
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::VecOrMat)
+    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::VecOrMat; build_flag = true)
 
 Apply the transformation to map unconstrained parameter sample(s) `x` into the constrained space.
 
 Each column of `x` is a sample, and each row is a parameter.
 
-The return type is a vector if `x` is a vector, and a matrix otherwise.
+The return type is a vector if `x` is a vector, and is assumed to represent a column, unless the parameter distribution is one-dimensional
+The build_flag = true will reconstruct any function parameter coefficients on discretized, domains and apply constraints. while build_flag = false takes as input the discretized function parameter, and only applies a constraint.
 """
 function transform_unconstrained_to_constrained(
     pd::ParameterDistribution,
     x::AbstractVecOrMat{T};
     build_flag::Bool = true,
 ) where {T <: Real}
+
+    nd = build_flag ? ndims(pd, function_parameter_opt = "dof") : ndims(pd, function_parameter_opt = "eval")
+    if isa(x, AbstractVector)
+        if nd == 1
+            xmat = reshape(x, 1, :)
+        else
+            xmat = reshape(x, :, 1)
+        end
+    else
+        xmat = x
+    end
+    if size(xmat, 1) != nd
+        throw(
+            ArgumentError(
+                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape (parameter dimension, sample size)",
+            ),
+        )
+    end
+
     param_names = get_name(pd)
     pd_constraints = get_all_constraints(pd, return_dict = true)
     eval_batch_idxs = batch(pd; function_parameter_opt = "eval")
@@ -891,20 +943,34 @@ function transform_unconstrained_to_constrained(
     function_parameter_opt = build_flag ? "dof" : "eval"
     pd_batch_idxs = batch(pd; function_parameter_opt)
 
-    x_out = Matrix{T}(undef, ndims(pd; function_parameter_opt = "eval"), length(axes(x, 2)))
+    x_out = Matrix{T}(undef, ndims(pd; function_parameter_opt = "eval"), size(xmat, 2))
     for (name, eval_idx, pd_idxs, d) in zip(param_names, eval_batch_idxs, pd_batch_idxs, pd.distribution)
-        view(x_out, eval_idx, :) .=
-            transform_unconstrained_to_constrained(d, pd_constraints[name], view(x, pd_idxs, :); build_flag)
+        view(x_out, eval_idx, :) .= transform_unconstrained_to_constrained(
+            d,
+            pd_constraints[name],
+            view(xmat, pd_idxs, :);
+            build_flag = build_flag,
+        )
     end
-    x isa AbstractVector && return vec(x_out)
-    return x_out
+    return isa(x, AbstractVector) ? vec(x_out) : x_out
+end
+
+
+function transform_unconstrained_to_constrained(
+    pd::ParameterDistribution,
+    x::R;
+    build_flag::Bool = true,
+) where {R <: Real}
+    out = transform_unconstrained_to_constrained(pd, [x], build_flag = build_flag)
+    return size(out) == (1,) ? out[1] : out
 end
 
 """
-    transform_unconstrained_to_constrained(d::ParameterDistribution, x::Dict)
+    transform_unconstrained_to_constrained(d::ParameterDistribution, x::Dict; build_flag = true)
 
 Apply the transformation to map (possibly constrained) parameter samples `x` into the unconstrained space.
 Here, `x` contains parameter names as keys, and 1- or 2-arrays as parameter samples.
+The build_flag will reconstruct any function parameters onto their flattened, discretized, domains.
 """
 function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Dict; build_flag::Bool = true)
     param_names = get_name(pd)
@@ -920,15 +986,32 @@ function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Di
 end
 
 """
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Array{Array{<:Real,2},1})
+    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::iterable{AbstractVecOrMat})
 
 Apply the transformation to map parameter sample ensembles `x` from the unconstrained space into (possibly constrained) space.
 Here, `x` is an iterable of parameters sample ensembles for different EKP iterations.
+The build_flag will construct any function parameters
 """
 function transform_unconstrained_to_constrained(
     pd::ParameterDistribution,
-    x, # ::Iterable{AbstractMatrix{FT}},
+    x, # iterable{VecOrMat}
 )
+    if !hasmethod(iterate, [typeof(x)]) # no way of iterating
+        throw(
+            ArgumentError(
+                "transformations can be applied to `VecOrMat` or `Iterable{VecOrMat}` types only. Got $(typeof(x)).",
+            ),
+        )
+    end
+
+    if !isa(x[1], AbstractVecOrMat)
+        throw(
+            ArgumentError(
+                "transformations can be applied to `VecOrMat` or `Iterable{VecOrMat}` types only. Got $(typeof(x)).",
+            ),
+        )
+    end
+
     transf_x = []
     for elem in x
         push!(transf_x, transform_unconstrained_to_constrained(pd, elem))

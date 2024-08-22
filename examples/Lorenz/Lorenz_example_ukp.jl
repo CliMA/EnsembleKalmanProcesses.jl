@@ -214,7 +214,7 @@ for i in 1:N_iter
         ", Error: " *
         string(err[i]) *
         " norm(Cov): " *
-        string(norm(ukiobj.process.uu_cov[i])),
+        string(norm(get_process(ukiobj).uu_cov[i])),
     )
 end
 

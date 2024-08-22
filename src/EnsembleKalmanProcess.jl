@@ -13,7 +13,9 @@ export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error, get_cov_blocks
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
-export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final, get_accelerator
+export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
+export get_scheduler,
+    get_localizer, get_localizer_type, get_accelerator, get_rng, get_Δt, get_failure_handler, get_N_ens, get_process
 export get_observation_series, get_obs, get_obs_noise_cov, get_obs_noise_cov_inv
 export compute_error!
 export update_ensemble!
@@ -163,7 +165,7 @@ struct EnsembleKalmanProcess{
     "Array of stores for forward model outputs, each of size  [`N_obs × N_ens`]"
     g::Array{DataContainer{FT}}
     "vector of errors"
-    err::Vector{FT}
+    error::Vector{FT}
     "Scheduler to calculate the timestep size in each EK iteration"
     scheduler::LRS
     "accelerator object that informs EK update steps, stores additional state variables as needed"
@@ -351,12 +353,17 @@ function get_g(ekp::EnsembleKalmanProcess, iteration::IT; return_array = true) w
 end
 
 """
-    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT)
+    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT; return_array=true)
 
 Returns the constrained parameters at the given iteration.
 """
-function get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
-    return transform_unconstrained_to_constrained(prior, get_u(ekp, iteration))
+function get_ϕ(
+    prior::ParameterDistribution,
+    ekp::EnsembleKalmanProcess,
+    iteration::IT;
+    return_array = true,
+) where {IT <: Integer}
+    return transform_unconstrained_to_constrained(prior, get_u(ekp, iteration, return_array = return_array))
 end
 
 """
@@ -382,12 +389,13 @@ function get_g(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess)
+    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess; return_array=true)
 
-Returns the constrained parameters from all iterations. The outer dimension is given by the number of iterations.
+Returns the constrained parameters from all iterations. The outer dimension is given by the number of iterations,
+and the inner objects are `DataContainer` objects unless `return_array` is true.
 """
-get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess) =
-    transform_unconstrained_to_constrained(prior, get_u(ekp))
+get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess; return_array = true) =
+    transform_unconstrained_to_constrained(prior, get_u(ekp, return_array = return_array))
 
 """
     get_u_mean(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
@@ -436,7 +444,7 @@ function get_g_mean(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Inte
 end
 
 """
-    get_u_final(ekp::EnsembleKalmanProcess, return_array=true)
+    get_u_final(ekp::EnsembleKalmanProcess; return_array=true)
 
 Get the unconstrained parameters at the last iteration, returning a `DataContainer` Object if `return_array` is false.
 """
@@ -445,7 +453,7 @@ function get_u_final(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_u_prior(ekp::EnsembleKalmanProcess, return_array=true)
+    get_u_prior(ekp::EnsembleKalmanProcess; return_array=true)
 
 Get the unconstrained parameters as drawn from the prior, returning a `DataContainer` Object if `return_array` is false.
 """
@@ -454,7 +462,7 @@ function get_u_prior(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_g_final(ekp::EnsembleKalmanProcess, return_array=true)
+    get_g_final(ekp::EnsembleKalmanProcess; return_array=true)
 
 Get forward model outputs at the last iteration, returns a `DataContainer` Object if `return_array` is false.
 """
@@ -463,12 +471,12 @@ function get_g_final(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_ϕ_final(ekp::EnsembleKalmanProcess)
+    get_ϕ_final(ekp::EnsembleKalmanProcess; return_array=true)
 
 Get the constrained parameters at the last iteration.
 """
-get_ϕ_final(prior::ParameterDistribution, ekp::EnsembleKalmanProcess) =
-    transform_unconstrained_to_constrained(prior, get_u_final(ekp))
+get_ϕ_final(prior::ParameterDistribution, ekp::EnsembleKalmanProcess; return_array = true) =
+    transform_unconstrained_to_constrained(prior, get_u_final(ekp, return_array = return_array))
 
 """
     get_u_mean_final(ekp::EnsembleKalmanProcess)
@@ -508,6 +516,31 @@ function get_N_iterations(ekp::EnsembleKalmanProcess)
     return size(ekp.u, 1) - 1
 end
 
+# basic getters
+"""
+    get_N_ens(ekp::EnsembleKalmanProcess)
+Return `N_ens` field of EnsembleKalmanProcess.
+"""
+function get_N_ens(ekp::EnsembleKalmanProcess)
+    return ekp.N_ens
+end
+
+"""
+    get_Δt(ekp::EnsembleKalmanProcess)
+Return `Δt` field of EnsembleKalmanProcess.
+"""
+function get_Δt(ekp::EnsembleKalmanProcess)
+    return ekp.Δt
+end
+
+"""
+    get_failuer_handler(ekp::EnsembleKalmanProcess)
+Return `failure_handler` field of EnsembleKalmanProcess.
+"""
+function get_failure_handler(ekp::EnsembleKalmanProcess)
+    return ekp.failure_handler
+end
+
 """
     get_process(ekp::EnsembleKalmanProcess)
 Return `process` field of EnsembleKalmanProcess.
@@ -521,7 +554,15 @@ end
 Return `localizer` field of EnsembleKalmanProcess.
 """
 function get_localizer(ekp::EnsembleKalmanProcess)
-    return Localizers.get_localizer(ekp.localizer)
+    return ekp.localizer
+end
+
+"""
+    get_localizer_type(ekp::EnsembleKalmanProcess)
+Return first parametric type of the `localizer` field of EnsembleKalmanProcess.
+"""
+function get_localizer_type(ekp::EnsembleKalmanProcess)
+    return Localizers.get_localizer(get_localizer(ekp))
 end
 
 """
@@ -538,6 +579,14 @@ Return `accelerator` field of EnsembleKalmanProcess.
 """
 function get_accelerator(ekp::EnsembleKalmanProcess)
     return ekp.accelerator
+end
+
+"""
+    get_rng(ekp::EnsembleKalmanProcess)
+Return `rng` field of EnsembleKalmanProcess.
+"""
+function get_rng(ekp::EnsembleKalmanProcess)
+    return ekp.rng
 end
 
 """
@@ -628,7 +677,7 @@ function compute_error!(ekp::EnsembleKalmanProcess)
         shift[1] = maximum(idx)
     end
     newerr = dot(diff, X)
-    push!(ekp.err, newerr)
+    push!(get_error(ekp), newerr)
 end
 
 """
@@ -636,7 +685,7 @@ end
 
 Returns the mean forward model output error as a function of algorithmic time.
 """
-get_error(ekp::EnsembleKalmanProcess) = ekp.err
+get_error(ekp::EnsembleKalmanProcess) = ekp.error
 
 
 """
@@ -721,7 +770,7 @@ Inputs:
 """
 function multiplicative_inflation!(ekp::EnsembleKalmanProcess; s::FT = 1.0) where {FT <: Real}
 
-    scaled_Δt = s * ekp.Δt[end]
+    scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
         error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
@@ -754,7 +803,7 @@ function additive_inflation!(
     s::FT = 1.0,
 ) where {FT <: Real, MorUS <: Union{AbstractMatrix, UniformScaling}}
 
-    scaled_Δt = s * ekp.Δt[end]
+    scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
         error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
@@ -765,7 +814,7 @@ function additive_inflation!(
     Σ_sqrt = sqrt(scaled_Δt / (1 - scaled_Δt) .* inflation_cov)
 
     # add multivariate noise with 0 mean and scaled covariance
-    u_updated = u .+ Σ_sqrt * rand(ekp.rng, MvNormal(zeros(size(u, 1)), I), size(u, 2))
+    u_updated = u .+ Σ_sqrt * rand(get_rng(ekp), MvNormal(zeros(size(u, 1)), I), size(u, 2))
     ekp.u[end] = DataContainer(u_updated, data_are_columns = true)
 end
 
@@ -804,10 +853,10 @@ function update_ensemble!(
     ekp_kwargs...,
 ) where {FT, NFT <: Union{Nothing, AbstractFloat}, MorUS <: Union{AbstractMatrix, UniformScaling}}
     #catch works when g non-square 
-    if !(size(g)[2] == ekp.N_ens)
+    if !(size(g)[2] == get_N_ens(ekp))
         throw(
             DimensionMismatch(
-                "ensemble size $(ekp.N_ens) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
+                "ensemble size $(get_N_ens(ekp)) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
             ),
         )
     end

@@ -254,7 +254,7 @@ function ndims(grfi::GaussianRandomFieldInterface; function_parameter_opt::Abstr
     else
         throw(
             ArgumentError(
-                "Keyword options for ndims must be: \"coeff\", \"eval\", or \"constraint\". Received $function_parameter_opt ",
+                "Keyword options for ndims must be: \"dof\", \"eval\", or \"constraint\". Received $function_parameter_opt ",
             ),
         )
     end
