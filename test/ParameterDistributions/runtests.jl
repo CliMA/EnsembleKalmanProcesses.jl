@@ -790,6 +790,10 @@ using EnsembleKalmanProcesses.ParameterDistributions
             [x_real_constrained2, x_real_constrained2];
             atol = tol,
         )
+        # check error for misshape
+        @test_throws ArgumentError transform_unconstrained_to_constrained(u1, x_unbd[1:4, :]')
+        @test_throws ArgumentError transform_constrained_to_unconstrained(u1, x_real_constrained1')
+
 
         # vector inputs, for multidim
         u_to_c_vec = transform_unconstrained_to_constrained(u1, vec(x_unbd[1:4, 1]))
