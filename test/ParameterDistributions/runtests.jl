@@ -791,6 +791,37 @@ using EnsembleKalmanProcesses.ParameterDistributions
             atol = tol,
         )
 
+        # vector inputs, for multidim
+        u_to_c_vec = transform_unconstrained_to_constrained(u1, vec(x_unbd[1:4, 1]))
+        c_to_u_vec = transform_constrained_to_unconstrained(u1, vec(x_real_constrained1[1:4, 1]))
+        @test isa(u_to_c_vec, AbstractVector)
+        @test isa(c_to_u_vec, AbstractVector)
+        @test isapprox(u_to_c_vec, vec(x_real_constrained1[1:4, 1]); atol = tol)
+        @test isapprox(vec(x_unbd[1:4, 1]) - c_to_u_vec, zeros(size(vec(x_unbd[1:4, 1]))); atol = tol)
+
+        # vector inputs, for scalar dim and multiple samples
+        u4 = ParameterDistribution(
+            Dict(
+                "distribution" => Parameterized(Normal(2, 3)),
+                "constraint" => [bounded_below(4)],
+                "name" => "one_dim_bdd_below",
+            ),
+        )
+        x_real_constrained4 = mapslices(x -> transform_unconstrained_to_constrained(u4, x), x_unbd[1, :]; dims = 1)
+        u_to_c_vec = transform_unconstrained_to_constrained(u4, vec(x_unbd[1, :]))
+        c_to_u_vec = transform_constrained_to_unconstrained(u4, vec(x_real_constrained4))
+        u_to_c_real = transform_unconstrained_to_constrained(u4, x_unbd[1, 1])
+        c_to_u_real = transform_constrained_to_unconstrained(u4, x_real_constrained4[1, 1])
+        @test isa(u_to_c_vec, AbstractVector)
+        @test isa(c_to_u_vec, AbstractVector)
+        @test isa(u_to_c_real, Real)
+        @test isa(c_to_u_real, Real)
+        @test isapprox(u_to_c_vec, vec(x_real_constrained4); atol = tol)
+        @test isapprox(vec(x_unbd[1, :]) - c_to_u_vec, zeros(size(vec(x_unbd[1, :]))); atol = tol)
+        @test isapprox(u_to_c_real, x_real_constrained4[1, 1]; atol = tol)
+        @test isapprox(x_unbd[1, 1], c_to_u_real; atol = tol)
+
+
         # with transforming samples distributions - using the dict from get_distributions
         d3 = Samples([-10.0 10.0 30.0 -30.0])
         c3 = [bounded_below(0)]
