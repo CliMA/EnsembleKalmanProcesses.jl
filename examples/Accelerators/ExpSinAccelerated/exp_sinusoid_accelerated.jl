@@ -104,6 +104,7 @@ function main()
             Γ,
             Inversion();
             rng = rng,
+            accelerator = DefaultAccelerator(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
         )

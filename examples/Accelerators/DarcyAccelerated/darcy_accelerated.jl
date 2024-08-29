@@ -103,7 +103,6 @@ function main()
     prior = pd
 
     # We define some algorithm parameters, here we take ensemble members larger than the dimension of the parameter space
-    N_ens = dofs + 2    # number of ensemble members
     N_iter = 20         # number of EKI iterations
     N_trials = 10       # number of trials 
     @info "obtaining statistics over $N_trials trials"
@@ -123,6 +122,7 @@ function main()
             truth_sample,
             obs_noise_cov,
             Inversion(),
+            accelerator = DefaultAccelerator(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
         )

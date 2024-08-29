@@ -89,6 +89,7 @@ function main()
         truth_sample,
         obs_noise_cov,
         Inversion(),
+        accelerator = DefaultAccelerator(),
         scheduler = DefaultScheduler(0.1),
     )#,scheduler = DataMisfitController(on_terminate = "continue"))
     eki_acc = EKP.EnsembleKalmanProcess(
