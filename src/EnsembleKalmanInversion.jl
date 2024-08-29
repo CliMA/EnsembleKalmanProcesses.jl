@@ -105,6 +105,9 @@ function update_ensemble!(
 ) where {FT, IT}
 
     if !(isa(get_accelerator(ekp), DefaultAccelerator))
+        if deterministic_forward_map
+            @warn "Acceleration unstable with `update_ensemble` keyword argument `deterministic_forward_map = true`,\n updating with `deterministic_forward_map = false`..."
+        end
         add_stochastic_perturbation = false # doesn't play well with accelerator, but not needed
     else
         add_stochastic_perturbation = deterministic_forward_map

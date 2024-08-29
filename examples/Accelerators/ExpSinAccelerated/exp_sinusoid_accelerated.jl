@@ -45,7 +45,7 @@ end
 function main()
 
     cases = ["const", "dmc", "dmc-loc-small-ens"]
-    case = cases[3]
+    case = cases[1]
 
     @info "running case $case"
     if case == "const"
@@ -104,6 +104,7 @@ function main()
             Γ,
             Inversion();
             rng = rng,
+            accelerator = DefaultAccelerator(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
         )
@@ -146,8 +147,8 @@ function main()
             G_ens_acc_cs = hcat([G(params_i_acc_cs[:, i]) for i in 1:N_ens]...)
 
             EKP.update_ensemble!(ensemble_kalman_process, G_ens, deterministic_forward_map = false)
-            EKP.update_ensemble!(ensemble_kalman_process_acc, G_ens_acc, deterministic_forward_map = false)
-            EKP.update_ensemble!(ensemble_kalman_process_acc_cs, G_ens_acc_cs, deterministic_forward_map = false)
+            EKP.update_ensemble!(ensemble_kalman_process_acc, G_ens_acc)
+            EKP.update_ensemble!(ensemble_kalman_process_acc_cs, G_ens_acc_cs)
 
             convs[i] = cost(mean(params_i, dims = 2))
             convs_acc[i] = cost(mean(params_i_acc, dims = 2))

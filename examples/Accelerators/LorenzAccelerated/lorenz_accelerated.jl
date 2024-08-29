@@ -58,7 +58,7 @@ function main()
     D = 20
 
     cases = ["const", "dmc", "dmc-loc-small-ens"]
-    case = cases[3]
+    case = cases[1]
 
     @info "running case $case"
     if case == "const"
@@ -116,6 +116,7 @@ function main()
             Γ,
             Inversion();
             rng = rng,
+            accelerator = DefaultAccelerator(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
         )
@@ -145,11 +146,11 @@ function main()
         err_acc_cs = zeros(N_iter)
         for i in 1:N_iter
             g_ens_vanilla = G(get_ϕ_final(prior, ekiobj_vanilla))
-            EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = true)
+            EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = false)
             g_ens_acc = G(get_ϕ_final(prior, ekiobj_acc))
-            EKP.update_ensemble!(ekiobj_acc, g_ens_acc, deterministic_forward_map = true)
+            EKP.update_ensemble!(ekiobj_acc, g_ens_acc)
             g_ens_acc_cs = G(get_ϕ_final(prior, ekiobj_acc_cs))
-            EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs, deterministic_forward_map = true)
+            EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs)
         end
         errs[trial, :] = get_error(ekiobj_vanilla)
         errs_acc[trial, :] = get_error(ekiobj_acc)

@@ -45,7 +45,7 @@ function main()
     rng = Random.MersenneTwister(seed)
 
     cases = ["const", "dmc", "dmc-loc-small-ens"]
-    case = cases[3]
+    case = cases[1]
 
     @info "running case $case"
     if case == "const"
@@ -103,7 +103,6 @@ function main()
     prior = pd
 
     # We define some algorithm parameters, here we take ensemble members larger than the dimension of the parameter space
-    N_ens = dofs + 2    # number of ensemble members
     N_iter = 20         # number of EKI iterations
     N_trials = 10       # number of trials 
     @info "obtaining statistics over $N_trials trials"
@@ -123,6 +122,7 @@ function main()
             truth_sample,
             obs_noise_cov,
             Inversion(),
+            accelerator = DefaultAccelerator(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
         )
@@ -158,9 +158,9 @@ function main()
             g_ens_acc = run_G_ensemble(darcy, params_i_acc)
             g_ens_acc_cs = run_G_ensemble(darcy, params_i_acc_cs)
 
-            EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
-            EKP.update_ensemble!(ekiobj_acc, g_ens_acc, deterministic_forward_map = true)
-            EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs, deterministic_forward_map = true)
+            EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = false)
+            EKP.update_ensemble!(ekiobj_acc, g_ens_acc)
+            EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs)
 
             err[i] = log.(get_error(ekiobj)[end])
             errs[trial, :] = err
