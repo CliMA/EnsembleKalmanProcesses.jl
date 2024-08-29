@@ -45,7 +45,7 @@ function main()
     rng = Random.MersenneTwister(seed)
 
     cases = ["const", "dmc", "dmc-loc-small-ens"]
-    case = cases[3]
+    case = cases[1]
 
     @info "running case $case"
     if case == "const"
@@ -158,9 +158,9 @@ function main()
             g_ens_acc = run_G_ensemble(darcy, params_i_acc)
             g_ens_acc_cs = run_G_ensemble(darcy, params_i_acc_cs)
 
-            EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = true)
-            EKP.update_ensemble!(ekiobj_acc, g_ens_acc, deterministic_forward_map = true)
-            EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs, deterministic_forward_map = true)
+            EKP.update_ensemble!(ekiobj, g_ens, deterministic_forward_map = false)
+            EKP.update_ensemble!(ekiobj_acc, g_ens_acc)
+            EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs)
 
             err[i] = log.(get_error(ekiobj)[end])
             errs[trial, :] = err

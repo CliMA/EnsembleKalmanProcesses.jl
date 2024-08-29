@@ -111,8 +111,8 @@ function main()
         g_ens = run_G_ensemble(darcy, params_i)
         g_ens_acc = run_G_ensemble(darcy, params_i_acc)
 
-        EKP.update_ensemble!(eki_trad, g_ens, deterministic_forward_map = true)
-        EKP.update_ensemble!(eki_acc, g_ens_acc, deterministic_forward_map = true)
+        EKP.update_ensemble!(eki_trad, g_ens, deterministic_forward_map = false)
+        EKP.update_ensemble!(eki_acc, g_ens_acc)
 
         err[i] = get_error(eki_trad)[end]    # mean((params_true - mean(params_i,dims=2)).^2)
         err_acc[i] = get_error(eki_acc)[end]    # mean((params_true - mean(params_i,dims=2)).^2)
