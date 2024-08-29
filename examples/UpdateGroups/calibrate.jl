@@ -149,53 +149,53 @@ function main()
     Colorbar(fig[1, 1][1, 2], hm)
     hm = heatmap!(aslow, tplot, 1:N, spunup_state[1:N, (10 * ss_rate + 1):ss_rate:end]', colormap = :Blues)
     Colorbar(fig[2, 1][1, 2], hm)
-    
+
     # save
     save(joinpath(output_directory, case * "_spinup_allstate.png"), fig, px_per_unit = 3)
     save(joinpath(output_directory, case * "_spinup_allstate.pdf"), fig, pt_per_unit = 3)
-    
-    
+
+
     fig = Figure(size = (900, 450))
-    
+
     afast = Axis(fig[1, 1][1, 1], xlabel = "time", ylabel = "fast")
     aslow = Axis(fig[2, 1][1, 1], xlabel = "time", ylabel = "slow")
-    
+
     lines!(afast, tplot, spunup_state[N + 1, (10 * ss_rate + 1):ss_rate:end], color = :red)
     lines!(aslow, tplot, spunup_state[1, (10 * ss_rate + 1):ss_rate:end], color = :blue)
-    
+
     # save
     save(joinpath(output_directory, case * "_spinup_state1.png"), fig, px_per_unit = 3)
     save(joinpath(output_directory, case * "_spinup_state1.pdf"), fig, pt_per_unit = 3)
     @info "plotted spin-up"
-    
+
     ###
     ### Generate perfect-model data
     ###
-    
+
     #estimate covariance
     n_sample_cov = 100
-    
+
     new_state, new_t = lorenz_solve(spunup_state, lsettings, true_params)
     data_sample = process_trajectory_to_data(window, new_state, new_t)
-    
+
     data_samples = zeros(size(data_sample, 1), n_sample_cov)
     data_samples[:, 1] = data_sample
-    
+
     fig = Figure(size = (900, 450))
     afast = Axis(fig[1, 1][1, 1], xlabel = "time", ylabel = "fast")
     aslow = Axis(fig[2, 1][1, 1], xlabel = "time", ylabel = "slow")
-    
+
     for i in 2:n_sample_cov
         # extend trajectory from end of new_state
         new_state, new_t = lorenz_solve(new_state, lsettings, true_params) #integrate another window from last state
         # calculate data sample
         data_samples[:, i] = process_trajectory_to_data(window, new_state, new_t) # process the window 
-        
+
         #plot trajectory
         ss_freq = length(new_t) / 2010.0
         ss_rate = Int64(ceil(ss_freq))
         tplot = new_t[Int64(floor(length(new_t) / 2)):ss_rate:end]
-        
+
         lines!(afast, tplot, new_state[N + 1, Int64(floor(length(new_t) / 2)):ss_rate:end], color = :red, alpha = 0.1)
         lines!(
             aslow,
@@ -207,54 +207,54 @@ function main()
         )
         axislegend(aslow, merge = true, unique = true)
     end
-# save
-save(joinpath(output_directory, case * "_datatrajectory_state1.png"), fig, px_per_unit = 3)
-save(joinpath(output_directory, case * "_datatrajectory_state1.pdf"), fig, pt_per_unit = 3)
+    # save
+    save(joinpath(output_directory, case * "_datatrajectory_state1.png"), fig, px_per_unit = 3)
+    save(joinpath(output_directory, case * "_datatrajectory_state1.pdf"), fig, pt_per_unit = 3)
 
-Γ = cov(data_samples, dims = 2) # estimate covariance from samples
-# add a little additive and multiplicative inflation
-Γ += 1e4 * eps() * I # 10^-12 just to make things nonzero
-#blocksize = Int64(size(Γ, 1) / 5) # known block structure
-#meanblocks = [mean([Γ[i, i] for i in ((j - 1) * blocksize + 1):(j * blocksize)]) for j in 1:5]
-#Γ += 1e-4* kron(Diagonal(meanblocks),I(blocksize)) # this will add scaled noise to the diagonal scaled by the block
+    Γ = cov(data_samples, dims = 2) # estimate covariance from samples
+    # add a little additive and multiplicative inflation
+    Γ += 1e4 * eps() * I # 10^-12 just to make things nonzero
+    #blocksize = Int64(size(Γ, 1) / 5) # known block structure
+    #meanblocks = [mean([Γ[i, i] for i in ((j - 1) * blocksize + 1):(j * blocksize)]) for j in 1:5]
+    #Γ += 1e-4* kron(Diagonal(meanblocks),I(blocksize)) # this will add scaled noise to the diagonal scaled by the block
 
-y_mean = mean(data_samples, dims = 2)
-y = data_samples[:, shuffle(rng, 1:n_sample_cov)[1]] # random data point as the data
-fig = Figure(size = (450, 450))
-aΓ = Axis(fig[1, 1][1, 1])
-adata = Axis(fig[2, 1][1, 1])
+    y_mean = mean(data_samples, dims = 2)
+    y = data_samples[:, shuffle(rng, 1:n_sample_cov)[1]] # random data point as the data
+    fig = Figure(size = (450, 450))
+    aΓ = Axis(fig[1, 1][1, 1])
+    adata = Axis(fig[2, 1][1, 1])
 
-heatmap!(aΓ, Γ)
-sqrt_inv_Γ = sqrt(inv(Γ))
-series!(adata, (sqrt_inv_Γ*data_samples)', solid_color = :black, label="normalized data") #plots each row as new plot
-# save
-save(joinpath(output_directory, case * "_datasamples.png"), fig, px_per_unit = 3)
-save(joinpath(output_directory, case * "_datasamples.pdf"), fig, pt_per_unit = 3)
+    heatmap!(aΓ, Γ)
+    sqrt_inv_Γ = sqrt(inv(Γ))
+    series!(adata, (sqrt_inv_Γ * data_samples)', solid_color = :black, label = "normalized data") #plots each row as new plot
+    # save
+    save(joinpath(output_directory, case * "_datasamples.png"), fig, px_per_unit = 3)
+    save(joinpath(output_directory, case * "_datasamples.pdf"), fig, pt_per_unit = 3)
 
-@info "constructed and plotted perfect experiment data and noise"
+    @info "constructed and plotted perfect experiment data and noise"
 
-# may need to condition Gamma for posdef etc. or add shrinkage estimation
+    # may need to condition Gamma for posdef etc. or add shrinkage estimation
 
-###
-### (a) Configure and solve ensemble inversion
-###
+    ###
+    ### (a) Configure and solve ensemble inversion
+    ###
 
-# EKP parameters
-N_ens = 30 # number of ensemble members
-N_iter = 10 # number of EKI iterations
-# initial parameters: N_params x N_ens
-initial_params = construct_initial_ensemble(rng, priors, N_ens)
+    # EKP parameters
+    N_ens = 30 # number of ensemble members
+    N_iter = 10 # number of EKI iterations
+    # initial parameters: N_params x N_ens
+    initial_params = construct_initial_ensemble(rng, priors, N_ens)
 
-ekiobj = EKP.EnsembleKalmanProcess(
-    initial_params,
-    y,
-    Γ,
-    Inversion(),
-    localization_method=Localizers.NoLocalization(),
-    scheduler = DataMisfitController(terminate_at = 1e4),
-    failure_handler_method = SampleSuccGauss(),
-    verbose = true,
-)
+    ekiobj = EKP.EnsembleKalmanProcess(
+        initial_params,
+        y,
+        Γ,
+        Inversion(),
+        localization_method = Localizers.NoLocalization(),
+        scheduler = DataMisfitController(terminate_at = 1e4),
+        failure_handler_method = SampleSuccGauss(),
+        verbose = true,
+    )
     @info "Built EKP object"
 
     # EKI iterations
@@ -284,110 +284,134 @@ ekiobj = EKP.EnsembleKalmanProcess(
     aprior = Axis(fig[1, 1][1, 1])
     apost = Axis(fig[2, 1][1, 1])
     g_prior = get_g(ekiobj, 1)
-g_post = get_g_final(ekiobj)
-data_std = sqrt.([Γ[i, i] for i in 1:size(Γ, 1)])
-data_dim = length(y)
-dplot = 1:data_dim
-lines!(aprior, dplot, sqrt_inv_Γ*y, color = (:black, 0.5), label = "data") #plots each row as new plot
-lines!(apost, dplot, sqrt_inv_Γ*y, color = (:black, 0.5), label = "data") #plots each row as new plot
-    band!(aprior, dplot, sqrt_inv_Γ*(y_mean - 2 * data_std)[:], sqrt_inv_Γ*(y_mean + 2 * data_std)[:], color = (:grey, 0.2)) #estimated 2*std bands about a mean 
-band!(apost, dplot, sqrt_inv_Γ*(y_mean - 2 * data_std)[:], sqrt_inv_Γ*(y_mean + 2 * data_std)[:], color = (:grey, 0.2))
-for idx in 1:N_ens
-    lines!(aprior, dplot, sqrt_inv_Γ*g_prior[:, idx], color = :orange, alpha = 0.1, label = "prior") #plots each row as new plot
-    lines!(apost, dplot, sqrt_inv_Γ*g_post[:, idx], color = :blue, alpha = 0.1, label = "posterior") #plots each row as new plot
-end
-axislegend(aprior, merge = true, unique = true)
-axislegend(apost, merge = true, unique = true)
+    g_post = get_g_final(ekiobj)
+    data_std = sqrt.([Γ[i, i] for i in 1:size(Γ, 1)])
+    data_dim = length(y)
+    dplot = 1:data_dim
+    lines!(aprior, dplot, sqrt_inv_Γ * y, color = (:black, 0.5), label = "data") #plots each row as new plot
+    lines!(apost, dplot, sqrt_inv_Γ * y, color = (:black, 0.5), label = "data") #plots each row as new plot
+    band!(
+        aprior,
+        dplot,
+        sqrt_inv_Γ * (y_mean - 2 * data_std)[:],
+        sqrt_inv_Γ * (y_mean + 2 * data_std)[:],
+        color = (:grey, 0.2),
+    ) #estimated 2*std bands about a mean 
+    band!(
+        apost,
+        dplot,
+        sqrt_inv_Γ * (y_mean - 2 * data_std)[:],
+        sqrt_inv_Γ * (y_mean + 2 * data_std)[:],
+        color = (:grey, 0.2),
+    )
+    for idx in 1:N_ens
+        lines!(aprior, dplot, sqrt_inv_Γ * g_prior[:, idx], color = :orange, alpha = 0.1, label = "prior") #plots each row as new plot
+        lines!(apost, dplot, sqrt_inv_Γ * g_post[:, idx], color = :blue, alpha = 0.1, label = "posterior") #plots each row as new plot
+    end
+    axislegend(aprior, merge = true, unique = true)
+    axislegend(apost, merge = true, unique = true)
 
-# save
-save(joinpath(output_directory, case * "_datasamples-prior-post.png"), fig, px_per_unit = 3)
-save(joinpath(output_directory, case * "_datasamples-prior-post.pdf"), fig, pt_per_unit = 3)
+    # save
+    save(joinpath(output_directory, case * "_datasamples-prior-post.png"), fig, px_per_unit = 3)
+    save(joinpath(output_directory, case * "_datasamples-prior-post.pdf"), fig, pt_per_unit = 3)
 
-@info "plotted results of perfect experiment"
+    @info "plotted results of perfect experiment"
 
-###
-### (b) Repeat exp (a) with UpdateGroups
+    ###
+    ### (b) Repeat exp (a) with UpdateGroups
     ###
 
-# We see that 
-bs = Int64(size(Γ, 1) / 5) # known block structure
+    # We see that 
+    bs = Int64(size(Γ, 1) / 5) # known block structure
 
-# recall the parameters are
-# F[1:3],G,h,c,b
-# and the data blocks are
-# <X>, <Y>, <X^2>, <Y^2>, <XY>  X-slow, Y-fast
+    # recall the parameters are
+    # F[1:3],G,h,c,b
+    # and the data blocks are
+    # <X>, <Y>, <X^2>, <Y^2>, <XY>  X-slow, Y-fast
 
     # F(3) -> <X>, <X^2>, 
-#    group_slow = UpdateGroup(collect(1:4), reduce(vcat, [collect(1:bs), collect(2 * bs + 1:3 * bs), collect(4*bs+1:5*bs)]))
-    group_slow = UpdateGroup(collect(1:3), reduce(vcat,[collect(1:bs),collect(2*bs+1:3*bs)]))#, collect(4*bs+1:5*bs)]))
-# G,h,c,b -> <Y>, <Y^2>,<XY>
-#group_fast = UpdateGroup(collect(4:7), collect(1:(5 * bs)))
-    group_fast = UpdateGroup(collect(4:7), reduce(vcat,[collect(bs+1:2*bs),collect(3*bs+1:5*bs)])) 
+    #    group_slow = UpdateGroup(collect(1:4), reduce(vcat, [collect(1:bs), collect(2 * bs + 1:3 * bs), collect(4*bs+1:5*bs)]))
+    group_slow = UpdateGroup(collect(1:3), reduce(vcat, [collect(1:bs), collect((2 * bs + 1):(3 * bs))]))#, collect(4*bs+1:5*bs)]))
+    # G,h,c,b -> <Y>, <Y^2>,<XY>
+    #group_fast = UpdateGroup(collect(4:7), collect(1:(5 * bs)))
+    group_fast = UpdateGroup(collect(4:7), reduce(vcat, [collect((bs + 1):(2 * bs)), collect((3 * bs + 1):(5 * bs))]))
 
 
 
-    
-ekiobj_grouped = EKP.EnsembleKalmanProcess(
-initial_params,
-    y,
-    Γ,
-    Inversion(),
-    localization_method = Localizers.NoLocalization(),
-    scheduler = DataMisfitController(terminate_at = 1e4),
-    failure_handler_method = SampleSuccGauss(),
-    verbose = true,
-    update_groups = [group_slow, group_fast],
-)
-@info "Built grouped EKP object"
 
-# EKI iterations
-println("EKP inversion error:")
-err = zeros(N_iter)
-for i in 1:N_iter
-    ϕ_i = get_ϕ_final(priors, ekiobj_grouped) # the `ϕ` indicates that the `params_i` are in the constrained space    
-    g_ens = run_G_ensemble(spunup_state, lsettings, ϕ_i, window, length(y))
-    EKP.update_ensemble!(ekiobj_grouped, g_ens)
-end
-@info "Calibrated parameters with grouped EKP"
-# EKI results: Has the ensemble collapsed toward the truth?
-println("True parameters: ")
-println(true_params)
+    ekiobj_grouped = EKP.EnsembleKalmanProcess(
+        initial_params,
+        y,
+        Γ,
+        Inversion(),
+        localization_method = Localizers.NoLocalization(),
+        scheduler = DataMisfitController(terminate_at = 1e4),
+        failure_handler_method = SampleSuccGauss(),
+        verbose = true,
+        update_groups = [group_slow, group_fast],
+    )
+    @info "Built grouped EKP object"
 
-println("\nEKI results:")
-println(get_ϕ_mean_final(priors, ekiobj_grouped))
+    # EKI iterations
+    println("EKP inversion error:")
+    err = zeros(N_iter)
+    for i in 1:N_iter
+        ϕ_i = get_ϕ_final(priors, ekiobj_grouped) # the `ϕ` indicates that the `params_i` are in the constrained space    
+        g_ens = run_G_ensemble(spunup_state, lsettings, ϕ_i, window, length(y))
+        EKP.update_ensemble!(ekiobj_grouped, g_ens)
+    end
+    @info "Calibrated parameters with grouped EKP"
+    # EKI results: Has the ensemble collapsed toward the truth?
+    println("True parameters: ")
+    println(true_params)
 
-u_stored = get_u(ekiobj_grouped, return_array = false)
-g_stored = get_g(ekiobj_grouped, return_array = false)
+    println("\nEKI results:")
+    println(get_ϕ_mean_final(priors, ekiobj_grouped))
 
-@save output_directory * "parameter_storage_grouped.jld2" u_stored
-@save output_directory * "output_storage_grouped.jld2" g_stored
+    u_stored = get_u(ekiobj_grouped, return_array = false)
+    g_stored = get_g(ekiobj_grouped, return_array = false)
+
+    @save output_directory * "parameter_storage_grouped.jld2" u_stored
+    @save output_directory * "output_storage_grouped.jld2" g_stored
 
 
-# Plots
-fig = Figure(size = (450, 450))
-aprior = Axis(fig[1, 1][1, 1])
-apost = Axis(fig[2, 1][1, 1])
-g_prior = get_g(ekiobj_grouped, 1)
-g_post = get_g_final(ekiobj_grouped)
-data_std = sqrt.([Γ[i, i] for i in 1:size(Γ, 1)])
-data_dim = length(y)
-dplot = 1:data_dim
-lines!(aprior, dplot, sqrt_inv_Γ*y, color = (:black,0.5), label = "data") #plots each row as new plot
-lines!(apost, dplot, sqrt_inv_Γ*y, color = (:black,0.5), label = "data") #plots each row as new plot
-band!(aprior, dplot, sqrt_inv_Γ*(y_mean - 2 * data_std)[:], sqrt_inv_Γ*(y_mean + 2 * data_std)[:], color = (:grey, 0.2)) #estimated 2*std bands about a mean 
-band!(apost, dplot, sqrt_inv_Γ*(y_mean - 2 * data_std)[:], sqrt_inv_Γ*(y_mean + 2 * data_std)[:], color = (:grey, 0.2))
-for idx in 1:N_ens
-    lines!(aprior, dplot, sqrt_inv_Γ*g_prior[:, idx], color = :orange, alpha = 0.1, label = "prior") #plots each row as new plot
-    lines!(apost, dplot, sqrt_inv_Γ*g_post[:, idx], color = :blue, alpha = 0.1, label = "posterior") #plots each row as new plot
-end
-axislegend(aprior, merge = true, unique = true)
-axislegend(apost, merge = true, unique = true)
+    # Plots
+    fig = Figure(size = (450, 450))
+    aprior = Axis(fig[1, 1][1, 1])
+    apost = Axis(fig[2, 1][1, 1])
+    g_prior = get_g(ekiobj_grouped, 1)
+    g_post = get_g_final(ekiobj_grouped)
+    data_std = sqrt.([Γ[i, i] for i in 1:size(Γ, 1)])
+    data_dim = length(y)
+    dplot = 1:data_dim
+    lines!(aprior, dplot, sqrt_inv_Γ * y, color = (:black, 0.5), label = "data") #plots each row as new plot
+    lines!(apost, dplot, sqrt_inv_Γ * y, color = (:black, 0.5), label = "data") #plots each row as new plot
+    band!(
+        aprior,
+        dplot,
+        sqrt_inv_Γ * (y_mean - 2 * data_std)[:],
+        sqrt_inv_Γ * (y_mean + 2 * data_std)[:],
+        color = (:grey, 0.2),
+    ) #estimated 2*std bands about a mean 
+    band!(
+        apost,
+        dplot,
+        sqrt_inv_Γ * (y_mean - 2 * data_std)[:],
+        sqrt_inv_Γ * (y_mean + 2 * data_std)[:],
+        color = (:grey, 0.2),
+    )
+    for idx in 1:N_ens
+        lines!(aprior, dplot, sqrt_inv_Γ * g_prior[:, idx], color = :orange, alpha = 0.1, label = "prior") #plots each row as new plot
+        lines!(apost, dplot, sqrt_inv_Γ * g_post[:, idx], color = :blue, alpha = 0.1, label = "posterior") #plots each row as new plot
+    end
+    axislegend(aprior, merge = true, unique = true)
+    axislegend(apost, merge = true, unique = true)
 
-# save
-save(joinpath(output_directory, case * "_datasamples-prior-post-grouped.png"), fig, px_per_unit = 3)
-save(joinpath(output_directory, case * "_datasamples-prior-post-grouped.pdf"), fig, pt_per_unit = 3)
+    # save
+    save(joinpath(output_directory, case * "_datasamples-prior-post-grouped.png"), fig, px_per_unit = 3)
+    save(joinpath(output_directory, case * "_datasamples-prior-post-grouped.pdf"), fig, pt_per_unit = 3)
 
-@info "plotted results of perfect experiment"
+    @info "plotted results of perfect experiment"
 
 end
 
