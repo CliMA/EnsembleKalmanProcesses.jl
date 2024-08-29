@@ -125,7 +125,7 @@ Inputs:
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
     g::AbstractMatrix{FT},
-    process::TransformInversion{FT},
+    process::TransformInversion,
     u_idx::Vector{Int},
     g_idx::Vector{Int};
     failed_ens = nothing,

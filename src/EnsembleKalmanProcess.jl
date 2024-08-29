@@ -274,7 +274,7 @@ function EnsembleKalmanProcess(
         @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localizer)))\nFailure handler: $(nameof(typeof(failure_handler)))\nScheduler: $(nameof(typeof(scheduler)))\nAccelerator: $(nameof(typeof(accelerator)))"
     end
 
-    EnsembleKalmanProcess{FT, IT, P, RS, AC}(
+    EnsembleKalmanProcess{FT, IT, P, RS, AC, VVV}(
         [init_params],
         observation_series,
         N_ens,
@@ -283,6 +283,7 @@ function EnsembleKalmanProcess(
         scheduler,
         accelerator,
         Δt,
+        groups,
         process,
         rng,
         failure_handler,
@@ -914,7 +915,7 @@ function update_ensemble!(
                 @info "Covariance trace: $(tr(cov_init))"
             end
             
-            @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
+            @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(get_Δt(ekp))))"
         end
         
         # update each u_block with every g_block

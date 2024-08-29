@@ -8,9 +8,10 @@ using JLD2
 
 # CES 
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.DataContainers
 using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses.Localizers
+
 
 const EKP = EnsembleKalmanProcesses
 
@@ -239,20 +240,21 @@ save(joinpath(output_directory, case * "_datasamples.pdf"), fig, pt_per_unit = 3
 ###
 
 # EKP parameters
-N_ens = 20 # number of ensemble members
-N_iter = 20 # number of EKI iterations
+N_ens = 30 # number of ensemble members
+N_iter = 10 # number of EKI iterations
 # initial parameters: N_params x N_ens
 initial_params = construct_initial_ensemble(rng, priors, N_ens)
 
 ekiobj = EKP.EnsembleKalmanProcess(
-initial_params,
-        y,
+    initial_params,
+    y,
     Γ,
-        Inversion(),
-        scheduler = DataMisfitController(terminate_at = 1e4),
-        failure_handler_method = SampleSuccGauss(),
-        verbose = true,
-    )
+    Inversion(),
+    localization_method=Localizers.NoLocalization(),
+    scheduler = DataMisfitController(terminate_at = 1e4),
+    failure_handler_method = SampleSuccGauss(),
+    verbose = true,
+)
     @info "Built EKP object"
 
     # EKI iterations
@@ -330,6 +332,7 @@ initial_params,
     y,
     Γ,
     Inversion(),
+    localization_method = Localizers.NoLocalization(),
     scheduler = DataMisfitController(terminate_at = 1e4),
     failure_handler_method = SampleSuccGauss(),
     verbose = true,

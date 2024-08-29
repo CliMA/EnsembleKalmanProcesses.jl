@@ -55,15 +55,15 @@ function eki_update(
     y::AbstractMatrix{FT},
     obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
 ) where {FT <: Real, IT, CT <: Real}
-
+    
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
     # TODO ENCORPORATE THIS PROPERLY
-    @warn "Removed LOCALIZER IN EKI"
-    cov_localized = cov_est
+    @warn "UpdateGroups don't work with Localizers - removing"
     
     # Localization
-    cov_localized = get_localizer(ekp).localize(cov_est)
+#    cov_localized = get_localizer(ekp).localize(cov_est)
+    cov_localized = cov_est
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
 
     # N_obs × N_obs \ [N_obs × N_ens]
@@ -120,19 +120,11 @@ function update_ensemble!(
     # u: N_par × N_ens 
     # g: N_obs × N_ens
     u = get_u_final(ekp)[u_idx, :]
-    N_obs = size(g, 1)[g_idx, :]
+    g = g[g_idx,:]
+    N_obs = length(g_idx)
     obs_noise_cov = get_obs_noise_cov(ekp)[g_idx, g_idx]
     obs_mean = get_obs(ekp)[g_idx]
     
-    if ekp.verbose
-        if get_N_iterations(ekp) == 0
-            @info "Iteration 0 (prior)"
-            @info "Covariance trace: $(tr(cov_init))"
-        end
-
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(get_Δt(ekp))))"
-    end
-
     fh = get_failure_handler(ekp)
 
     # Scale noise using Δt
