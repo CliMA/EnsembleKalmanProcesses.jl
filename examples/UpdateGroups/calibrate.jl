@@ -39,7 +39,7 @@ function run_G_ensemble(state, lsettings, ϕ_i, window, data_dim)
     N_ens = size(ϕ_i, 2)
     data_sample = zeros(data_dim, N_ens)
 
-    for j in 1:N_ens
+    Threads.@threads for j in 1:N_ens
         # ϕ_i is n_params x n_ens
         params_i = LParams(
             ϕ_i[1:3, j], # F
@@ -214,12 +214,28 @@ function main()
     Γ = cov(data_samples, dims = 2) # estimate covariance from samples
     # add a little additive and multiplicative inflation
     Γ += 1e4 * eps() * I # 10^-12 just to make things nonzero
-    #blocksize = Int64(size(Γ, 1) / 5) # known block structure
+    blocksize = Int64(size(Γ, 1) / 5) # known block structure
     #meanblocks = [mean([Γ[i, i] for i in ((j - 1) * blocksize + 1):(j * blocksize)]) for j in 1:5]
     #Γ += 1e-4* kron(Diagonal(meanblocks),I(blocksize)) # this will add scaled noise to the diagonal scaled by the block
 
     y_mean = mean(data_samples, dims = 2)
     y = data_samples[:, shuffle(rng, 1:n_sample_cov)[1]] # random data point as the data
+
+    # build a nice observation object from this (blocks assumption)
+    data_block_names = ["<X>", "<Y>", "<X^2>", "<Y^2>", "<XY>"]
+    observation_vec = []
+    for i in 1:5
+        idx = ((i - 1) * blocksize + 1):(i * blocksize)
+        push!(
+            observation_vec,
+            Observation(Dict("samples" => y[idx], "covariances" => Γ[idx, idx], "names" => data_block_names[i])),
+        )
+    end
+    observation = combine_observations(observation_vec)
+    y = get_obs(observation)
+
+
+
     fig = Figure(size = (450, 450))
     aΓ = Axis(fig[1, 1][1, 1])
     adata = Axis(fig[2, 1][1, 1])
@@ -240,8 +256,8 @@ function main()
     ###
 
     # EKP parameters
-    N_ens = 30 # number of ensemble members
-    N_iter = 10 # number of EKI iterations
+    N_ens = 50 # number of ensemble members
+    N_iter = 5 # number of EKI iterations
     # initial parameters: N_params x N_ens
     initial_params = construct_initial_ensemble(rng, priors, N_ens)
 
@@ -328,16 +344,14 @@ function main()
     # F[1:3],G,h,c,b
     # and the data blocks are
     # <X>, <Y>, <X^2>, <Y^2>, <XY>  X-slow, Y-fast
+    # F(3) -> <X>, <X^2>,
+    # Observation-based update_group
+    group_identifiers = Dict(["F"] => ["<X>", "<X^2>"], ["G", "h", "c", "b"] => ["<Y>", "<Y^2>", "<XY>"])
+    update_groups = create_update_groups(priors, observation, group_identifiers)
 
-    # F(3) -> <X>, <X^2>, 
-    #    group_slow = UpdateGroup(collect(1:4), reduce(vcat, [collect(1:bs), collect(2 * bs + 1:3 * bs), collect(4*bs+1:5*bs)]))
-    group_slow = UpdateGroup(collect(1:3), reduce(vcat, [collect(1:bs), collect((2 * bs + 1):(3 * bs))]))#, collect(4*bs+1:5*bs)]))
-    # G,h,c,b -> <Y>, <Y^2>,<XY>
-    #group_fast = UpdateGroup(collect(4:7), collect(1:(5 * bs)))
-    group_fast = UpdateGroup(collect(4:7), reduce(vcat, [collect((bs + 1):(2 * bs)), collect((3 * bs + 1):(5 * bs))]))
-
-
-
+    println("update groups:")
+    println("**************")
+    println(get_group_id.(update_groups))
 
     ekiobj_grouped = EKP.EnsembleKalmanProcess(
         initial_params,
@@ -348,7 +362,7 @@ function main()
         scheduler = DataMisfitController(terminate_at = 1e4),
         failure_handler_method = SampleSuccGauss(),
         verbose = true,
-        update_groups = [group_slow, group_fast],
+        update_groups = update_groups,
     )
     @info "Built grouped EKP object"
 

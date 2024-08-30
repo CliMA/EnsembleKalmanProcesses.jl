@@ -229,7 +229,6 @@ function EnsembleKalmanProcess(
 
     obs_for_minibatch = get_obs(observation_series) # get stacked observation over minibatch
     obs_size_for_minibatch = length(obs_for_minibatch) # number of dims in the stacked observation
-
     IT = typeof(N_ens)
     #store for model evaluations
     g = []
@@ -238,13 +237,14 @@ function EnsembleKalmanProcess(
     # timestep store
     Δt = FT[]
 
-    # defined groups of parameters to be updated by groups of data
+    # defined groups of parameters to be updated by groups of data 
+    obs_size = length(get_obs(get_observations(observation_series)[1])) #deduce size just from first observation
     if isnothing(update_groups)
-        groups = [UpdateGroup(1:N_par, 1:obs_size_for_minibatch)] # vec length 1
+        groups = [UpdateGroup(1:N_par, 1:obs_size)] # vec length 1
     else
         groups = update_groups
     end
-    update_group_consistency(groups, N_par, obs_size_for_minibatch) # consistency checks
+    update_group_consistency(groups, N_par, obs_size) # consistency checks
     VVV = typeof(groups)
 
     scheduler = configuration["scheduler"]
@@ -587,6 +587,28 @@ function get_update_groups(ekp::EnsembleKalmanProcess)
 end
 
 """
+    list_update_groups_over_minibatch(ekp::EnsembleKalmanProcess)
+Return u_groups and g_groups for the current minibatch, i.e. the subset of 
+"""
+function list_update_groups_over_minibatch(ekp::EnsembleKalmanProcess)
+    os = get_observation_series(ekp)
+    len_mb = length(get_current_minibatch(os)) # number of obs per batch
+    len_obs = Int(length(get_obs(os)) / len_mb) # length of obs in a batch
+    update_groups = get_update_groups(ekp)
+    u_groups = get_u_group.(update_groups) # update_group indices
+    g_groups = get_g_group.(update_groups)
+
+    # extend group indices from one obs to the minibatch of obs
+    new_u_groups = [reduce(vcat, [(i - 1) * len_obs .+ u_group for i in 1:len_mb]) for u_group in u_groups]
+    new_g_groups = [reduce(vcat, [(i - 1) * len_obs .+ g_group for i in 1:len_mb]) for g_group in g_groups]
+
+    return new_u_groups, new_g_groups
+end
+
+
+
+
+"""
     get_process(ekp::EnsembleKalmanProcess)
 Return `process` field of EnsembleKalmanProcess.
 """
@@ -908,12 +930,12 @@ function update_ensemble!(
 
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
-        update_groups = get_update_groups(ekp)
+        u_groups, g_groups = list_update_groups_over_minibatch(ekp)
         u = zeros(size(get_u_prior(ekp)))
         # with several g_groups we want to do
         # u_n+1 = u_n + sum(update{g_i})
         # but get u_n+1 = sum(u_n + update{g_i}),remove the extra u_ns
-        n_g_groups = length(get_g_group(update_groups))
+        n_g_groups = length(g_groups)
         u -= get_u_final(ekp) * (n_g_groups - 1)
 
         if ekp.verbose
@@ -928,8 +950,8 @@ function update_ensemble!(
 
         # update each u_block with every g_block
         #        for (u_idx,g_idx) in zip(get_u_group(update_groups),get_g_group(update_groups))
-        for u_idx in get_u_group(update_groups)
-            for g_idx in get_g_group(update_groups)
+        for u_idx in u_groups
+            for g_idx in g_groups
                 u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)
             end
         end

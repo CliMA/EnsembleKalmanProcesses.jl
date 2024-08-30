@@ -1,7 +1,8 @@
 # EKP implementation of the domain and observation localization from the literature
 
+using ..ParameterDistributions
 export UpdateGroup
-export get_u_group, get_g_group, update_group_consistency
+export get_u_group, get_g_group, get_group_id, update_group_consistency, create_update_groups
 
 """
     struct UpdateGroup {VV <: AbstractVector}
@@ -16,72 +17,113 @@ $(TYPEDFIELDS)
 
 """
 struct UpdateGroup
-    "vector of parameter indices, forms part(or all) of a partition of 1:input_dim with other UpdateGroups provided"
+    "vector of parameter indices to form a partition of 1:input_dim) with other UpdateGroups provided"
     u_group::Vector{Int}
-    "vector of data indices, must lie within 1:output_dim"
+    "vector of data indices that lie within 1:output_dim)"
     g_group::Vector{Int}
     # process::Process # in future
     # localizer::Localizer # in future
     # inflation::Inflation # in future
+    group_id::Dict
 end
+
+function UpdateGroup(u_group, g_group)
+    return UpdateGroup(
+        u_group,
+        g_group,
+        Dict("[$(minimum(u_group)),...,$(maximum(u_group))]" => "[$(minimum(g_group)),...,$(maximum(g_group))]"),
+    )
+end
+
 
 get_u_group(group::UpdateGroup) = group.u_group
 get_g_group(group::UpdateGroup) = group.g_group
+get_group_id(group::UpdateGroup) = group.group_id
 
-function get_u_group(groups::VV) where {VV <: AbstractVector}
-    u_group = []
-    for group in groups
-        push!(u_group, get_u_group(group))
-    end
-    return u_group
-end
 
-function get_g_group(groups::VV) where {VV <: AbstractVector}
-    g_group = []
-    for group in groups
-        push!(g_group, get_g_group(group))
-    end
-    return g_group
-end
 
 # check an array of update_groups are consistent, i.e. common sizing for u,g, and that u is a partition.
 """
 $(TYPEDSIGNATURES)
 
-Check the consistency of sizing and partitioning of the `UpdateGroup` array
+Check the consistency of sizing and partitioning of the `UpdateGroup` array if it contains indices
+No consistency check if u,g has strings internally
 """
 function update_group_consistency(groups::VV, input_dim::Int, output_dim::Int) where {VV <: AbstractVector}
 
-    u_groups = get_u_group(groups)
-    g_groups = get_g_group(groups)
+    u_groups = get_u_group.(groups)
+    g_groups = get_g_group.(groups)
 
     # check there is an index in each group
     if any(length(group) == 0 for group in u_groups)
-        throw(ArgumentError("all `UpdateGroup.u_group` must contain at least one parameter index"))
+        throw(ArgumentError("all `UpdateGroup.u_group` must contain at least one parameter identifier"))
     end
     if any(length(group) == 0 for group in g_groups)
-        throw(ArgumentError("all `UpdateGroup.g_group` must contain at least one parameter index"))
+        throw(ArgumentError("all `UpdateGroup.g_group` must contain at least one data identifier"))
     end
 
-    # check for partition
+    # check for partition (only if indices passed)
     u_flat = reduce(vcat, u_groups)
     if !(1:input_dim == sort(u_flat))
-        throw(
-            ArgumentError(
-                "The combined 'UpdateGroup.u_group's must partition the indices of the input parameters: 1:$(input_dim), received: $(sort(u_flat))",
-            ),
-        )
+        if eltype(sort(u_flat)) == Int
+            throw(
+                ArgumentError(
+                    "The combined 'UpdateGroup.u_group's must partition the indices of the input parameters: 1:$(input_dim), received: $(sort(u_flat))",
+                ),
+            )
+        end
     end
 
     g_flat = reduce(vcat, g_groups)
-    if any(gf > output_dim for gf in g_flat) || any(gf <= 0 for gf in g_flat)
-        throw(
-            ArgumentError(
-                "The UpdateGroup.g_group must contains values in: 1:$(output_dim), found values outside this range",
-            ),
-        )
+    if eltype(g_flat) == Int
+        if any(gf > output_dim for gf in g_flat) || any(gf <= 0 for gf in g_flat)
+            throw(
+                ArgumentError(
+                    "The UpdateGroup.g_group must contains values in: 1:$(output_dim), found values outside this range",
+                ),
+            )
+        end
     end
-
     # pass the tests
     return true
+end
+
+## Convience constructor for update_groups
+"""
+$(TYPEDSIGNATURES)
+
+To construct a list of update-groups populated by indices of parameter distributions and indices of observations, from a dictionary of `group_identifiers = Dict(..., group_k_input_names => group_k_output_names, ...)`
+"""
+function create_update_groups(
+    prior::PD,
+    observation::OB,
+    group_identifiers::Dict,
+) where {PD <: ParameterDistribution, OB <: Observation}
+
+    param_names = get_name(prior)
+    param_indices = batch(prior, function_parameter_opt = "dof")
+
+    obs_names = get_names(observation)
+    obs_indices = get_indices(observation)
+
+    update_groups = []
+    for (key, val) in pairs(group_identifiers)
+        key_vec = isa(key, AbstractString) ? [key] : key # make it iterable
+        val_vec = isa(val, AbstractString) ? [val] : val
+        u_group = []
+        g_group = []
+        for pn in key_vec
+            pi = param_indices[pn .== param_names]
+            push!(u_group, isa(pi, Int) ? [pi] : pi)
+        end
+        for obn in val_vec
+            oi = obs_indices[obn .== obs_names]
+            push!(g_group, isa(oi, Int) ? [oi] : oi)
+        end
+        u_group = reduce(vcat, reduce(vcat, u_group))
+        g_group = reduce(vcat, reduce(vcat, g_group))
+        push!(update_groups, UpdateGroup(u_group, g_group, Dict(key_vec => val_vec)))
+    end
+    return update_groups
+
 end
