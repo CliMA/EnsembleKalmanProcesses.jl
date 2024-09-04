@@ -16,8 +16,7 @@ end
 function GaussNewtonInversion(prior::ParameterDistribution)
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
-    FT = eltype(mean_prior)
-    return GaussNewtonInversion{FT}(mean_prior, cov_prior)
+    return GaussNewtonInversion(mean_prior, cov_prior)
 end
 
 
@@ -58,12 +57,12 @@ from eqns. (4) and (5) of Schillings and Stuart (2017).
 Localization is implemented following the `ekp.localizer`.
 """
 function gnki_update(
-    ekp::EnsembleKalmanProcess{FT, IT, GaussNewtonInversion},
+    ekp::EnsembleKalmanProcess{FT, IT, GNI},
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
     obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
-) where {FT <: Real, IT, CT <: Real}
+) where {FT <: Real, IT, CT <: Real, GNI <: GaussNewtonInversion}
 
     #GNKI UPDATE
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
@@ -77,19 +76,21 @@ function gnki_update(
 
     #perturbed mean
     Δt = get_Δt(ekp)[end]
+    N_obs = size(g, 1)
     scaled_prior_cov = prior_cov / (2 * Δt)
     m_noise = sqrt(scaled_prior_cov) * rand(get_rng(ekp), MvNormal(zeros(N_obs), I), get_N_ens(ekp))
-    m = (prior_mean .+ noise)
+    m = (prior_mean .+ m_noise)
 
     prior_contribution = cov_ug' \ cov_uu * (m .- u)
     data_contribution = y .- g
     A = data_contribution + data_contribution
     # solve P (Cᵘᵍ)ᵀ (Cᵘᵘ)⁻¹ ( (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ + Γ)⁻¹ * A
 
-    # Q      A \ b = A^-1 * b
-    Q = cov_ug' * cov_uu \ (prior_cov * (cov_uu \ cov_ug))
+    # Q =       
+    Q = cov_ug' * cov_uu \ (scaled_prior_cov * (cov_uu \ cov_ug))
 
-    update = cov_uu \ (cov_ug * (Q + obs_noise_cov) \ A)
+    # NB: obs_noise_cov already scaled by 1/(2Δt)
+    update = scaled_prior_cov * cov_uu \ (cov_ug * (Q + obs_noise_cov) \ A)
 
     return (1 - Δt) * u + Δt * (m .+ update)
 
@@ -117,12 +118,12 @@ Inputs:
  - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
 """
 function update_ensemble!(
-    ekp::EnsembleKalmanProcess{FT, IT, GaussNewtonInversion},
+    ekp::EnsembleKalmanProcess{FT, IT, GNI},
     g::AbstractMatrix{FT},
-    process::GaussNewtonInversion;
+    process::GNI;
     deterministic_forward_map::Bool = true,
     failed_ens = nothing,
-) where {FT, IT}
+) where {FT, IT, GNI <: GaussNewtonInversion}
 
     if !(isa(get_accelerator(ekp), DefaultAccelerator))
         add_stochastic_perturbation = false # doesn't play well with accelerator, but not needed

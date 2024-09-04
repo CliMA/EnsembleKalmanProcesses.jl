@@ -103,6 +103,19 @@ function default_options_dict(process::P) where {P <: Process}
             "failure_handler_method" => SampleSuccGauss(),
             "accelerator" => DefaultAccelerator(),
         )
+    elseif isa(process, GaussNewtonInversion)
+        return Dict(
+            "scheduler" => DataMisfitController(terminate_at = 1),
+            "localization_method" => SECNice(),
+            "failure_handler_method" => SampleSuccGauss(),
+            "accelerator" => NesterovAccelerator(),
+        )
+    else
+        throw(
+            ArgumentError(
+                "No defaults found for process $process, please implement these in EnsembleKalmanProcess.jl default_options_dict()",
+            ),
+        )
     end
 
 end
