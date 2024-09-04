@@ -892,6 +892,10 @@ include("EnsembleKalmanInversion.jl")
 export TransformInversion
 include("EnsembleTransformKalmanInversion.jl")
 
+# struct GaussNewtonInversion
+export GaussNewtonInversion
+include("GaussNewtonKalmanInversion.jl")
+
 # struct SparseInversion
 export SparseInversion
 include("SparseEnsembleKalmanInversion.jl")
