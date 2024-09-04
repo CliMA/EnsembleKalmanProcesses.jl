@@ -61,10 +61,9 @@ function gnki_update(
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
-    obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
+    scaled_obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
 ) where {FT <: Real, IT, CT <: Real, GNI <: GaussNewtonInversion}
 
-    #GNKI UPDATE
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
     cov_localized = get_localizer(ekp).localize(cov_est)
@@ -76,21 +75,22 @@ function gnki_update(
 
     #perturbed mean
     Δt = get_Δt(ekp)[end]
-    N_obs = size(g, 1)
-    scaled_prior_cov = prior_cov / (2 * Δt)
-    m_noise = sqrt(scaled_prior_cov) * rand(get_rng(ekp), MvNormal(zeros(N_obs), I), get_N_ens(ekp))
+    N_par = size(u, 1)
+    scaled_prior_cov = 2 * prior_cov / Δt
+    m_noise = sqrt(scaled_prior_cov) * rand(get_rng(ekp), MvNormal(zeros(N_par), I), get_N_ens(ekp))
     m = (prior_mean .+ m_noise)
 
-    prior_contribution = cov_ug' \ cov_uu * (m .- u)
+    obs_noise_cov = scaled_obs_noise_cov * Δt / 2
+
+    prior_contribution = -cov_ug' * cov_uu \ (m .- u)
     data_contribution = y .- g
-    A = data_contribution + data_contribution
+    A = data_contribution + prior_contribution
     # solve P (Cᵘᵍ)ᵀ (Cᵘᵘ)⁻¹ ( (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ + Γ)⁻¹ * A
 
     # Q =       
-    Q = cov_ug' * cov_uu \ (scaled_prior_cov * (cov_uu \ cov_ug))
+    Q = cov_ug' * cov_uu \ (prior_cov * cov_uu \ cov_ug)
 
-    # NB: obs_noise_cov already scaled by 1/(2Δt)
-    update = scaled_prior_cov * cov_uu \ (cov_ug * (Q + obs_noise_cov) \ A)
+    update = prior_cov * cov_uu \ (cov_ug * (Q + obs_noise_cov) \ A)
 
     return (1 - Δt) * u + Δt * (m .+ update)
 
@@ -147,8 +147,8 @@ function update_ensemble!(
 
     fh = get_failure_handler(ekp)
 
-    # Scale noise using Δt
-    scaled_obs_noise_cov = get_obs_noise_cov(ekp) / (2 * get_Δt(ekp)[end])
+    # Scale noise using Δt / 2
+    scaled_obs_noise_cov = 2 * get_obs_noise_cov(ekp) / get_Δt(ekp)[end]
     noise = sqrt(scaled_obs_noise_cov) * rand(get_rng(ekp), MvNormal(zeros(N_obs), I), get_N_ens(ekp))
 
     # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
