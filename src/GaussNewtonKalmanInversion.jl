@@ -5,7 +5,7 @@
 
 A Gauss Newton Kalman Inversion process
 """
-struct GaussNewtonInversion{VV <: AbstractVector, AMorUS <: Union{AbstractMatrix, UniformScaling}} <: Process 
+struct GaussNewtonInversion{VV <: AbstractVector, AMorUS <: Union{AbstractMatrix, UniformScaling}} <: Process
     "Mean of Gaussian parameter prior in unconstrained space"
     prior_mean::VV
     "Covariance of Gaussian parameter prior in unconstrained space"
@@ -18,6 +18,3 @@ function GaussNewtonInversion(prior::ParameterDistribution)
     FT = eltype(mean_prior)
     return GaussNewtonInversion{FT}(mean_prior, cov_prior)
 end
-
-
-                            
