@@ -105,7 +105,7 @@ function default_options_dict(process::P) where {P <: Process}
         )
     elseif isa(process, GaussNewtonInversion)
         return Dict(
-            "scheduler" => DataMisfitController(terminate_at = 1),
+            "scheduler" => DefaultScheduler(),
             "localization_method" => SECNice(),
             "failure_handler_method" => SampleSuccGauss(),
             "accelerator" => NesterovAccelerator(),
