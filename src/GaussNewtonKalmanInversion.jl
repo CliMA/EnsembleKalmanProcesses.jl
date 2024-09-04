@@ -79,18 +79,18 @@ function gnki_update(
     scaled_prior_cov = 2 * prior_cov / Δt
     m_noise = sqrt(scaled_prior_cov) * rand(get_rng(ekp), MvNormal(zeros(N_par), I), get_N_ens(ekp))
     m = (prior_mean .+ m_noise)
-
+    println(size(cov_ug), size(cov_uu), size(m), size(u))
     obs_noise_cov = scaled_obs_noise_cov * Δt / 2
 
-    prior_contribution = -cov_ug' * cov_uu \ (m .- u)
+    prior_contribution = -cov_ug' * (cov_uu \ (m .- u))
     data_contribution = y .- g
     A = data_contribution + prior_contribution
     # solve P (Cᵘᵍ)ᵀ (Cᵘᵘ)⁻¹ ( (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ + Γ)⁻¹ * A
 
     # Q =       
-    Q = cov_ug' * cov_uu \ (prior_cov * cov_uu \ cov_ug)
+    Q = cov_ug' * (cov_uu \ (prior_cov * (cov_uu \ cov_ug)))
 
-    update = prior_cov * cov_uu \ (cov_ug * (Q + obs_noise_cov) \ A)
+    update = prior_cov * (cov_uu \ (cov_ug * ((Q + obs_noise_cov) \ A)))
 
     return (1 - Δt) * u + Δt * (m .+ update)
 
