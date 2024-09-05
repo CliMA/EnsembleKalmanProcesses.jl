@@ -13,10 +13,17 @@ struct GaussNewtonInversion{VV <: AbstractVector, AMorUS <: Union{AbstractMatrix
 
 end
 
+# constructors
 function GaussNewtonInversion(prior::ParameterDistribution)
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     return GaussNewtonInversion(mean_prior, cov_prior)
+end
+
+# failure handling
+function FailureHandler(process::GaussNewtonInversion, method::IgnoreFailures)
+    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens) = gnki_update(ekp, u, g, y, obs_noise_cov)
+    return FailureHandler{GaussNewtonInversion, IgnoreFailures}(failsafe_update)
 end
 
 
@@ -24,7 +31,7 @@ end
     FailureHandler(process::GaussNewtonInversion, method::SampleSuccGauss)
 
 Provides a failsafe update that
- - updates the successful ensemble according to the EKI update,
+ - updates the successful ensemble according to the GNKI update,
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::GaussNewtonInversion, method::SampleSuccGauss)
@@ -47,12 +54,11 @@ end
         u::AbstractMatrix{FT},
         g::AbstractMatrix{FT},
         y::AbstractMatrix{FT},
-        obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
+        scaled_obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
     ) where {FT <: Real, IT, CT <: Real}
 
 Returns the updated parameter vectors given their current values and
-the corresponding forward model evaluations, using the inversion algorithm
-from eqns. (4) and (5) of Schillings and Stuart (2017).
+the corresponding forward model evaluations, using the .
 
 Localization is implemented following the `ekp.localizer`.
 """
@@ -63,12 +69,11 @@ function gnki_update(
     y::AbstractMatrix{FT},
     scaled_obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
 ) where {FT <: Real, IT, CT <: Real, GNI <: GaussNewtonInversion}
-
+    N_ens_successful = size(g, 2)
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
     cov_localized = get_localizer(ekp).localize(cov_est)
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
-
     process = get_process(ekp)
     prior_mean = process.prior_mean
     prior_cov = process.prior_cov
@@ -77,11 +82,13 @@ function gnki_update(
     Δt = get_Δt(ekp)[end]
     N_par = size(u, 1)
     scaled_prior_cov = 2 * prior_cov / Δt
-    m_noise = sqrt(scaled_prior_cov) * rand(get_rng(ekp), MvNormal(zeros(N_par), I), get_N_ens(ekp))
+
+    m_noise = sqrt(scaled_prior_cov) * rand(get_rng(ekp), MvNormal(zeros(N_par), I), N_ens_successful)
     m = (prior_mean .+ m_noise)
     obs_noise_cov = scaled_obs_noise_cov * Δt / 2
 
     prior_contribution = -cov_ug' * (cov_uu \ (m .- u))
+
     data_contribution = y .- g
     A = data_contribution + prior_contribution
     # solve P (Cᵘᵍ)ᵀ (Cᵘᵘ)⁻¹ ( (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ + Γ)⁻¹ * A
