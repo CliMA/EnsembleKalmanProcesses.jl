@@ -336,7 +336,7 @@ end
             DataMisfitController(on_terminate = "continue"),
             DataMisfitController(on_terminate = "continue_fixed"),
         ]
-        N_iters = 20*ones(5)
+        N_iters = 20 * ones(5)
         init_means = []
         final_means = []
 
@@ -376,7 +376,7 @@ end
             @test initial_obs_noise_cov == get_obs_noise_cov(ekpobj)
 
             # this test is fine so long as N_iter is large enough to hit the termination time
-            if isa(scheduler,DataMisfitController)
+            if isa(scheduler, DataMisfitController)
                 if (scheduler.terminate_at, scheduler.on_terminate) == (Float64(T_end), "stop")
                     @test sum(get_Δt(ekpobj)) < scheduler.terminate_at + eps()
                 end
