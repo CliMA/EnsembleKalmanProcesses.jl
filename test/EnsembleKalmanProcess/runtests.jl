@@ -189,7 +189,7 @@ end
             process_copy = deepcopy(process)
             scheduler_copy = deepcopy(scheduler)
             println("Accelerator: ", nameof(typeof(accelerator)), " Process: ", nameof(typeof(process_copy)))
-            if !(nameof(typeof(process)) == Symbol(Unscented))
+            if !isa(process, Unscented)
                 ekpobj = EKP.EnsembleKalmanProcess(
                     initial_ensemble,
                     y_obs,
@@ -376,7 +376,7 @@ end
             @test initial_obs_noise_cov == get_obs_noise_cov(ekpobj)
 
             # this test is fine so long as N_iter is large enough to hit the termination time
-            if nameof(typeof(scheduler)) == DataMisfitController
+            if isa(scheduler,DataMisfitController)
                 if (scheduler.terminate_at, scheduler.on_terminate) == (Float64(T_end), "stop")
                     @test sum(get_Δt(ekpobj)) ≈ scheduler.terminate_at
                 end

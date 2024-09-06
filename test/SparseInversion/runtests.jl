@@ -79,7 +79,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
             initial_ensemble,
             y_obs,
             Γy,
-            process;
+            deepcopy(process);
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
             localization_method = loc_method,
@@ -89,7 +89,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
             initial_ensemble,
             y_obs,
             Γy,
-            process;
+            deepcopy(process);
             rng = rng,
             failure_handler_method = IgnoreFailures(),
             scheduler = deepcopy(scheduler),
@@ -172,7 +172,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
             initial_ensemble,
             y_obs,
             Γy,
-            process;
+            deepcopy(process);
             rng = copy(rng), #so we get similar performance
             failure_handler_method = SampleSuccGauss(),
             scheduler = scheduler,
@@ -194,7 +194,7 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
         push!(init_means, vec(mean(get_u_prior(ekiobj), dims = 2)))
         push!(final_means, vec(mean(get_u_final(ekiobj), dims = 2)))
         # this test is fine so long as N_iter is large enough to hit the termination time
-        if nameof(typeof(scheduler)) == DataMisfitController
+        if isa(scheduler, DataMisfitController)
             if (scheduler.terminate_at, scheduler.on_terminate) == (Float64(T_end), "stop")
                 @test sum(get_Δt(ekiobj)) ≈ scheduler.terminate_at
             end
