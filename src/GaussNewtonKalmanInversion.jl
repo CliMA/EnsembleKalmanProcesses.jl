@@ -92,9 +92,9 @@ function gnki_update(
 
     data_contribution = y .- g
     A = data_contribution + prior_contribution
-    # solve P (Cᵘᵍ)ᵀ (Cᵘᵘ)⁻¹ ( (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ + Γ)⁻¹ * A
-
-    # Q =       
+    # solve for P (Cᵘᵍ)ᵀ (Cᵘᵘ)⁻¹ ( (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ + Γ)⁻¹ * A
+   
+    # Q = (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ
     Q = cov_ug' * (cov_uu \ (prior_cov * (cov_uu \ cov_ug)))
 
     update = prior_cov * (cov_uu \ (cov_ug * ((Q + obs_noise_cov) \ A)))
