@@ -336,11 +336,12 @@ end
             DataMisfitController(on_terminate = "continue"),
             DataMisfitController(on_terminate = "continue_fixed"),
         ]
+        verboses = [true, repeat(false, 4)] 
         N_iters = 20 * ones(5)
         init_means = []
         final_means = []
 
-        for (scheduler, N_iter) in zip(schedulers, N_iters)
+        for (scheduler, N_iter, verbose) in zip(schedulers, N_iters, verboses)
             println("Scheduler: ", nameof(typeof(scheduler)))
             if !isa(process, Unscented)
                 ekpobj = EKP.EnsembleKalmanProcess(
@@ -350,6 +351,7 @@ end
                     deepcopy(process),
                     rng = copy(rng),
                     scheduler = scheduler,
+                    verbose = verbose,
                 )
             else #no initial ensemble for UKI
                 ekpobj = EKP.EnsembleKalmanProcess(y_obs, Γy, deepcopy(process), rng = copy(rng), scheduler = scheduler)
