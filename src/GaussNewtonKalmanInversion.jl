@@ -93,7 +93,7 @@ function gnki_update(
     data_contribution = y .- g
     A = data_contribution + prior_contribution
     # solve for P (Cᵘᵍ)ᵀ (Cᵘᵘ)⁻¹ ( (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ + Γ)⁻¹ * A
-   
+
     # Q = (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ
     Q = cov_ug' * (cov_uu \ (prior_cov * (cov_uu \ cov_ug)))
 
