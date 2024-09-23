@@ -28,7 +28,9 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
+      - run: julia --project -e 'using Pkg; Pkg.update()' #windows in particular sometimes doesnt update packages
       - uses: julia-actions/julia-buildpkg@v1
+        
       - uses: julia-actions/julia-runtest@v1
       - name: Generate coverage file
         run: julia --project -e 'using Pkg; Pkg.add("Coverage");
