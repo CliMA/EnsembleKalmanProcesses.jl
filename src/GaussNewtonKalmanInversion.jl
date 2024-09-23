@@ -58,7 +58,8 @@ end
     ) where {FT <: Real, IT, CT <: Real}
 
 Returns the updated parameter vectors given their current values and
-the corresponding forward model evaluations, using the .
+the corresponding forward model evaluations, using the update defined in Algorithm 4.1 of Chada, Chen, Sanz-Alonso (2021), https://doi.org/10.3934/fods.2021011.
+a.k.a Iterated Ensemble Kalman Filter with Statistical Linearization
 
 Localization is implemented following the `ekp.localizer`.
 """
@@ -114,7 +115,9 @@ end
         failed_ens = nothing,
     ) where {FT, IT}
 
-Updates the ensemble according to an GaussNewtonInversion process. 
+Updates the ensemble according to an GaussNewtonInversion process.
+The specific update is given by Algorithm 4.1 of Chada, Chen, Sanz-Alonso (2021), https://doi.org/10.3934/fods.2021011,
+a.k.a Iterated Ensemble Kalman Filter with Statistical Linearization (IEKF-SL)
 
 Inputs:
  - ekp :: The EnsembleKalmanProcess to update.
