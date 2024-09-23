@@ -29,6 +29,8 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/julia-buildpkg@v1
+        with:
+          ignore-no-cache: true
       - uses: julia-actions/julia-runtest@v1
       - name: Generate coverage file
         run: julia --project -e 'using Pkg; Pkg.add("Coverage");
