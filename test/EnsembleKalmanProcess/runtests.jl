@@ -336,7 +336,7 @@ end
             DataMisfitController(on_terminate = "continue"),
             DataMisfitController(on_terminate = "continue_fixed"),
         ]
-        verboses = [true, repeat(false, 4)] 
+        verboses = [true, repeat(false, 4)]
         N_iters = 20 * ones(5)
         init_means = []
         final_means = []
