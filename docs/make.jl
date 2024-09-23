@@ -1,5 +1,5 @@
 # reference in tree version of CalibrateEmulateSample
-prepend!(LOAD_PATH, [joinpath(@__DIR__, "..")])
+#prepend!(LOAD_PATH, [joinpath(@__DIR__, "..")])
 
 using EnsembleKalmanProcesses,
     Documenter,
