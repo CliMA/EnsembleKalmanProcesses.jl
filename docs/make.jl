@@ -1,10 +1,11 @@
 # reference in tree version of CalibrateEmulateSample
-prepend!(LOAD_PATH, [joinpath(@__DIR__, "..")])
 
 using EnsembleKalmanProcesses,
     Documenter,
     Plots,  # so that Literate.jl does not capture precompilation output
     Literate
+
+prepend!(LOAD_PATH, [joinpath(@__DIR__, "..")])
 
 # Gotta set this environment variable when using the GR run-time on CI machines.
 # This happens as examples will use Plots.jl to make plots and movies.

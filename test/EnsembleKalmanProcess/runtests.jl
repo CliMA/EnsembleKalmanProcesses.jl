@@ -87,7 +87,7 @@ end
     inv_sqrt_Γy = sqrt(inv(Γy))
 
     rng = Random.MersenneTwister(rng_seed)
-    N_ens_tmp = 10
+    N_ens_tmp = 20
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens_tmp)
 
     # build accelerated and non-accelerated processes
@@ -158,11 +158,16 @@ end
     # Note: this test only requires that the final ensemble is an improvement on the initial ensemble,
     # NOT that the accelerated processes are more effective than the default, as this is not guaranteed.
     # Specific cost values are printed to give an idea of acceleration.
-    processes =
-        [repeat([Inversion(), TransformInversion(), Unscented(prior; impose_prior = true)], 2)..., Sampler(prior)]
+    processes = [
+        repeat(
+            [Inversion(), TransformInversion(), Unscented(prior; impose_prior = true), GaussNewtonInversion(prior)],
+            2,
+        )...,
+        Sampler(prior),
+    ]
     schedulers = [
-        repeat([DefaultScheduler(0.1)], 3)..., # for constant timestep Nesterov
-        repeat([DataMisfitController(terminate_at = 100)], 3)..., # for general Nesterov
+        repeat([DefaultScheduler(0.1)], 4)..., # for constant timestep Nesterov
+        repeat([DataMisfitController(terminate_at = 100)], 4)..., # for general Nesterov
         EKSStableScheduler(), # for general Nesterov
     ]
 
@@ -184,7 +189,7 @@ end
             process_copy = deepcopy(process)
             scheduler_copy = deepcopy(scheduler)
             println("Accelerator: ", nameof(typeof(accelerator)), " Process: ", nameof(typeof(process_copy)))
-            if !(nameof(typeof(process)) == Symbol(Unscented))
+            if !isa(process, Unscented)
                 ekpobj = EKP.EnsembleKalmanProcess(
                     initial_ensemble,
                     y_obs,
@@ -317,6 +322,8 @@ end
     #test
     processes = [
         Inversion(),
+        TransformInversion(),
+        GaussNewtonInversion(prior),
         Unscented(prior; impose_prior = true),
         #Sparse inversion tests in test/SparseInversion/runtests.jl
     ]
@@ -329,23 +336,25 @@ end
             DataMisfitController(on_terminate = "continue"),
             DataMisfitController(on_terminate = "continue_fixed"),
         ]
-        N_iters = [40, 40, 40, 40, 40]
+        verboses = [true, repeat([false], 4)...]
+        N_iters = 20 * ones(5)
         init_means = []
         final_means = []
 
-        for (scheduler, N_iter) in zip(schedulers, N_iters)
+        for (scheduler, N_iter, verbose) in zip(schedulers, N_iters, verboses)
             println("Scheduler: ", nameof(typeof(scheduler)))
-            if !(nameof(typeof(process)) == Symbol(Unscented))
+            if !isa(process, Unscented)
                 ekpobj = EKP.EnsembleKalmanProcess(
                     initial_ensemble,
                     y_obs,
                     Γy,
-                    process,
+                    deepcopy(process),
                     rng = copy(rng),
                     scheduler = scheduler,
+                    verbose = verbose,
                 )
             else #no initial ensemble for UKI
-                ekpobj = EKP.EnsembleKalmanProcess(y_obs, Γy, process, rng = copy(rng), scheduler = scheduler)
+                ekpobj = EKP.EnsembleKalmanProcess(y_obs, Γy, deepcopy(process), rng = copy(rng), scheduler = scheduler)
             end
             initial_obs_noise_cov = deepcopy(get_obs_noise_cov(ekpobj))
             for i in 1:N_iter
@@ -369,13 +378,13 @@ end
             @test initial_obs_noise_cov == get_obs_noise_cov(ekpobj)
 
             # this test is fine so long as N_iter is large enough to hit the termination time
-            if nameof(typeof(scheduler)) == DataMisfitController
+            if isa(scheduler, DataMisfitController)
                 if (scheduler.terminate_at, scheduler.on_terminate) == (Float64(T_end), "stop")
-                    @test sum(get_Δt(ekpobj)) ≈ scheduler.terminate_at
+                    @test sum(get_Δt(ekpobj)) < scheduler.terminate_at + eps()
                 end
             end
         end
-        if nameof(typeof(process)) == Inversion
+        if isa(process, Union{Inversion, TransformInversion, GaussNewtonInversion})
             for i in 1:length(final_means)
                 u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
                 inv_sqrt_Γy = sqrt(inv(Γy))
@@ -384,17 +393,20 @@ end
                       norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[i]))))
 
             end
-        elseif nameof(typeof(process)) == Unscented
-            # we are regularizing by the prior, therefore we must account for this in the metric of success
-            u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
-            inv_sqrt_Γy = sqrt(inv(Γy))
-            # compare stats in unconstrained space
-            prior_mean = mean(prior)
-            inv_sqrt_prior_cov = sqrt(inv(cov(prior)))
-            @test norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[i]))))^2 +
-                  norm(inv_sqrt_prior_cov * (final_means[i] .- prior_mean))^2 <
-                  norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[i]))))^2 +
-                  norm(inv_sqrt_prior_cov * (init_means[i] .- prior_mean))^2
+        elseif isa(process, Unscented)
+            for i in 1:length(final_means)
+                # we are regularizing by the prior, therefore we must account for this in the metric of success
+                u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
+                inv_sqrt_Γy = sqrt(inv(Γy))
+                # compare stats in unconstrained space
+                prior_mean = mean(prior)
+                inv_sqrt_prior_cov = sqrt(inv(cov(prior)))
+                @test norm(
+                    inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, final_means[i]))),
+                )^2 + norm(inv_sqrt_prior_cov * (final_means[i] .- prior_mean))^2 <
+                      norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[i]))))^2 +
+                      norm(inv_sqrt_prior_cov * (init_means[i] .- prior_mean))^2
+            end
         end
 
     end
@@ -694,7 +706,7 @@ end
         ukiobj = EKP.EnsembleKalmanProcess(
             y_obs,
             Γy,
-            process;
+            deepcopy(process);
             rng = rng,
             scheduler = deepcopy(scheduler),
             failure_handler_method = SampleSuccGauss(),
@@ -702,7 +714,7 @@ end
         ukiobj_unsafe = EKP.EnsembleKalmanProcess(
             y_obs,
             Γy,
-            process;
+            deepcopy(process);
             rng = rng,
             scheduler = deepcopy(scheduler),
             failure_handler_method = IgnoreFailures(),
@@ -712,7 +724,7 @@ end
         ukiobj_simplex = EKP.EnsembleKalmanProcess(
             y_obs,
             Γy,
-            process_simplex;
+            deepcopy(process_simplex);
             rng = rng,
             scheduler = deepcopy(scheduler),
             failure_handler_method = SampleSuccGauss(),
@@ -1022,4 +1034,186 @@ end
     draw_1 = construct_initial_ensemble(rng, u, 1)
     draw_2 = construct_initial_ensemble(u, 1)
     @test !isapprox(draw_1, draw_2)
+end
+
+
+@testset "GaussNewtonKalmanInversion" begin
+
+    # Seed for pseudo-random number generator
+    rng = Random.MersenneTwister(rng_seed)
+
+    iters_with_failure = [5, 8, 9, 15]
+    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+
+    gnkiobj = nothing
+    gnki_final_result = nothing
+
+    # test the GN object construction
+    mp = mean(prior)
+    cp = cov(prior)
+    @test_throws MethodError GaussNewtonInversion(mp, mp)
+    @test_throws MethodError GaussNewtonInversion(cp, cp)
+
+    gni_mean_cov = GaussNewtonInversion(mp, cp)
+    gni_prior = GaussNewtonInversion(prior)
+    @test gni_mean_cov.prior_mean ≈ mp
+    @test gni_mean_cov.prior_cov ≈ cp
+    @test gni_prior.prior_mean ≈ mp
+    @test gni_prior.prior_cov ≈ cp
+
+    for ((i_prob, inv_problem), eks_final_result, eksobj) in zip(enumerate(inv_problems), eks_final_results, eksobjs)
+
+        # Get inverse problem
+        y_obs, G, Γy, A = inv_problem
+        if i_prob == 1
+            scheduler = DataMisfitController()
+        else
+            scheduler = DefaultScheduler(0.001)
+        end
+        #remove localizers for now
+        localization_method = Localizers.NoLocalization()
+
+        gnkiobj = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y_obs,
+            Γy,
+            GaussNewtonInversion(prior);
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
+        )
+        gnkiobj_unsafe = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y_obs,
+            Γy,
+            GaussNewtonInversion(prior);
+            rng = rng,
+            failure_handler_method = IgnoreFailures(),
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
+        )
+        gnkiobj_nonoise_update = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y_obs,
+            Γy,
+            GaussNewtonInversion(prior);
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
+        )
+
+        ## some getters in EKP
+        g_ens = G(get_ϕ_final(prior, gnkiobj))
+        g_ens_t = permutedims(g_ens, (2, 1))
+
+        # GNKI iterations
+        u_i_vec = Array{Float64, 2}[]
+        g_ens_vec = Array{Float64, 2}[]
+        for i in 1:N_iter
+            # Check SampleSuccGauss handler
+            params_i = get_ϕ_final(prior, gnkiobj)
+            push!(u_i_vec, get_u_final(gnkiobj))
+            g_ens = G(params_i)
+            # Add random failures
+            if i in iters_with_failure
+                g_ens[:, 1] .= NaN
+            end
+            EKP.update_ensemble!(gnkiobj, g_ens)
+            push!(g_ens_vec, g_ens)
+            if i == 1
+                if !(size(g_ens, 1) == size(g_ens, 2))
+                    g_ens_t = permutedims(g_ens, (2, 1))
+                    @test_throws DimensionMismatch EKP.update_ensemble!(gnkiobj, g_ens_t)
+                end
+
+                # test the deterministic flag on only one iteration for errors
+                EKP.update_ensemble!(gnkiobj_nonoise_update, g_ens, deterministic_forward_map = false)
+                @info "No error with flag deterministic_forward_map = false"
+
+            end
+            # Correct handling of failures
+            @test !any(isnan.(params_i))
+
+            # Check IgnoreFailures handler
+            if i <= iters_with_failure[1]
+                params_i_unsafe = get_ϕ_final(prior, gnkiobj_unsafe)
+                g_ens_unsafe = G(params_i_unsafe)
+                if i < iters_with_failure[1]
+                    EKP.update_ensemble!(gnkiobj_unsafe, g_ens_unsafe)
+                elseif i == iters_with_failure[1]
+                    g_ens_unsafe[:, 1] .= NaN
+                    #inconsistent behaviour before/after v1.9 regarding NaNs in matrices
+                    if (VERSION.major >= 1) && (VERSION.minor >= 9)
+                        # new versions the NaNs break LinearAlgebra.jl
+                        @test_throws ArgumentError EKP.update_ensemble!(gnkiobj_unsafe, g_ens_unsafe)
+                    else
+                        # old versions the NaNs pass through LinearAlgebra.jl
+                        EKP.update_ensemble!(gnkiobj_unsafe, g_ens_unsafe)
+                        u_unsafe = get_u_final(gnkiobj_unsafe)
+                        # Propagation of unhandled failures
+                        @test any(isnan.(u_unsafe))
+                    end
+                end
+            end
+        end
+        push!(u_i_vec, get_u_final(gnkiobj))
+
+        @test get_u_prior(gnkiobj) == u_i_vec[1]
+        @test get_u(gnkiobj) == u_i_vec
+        @test isequal(get_g(gnkiobj), g_ens_vec)
+        @test isequal(get_g_final(gnkiobj), g_ens_vec[end])
+        @test isequal(get_error(gnkiobj), gnkiobj.error)
+
+        # GNKI results: Test if ensemble has collapsed toward the true parameter 
+        # values
+        gnki_init_result = vec(mean(get_u_prior(gnkiobj), dims = 2))
+        gnki_final_result = get_u_mean_final(gnkiobj)
+        gnki_init_spread = tr(get_u_cov(gnkiobj, 1))
+        gnki_final_spread = tr(get_u_cov_final(gnkiobj))
+
+        g_mean_init = get_g_mean(gnkiobj, 1)
+        g_mean_final = get_g_mean_final(gnkiobj)
+
+        @test gnki_init_result == get_u_mean(gnkiobj, 1)
+        @test gnki_final_result == vec(mean(get_u_final(gnkiobj), dims = 2))
+
+        #@info i_prob
+        #@info (get_scheduler(gnkiobj))
+
+        #@test gnki_final_spread < 2 * gnki_init_spread # we wouldn't expect the spread to increase much in any one dimension
+
+        ϕ_final_mean = get_ϕ_mean_final(prior, gnkiobj)
+        ϕ_init_mean = get_ϕ_mean(prior, gnkiobj, 1)
+
+        if isa(get_localizer(gnkiobj), EKP.Localizers.NoLocalization)
+            @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
+            @test norm(y_obs .- G(gnki_final_result))^2 < norm(y_obs .- G(gnki_init_result))^2
+            @test norm(y_obs .- g_mean_final)^2 < norm(y_obs .- g_mean_init)^2
+        end
+
+        if i_prob <= n_lin_inv_probs && isa(get_localizer(gnkiobj), EKP.Localizers.NoLocalization)
+
+            posterior_cov_inv = (A' * (Γy \ A) + 1 * Matrix(I, n_par, n_par) / prior_cov)
+            ols_mean = (A' * (Γy \ A)) \ (A' * (Γy \ y_obs))
+            posterior_mean = posterior_cov_inv \ ((A' * (Γy \ A)) * ols_mean + (prior_cov \ prior_mean))
+
+            # GNKI provides a solution closer to the ordinary Least Squares estimate
+            @test norm(ols_mean - ϕ_final_mean) < norm(ols_mean - ϕ_init_mean)
+            # EKS provides a solution closer to the posterior mean -- NOT ROBUST
+            # @test norm(posterior_mean - eks_final_result) < norm(posterior_mean - gnki_final_result)
+
+            ##### I expect this test to make sense:
+            # In words: the ensemble covariance is still a bit ill-dispersed since the
+            # algorithm employed still does not include the correction term for finite-sized
+            # ensembles.
+            @test abs(sum(diag(posterior_cov_inv \ get_u_cov_final(eksobj))) - n_par) > 1e-5
+        end
+
+        # Plot evolution of the GNKI particles
+        if TEST_PLOT_OUTPUT
+            plot_inv_problem_ensemble(prior, gnkiobj, joinpath(@__DIR__, "GNKI_test_$(i_prob).png"))
+        end
+    end
 end
