@@ -83,6 +83,7 @@ pages = [
     "Prior distributions" => "parameter_distributions.md",
     "Observations and Minibatching" => "observations.md",
     "Localization and SEC" => "localization.md",
+    "Accelerators" => "accelerators.md",
     "Inflation" => "inflation.md",
     "Parallelism and HPC" => "parallel_hpc.md",
     "Internal data representation" => "internal_data_representation.md",
