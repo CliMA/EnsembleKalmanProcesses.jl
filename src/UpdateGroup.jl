@@ -110,21 +110,29 @@ function create_update_groups(
     for (key, val) in pairs(group_identifiers)
         key_vec = isa(key, AbstractString) ? [key] : key # make it iterable
         val_vec = isa(val, AbstractString) ? [val] : val
-        
+
         u_group = []
         g_group = []
         for pn in key_vec
             pi = param_indices[pn .== param_names]
             if length(pi) == 0
-                throw(ArgumentError("For group identifiers Dict(X => ...), X should be listed in $(param_names). Got $(pn)."))
+                throw(
+                    ArgumentError(
+                        "For group identifiers Dict(X => ...), X should be listed in $(param_names). Got $(pn).",
+                    ),
+                )
             end
-            
+
             push!(u_group, isa(pi, Int) ? [pi] : pi)
         end
         for obn in val_vec
             oi = obs_indices[obn .== obs_names]
             if length(oi) == 0
-                throw(ArgumentError("For group identifiers Dict(... => Y), Y should be listed from $(obs_names). Instead got $(val)."))
+                throw(
+                    ArgumentError(
+                        "For group identifiers Dict(... => Y), Y should be listed from $(obs_names). Instead got $(val).",
+                    ),
+                )
             end
             push!(g_group, isa(oi, Int) ? [oi] : oi)
         end

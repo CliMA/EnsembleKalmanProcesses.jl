@@ -948,13 +948,13 @@ function update_ensemble!(
         # but get u_n+1 = sum(u_n + update{g_i}),remove the extra u_ns
         #n_g_groups = length(g_groups)
         #u -= get_u_final(ekp) * (n_g_groups - 1)
-        
+
         # update each u_block with every g_block
-        for (u_idx,g_idx) in zip(u_groups,g_groups)
-        #for u_idx in u_groups
-        #    for g_idx in g_groups
-                u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)
-        #    end
+        for (u_idx, g_idx) in zip(u_groups, g_groups)
+            #for u_idx in u_groups
+            #    for g_idx in g_groups
+            u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)
+            #    end
         end
 
         accelerate!(ekp, u)
