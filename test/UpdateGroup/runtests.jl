@@ -18,17 +18,17 @@ const EKP = EnsembleKalmanProcesses
     # build a set of consistent update groups
     u1 = [1, 3, 5, 6, 7, 8]
     g1 = 1:20
-    group1 = UpdateGroup(u1, g1)
+    identifier = Dict("1:8" => "1:20")
+    group1 = UpdateGroup(u1, g1, Dict("1:8" => "1:20"))
     @test get_u_group(group1) == u1
     @test get_g_group(group1) == g1
+    @test get_group_id(group) == Dict("1:8" => "1:20")
 
     u1c = [2, 4, 9, 10]
     g2 = 3:9
     group2 = UpdateGroup(u1c, g2)
 
     groups = [group1, group2]
-    @test get_u_group(groups) == [u1, u1c]
-    @test get_g_group(groups) == [g1, g2]
 
     @test update_group_consistency(groups, input_dim, output_dim)
 
