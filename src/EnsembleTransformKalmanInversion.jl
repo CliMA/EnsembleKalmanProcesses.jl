@@ -137,8 +137,8 @@ function update_ensemble!(
     # g: lenght(g_idx) × N_ens
     u = get_u_final(ekp)[u_idx, :]
     g = g[g_idx, :]
-    obs_noise_cov = ekp.obs_noise_cov[g_idx, g_idx]
-    obs_mean = ekp.obs_mean[g_idx]
+    obs_noise_cov = get_obs_noise_cov(ekp)[g_idx, g_idx]
+    obs_mean = get_obs(ekp)[g_idx]
     # ISSUE. In general this is not true,
     # Gamma_inv = ekp.process.Gamma_inv[g_idx,g_idx]
 
@@ -146,9 +146,9 @@ function update_ensemble!(
     fh = get_failure_handler(ekp)
 
     # Scale noise using Δt
-    scaled_obs_noise_cov = obs_noise_cov / ekp.Δt[end]
+    scaled_obs_noise_cov = obs_noise_cov / get_Δt(ekp)[end]
 
-    y = ekp.obs_mean
+    y = get_obs(ekp)
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
