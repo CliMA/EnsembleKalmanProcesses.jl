@@ -22,7 +22,7 @@ jobs:
         with:
           access_token: ${{ github.token }}
       - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
       - run: julia --project -e 'using Pkg; Pkg.update()' #windows in particular sometimes doesnt update packages
