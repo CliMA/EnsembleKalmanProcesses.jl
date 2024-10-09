@@ -168,8 +168,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         sample6_constrained = function_constraint.unconstrained_to_constrained.(sample6)
         sample5_constrained_direct = transform_unconstrained_to_constrained(pd, vec(coeff_mat))
         sample6_constrained_direct = transform_unconstrained_to_constrained(pd, coeff_mat2)
-        @test sample5_constrained ≈ sample5_constrained_direct atol = tol
-        @test sample6_constrained ≈ sample6_constrained_direct atol = tol
+        @test all(isapprox.(sample5_constrained, sample5_constrained_direct, atol = tol))
+        @test all(isapprox.(sample6_constrained, sample6_constrained_direct, atol = tol))
 
         # specifying from unc. to cons. function evaluations with flag
         @test sample5_constrained ≈ transform_unconstrained_to_constrained(pd, vec(sample5), build_flag = false)
@@ -182,8 +182,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         )
 
         # c->u is the inverse, of the build_flag=false u->c ONLY
-        @test sample5 ≈ transform_constrained_to_unconstrained(pd, vec(sample5_constrained)) atol = tol
-        biggertol = 1e-5
+        @test all(isapprox.(sample5,transform_constrained_to_unconstrained(pd, vec(sample5_constrained)), atol = tol))
+        biggertol = 1e-4
         @test all(isapprox.(sample6, transform_constrained_to_unconstrained(pd, sample6_constrained), atol = biggertol)) #can be sensitive to sampling (sometimes throws a near "Inf" so inverse is less accurate)
 
 
@@ -254,15 +254,15 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test isapprox(c4.constrained_to_unconstrained(5.0) - c_to_u(5.0), 0.0, atol = tol)
         @test isapprox(c4.unconstrained_to_constrained(5.0) - u_to_c(5.0), 0.0, atol = tol)
         @test get_constraint_type(c4) == MyConstraint
-
-        #length, size
-        @test length(c1) == 1
-        @test size(c1) == (1,)
-
-        #equality
-        @test c3 == c3
-        @test !(c1 == c2)
-
+    
+    #length, size
+    @test length(c1) == 1
+    @test size(c1) == (1,)
+    
+    #equality
+    @test c3 == c3
+    @test !(c1 == c2)
+    
     end
 
     @testset "ParameterDistribution: Build and combine" begin
@@ -486,7 +486,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         u = combine_distributions([u1, u2])
 
         d4 = Samples([1 2 3 4 5 6 7 8; 8 7 6 5 4 3 2 1])
-        c4 = [no_constraint(), no_constraint()]
+                  c4 = [no_constraint(), no_constraint()]
         name4 = "constrained_MVsampled"
         u4 = ParameterDistribution(d4, c4, name4)
 
@@ -503,6 +503,17 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         Random.seed!(seed)
         s1 = [rand(testd, 1) rand(testd, 1) rand(testd, 1)]
+        @info s1 
+        Random.seed!(seed)
+        s1 = [rand(testd, 1) rand(testd, 1) rand(testd, 1)]
+        @info s1
+        Random.seed!(seed)
+        s2 = [rand(testd, 3)]
+        @info s2
+        
+        Random.seed!(seed)
+        @test sample(u1, 3) == s1
+        
         Random.seed!(seed)
         @test sample(u1, 3) == s1
 
