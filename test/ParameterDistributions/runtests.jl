@@ -502,14 +502,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test sample(u1) == s1
 
         Random.seed!(seed)
-        s1 = [rand(testd, 1) rand(testd, 1) rand(testd, 1)]
-        @info s1 
-        Random.seed!(seed)
-        s1 = [rand(testd, 1) rand(testd, 1) rand(testd, 1)]
-        @info s1
-        Random.seed!(seed)
-        s2 = [rand(testd, 3)]
-        @info s2
+        s1 = [rand(testd, 3)]
+
         
         Random.seed!(seed)
         @test sample(u1, 3) == s1
