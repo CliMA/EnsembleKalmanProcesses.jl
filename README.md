@@ -34,7 +34,7 @@ If you use the examples or code, please cite our article at JOSS in your publish
 [joss-url]: https://joss.theoj.org/papers/5cb2d4c6af8840af61b44071ae1e672a
 
 ### Requirements
-Julia version 1.6+ 
+Julia LTS version or newer
 
 # Quick links!
 
