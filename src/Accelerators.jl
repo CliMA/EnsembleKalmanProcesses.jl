@@ -1,6 +1,6 @@
 # included in EnsembleKalmanProcess.jl
 
-export DefaultAccelerator, ConstantNesterovAccelerator, NesterovAccelerator, FirstOrderNesterovAccelerator
+export DefaultAccelerator, ConstantNesterovAccelerator, NesterovAccelerator, FirstOrderNesterovAccelerator, AffineInvariantNesterovAccelerator
 export accelerate!, set_initial_acceleration!
 
 """
@@ -32,7 +32,6 @@ function set_ICs!(accelerator::ConstantNesterovAccelerator{FT}, u::MA) where {FT
     accelerator.u_prev = u
 end
 
-
 """
 $(TYPEDEF)
 
@@ -60,6 +59,7 @@ function set_ICs!(
 ) where {FT <: AbstractFloat, MA <: AbstractMatrix}
     accelerator.u_prev = u
 end
+
 
 
 """
@@ -287,4 +287,84 @@ function accelerate!(
     uki.process.u_mean[end] = u_mean # N_ens x N_params 
     uki.process.uu_cov[end] = uu_cov # N_ens x N_data
 
+end
+
+
+####################################################
+####################################################
+
+
+"""
+$(TYPEDEF)
+
+Accelerator that adapts a variant of Nesterov's momentum method for EKI. In this variant the momentum parameter at iteration ``k``, is given by ``1-\\frac{3}{k+2}``. This variant also uses a nudge based on the underlying Geometry of the Covariance matrices
+
+$(TYPEDFIELDS)
+"""
+mutable struct AffineInvariantNesterovAccelerator{FT <: AbstractFloat} <: Accelerator
+    r::FT
+    u_prev::Array{FT}
+end
+
+function AffineInvariantNesterovAccelerator(r = 3.0, initial = Float64[])
+    return AffineInvariantNesterovAccelerator(r, initial)
+end
+
+
+"""
+Sets u_prev to the initial parameter values
+"""
+function set_ICs!(
+    accelerator::AffineInvariantNesterovAccelerator{FT},
+    u::MA,
+) where {FT <: AbstractFloat, MA <: AbstractMatrix}
+    accelerator.u_prev = u
+end
+
+"""
+Performs state update with modified first-order Nesterov Accelerator.
+"""
+function accelerate!(
+    ekp::EnsembleKalmanProcess{FT, IT, P, LRS, AffineInvariantNesterovAccelerator{FT}},
+    u::MA,
+) where {FT <: AbstractFloat, IT <: Int, P <: Process, LRS <: LearningRateScheduler, MA <: AbstractMatrix}
+    
+    ## update "v" state:
+    k = get_N_iterations(ekp) + 3 # get_N_iterations starts at 0
+    β = (1 - get_accelerator(ekp).r / k)
+
+    # get the distribution of u and u_prev
+    u_mean = mean(u,dims=2)
+    u_cov = cov(u,dims=2)
+
+    u_prev_mean = mean(ekp.accelerator.u_prev,dims=2)
+    u_prev_cov = cov(ekp.accelerator.u_prev,dims=2)
+    u_prev_sqcov = sqrt(u_prev_cov)
+    u_prev_invsqcov = inv(u_prev_sqcov)
+
+    # v = uₙ + β(uₙ-uₙ₋₁)
+    v_mean = (1+β) * u_mean - β * u_prev_mean #lin interp
+    # geodesic extension of covariance matrix from A->B by β using matrix sqrt
+    # geod(A,B;1+β) = √A · ((√A)⁻¹ · B · (√A)⁻¹)¹⁺ᵝ · √A
+    v_cov_geod = u_prev_sqcov * (u_prev_invsqcov * u_cov * u_prev_invsqcov)^(1+β) * u_prev_sqcov
+    if !isposdef(v_cov)
+        v_cov_geod = 0.5*(v_cov_geod+v_cov_geod')+1e-12*I
+        @warn "v_cov not positive definite"
+    end
+    
+    @info "U info\n ******** \n $β \n $u_cov \n $u_prev_cov"
+    #    v = rand(MvNormal(v_mean[:], v_cov_geod), size(u,2))
+    @info "Geodesic\n ******** \n $v_cov_geod"
+    
+    ###
+    v_cov = (1+β)^2 * u_cov + β^2 * u_prev_cov
+    @info "Indep-Gauss ***********\n $v_cov"
+    v = u .+ (1 - get_accelerator(ekp).r / k) * (u .- get_accelerator(ekp).u_prev)
+    @info "Particle\n ******** \n $(cov(v,dims=2))"
+
+    ## update "u" state: 
+    get_accelerator(ekp).u_prev = u
+
+    ## push "v" state to EKP object
+    push!(ekp.u, DataContainer(v, data_are_columns = true))
 end

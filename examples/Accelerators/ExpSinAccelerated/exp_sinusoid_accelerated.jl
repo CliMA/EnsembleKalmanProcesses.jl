@@ -50,7 +50,7 @@ function main()
     @info "running case $case"
     if case == "const"
         scheduler = DefaultScheduler()
-        N_ens = 10
+        N_ens = 100
         localization_method = EKP.Localizers.NoLocalization()
     elseif case == "dmc"
         scheduler = DataMisfitController(terminate_at = 1e4)
@@ -123,7 +123,7 @@ function main()
             y,
             Γ,
             Inversion();
-            accelerator = FirstOrderNesterovAccelerator(),
+            accelerator = AffineInvariantNesterovAccelerator(),
             rng = rng,
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
