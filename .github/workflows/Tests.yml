@@ -17,8 +17,6 @@ jobs:
           - ubuntu-latest
           - windows-latest
           - macOS-latest
-        arch:
-          - x64
     steps:
       - uses: styfle/cancel-workflow-action@0.9.1
         with:
@@ -27,7 +25,6 @@ jobs:
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
       - run: julia --project -e 'using Pkg; Pkg.update()' #windows in particular sometimes doesnt update packages
       - uses: julia-actions/julia-buildpkg@v1
         
