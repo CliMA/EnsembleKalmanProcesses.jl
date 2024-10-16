@@ -77,6 +77,7 @@ pages = [
     "Examples" => examples,
     "List of default configurations" => "defaults.md",
     "Ensemble Kalman Inversion" => "ensemble_kalman_inversion.md",
+    "Gauss Newton Kalman Inversion" => "gauss_newton_kalman_inversion.md",
     "Ensemble Kalman Sampler" => "ensemble_kalman_sampler.md",
     "Unscented Kalman Inversion" => "unscented_kalman_inversion.md",
     "Learning rate schedulers" => "learning_rate_scheduler.md",
