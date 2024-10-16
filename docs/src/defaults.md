@@ -69,6 +69,15 @@ failure_handler_method = SampleSuccGauss()
 accelerator = DefaultAccelerator()
 ```
 
+## `process <: GaussNewtonInversion` 
+Process documentation [here](@ref gnki)
+```julia
+scheduler = DataMisfitController(terminate_at = 1)
+localization_method = Localizers.SECNice()
+failure_handler_method = SampleSuccGauss()
+accelerator = NesterovAccelerator()
+```
+
 ## `process <: Sampler`
 Process documentation [here](@ref eks)
 ```julia
