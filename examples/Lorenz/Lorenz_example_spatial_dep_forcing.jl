@@ -15,15 +15,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
 const EKP = EnsembleKalmanProcesses
 
-#######
-#Running the Lorenz model:
-# Solve the Lorenz 96 system 
-# Inputs: F: scalar forcing Float64(1), Fp: initial perturbation Float64(N)
-# N: number of longitude steps Int64(1), dt: time step Float64(1)
-# tend: End of simulation Float64(1), nstep:
-
-G(θ) = H(Ψ(θ,x₀,t₀,t₁))
-y = G(θ) + η
+# G(θ) = H(Ψ(θ,x₀,t₀,t₁))
+# y = G(θ) + η
 
 # This will change for different Lorenz simulators
 struct LorenzConfig{FT <: Real}
@@ -42,6 +35,9 @@ struct ObservationConfig{FT <: Real}
     t_start::FT
     t_end::FT
 end
+#########################################################################
+############################ Model Functions ############################
+#########################################################################
 
 # Forward pass of forward model
 # Inputs: 
@@ -128,6 +124,17 @@ function RK4(params::EnsembleMemberConfig, xold::VorM, config::LorenzConfig)
     return xnew
 end
 
+########################################################################
+########################## Ensemble Functions ##########################
+########################################################################
+function run_ensembles(params::LParams, x0::VorM, config::LorenzConfig, nd, N_ens) where {VorM <: AbstractVecOrMat}
+    g_ens = zeros(nd, N_ens)
+    for i in 1:N_ens
+        # run the model with the current parameters, i.e., map θ to G(θ)
+        g_ens[:, i] = lorenz_forward(params, x0, config)
+    end
+    return g_ens
+end
 
 
 
