@@ -43,9 +43,36 @@ struct ObservationConfig{FT <: Real}
     t_end::FT
 end
 
+# Forward pass of forward model
+# Inputs: 
+# - params: structure with F (state-dependent-forcing vector)
+# - x0: initial condition vector
+# - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
+function lorenz_forward(params::LParams, x0::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
+    # run the Lorenz simulation
+    xn = lorenz_solve(params, x0, config)
+    # Get statistics
+    gt = stats(xn)
+    return gt
+end
 
+#Calculates statistics for forward model output
+# Inputs: 
+# - xn: timeseries of states for length of simulation through Lorenz96
+function stats(xn::VorM) where {VorM <: AbstractVecOrMat}
+    N = size(xn, 2)
+    gt = zeros(2*N)
+    gt[:N] = mean(xn, 2) 
+    gt[N+1:2*N]= std(xn, 2)
+    return gt
+end
 
-function lorenz_solve(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig , ) <: {VorM <: AbstractVecOrMat}
+# Forward pass of the Lorenz 96 model
+# Inputs: 
+# - params: structure with F (state-dependent-forcing vector)
+# - x0: initial condition vector
+# - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
+function lorenz_solve(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
     # Initialize    
     nstep = Int(ceil(config.T / config.dt))
     state_dim = isa(x0,AbstractVector) ? length(x0) : size(x0,1)
@@ -62,8 +89,10 @@ end
 
 # Lorenz 96 system
 # f = dx/dt
-# Inputs: x: state, N: state dimension, F: forcing
-function f(params, x)
+# Inputs: 
+# - params: structure with F (state-dependent-forcing vector) 
+# - x: current state
+function f(params::EnsembleMemberConfig, x::VorM)
     F = params.F
     N = length(x)
     f = zeros(N)
@@ -80,7 +109,11 @@ function f(params, x)
 end
 
 # RK4 solve
-function RK4(params, xold, config)
+# Inputs: 
+# - params: structure with F (state-dependent-forcing vector) 
+# - xold: current state
+# - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
+function RK4(params::EnsembleMemberConfig, xold::VorM, config::LorenzConfig)
     N = length(xold)
     dt = config.dt
 
