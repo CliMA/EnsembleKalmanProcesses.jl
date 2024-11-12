@@ -277,41 +277,27 @@ const EKP = EnsembleKalmanProcesses
     end
 
     # Test `save_parameter_samples`
-    uq_param_4_samples = [
-        [14.412514158048534, -9.990904722898303],
-        [14.877561432702601, -9.979758088554195],
-        [14.601045096347011, -9.988891003461758],
-        [14.877561432702601, -9.979758088554195],
-        [14.899607236135727, -9.995483419057388],
-        [14.412514158048534, -9.990904722898303],
-        [14.601045096347011, -9.988891003461758],
-        [14.899607236135727, -9.995483419057388],
-        [14.899607236135727, -9.995483419057388],
-        [14.877561432702601, -9.979758088554195],
-    ]
-    uq_param_5_samples = [
-        [1.0, 5.0, 8101.083927575384, 19.999997739670594],
-        [1.0, 5.0, 8101.083927575384, 19.999997739670594],
-        [3.0, 7.0, 59872.14171519782, 19.999999694097678],
-        [3.0, 7.0, 59872.14171519782, 19.999999694097678],
-        [1.0, 5.0, 8101.083927575384, 19.999997739670594],
-        [3.0, 7.0, 59872.14171519782, 19.999999694097678],
-        [3.0, 7.0, 59872.14171519782, 19.999999694097678],
-        [3.0, 7.0, 59872.14171519782, 19.999999694097678],
-        [1.0, 5.0, 8101.083927575384, 19.999997739670594],
-        [1.0, 5.0, 8101.083927575384, 19.999997739670594],
-    ]
+
+    rng = Random.MersenneTwister(1234)
+    n_samples = 10
+    names = ["uq_param_" * string(i) for i in 1:7]
+    pd = get_parameter_distribution(param_dict, names)
+    slices = batch(pd) # indices of kth distribution
+    # this calls the rng in same manner as save_parameter_samples does for reproducibility
+    samples = transform_unconstrained_to_constrained(pd, sample(copy(rng), pd, n_samples))
+    uq_param_4_samples = samples[slices[4], :]
+    uq_param_5_samples = samples[slices[5], :]
+
     mktempdir(@__DIR__) do save_path
         # Uncomment the line below to debug if the tests fail
         # save_path = "sample_tests"
         save_file = "parameters.toml"
-        pd = get_parameter_distribution(param_dict, ["uq_param_4", "uq_param_5"])
-        save_parameter_samples(pd, param_dict, 10, save_path; rng = Random.MersenneTwister(1234), save_file)
+        save_parameter_samples(pd, param_dict, n_samples, save_path; rng = copy(rng), save_file)
         for (i, fpath) in enumerate(readdir(save_path))
             toml_file = joinpath(save_path, fpath, save_file)
             param_dict = TOML.parsefile(toml_file)
-            @test uq_param_4_samples[i] == param_dict["uq_param_4"]["value"]
-            @test uq_param_5_samples[i] == param_dict["uq_param_5"]["value"]
+            @test uq_param_4_samples[:, i] == param_dict["uq_param_4"]["value"]
+            @test uq_param_5_samples[:, i] == param_dict["uq_param_5"]["value"]
         end
     end
 end
