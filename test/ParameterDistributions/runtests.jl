@@ -180,7 +180,9 @@ using EnsembleKalmanProcesses.ParameterDistributions
         )
 
         # c->u is the inverse, of the build_flag=false u->c ONLY
-        @test all(isapprox.(sample5,transform_constrained_to_unconstrained(pd, vec(sample5_constrained)), atol = biggertol))#
+        @test all(
+            isapprox.(sample5, transform_constrained_to_unconstrained(pd, vec(sample5_constrained)), atol = biggertol),
+        )#
         @test all(isapprox.(sample6, transform_constrained_to_unconstrained(pd, sample6_constrained), atol = biggertol)) #can be sensitive to sampling (sometimes throws a near "Inf" so inverse is less accurate)
 
 
@@ -251,15 +253,15 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test isapprox(c4.constrained_to_unconstrained(5.0) - c_to_u(5.0), 0.0, atol = tol)
         @test isapprox(c4.unconstrained_to_constrained(5.0) - u_to_c(5.0), 0.0, atol = tol)
         @test get_constraint_type(c4) == MyConstraint
-    
-    #length, size
-    @test length(c1) == 1
-    @test size(c1) == (1,)
-    
-    #equality
-    @test c3 == c3
-    @test !(c1 == c2)
-    
+
+        #length, size
+        @test length(c1) == 1
+        @test size(c1) == (1,)
+
+        #equality
+        @test c3 == c3
+        @test !(c1 == c2)
+
     end
 
     @testset "ParameterDistribution: Build and combine" begin
@@ -494,14 +496,14 @@ using EnsembleKalmanProcesses.ParameterDistributions
         sample(u1)
         sample(u1, 3)
         sample(u2)
-        sample(u2,3)
+        sample(u2, 3)
         sample(u3)
         sample(u3, 3)
         sample(u4)
         sample(u4, 3)
         sample(v)
-        sample(v,3)
-        
+        sample(v, 3)
+
         #Test for logpdf
         seed = 2046
         @test_throws ErrorException logpdf(u, zeros(ndims(u)))

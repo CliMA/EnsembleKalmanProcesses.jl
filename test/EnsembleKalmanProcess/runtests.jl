@@ -1162,13 +1162,13 @@ end
                     end
                 end
             end
-          
+
         end
         if isnothing(terminated)
             push!(u_i_vec, get_u_final(gnkiobj))
         end # if cancelled early then don't need "final iteration"
-  
-        @test get_u_prior(gnkiobj) == u_i_vec[1]        
+
+        @test get_u_prior(gnkiobj) == u_i_vec[1]
         @test get_u(gnkiobj) == u_i_vec
         @test isequal(get_g(gnkiobj), g_ens_vec) # can deal with NaNs
         @test isequal(get_g_final(gnkiobj), g_ens_vec[end])

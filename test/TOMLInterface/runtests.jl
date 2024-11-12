@@ -270,7 +270,7 @@ const EKP = EnsembleKalmanProcesses
         @test all(n ∈ keys(values_dict) for n in names)
         @test all(values_dict[n] == load_param_dict[n]["value"] for n in names)
         values_array = get_parameter_values(load_param_dict, names, return_type = "array")
-        @test all(values_array.== [load_param_dict[n]["value"] for n in names]) 
+        @test all(values_array .== [load_param_dict[n]["value"] for n in names])
         @test_throws ArgumentError get_parameter_values(load_param_dict, names, return_type = "not_dict_nor_array")
 
 
@@ -285,9 +285,9 @@ const EKP = EnsembleKalmanProcesses
     slices = batch(pd) # indices of kth distribution
     # this calls the rng in same manner as save_parameter_samples does for reproducibility
     samples = transform_unconstrained_to_constrained(pd, sample(copy(rng), pd, n_samples))
-    uq_param_4_samples=samples[slices[4],:]
-    uq_param_5_samples=samples[slices[5],:]
-    
+    uq_param_4_samples = samples[slices[4], :]
+    uq_param_5_samples = samples[slices[5], :]
+
     mktempdir(@__DIR__) do save_path
         # Uncomment the line below to debug if the tests fail
         # save_path = "sample_tests"
@@ -296,8 +296,8 @@ const EKP = EnsembleKalmanProcesses
         for (i, fpath) in enumerate(readdir(save_path))
             toml_file = joinpath(save_path, fpath, save_file)
             param_dict = TOML.parsefile(toml_file)
-            @test uq_param_4_samples[:,i] == param_dict["uq_param_4"]["value"]
-            @test uq_param_5_samples[:,i] == param_dict["uq_param_5"]["value"]
+            @test uq_param_4_samples[:, i] == param_dict["uq_param_4"]["value"]
+            @test uq_param_5_samples[:, i] == param_dict["uq_param_5"]["value"]
         end
     end
 end
