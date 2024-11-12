@@ -512,7 +512,7 @@ end
         if i_prob == 1
             scheduler = DataMisfitController(on_terminate = "continue")
         else
-            scheduler = DefaultScheduler()
+            scheduler = DefaultScheduler(0.1)
         end
         #remove localizers for now
         localization_method = Localizers.NoLocalization()

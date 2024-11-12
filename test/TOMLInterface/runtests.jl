@@ -294,7 +294,6 @@ const EKP = EnsembleKalmanProcesses
         save_file = "parameters.toml"
         save_parameter_samples(pd, param_dict, n_samples, save_path; rng = copy(rng), save_file)
         for (i, fpath) in enumerate(readdir(save_path))
-            @info i
             toml_file = joinpath(save_path, fpath, save_file)
             param_dict = TOML.parsefile(toml_file)
             @test uq_param_4_samples[:,i] == param_dict["uq_param_4"]["value"]
