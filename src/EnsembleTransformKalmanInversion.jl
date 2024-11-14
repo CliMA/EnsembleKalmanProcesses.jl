@@ -19,7 +19,7 @@ TransformInversion() = TransformInversion([])
 get_buffer(p::TI) where {TI <: TransformInversion} = p.buffer
 
 function FailureHandler(process::TransformInversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, y, obs_noise_cov_inv, failed_ens) = etki_update(ekp, u, g, y, obs_noise_cov_inv)
+    failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens) = etki_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx)
     return FailureHandler{TransformInversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -31,10 +31,10 @@ Provides a failsafe update that
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::TransformInversion, method::SampleSuccGauss)
-    function failsafe_update(ekp, u, g, y, obs_noise_cov_inv, failed_ens)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
-        u[:, successful_ens] = etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, obs_noise_cov_inv)
+        u[:, successful_ens] = etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, obs_noise_cov_inv, onci_idx, )
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
@@ -60,7 +60,8 @@ function etki_update(
     u::AM1,
     g::AM2,
     y::AV1,
-    obs_noise_cov_inv::AV2, 
+    obs_noise_cov_inv::AV2,
+    onci_idx::AV3
     ) where {
         FT <: Real,
         IT,
@@ -68,6 +69,7 @@ function etki_update(
         AM2 <: AbstractMatrix,
         AV1 <: AbstractVector,
         AV2 <: AbstractVector,
+        AV3 <: AbstractVector,
     }
 
     m = size(u, 2)
@@ -91,12 +93,15 @@ function etki_update(
     end
 
     # construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv
-    γ_sizes = [size(γ_inv, 1) for γ_inv in obs_noise_cov_inv]
-    shift = [0]
-    for (γs, γ_inv) in zip(γ_sizes, obs_noise_cov_inv)
-        idx = (shift[1] + 1):(shift[1] + γs)
-        tmp[1][1:ys2, idx] = (γ_inv * Y[idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))'
-        shift[1] = maximum(idx)
+    # this loop is very fast for diagonal, slow for nondiagonal
+    for (block_idx, local_idx, global_idx) in onci_idx 
+        γ_inv = obs_noise_cov_inv[block_idx]
+        # This is cumbersome, but will retain e.g. diagonal type for matrix manipulations, else indexing converts back to matrix
+        if isa(γ_inv, Diagonal) #
+            tmp[1][1:ys2, global_idx] = (γ_inv.diag[local_idx] .* Y[global_idx, :])' # multiple each row of Y by γ_inv element
+        else #much slower
+            tmp[1][1:ys2, global_idx] = (γ_inv[local_idx,local_idx] * Y[global_idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))' row-mult is faster
+        end
     end
 
     tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
@@ -144,29 +149,28 @@ function update_ensemble!(
     # g: lenght(g_idx) × N_ens
     u = get_u_final(ekp)[u_idx, :]
     g = g[g_idx, :]
-    obs_noise_cov = get_obs_noise_cov(ekp)[g_idx, g_idx]
     obs_mean = get_obs(ekp)[g_idx]
     # get relevant inverse covariance blocks
-    obs_noise_cov_inv = get_obs_noise_cov_inv(ekp, build = false)# returns blocks of Γ_inv
+    obs_noise_cov_inv = get_obs_noise_cov_inv(ekp, build = false)# NEVER build=true for this - ruins scaling.
+    
     # need to sweep over local blocks
     γ_sizes = [size(γ_inv, 1) for γ_inv in obs_noise_cov_inv]
-    local_intersect=[]
+    onci_idx=[]
     shift = 0
     for (block_id,γs) in enumerate(γ_sizes)
         loc_idx =  intersect(1:γs, g_idx .- shift)
         if !(length(loc_idx)==0)
-            push!(local_intersect, (block_id, loc_idx)) # e.g., [(1, 6:10), (3,4:6)]
+            push!(onci_idx, (block_id, loc_idx, loc_idx .+ shift)) # 
         end
         shift+=γs
     end
-    obs_noise_cov_inv = [obs_noise_cov_inv[pair[1]][pair[2],pair[2]] for pair in local_intersect] 
+    #   obs_noise_cov_inv = [obs_noise_cov_inv[pair[1]][pair[2],pair[2]] for pair in local_intersect] # SLOW
     
     N_obs = length(g_idx)
 
     fh = get_failure_handler(ekp)
 
     # Scale noise using Δt
-    scaled_obs_noise_cov = obs_noise_cov / get_Δt(ekp)[end]
     y = get_obs(ekp)
 
     if isnothing(failed_ens)
@@ -175,8 +179,8 @@ function update_ensemble!(
     if !isempty(failed_ens)
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
-
-    u = fh.failsafe_update(ekp, u, g, y, obs_noise_cov_inv, failed_ens)
-
+   
+    u = fh.failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens)
+    
     return u
 end
