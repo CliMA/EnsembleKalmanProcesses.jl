@@ -324,17 +324,13 @@ function main()
     ###
 
     # EKP parameters
-    N_ens = 70 # number of ensemble members
+    N_ens = 40 # number of ensemble members
     N_iter = 5 # number of EKI iterations
     # initial parameters: N_params x N_ens
     initial_params = construct_initial_ensemble(rng, priors, N_ens)
 
-    ekiobj = EKP.EnsembleKalmanProcess(
-        initial_params,
-        full_observation,
-        TransformInversion(),
-        scheduler = DataMisfitController(),
-    )
+    ekiobj =
+        EKP.EnsembleKalmanProcess(initial_params, full_observation, Inversion(), scheduler = DataMisfitController())
     @info "Built EKP object"
 
     # EKI iterations
@@ -413,13 +409,7 @@ function main()
     println("**************")
     println(get_group_id.(update_groups))
 
-    ekiobj_grouped = EKP.EnsembleKalmanProcess(
-        initial_params,
-        observation,
-        Inversion(),
-        verbose = true,
-        update_groups = update_groups,
-    )
+    ekiobj_grouped = EKP.EnsembleKalmanProcess(initial_params, observation, Inversion(), update_groups = update_groups)
     @info "Built grouped EKP object"
 
     # EKI iterations
