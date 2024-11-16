@@ -267,7 +267,8 @@ function EnsembleKalmanProcess(
     if isa(process, TransformInversion) && !(isa(configuration["localization_method"], NoLocalization))
         throw(ArgumentError("`TransformInversion` cannot currently be used with localization."))
     end
-    localizer = Localizer(configuration["localization_method"], N_par, obs_size_for_minibatch, N_ens, FT)
+       
+    localizer = Localizer(configuration["localization_method"], N_ens, FT)
 
 
     if verbose
@@ -597,7 +598,6 @@ function list_update_groups_over_minibatch(ekp::EnsembleKalmanProcess)
     update_groups = get_update_groups(ekp)
     u_groups = get_u_group.(update_groups) # update_group indices
     g_groups = get_g_group.(update_groups)
-
     # extend group indices from one obs to the minibatch of obs
     new_u_groups = [reduce(vcat, [(i - 1) * len_obs .+ u_group for i in 1:len_mb]) for u_group in u_groups]
     new_g_groups = [reduce(vcat, [(i - 1) * len_obs .+ g_group for i in 1:len_mb]) for g_group in g_groups]
@@ -943,18 +943,10 @@ function update_ensemble!(
 
         u_groups, g_groups = list_update_groups_over_minibatch(ekp)
         u = zeros(size(get_u_prior(ekp)))
-        # with several g_groups we want to do
-        # u_n+1 = u_n + sum(update{g_i})
-        # but get u_n+1 = sum(u_n + update{g_i}),remove the extra u_ns
-        #n_g_groups = length(g_groups)
-        #u -= get_u_final(ekp) * (n_g_groups - 1)
 
         # update each u_block with every g_block
         for (u_idx, g_idx) in zip(u_groups, g_groups)
-            #for u_idx in u_groups
-            #    for g_idx in g_groups
             u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)
-            #    end
         end
 
         accelerate!(ekp, u)
