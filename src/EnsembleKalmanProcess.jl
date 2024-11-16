@@ -267,7 +267,7 @@ function EnsembleKalmanProcess(
     if isa(process, TransformInversion) && !(isa(configuration["localization_method"], NoLocalization))
         throw(ArgumentError("`TransformInversion` cannot currently be used with localization."))
     end
-       
+
     localizer = Localizer(configuration["localization_method"], N_ens, FT)
 
 

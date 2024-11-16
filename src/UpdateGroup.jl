@@ -29,7 +29,7 @@ end
 
 function UpdateGroup(u_group::VV1, g_group::VV2) where {VV1 <: AbstractVector, VV2 <: AbstractVector}
     # check there is an index in each group
-    if length(u_group) == 0 
+    if length(u_group) == 0
         throw(ArgumentError("all `UpdateGroup.u_group` must contain at least one parameter identifier"))
     end
     if length(g_group) == 0

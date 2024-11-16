@@ -329,7 +329,12 @@ function main()
     # initial parameters: N_params x N_ens
     initial_params = construct_initial_ensemble(rng, priors, N_ens)
 
-    ekiobj = EKP.EnsembleKalmanProcess(initial_params, full_observation, Inversion(), verbose = true)
+    ekiobj = EKP.EnsembleKalmanProcess(
+        initial_params,
+        full_observation,
+        TransformInversion(),
+        scheduler = DataMisfitController(),
+    )
     @info "Built EKP object"
 
     # EKI iterations

@@ -73,7 +73,7 @@ function gnki_update(
     N_ens_successful = size(g, 2)
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
-    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u,1), size(g,1), get_N_ens(ekp))
+    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), get_N_ens(ekp))
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
     process = get_process(ekp)
     prior_mean = process.prior_mean

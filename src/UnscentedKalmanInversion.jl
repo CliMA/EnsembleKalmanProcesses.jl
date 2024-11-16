@@ -294,7 +294,7 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
 
         # Localization
         FT = eltype(g_mean)
-        cov_localized = get_localizer(uki).localize(cov_est, FT, size(u_p,1), size(g,1), size(u_p,2))
+        cov_localized = get_localizer(uki).localize(cov_est, FT, size(u_p, 1), size(g, 1), size(u_p, 2))
         uu_p_cov, ug_cov, gg_cov = get_cov_blocks(cov_localized, size(u_p, 1))
 
         if process.impose_prior
@@ -630,7 +630,7 @@ function update_ensemble_analysis!(
         ug_cov' gg_cov
     ]
     # Localization
-    cov_localized = get_localizer(uki).localize(cov_est, FT, size(u_p,1), size(g,1), size(u_p,2))
+    cov_localized = get_localizer(uki).localize(cov_est, FT, size(u_p, 1), size(g, 1), size(u_p, 2))
     uu_p_cov, ug_cov, gg_cov = get_cov_blocks(cov_localized, size(u_p)[1])
 
     tmp = ug_cov / gg_cov

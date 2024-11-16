@@ -59,7 +59,7 @@ function eki_update(
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
     # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
-    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u,1), size(g,1), size(u,2))
+    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), size(u, 2))
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
 
     # N_obs × N_obs \ [N_obs × N_ens]

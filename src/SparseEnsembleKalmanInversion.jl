@@ -133,7 +133,7 @@ function sparse_eki_update(
     cov_est = cov([u; g], [u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
     process = get_process(ekp)
     # Localization
-    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u,1), size(g,1), get_N_ens(ekp))
+    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), get_N_ens(ekp))
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
 
     v = hcat(u', g')
