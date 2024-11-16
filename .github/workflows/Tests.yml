@@ -17,6 +17,7 @@ jobs:
           - ubuntu-latest
           - windows-latest
           - macOS-latest
+        fail-fast: false
     steps:
       - uses: styfle/cancel-workflow-action@0.9.1
         with:
