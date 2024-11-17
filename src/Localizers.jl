@@ -172,7 +172,7 @@ end
 function Localizer(localization::RBF, J::Int, T = Float64)
     #kernel_ug = create_rbf(localization.lengthscale,T,p,d)
     return Localizer{RBF, T}(
-        (cov, T, p, d, J) -> kernel_function(create_rbf(localization_lengthscale, T, p, d), T, p, d) .* cov,
+        (cov, T, p, d, J) -> kernel_function(create_rbf(localization.lengthscale, T, p, d), T, p, d) .* cov,
     )
 end
 
