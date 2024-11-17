@@ -1,14 +1,24 @@
 # [Update Groups] (@id update-groups)
 
-The `UpdateGroup` object facilitates blocked EKP updates, based on a provided updating a series of blocks of paired (parameters and data). As many of the `Process` updates can scale quadraticly in the data dimension, this reduces computational complexity of the update.
+The `UpdateGroup` object facilitates blocked EKP updates, based on a provided updating a series user-defined pairs of parameters and data. This allows users to enforce any *known* (in)dependences between different groups of parameters during the update.
 
-##  Recommended construction
+!!! note "This improves scaling at the cost of user-imposed structure"
+    As many of the `Process` updates scale say with ``d^\alpha``, in the data dimension ``d`` and ``\alpha > 1`` (super-linearly),  update groups with ``K`` groups of equal size will improving this scaline to ``K (\frac{d}{K})^\alpha``.
 
-The key component to construct update groups starts with constructing the prior, and the observations. Parameter distributions and observations may be constructed in units and given names, and these names are utilized to build the update groups with a convenient constructor.
+##  Recommended construction - shown by example
 
-For example, we take code snippets from the example found in `examples/UpdateGroups/calibrate.jl`. This example is concerned with learning several parameters in a coupled Lorenz 96 multiscale system, by gathering data from moments from the fast `Y` and slow `X` moments.
+The key component to construct update groups starts with constructing the prior, and the observations. Parameter distributions and observations may be constructed in units and given names, and these names are utilized to build the update groups with a convenient constructor `create_update_groups`.
 
-In this exmaple the parameter distribution we create a prior from several *named* distributions.
+For illustration, we take code snippets from the example found in [examples/](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/UpdateGroups/). This example is concerned with learning several parameters in a coupled two-scale Lorenz 96 system:
+```math
+\begin{aligned}
+ \frac{\partial X_i}{\partial t} && = -X_{i-1}(X_{i-2} - X{i+1}) - X_i - GY_i + F_1 + F_2*sin(2\pi t F_3)\\
+ \frac{\partial Y_i}{\partial t} && = -cbY_{i+1}(Y_{i+2} - X{i-1}) - cY_i + \frac{hc}{b} X_i \\
+\end{aligned}
+```
+Parameters are learnt by fitting moments of a realized `X` and `Y` system, to some target moments.
+
+We create a prior by combining several *named* `ParameterDistribution`s.
 ```julia
 param_names = ["F", "G", "h", "c", "b"]
 
@@ -25,7 +35,7 @@ prior_c = constrained_gaussian(param_names[4], 5.0, 4.0, 0, Inf)
 prior_b = constrained_gaussian(param_names[5], 5.0, 4.0, 0, Inf)
 priors = combine_distributions([prior_F, prior_G, prior_h, prior_c, prior_b])
 ```
-Now we likewise construct blocked observations from several *named* observations
+Now we likewise construct observed moments by combining several *named* `Observation`s
 ```julia
 # given a list of vector statistics y and their covariances Γ 
 data_block_names = ["<X>", "<Y>", "<X^2>", "<Y^2>", "<XY>"]
@@ -39,16 +49,16 @@ for i in 1:length(data_block_names)
 end
 observation = combine_observations(observation_vec)
 ```
-Now we define the update groups of our choice as a dictionary, this is the critical feature of interest here. In this case we create two blocks (though one could create other updates here)
+We define the update groups of our choice by partitioning the parameter names as keys of a dictionary, and their paired data names as values. Here we create two groups:
 ```julia
-# update parameters F,G with data <X>,<X^2>
+# update parameters F,G with data <X>, <X^2>, <XY>
 # update parameters h, c, b with data <Y>, <Y^2>, <XY>
 group_identifiers = Dict(
-    ["F", "G"] => ["<X>", "<X^2>"],
+    ["F", "G"] => ["<X>", "<X^2>", "<XY>"],
     ["h", "c", "b"] => ["<Y>", "<Y^2>", "<XY>"],
 )
 ```
-We then create the update groups with our constructor
+We then create the update groups with our convenient constructor
 ```julia
 update_groups = create_update_groups(prior, observation, group_identifiers)
 ```
@@ -59,13 +69,13 @@ ekiobj = EnsembleKalmanProcess(initial_params, observation, Inversion(), update_
 ```
 
 ## Advice for constructing blocks
-1. The blocks cannot contain repeated parameters (i.e. parameters cannot be updated "twice")
-2. Block structure is user-defined, and directly assumes that there is no correlation between blocks. It is up to the user to confirm if there truly is independence between different blocks. Otherwise convergence properties may suffer.
-3. This can be used in conjunction with minibatching, so long as the defined data objects are available in all data observations.
+1. A parameter cannot appear in more than one block (i.e. parameters cannot be updated more than once)
+2. The block structure is user-defined, and directly assumes that there is no correlation between blocks. It is up to the user to confirm if there truly is independence between different blocks. Otherwise convergence properties may suffer.
+3. This can be used in conjunction with minibatching, so long as the defined data objects are available in all `Observation`s in the series.
 
 ## What happens internally?
 
 We simply perform an independent `update_ensemble!` for each provided pairing and combine model output and updated parameters afterwards. Note that even without specifying an update group, by default EKP will always be construct one under-the-hood.
 
 !!! note "In future..."
-    In theory this opens up the possibility to have different configurations, or even processes, in different groups. This could be useful when parameter-data pairings are highly heterogeneous and so the user may wish to exploit, for example, the different processes scaling properties. However this has not been implemented.
+    In theory this opens up the possibility to have different configurations, or even processes, in different groups. This could be useful when parameter-data pairings are highly heterogeneous and so the user may wish to exploit, for example, the different processes scaling properties. However this has not yet been implemented.
