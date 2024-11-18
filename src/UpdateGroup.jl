@@ -61,14 +61,6 @@ function update_group_consistency(groups::VV, input_dim::Int, output_dim::Int) w
     u_groups = get_u_group.(groups)
     g_groups = get_g_group.(groups)
 
-    # check there is an index in each group
-    if any(length(group) == 0 for group in u_groups)
-        throw(ArgumentError("all `UpdateGroup.u_group` must contain at least one parameter identifier"))
-    end
-    if any(length(group) == 0 for group in g_groups)
-        throw(ArgumentError("all `UpdateGroup.g_group` must contain at least one data identifier"))
-    end
-
     # check for partition (only if indices passed)
     u_flat = reduce(vcat, u_groups)
     if !(1:input_dim == sort(u_flat))
@@ -148,5 +140,14 @@ function create_update_groups(
         push!(update_groups, UpdateGroup(u_group, g_group, Dict(key_vec => val_vec)))
     end
     return update_groups
-
+    
 end
+
+## Overload ==
+Base.:(==)(a::UG1, b::UG2) where {UG1 <: UpdateGroup, UG2 <: UpdateGroup} = all([
+    get_u_group(a) == get_u_group(b),
+    get_g_group(a) == get_g_group(b),
+    get_group_id(a) == get_group_id(b),
+],
+                                                                                )
+
