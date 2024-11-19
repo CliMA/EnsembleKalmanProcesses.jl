@@ -58,35 +58,35 @@ using EnsembleKalmanProcesses.ParameterDistributions
     # data 
     # given a list of vector statistics y and their covariances Γ 
     data_block_names = ["<X>", "<Y>"]
-    
+
     observation_vec = []
     for i in 1:length(data_block_names)
         push!(
-        observation_vec,
+            observation_vec,
             Observation(Dict("samples" => vec(ones(i)), "covariances" => I(i), "names" => data_block_names[i])),
         )
     end
     observations = combine_observations(observation_vec)
-    group_identifiers = Dict(["F"] => ["<X>"], ["G"] => ["<X>","<Y>"])
+    group_identifiers = Dict(["F"] => ["<X>"], ["G"] => ["<X>", "<Y>"])
     update_groups = create_update_groups(priors, observations, group_identifiers)
 
-    
+
     param_names = get_name(priors)
     param_indices = batch(priors, function_parameter_opt = "dof")
-    
+
     obs_names = get_names(observations)
     obs_indices = get_indices(observations)
 
     update_groups_test = []
-    for (key,val) in group_identifiers
-        
+    for (key, val) in group_identifiers
+
         key_vec = isa(key, AbstractString) ? [key] : key # make it iterable
         val_vec = isa(val, AbstractString) ? [val] : val
 
         u_group = []
         g_group = []
         for pn in key_vec
-            pi = param_indices[pn .== param_names]            
+            pi = param_indices[pn .== param_names]
             push!(u_group, isa(pi, Int) ? [pi] : pi)
         end
         for obn in val_vec
@@ -97,12 +97,12 @@ using EnsembleKalmanProcesses.ParameterDistributions
         g_group = reduce(vcat, reduce(vcat, g_group))
         push!(update_groups_test, UpdateGroup(u_group, g_group, Dict(key_vec => val_vec)))
     end
-    
+
     @test update_groups == update_groups_test
 
     # throw errors
-    bad_group_identifiers = Dict(["FF"] => ["<X>"], ["G"] => ["<X>","<Y>"])    
+    bad_group_identifiers = Dict(["FF"] => ["<X>"], ["G"] => ["<X>", "<Y>"])
     @test_throws ArgumentError create_update_groups(priors, observations, bad_group_identifiers)
-    bad_group_identifiers = Dict(["F"] => ["<XX>"], ["G"] => ["<X>","<Y>"])    
+    bad_group_identifiers = Dict(["F"] => ["<XX>"], ["G"] => ["<X>", "<Y>"])
     @test_throws ArgumentError create_update_groups(priors, observations, bad_group_identifiers)
 end

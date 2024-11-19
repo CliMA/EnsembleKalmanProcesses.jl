@@ -140,14 +140,9 @@ function create_update_groups(
         push!(update_groups, UpdateGroup(u_group, g_group, Dict(key_vec => val_vec)))
     end
     return update_groups
-    
+
 end
 
 ## Overload ==
-Base.:(==)(a::UG1, b::UG2) where {UG1 <: UpdateGroup, UG2 <: UpdateGroup} = all([
-    get_u_group(a) == get_u_group(b),
-    get_g_group(a) == get_g_group(b),
-    get_group_id(a) == get_group_id(b),
-],
-                                                                                )
-
+Base.:(==)(a::UG1, b::UG2) where {UG1 <: UpdateGroup, UG2 <: UpdateGroup} =
+    all([get_u_group(a) == get_u_group(b), get_g_group(a) == get_g_group(b), get_group_id(a) == get_group_id(b)],)
