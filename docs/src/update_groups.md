@@ -3,7 +3,7 @@
 The `UpdateGroup` object facilitates blocked EKP updates, based on a provided updating a series user-defined pairs of parameters and data. This allows users to enforce any *known* (in)dependences between different groups of parameters during the update.
 
 !!! note "This improves scaling at the cost of user-imposed structure"
-    As many of the `Process` updates scale say with ``d^\alpha``, in the data dimension ``d`` and ``\alpha > 1`` (super-linearly),  update groups with ``K`` groups of equal size will improving this scaline to ``K (\frac{d}{K})^\alpha``.
+    As many of the `Process` updates scale say with ``d^\alpha``, in the data dimension ``d`` and ``\alpha > 1`` (super-linearly),  update groups with ``K`` groups of equal size will improving this scaling to ``K (\frac{d}{K})^\alpha``.
 
 ##  Recommended construction - shown by example
 
@@ -12,8 +12,8 @@ The key component to construct update groups starts with constructing the prior,
 For illustration, we take code snippets from the example found in [examples/](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/UpdateGroups/). This example is concerned with learning several parameters in a coupled two-scale Lorenz 96 system:
 ```math
 \begin{aligned}
- \frac{\partial X_i}{\partial t} && = -X_{i-1}(X_{i-2} - X{i+1}) - X_i - GY_i + F_1 + F_2*sin(2\pi t F_3)\\
- \frac{\partial Y_i}{\partial t} && = -cbY_{i+1}(Y_{i+2} - X{i-1}) - cY_i + \frac{hc}{b} X_i \\
+ \frac{\partial X_i}{\partial t} & = -X_{i-1}(X_{i-2} - X{i+1}) - X_i - GY_i + F_1 + F_2*\sin(2\pi t F_3)\\
+ \frac{\partial Y_i}{\partial t} & = -cbY_{i+1}(Y_{i+2} - X{i-1}) - cY_i + \frac{hc}{b} X_i 
 \end{aligned}
 ```
 Parameters are learnt by fitting moments of a realized `X` and `Y` system, to some target moments.
