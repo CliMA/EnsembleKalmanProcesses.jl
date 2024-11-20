@@ -122,7 +122,7 @@ function Observation(obs_dict::Dict)
     if !isa(samples, AbstractVector) # 1 -> [[1]]
         snew = [[samples]]
     else
-        T = promote_type((typeof(s) for s in samples)...)
+        T = eltype(samples)
         samples_tmp = [convert(T, s) for s in samples] # to re-infer eltype  (if the user makes an eltype of "Any")
         if !isa(samples_tmp, AbstractVector{<:AbstractVector}) # [1,2] -> [[1,2]] 
             snew = [samples]
