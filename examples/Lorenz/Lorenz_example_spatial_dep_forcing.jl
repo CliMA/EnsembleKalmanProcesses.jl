@@ -7,11 +7,13 @@ using StatsPlots
 using Plots
 using Random
 using JLD2
+using Statistics
 
 # CES 
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.DataContainers
 using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses.Localizers
 
 const EKP = EnsembleKalmanProcesses
 
@@ -19,9 +21,9 @@ const EKP = EnsembleKalmanProcesses
 # y = G(θ) + η
 
 # This will change for different Lorenz simulators
-struct LorenzConfig{FT <: Real}
-    dt::FT
-    T::FT
+struct LorenzConfig{FT1 <: Real, FT2 <: Real}
+    dt::FT1
+    T::FT2
 end
 
 # This will change for each ensemble member
@@ -31,9 +33,9 @@ struct EnsembleMemberConfig{VV <: AbstractVector}
 end
 
 # This will change for different "Observations" of Lorenz
-struct ObservationConfig{FT <: Real} 
-    t_start::FT
-    t_end::FT
+struct ObservationConfig{FT1 <: Real, FT2 <: Real} 
+    t_start::FT1
+    t_end::FT2
 end
 #########################################################################
 ############################ Model Functions ############################
@@ -56,10 +58,10 @@ end
 # Inputs: 
 # - xn: timeseries of states for length of simulation through Lorenz96
 function stats(xn::VorM) where {VorM <: AbstractVecOrMat}
-    N = size(xn, 2)
+    N = size(xn, 1)
     gt = zeros(2*N)
-    gt[:N] = mean(xn, 2) 
-    gt[N+1:2*N]= std(xn, 2)
+    gt[1:N] = mean(xn, dims=2) 
+    gt[N+1:2*N]= std(xn, dims=2)
     return gt
 end
 
@@ -88,7 +90,7 @@ end
 # Inputs: 
 # - params: structure with F (state-dependent-forcing vector) 
 # - x: current state
-function f(params::EnsembleMemberConfig, x::VorM)
+function f(params::EnsembleMemberConfig, x::VorM) where {VorM <: AbstractVecOrMat}
     F = params.F
     N = length(x)
     f = zeros(N)
@@ -109,7 +111,7 @@ end
 # - params: structure with F (state-dependent-forcing vector) 
 # - xold: current state
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
-function RK4(params::EnsembleMemberConfig, xold::VorM, config::LorenzConfig)
+function RK4(params::EnsembleMemberConfig, xold::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
     N = length(xold)
     dt = config.dt
 
@@ -153,11 +155,11 @@ rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)
 #Creating my sythetic data
 #initalize model variables
 nx = 40  #dimensions of parameter vector
-gamma = 8 + 6*sin((4*pi*range(0, stop=nx, step=1))/nx)  #forcing (Needs to be of type EnsembleMemberConfig)
+gamma = 8 .+ 6*sin.((4*pi*range(0, stop=nx, step=1))/nx)  #forcing (Needs to be of type EnsembleMemberConfig)
 true_parameters = EnsembleMemberConfig(gamma)
 
 t = 0.01  #time step
-T_long = 1000  #total time 
+T_long = 1000.0  #total time 
 picking_initial_condition = LorenzConfig(t, T_long)
 
 #beginning state
@@ -167,37 +169,42 @@ int_state = rand(Normal(0.0, 1.0), nx)
 spin_up_array = lorenz_solve(true_parameters, int_state, picking_initial_condition)  #Need to make LorenzConfig object with t, T_long
 
 #intital condition used for the data
-x0 = spin_up_array[T_long]  #last element of the run is the initial condition for creating the data
-
+x0 = spin_up_array[:, end]  #last element of the run is the initial condition for creating the data
 #Creating my sythetic data
-T = 500
+T = 500.0
 ny = nx*2   #number of data points
-lorenz_config_settings = = LorenzConfig(t, T)
+lorenz_config_settings = LorenzConfig(t, T)
 
-model_out_y = lorenz_forward(true_parameters, int_state, lorenz_config_settings) 
+model_out_y = lorenz_forward(true_parameters, x0, lorenz_config_settings) 
 
 #Observation covariance R
-model_out_vars = (0.1*model_out_y)**2
+model_out_vars = (0.1*model_out_y).^2
 R = Diagonal(model_out_vars)
 R_sqrt = sqrt(R)
 
 #Observations y
 y = model_out_y  + R_sqrt*rand(Normal(0.0, 1.0), ny)
-print(y)
 
-pl = 2
-psig = 3
+pl = 2.0
+psig = 3.0
 #Prior covariance
 B = zeros(nx,nx)
 for ii in 1:nx 
     for jj in 1:nx
-        B[ii, jj] = psig**2 * exp(-abs(ii - jj)/pl)  
+        B[ii, jj] = psig^2 * exp(-abs(ii - jj)/pl)  
     end 
 end
 B_sqrt = sqrt(B)
 
 #Prior mean
-mu = 8*ones(nx) 
+mu = 8.0*ones(nx) 
+
+#Creating prior distribution
+distribution = Parameterized(MvNormal(mu, B))
+constraint = repeat([no_constraint()], 40)
+name = "ml96_prior"
+
+prior = ParameterDistribution(distribution, constraint, name)
 
 # Need a way to perturb the initial condition when doing the EKI updates
 
@@ -205,17 +212,27 @@ mu = 8*ones(nx)
 ############################# Running GNKI #############################
 ########################################################################
 
-
 # EKP parameters
-N_ens = 100 # number of ensemble members
-N_iter = 20 # number of EKI iterations
-
-# Need to define prior still 
+N_ens = 50# number of ensemble members
+N_iter = 4 # number of EKI iterations
 
 # initial parameters: N_params x N_ens
-initial_params = construct_initial_ensemble(rng, priors, N_ens)
+initial_params = construct_initial_ensemble(rng, prior, N_ens)
 
-ekiobj = EKP.EnsembleKalmanProcess(initial_params, y, GaussNewtonInversion())
+ekiobj = EKP.EnsembleKalmanProcess(initial_params, y, R, GaussNewtonInversion(prior); 
+            rng = rng, verbose = true, accelerator = DefaultAccelerator(), 
+            localization_method = NoLocalization())
+
+for i in 1:N_iter
+    params_i = get_ϕ_final(prior, ekiobj)
+
+    G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
+                    x0, lorenz_config_settings) for j in 1:N_ens]...)
+
+    EKP.update_ensemble!(ekiobj, G_ens)
+end
+
+final_ensemble = get_ϕ_final(prior, ekiobj)
 
 # Output figure save directory
 homedir = pwd()
