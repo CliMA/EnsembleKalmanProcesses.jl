@@ -44,7 +44,7 @@ end
 # - params: structure with F (state-dependent-forcing vector)
 # - x0: initial condition vector
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
-function lorenz_forward(params::LParams, x0::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
+function lorenz_forward(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
     # run the Lorenz simulation
     xn = lorenz_solve(params, x0, config)
     # Get statistics
@@ -127,22 +127,95 @@ end
 ########################################################################
 ########################## Ensemble Functions ##########################
 ########################################################################
-function run_ensembles(params::LParams, x0::VorM, config::LorenzConfig, nd, N_ens) where {VorM <: AbstractVecOrMat}
+# Running ensemble members through the forward function
+# Inputs: 
+# - params: array of structures with F (state-dependent-forcing vector) 
+# - x0: initial condition vector
+# - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
+# - nd: size of model output (integer)
+# - N_ens: number of ensemble members (integer)
+function run_ensembles(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig, nd, N_ens) where {VorM <: AbstractVecOrMat}
     g_ens = zeros(nd, N_ens)
     for i in 1:N_ens
         # run the model with the current parameters, i.e., map θ to G(θ)
-        g_ens[:, i] = lorenz_forward(params, x0, config)
+        g_ens[:, i] = lorenz_forward(params[:, i], x0, config)
     end
     return g_ens
 end
+# Note: I'm not sure how to make an array of EnsembleMemberConfig objects?
 
-
-
-
-
-
-rng_seed = 4137
+########################################################################
+############################ Problem setup #############################
+########################################################################
+rng_seed = 3
 rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)
+
+#Creating my sythetic data
+#initalize model variables
+nx = 40  #dimensions of parameter vector
+gamma = 8 + 6*sin((4*pi*range(0, stop=nx, step=1))/nx)  #forcing (Needs to be of type EnsembleMemberConfig)
+true_parameters = EnsembleMemberConfig(gamma)
+
+t = 0.01  #time step
+T_long = 1000  #total time 
+picking_initial_condition = LorenzConfig(t, T_long)
+
+#beginning state
+int_state = rand(Normal(0.0, 1.0), nx)
+
+#Find the initial condition for my data
+spin_up_array = lorenz_solve(true_parameters, int_state, picking_initial_condition)  #Need to make LorenzConfig object with t, T_long
+
+#intital condition used for the data
+x0 = spin_up_array[T_long]  #last element of the run is the initial condition for creating the data
+
+#Creating my sythetic data
+T = 500
+ny = nx*2   #number of data points
+lorenz_config_settings = = LorenzConfig(t, T)
+
+model_out_y = lorenz_forward(true_parameters, int_state, lorenz_config_settings) 
+
+#Observation covariance R
+model_out_vars = (0.1*model_out_y)**2
+R = Diagonal(model_out_vars)
+R_sqrt = sqrt(R)
+
+#Observations y
+y = model_out_y  + R_sqrt*rand(Normal(0.0, 1.0), ny)
+print(y)
+
+pl = 2
+psig = 3
+#Prior covariance
+B = zeros(nx,nx)
+for ii in 1:nx 
+    for jj in 1:nx
+        B[ii, jj] = psig**2 * exp(-abs(ii - jj)/pl)  
+    end 
+end
+B_sqrt = sqrt(B)
+
+#Prior mean
+mu = 8*ones(nx) 
+
+# Need a way to perturb the initial condition when doing the EKI updates
+
+########################################################################
+############################# Running GNKI #############################
+########################################################################
+
+
+# EKP parameters
+N_ens = 100 # number of ensemble members
+N_iter = 20 # number of EKI iterations
+
+# Need to define prior still 
+
+# initial parameters: N_params x N_ens
+initial_params = construct_initial_ensemble(rng, priors, N_ens)
+
+ekiobj = EKP.EnsembleKalmanProcess(initial_params, y, GaussNewtonInversion())
 
 # Output figure save directory
 homedir = pwd()
