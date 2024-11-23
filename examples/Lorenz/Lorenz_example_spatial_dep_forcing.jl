@@ -216,23 +216,35 @@ prior = ParameterDistribution(distribution, constraint, name)
 N_ens = 50# number of ensemble members
 N_iter = 4 # number of EKI iterations
 
+methods = [Inversion(), TransformInversion(), GaussNewtonInversion(prior), 
+            Unscented(prior, impose_prior = true)]
+
 # initial parameters: N_params x N_ens
 initial_params = construct_initial_ensemble(rng, prior, N_ens)
 
-ekiobj = EKP.EnsembleKalmanProcess(initial_params, y, R, GaussNewtonInversion(prior); 
-            rng = rng, verbose = true, accelerator = DefaultAccelerator(), 
-            localization_method = NoLocalization())
+for (kk, method) in enumerate(methods)
+    if isa(method, Unscented)
+        ekpobj = EKP.EnsembleKalmanProcess(y, R, method; 
+                    rng = copy(rng), verbose = true, accelerator = DefaultAccelerator(), 
+                    localization_method = NoLocalization(), scheduler = DefaultScheduler())
+    else    
+        ekpobj = EKP.EnsembleKalmanProcess(initial_params, y, R, method; 
+                    rng = copy(rng), verbose = true, accelerator = DefaultAccelerator(), 
+                    localization_method = NoLocalization(), scheduler = DefaultScheduler())
+    end
+    Ne = get_N_ens(ekpobj)
 
-for i in 1:N_iter
-    params_i = get_ϕ_final(prior, ekiobj)
+    for i in 1:N_iter
+        params_i = get_ϕ_final(prior, ekpobj)
 
-    G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
-                    x0, lorenz_config_settings) for j in 1:N_ens]...)
+        G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
+                        x0, lorenz_config_settings) for j in 1:Ne]...)
 
-    EKP.update_ensemble!(ekiobj, G_ens)
+        EKP.update_ensemble!(ekpobj, G_ens)
+    end
+
+    final_ensemble = get_ϕ_final(prior, ekpobj)
 end
-
-final_ensemble = get_ϕ_final(prior, ekiobj)
 
 # Output figure save directory
 homedir = pwd()
