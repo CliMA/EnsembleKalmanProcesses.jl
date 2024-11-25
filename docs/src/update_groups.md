@@ -44,7 +44,11 @@ observation_vec = []
 for i in 1:length(data_block_names)
     push!(
         observation_vec,
-        Observation(Dict("samples" => y[i], "covariances" => Γ[i], "names" => data_block_names[i])),
+        Observation(Dict(
+            "samples" => y[i],
+            "covariances" => Γ[i],
+            "names" => data_block_names[i]
+        )),
     )
 end
 observation = combine_observations(observation_vec)
@@ -64,8 +68,13 @@ update_groups = create_update_groups(prior, observation, group_identifiers)
 ```
 and this can then be entered into the `EnsembleKalmanProcess` object as a keyword argument
 ```julia
-# ... initial_params = construct_initial_ensemble(rng, priors, N_ens)
-ekiobj = EnsembleKalmanProcess(initial_params, observation, Inversion(), update_groups = update_groups)
+# initial_params = construct_initial_ensemble(rng, priors, N_ens) 
+ekiobj = EnsembleKalmanProcess(
+    initial_params,
+    observation,
+    Inversion(),
+    update_groups = update_groups
+)
 ```
 
 ## Advice for constructing blocks
