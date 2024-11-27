@@ -7,16 +7,16 @@ The `UpdateGroup` object facilitates blocked EKP updates, based on a provided up
 
 ##  Recommended construction - shown by example
 
-The key component to construct update groups starts with constructing the prior, and the observations. Parameter distributions and observations may be constructed in units and given names, and these names are utilized to build the update groups with a convenient constructor `create_update_groups`.
+The key component to construct update groups starts with constructing the prior and the observations. Parameter distributions and observations may be constructed in units and given names, and these names are utilized to build the update groups with a convenient constructor `create_update_groups`.
 
-For illustration, we take code snippets from the example found in [examples/](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/UpdateGroups/). This example is concerned with learning several parameters in a coupled two-scale Lorenz 96 system:
+For illustration, we take code snippets from the example found [here](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/UpdateGroups/). This example is concerned with learning several parameters in a coupled two-scale Lorenz 96 system:
 ```math
 \begin{aligned}
- \frac{\partial X_i}{\partial t} & = -X_{i-1}(X_{i-2} - X{i+1}) - X_i - GY_i + F_1 + F_2*\sin(2\pi t F_3)\\
- \frac{\partial Y_i}{\partial t} & = -cbY_{i+1}(Y_{i+2} - X{i-1}) - cY_i + \frac{hc}{b} X_i 
+ \frac{\partial X_i}{\partial t} & = -X_{i-1}(X_{i-2} - X_{i+1}) - X_i - GY_i + F_1 + F_2\,\sin(2\pi t F_3)\\
+ \frac{\partial Y_i}{\partial t} & = -cbY_{i+1}(Y_{i+2} - Y_{i-1}) - cY_i + \frac{hc}{b} X_i 
 \end{aligned}
 ```
-Parameters are learnt by fitting moments of a realized `X` and `Y` system, to some target moments.
+Parameters are learnt by fitting estimated moments of a realized `X` and `Y` system, to some target moments over a time interval.
 
 We create a prior by combining several *named* `ParameterDistribution`s.
 ```julia
@@ -53,7 +53,7 @@ for i in 1:length(data_block_names)
 end
 observation = combine_observations(observation_vec)
 ```
-We define the update groups of our choice by partitioning the parameter names as keys of a dictionary, and their paired data names as values. Here we create two groups:
+Finally, we are ready to define the update groups. We may specify our choice by partitioning the parameter names as keys of a dictionary, and their paired data names as values. Here we create two groups:
 ```julia
 # update parameters F,G with data <X>, <X^2>, <XY>
 # update parameters h, c, b with data <Y>, <Y^2>, <XY>
@@ -77,14 +77,16 @@ ekiobj = EnsembleKalmanProcess(
 )
 ```
 
+## What happens internally?
+
+We simply perform an independent `update_ensemble!` for each provided pairing and combine model output and updated parameters afterwards. Note that even without specifying an update group, by default EKP will always be construct one under-the-hood.
+
+
+
 ## Advice for constructing blocks
 1. A parameter cannot appear in more than one block (i.e. parameters cannot be updated more than once)
 2. The block structure is user-defined, and directly assumes that there is no correlation between blocks. It is up to the user to confirm if there truly is independence between different blocks. Otherwise convergence properties may suffer.
 3. This can be used in conjunction with minibatching, so long as the defined data objects are available in all `Observation`s in the series.
-
-## What happens internally?
-
-We simply perform an independent `update_ensemble!` for each provided pairing and combine model output and updated parameters afterwards. Note that even without specifying an update group, by default EKP will always be construct one under-the-hood.
 
 !!! note "In future..."
     In theory this opens up the possibility to have different configurations, or even processes, in different groups. This could be useful when parameter-data pairings are highly heterogeneous and so the user may wish to exploit, for example, the different processes scaling properties. However this has not yet been implemented.
