@@ -1,6 +1,15 @@
 # [Update Groups] (@id update-groups)
 
-The `UpdateGroup` object facilitates blocked EKP updates, based on a provided updating a series user-defined pairs of parameters and data. This allows users to enforce any *known* (in)dependences between different groups of parameters during the update.
+The `UpdateGroup` object facilitates blocked EKP updates, based on a provided updating a series user-defined pairs of parameters and data. This allows users to enforce any *known* (in)dependences between different groups of parameters during the update. For example, 
+```julia
+# update parameter 1 with data 1 and 2
+# update parameters 2 and 3 jointly with data 2, 3, and 4
+Dict(
+    ["parameter_1"] => ["data_1", "data_2"], 
+    ["parameter_2", "parameter_3"] => ["data_2", "data_3", "data_4"], 
+)
+```
+Construction and passing of this into the EnsembleKalmanProcesses is detailed below.
 
 !!! note "This improves scaling at the cost of user-imposed structure"
     As many of the `Process` updates scale say with ``d^\alpha``, in the data dimension ``d`` and ``\alpha > 1`` (super-linearly),  update groups with ``K`` groups of equal size will improving this scaling to ``K (\frac{d}{K})^\alpha``.
