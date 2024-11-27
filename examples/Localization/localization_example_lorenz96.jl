@@ -76,8 +76,10 @@ prior = combine_distributions(priors)
 
 initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
+
 # Solve problem without localization
-ekiobj_vanilla = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
+ekiobj_vanilla =
+    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, scheduler = DefaultScheduler())
 for i in 1:N_iter
     g_ens_vanilla = G(get_ϕ_final(prior, ekiobj_vanilla))
     EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = true)
@@ -91,6 +93,7 @@ ekiobj_inflated = EKP.EnsembleKalmanProcess(
     Γ,
     Inversion();
     rng = rng,
+    scheduler = DefaultScheduler(),
     #  localization_method = BernoulliDropout(0.98),
 )
 
@@ -108,7 +111,15 @@ end
 @info "EKI (inflated) - complete"
 
 # Test SEC
-ekiobj_sec = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SEC(1.0))
+ekiobj_sec = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    y,
+    Γ,
+    Inversion();
+    rng = rng,
+    localization_method = SEC(1.0),
+    scheduler = DefaultScheduler(),
+)
 
 for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec))
@@ -117,8 +128,15 @@ end
 @info "EKI (SEC) - complete"
 
 # Test SEC with cutoff
-ekiobj_sec_cutoff =
-    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SEC(1.0, 0.1))
+ekiobj_sec_cutoff = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    y,
+    Γ,
+    Inversion();
+    rng = rng,
+    localization_method = SEC(1.0, 0.1),
+    scheduler = DefaultScheduler(),
+)
 
 for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec_cutoff))
@@ -127,8 +145,15 @@ end
 @info "EKI (SEC cut-off) - complete"
 
 # Test SECFisher
-ekiobj_sec_fisher =
-    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SECFisher())
+ekiobj_sec_fisher = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    y,
+    Γ,
+    Inversion();
+    rng = rng,
+    localization_method = SECFisher(),
+    scheduler = DefaultScheduler(),
+)
 
 for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec_fisher))
@@ -137,8 +162,15 @@ end
 @info "EKI (SEC Fisher) - complete"
 
 # Test SECNice
-ekiobj_sec_nice =
-    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, localization_method = SECNice())
+ekiobj_sec_nice = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    y,
+    Γ,
+    Inversion();
+    rng = rng,
+    localization_method = SECNice(),
+    scheduler = DefaultScheduler(),
+)
 
 for i in 1:N_iter
     g_ens = G(get_ϕ_final(prior, ekiobj_sec_nice))
@@ -150,7 +182,9 @@ end
 u_final = get_u_final(ekiobj_sec)
 g_final = get_g_final(ekiobj_sec)
 cov_est = cov([u_final; g_final], [u_final; g_final], dims = 2, corrected = false)
-cov_localized = get_localizer(ekiobj_sec).localize(cov_est)
+# need dimension args too
+cov_localized =
+    get_localizer(ekiobj_sec).localize(cov_est, eltype(g_final), size(u_final, 1), size(g_final, 1), size(u_final, 2))
 
 fig = plot(
     get_error(ekiobj_vanilla),

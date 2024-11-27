@@ -19,7 +19,8 @@ TransformInversion() = TransformInversion([])
 get_buffer(p::TI) where {TI <: TransformInversion} = p.buffer
 
 function FailureHandler(process::TransformInversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, failed_ens) = etki_update(ekp, u, g)
+    failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens) =
+        etki_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx)
     return FailureHandler{TransformInversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -31,10 +32,11 @@ Provides a failsafe update that
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::TransformInversion, method::SampleSuccGauss)
-    function failsafe_update(ekp, u, g, failed_ens)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
-        u[:, successful_ens] = etki_update(ekp, u[:, successful_ens], g[:, successful_ens])
+        u[:, successful_ens] =
+            etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, obs_noise_cov_inv, onci_idx)
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
@@ -46,8 +48,10 @@ end
 """
      etki_update(
         ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
-        u::AbstractMatrix{FT},
-        g::AbstractMatrix{FT},
+        u::AbstractMatrix,
+        g::AbstractMatrix,
+        y::AbstractVector,
+        obs_noise_cov_inv::AbstractVector,
     ) where {FT <: Real, IT, CT <: Real}
 
 Returns the updated parameter vectors given their current values and
@@ -55,12 +59,20 @@ the corresponding forward model evaluations.
 """
 function etki_update(
     ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
-    u::AbstractMatrix{FT},
-    g::AbstractMatrix{FT},
-) where {FT <: Real, IT}
-
-    y = get_obs(ekp)
-    inv_noise_scaling = get_Δt(ekp)[end]
+    u::AM1,
+    g::AM2,
+    y::AV1,
+    obs_noise_cov_inv::AV2,
+    onci_idx::AV3,
+) where {
+    FT <: Real,
+    IT,
+    AM1 <: AbstractMatrix,
+    AM2 <: AbstractMatrix,
+    AV1 <: AbstractVector,
+    AV2 <: AbstractVector,
+    AV3 <: AbstractVector,
+}
 
     m = size(u, 2)
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
@@ -83,13 +95,15 @@ function etki_update(
     end
 
     # construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv
-    Γ_inv = get_obs_noise_cov_inv(ekp, build = false) # returns blocks of Γ_inv 
-    γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
-    shift = [0]
-    for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
-        idx = (shift[1] + 1):(shift[1] + γs)
-        tmp[1][1:ys2, idx] = (inv_noise_scaling * γ_inv * Y[idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))'
-        shift[1] = maximum(idx)
+    # this loop is very fast for diagonal, slow for nondiagonal
+    for (block_idx, local_idx, global_idx) in onci_idx
+        γ_inv = obs_noise_cov_inv[block_idx]
+        # This is cumbersome, but will retain e.g. diagonal type for matrix manipulations, else indexing converts back to matrix
+        if isa(γ_inv, Diagonal) #
+            tmp[1][1:ys2, global_idx] = (γ_inv.diag[local_idx] .* Y[global_idx, :])' # multiple each row of Y by γ_inv element
+        else #much slower
+            tmp[1][1:ys2, global_idx] = (γ_inv[local_idx, local_idx] * Y[global_idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))' row-mult is faster
+        end
     end
 
     tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
@@ -118,32 +132,48 @@ Inputs:
  - ekp :: The EnsembleKalmanProcess to update.
  - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - process :: Type of the EKP.
+ - u_idx :: indices of u to update (see `UpdateGroup`)
+ - g_idx :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
  - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
     g::AbstractMatrix{FT},
-    process::TransformInversion;
+    process::TransformInversion,
+    u_idx::Vector{Int},
+    g_idx::Vector{Int};
     failed_ens = nothing,
     kwargs...,
 ) where {FT, IT}
 
-    # u: N_par × N_ens 
-    # g: N_obs × N_ens
-    u = get_u_final(ekp)
-    N_obs = size(g, 1)
-    cov_init = cov(u, dims = 2)
+    # update only u_idx parameters/ with g_idx data
+    # u: length(u_idx) × N_ens   
+    # g: lenght(g_idx) × N_ens
+    u = get_u_final(ekp)[u_idx, :]
+    g = g[g_idx, :]
+    obs_mean = get_obs(ekp)[g_idx]
+    # get relevant inverse covariance blocks
+    obs_noise_cov_inv = get_obs_noise_cov_inv(ekp, build = false)# NEVER build=true for this - ruins scaling.
 
-    if ekp.verbose
-        if get_N_iterations(ekp) == 0
-            @info "Iteration 0 (prior)"
-            @info "Covariance trace: $(tr(cov_init))"
+    # need to sweep over local blocks
+    γ_sizes = [size(γ_inv, 1) for γ_inv in obs_noise_cov_inv]
+    onci_idx = []
+    shift = 0
+    for (block_id, γs) in enumerate(γ_sizes)
+        loc_idx = intersect(1:γs, g_idx .- shift)
+        if !(length(loc_idx) == 0)
+            push!(onci_idx, (block_id, loc_idx, loc_idx .+ shift)) # 
         end
-
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(get_Δt(ekp))))"
+        shift += γs
     end
+    #   obs_noise_cov_inv = [obs_noise_cov_inv[pair[1]][pair[2],pair[2]] for pair in local_intersect] # SLOW
+
+    N_obs = length(g_idx)
 
     fh = get_failure_handler(ekp)
+
+    # Scale noise using Δt
+    y = get_obs(ekp)
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
@@ -152,19 +182,7 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(ekp, u, g, failed_ens)
-
-    # store new parameters (and model outputs)
-    push!(ekp.g, DataContainer(g, data_are_columns = true))
-    # Store error
-    compute_error!(ekp)
-
-    # Diagnostics
-    cov_new = cov(u, dims = 2)
-
-    if ekp.verbose
-        @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
-    end
+    u = fh.failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens)
 
     return u
 end
