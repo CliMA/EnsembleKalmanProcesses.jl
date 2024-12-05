@@ -133,7 +133,7 @@ function sparse_eki_update(
     cov_est = cov([u; g], [u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
     process = get_process(ekp)
     # Localization
-    cov_localized = get_localizer(ekp).localize(cov_est)
+    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), get_N_ens(ekp))
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
 
     v = hcat(u', g')
@@ -184,6 +184,8 @@ Inputs:
  - `ekp` :: The EnsembleKalmanProcess to update.
  - `g` :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - `process` :: Type of the EKP.
+ - `u_idx` :: indices of u to update (see `UpdateGroup`)
+ - `g_idx` :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
  - `deterministic_forward_map` :: Whether output `g` comes from a deterministic model.
  - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
     with NaN entries.
@@ -191,7 +193,9 @@ Inputs:
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
     g::AbstractMatrix{FT},
-    process::SparseInversion{FT};
+    process::SparseInversion{FT},
+    u_idx::Vector{Int},
+    g_idx::Vector{Int};
     deterministic_forward_map = true,
     failed_ens = nothing,
 ) where {FT, IT}
@@ -219,12 +223,6 @@ function update_ensemble!(
     end
 
     u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
-
-    # store new parameters (and model outputs)
-    push!(ekp.g, DataContainer(g, data_are_columns = true))
-
-    # Store error
-    compute_error!(ekp)
 
     # Check convergence
     cov_new = cov(get_u_final(ekp), dims = 2)

@@ -73,7 +73,7 @@ function gnki_update(
     N_ens_successful = size(g, 2)
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
-    cov_localized = get_localizer(ekp).localize(cov_est)
+    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), get_N_ens(ekp))
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
     process = get_process(ekp)
     prior_mean = process.prior_mean
@@ -129,7 +129,9 @@ Inputs:
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, GNI},
     g::AbstractMatrix{FT},
-    process::GNI;
+    process::GNI,
+    u_idx::Vector{Int},
+    g_idx::Vector{Int};
     deterministic_forward_map::Bool = true,
     failed_ens = nothing,
 ) where {FT, IT, GNI <: GaussNewtonInversion}
@@ -141,18 +143,11 @@ function update_ensemble!(
     end
     # u: N_par × N_ens 
     # g: N_obs × N_ens
-    u = get_u_final(ekp)
-    N_obs = size(g, 1)
-    cov_init = cov(u, dims = 2)
-
-    if ekp.verbose
-        if get_N_iterations(ekp) == 0
-            @info "Iteration 0 (prior)"
-            @info "Covariance trace: $(tr(cov_init))"
-        end
-
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(get_Δt(ekp))))"
-    end
+    u = get_u_final(ekp)[u_idx, :]
+    g = g[g_idx, :]
+    N_obs = length(g_idx)
+    obs_noise_cov = get_obs_noise_cov(ekp)[g_idx, g_idx]
+    obs_mean = get_obs(ekp)[g_idx]
 
     fh = get_failure_handler(ekp)
 
@@ -172,18 +167,6 @@ function update_ensemble!(
     end
 
     u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
-
-    push!(ekp.g, DataContainer(g, data_are_columns = true))
-
-    # Store error
-    compute_error!(ekp)
-
-    # Diagnostics
-    cov_new = cov(u, dims = 2)
-
-    if ekp.verbose
-        @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
-    end
 
     return u
 end

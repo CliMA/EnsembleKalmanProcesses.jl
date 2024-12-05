@@ -58,8 +58,8 @@ function eki_update(
 
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
-    # Localization
-    cov_localized = get_localizer(ekp).localize(cov_est)
+    # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
+    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), size(u, 2))
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
 
     # N_obs × N_obs \ [N_obs × N_ens]
@@ -90,16 +90,20 @@ end
 Updates the ensemble according to an Inversion process. 
 
 Inputs:
- - ekp :: The EnsembleKalmanProcess to update.
- - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - process :: Type of the EKP.
- - deterministic_forward_map :: Whether output `g` comes from a deterministic model.
- - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
+ - `ekp` :: The EnsembleKalmanProcess to update.
+ - `g` :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
+ - `process` :: Type of the EKP.
+ - `u_idx` :: indices of u to update (see `UpdateGroup`)
+ - `g_idx` :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
+ - `deterministic_forward_map` :: Whether output `g` comes from a deterministic model.
+ - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
     g::AbstractMatrix{FT},
-    process::Inversion;
+    process::Inversion,
+    u_idx::Vector{Int},
+    g_idx::Vector{Int};
     deterministic_forward_map::Bool = true,
     failed_ens = nothing,
 ) where {FT, IT}
@@ -111,28 +115,21 @@ function update_ensemble!(
     end
     # u: N_par × N_ens 
     # g: N_obs × N_ens
-    u = get_u_final(ekp)
-    N_obs = size(g, 1)
-    cov_init = cov(u, dims = 2)
-
-    if ekp.verbose
-        if get_N_iterations(ekp) == 0
-            @info "Iteration 0 (prior)"
-            @info "Covariance trace: $(tr(cov_init))"
-        end
-
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(get_Δt(ekp))))"
-    end
+    u = get_u_final(ekp)[u_idx, :]
+    g = g[g_idx, :]
+    N_obs = length(g_idx)
+    obs_noise_cov = get_obs_noise_cov(ekp)[g_idx, g_idx]
+    obs_mean = get_obs(ekp)[g_idx]
 
     fh = get_failure_handler(ekp)
 
     # Scale noise using Δt
-    scaled_obs_noise_cov = get_obs_noise_cov(ekp) / get_Δt(ekp)[end]
+    scaled_obs_noise_cov = obs_noise_cov / get_Δt(ekp)[end]
     noise = sqrt(scaled_obs_noise_cov) * rand(get_rng(ekp), MvNormal(zeros(N_obs), I), get_N_ens(ekp))
 
     # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic, else just repeat the observation
-    y = add_stochastic_perturbation ? (get_obs(ekp) .+ noise) : repeat(get_obs(ekp), 1, get_N_ens(ekp))
+    y = add_stochastic_perturbation ? (obs_mean .+ noise) : repeat(obs_mean, 1, get_N_ens(ekp))
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
@@ -142,18 +139,6 @@ function update_ensemble!(
     end
 
     u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
-
-    push!(ekp.g, DataContainer(g, data_are_columns = true))
-
-    # Store error
-    compute_error!(ekp)
-
-    # Diagnostics
-    cov_new = cov(u, dims = 2)
-
-    if ekp.verbose
-        @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
-    end
 
     return u
 end
