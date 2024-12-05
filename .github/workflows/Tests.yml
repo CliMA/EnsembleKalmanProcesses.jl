@@ -36,7 +36,7 @@ jobs:
                                  LCOV.writefile("coverage-lcov.info", Codecov.process_folder())'
         if: ${{ matrix.os == 'ubuntu-latest' }}
       - name: Submit coverage
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v5
         with:
           token: ${{secrets.CODECOV_TOKEN}}
         if: ${{ matrix.os == 'ubuntu-latest' }}
