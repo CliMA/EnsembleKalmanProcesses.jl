@@ -22,7 +22,7 @@ jobs:
           version: '1'
           show-versioninfo: 'true'
       - name: Cache artifacts
-        uses: actions/cache@v1
+        uses: actions/cache@v4
         env:
           cache-name: cache-artifacts
         with:
