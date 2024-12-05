@@ -144,31 +144,36 @@ function kernel_function(kernel_ug, T, p, d)
     kernel = ones(T, p + d, p + d)
     kernel[1:p, (p + 1):end] = kernel_ug
     kernel[(p + 1):end, 1:p] = kernel_ug'
-    return (cov) -> kernel .* cov
+    return kernel
 end
 
-"Uniform kernel constructor"
-function Localizer(localization::NoLocalization, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    kernel_ug = ones(T, p, d)
-    return Localizer{NoLocalization, T}(kernel_function(kernel_ug, T, p, d))
+"Uniform kernel constructor" # p::IT, d::IT, J::IT, T = Float64
+function Localizer(localization::NoLocalization, J::Int, T = Float64)
+    #kernel_ug = ones(T,p,d)
+    return Localizer{NoLocalization, T}((cov, T, p, d, J) -> cov)
 end
 
 "Delta kernel localizer constructor"
-function Localizer(localization::Delta, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    kernel_ug = T(1) * Matrix(I, p, d)
-    return Localizer{Delta, T}(kernel_function(kernel_ug, T, p, d))
+function Localizer(localization::Delta, J::Int, T = Float64)
+    #kernel_ug = T(1) * Matrix(I, p, d)
+    return Localizer{Delta, T}((cov, T, p, d, J) -> kernel_function(T(1) * Matrix(I, p, d), T, p, d) .* cov)
 end
 
-"RBF kernel localizer constructor"
-function Localizer(localization::RBF, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    l = localization.lengthscale
+function create_rbf(l, T, p, d)
     kernel_ug = zeros(T, p, d)
     for i in 1:p
         for j in 1:d
             @inbounds kernel_ug[i, j] = exp(-(i - j) * (i - j) / (2 * l * l))
         end
     end
-    return Localizer{RBF, T}(kernel_function(kernel_ug, T, p, d))
+    return kernel_ug
+end
+"RBF kernel localizer constructor"
+function Localizer(localization::RBF, J::Int, T = Float64)
+    #kernel_ug = create_rbf(localization.lengthscale,T,p,d)
+    return Localizer{RBF, T}(
+        (cov, T, p, d, J) -> kernel_function(create_rbf(localization.lengthscale, T, p, d), T, p, d) .* cov,
+    )
 end
 
 "Localization kernel with Bernoulli trials as off-diagonal terms (symmetric)"
@@ -194,19 +199,19 @@ end
 Localize using a Schur product with a random draw of a Bernoulli kernel matrix. Only the u–G(u) block is localized.
 """
 function bernoulli_kernel_function(prob, T, p, d)
-    function get_kernel()
-        kernel = ones(T, p + d, p + d)
-        kernel_ug = bernoulli_kernel(prob, T, p, d)
-        kernel[1:p, (p + 1):end] = kernel_ug
-        kernel[(p + 1):end, 1:p] = kernel_ug'
-        return kernel
-    end
-    return (cov) -> get_kernel() .* cov
+
+    kernel = ones(T, p + d, p + d)
+    kernel_ug = bernoulli_kernel(prob, T, p, d)
+    kernel[1:p, (p + 1):end] = kernel_ug
+    kernel[(p + 1):end, 1:p] = kernel_ug'
+    return kernel
 end
 
 "Randomized Bernoulli dropout kernel localizer constructor"
-function Localizer(localization::BernoulliDropout, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    return Localizer{BernoulliDropout, T}(bernoulli_kernel_function(localization.prob, T, p, d))
+function Localizer(localization::BernoulliDropout, J::Int, T = Float64)
+    return Localizer{BernoulliDropout, T}(
+        (cov, T, p, d, J) -> bernoulli_kernel_function(localization.prob, T, p, d) .* cov,
+    )
 end
 
 """
@@ -225,8 +230,8 @@ function sec(cov, α, r_0)
 end
 
 "Sampling error correction (Lee, 2021) constructor"
-function Localizer(localization::SEC, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    return Localizer{SEC, T}((cov) -> sec(cov, localization.α, localization.r_0))
+function Localizer(localization::SEC, J::Int, T = Float64)
+    return Localizer{SEC, T}((cov, T, p, d, J) -> sec(cov, localization.α, localization.r_0))
 end
 
 """
@@ -265,8 +270,8 @@ function sec_fisher(cov, N_ens)
 end
 
 "Sampling error correction (Flowerdew, 2015) constructor"
-function Localizer(localization::SECFisher, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
-    return Localizer{SECFisher, T}((cov) -> sec_fisher(cov, J))
+function Localizer(localization::SECFisher, J::Int, T = Float64)
+    return Localizer{SECFisher, T}((cov, T, p, d, J) -> sec_fisher(cov, J))
 end
 
 """
@@ -360,7 +365,7 @@ end
 
 
 "Sampling error correction of Vishny, Morzfeld, et al. (2024) constructor"
-function Localizer(localization::SECNice, p::IT, d::IT, J::IT, T = Float64) where {IT <: Int}
+function Localizer(localization::SECNice, J::Int, T = Float64)
     if length(localization.std_of_corr) == 0 #i.e. if the user hasn't provided an interpolation
         dr = 0.001
         grid = LinRange(-1, 1, Int(1 / dr + 1))
@@ -369,7 +374,7 @@ function Localizer(localization::SECNice, p::IT, d::IT, J::IT, T = Float64) wher
     end
 
     return Localizer{SECNice, T}(
-        (cov) -> sec_nice(cov, localization.std_of_corr[1], localization.δ_ug, localization.δ_gg, J, p, d),
+        (cov, T, p, d, J) -> sec_nice(cov, localization.std_of_corr[1], localization.δ_ug, localization.δ_gg, J, p, d),
     )
 end
 

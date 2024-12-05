@@ -293,7 +293,8 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         ]
 
         # Localization
-        cov_localized = get_localizer(uki).localize(cov_est)
+        FT = eltype(g_mean)
+        cov_localized = get_localizer(uki).localize(cov_est, FT, size(u_p, 1), size(g, 1), size(u_p, 2))
         uu_p_cov, ug_cov, gg_cov = get_cov_blocks(cov_localized, size(u_p, 1))
 
         if process.impose_prior
@@ -312,9 +313,6 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         push!(process.obs_pred, g_mean) # N_ens x N_data
         push!(process.u_mean, u_mean) # N_ens x N_params
         push!(process.uu_cov, uu_cov) # N_ens x N_data
-        push!(uki.g, DataContainer(g, data_are_columns = true))
-
-        compute_error!(uki)
 
     end
     function failsafe_update(uki, u, g, failed_ens)
@@ -632,7 +630,7 @@ function update_ensemble_analysis!(
         ug_cov' gg_cov
     ]
     # Localization
-    cov_localized = get_localizer(uki).localize(cov_est)
+    cov_localized = get_localizer(uki).localize(cov_est, FT, size(u_p, 1), size(g, 1), size(u_p, 2))
     uu_p_cov, ug_cov, gg_cov = get_cov_blocks(cov_localized, size(u_p)[1])
 
     tmp = ug_cov / gg_cov
@@ -644,9 +642,6 @@ function update_ensemble_analysis!(
     push!(process.obs_pred, g_mean) # N_ens x N_data
     push!(process.u_mean, u_mean) # N_ens x N_params
     push!(process.uu_cov, uu_cov) # N_ens x N_data
-    push!(uki.g, DataContainer(g, data_are_columns = true))
-
-    compute_error!(uki)
 
 end
 
@@ -664,28 +659,21 @@ Inputs:
  - `uki`        :: The EnsembleKalmanProcess to update.
  - `g_in`       :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
  - `process` :: Type of the EKP.
+ - `u_idx` :: indices of u to update (see `UpdateGroup`)
+ - `g_idx` :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
  - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
     with NaN entries.
 """
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, U},
     g_in::AbstractMatrix{FT},
-    process::U;
+    process::U,
+    u_idx::Vector{Int},
+    g_idx::Vector{Int};
     failed_ens = nothing,
 ) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     #catch works when g_in non-square 
     u_p_old = get_u_final(uki)
-
-    if uki.verbose
-        cov_init = get_u_cov_final(uki)
-
-        if get_N_iterations(uki) == 0
-            @info "Iteration 0 (prior)"
-            @info "Covariance trace: $(tr(cov_init))"
-        end
-
-        @info "Iteration $(get_N_iterations(uki)+1) (T=$(sum(get_Δt(uki))))"
-    end
 
     fh = get_failure_handler(uki)
 
@@ -697,12 +685,6 @@ function update_ensemble!(
     end
 
     u_p = fh.failsafe_update(uki, u_p_old, g_in, failed_ens)
-
-
-    if uki.verbose
-        cov_new = get_u_cov_final(uki)
-        @info "Covariance-weighted error: $(get_error(uki)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
-    end
 
     return u_p
 end
