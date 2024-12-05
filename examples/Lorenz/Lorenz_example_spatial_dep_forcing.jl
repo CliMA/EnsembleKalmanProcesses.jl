@@ -22,7 +22,9 @@ const EKP = EnsembleKalmanProcesses
 
 # This will change for different Lorenz simulators
 struct LorenzConfig{FT1 <: Real, FT2 <: Real}
+    "Length of a fixed integration timestep"
     dt::FT1
+    "Total duration of integration (T = N*dt)"
     T::FT2
 end
 
@@ -33,9 +35,11 @@ struct EnsembleMemberConfig{VV <: AbstractVector}
 end
 
 # This will change for different "Observations" of Lorenz
-struct ObservationConfig{FT1 <: Real, FT2 <: Real} 
-    t_start::FT1
-    t_end::FT2
+struct ObservationConfig{FT1 <: Real, FT2 <: Real}
+    "initial time to gather statistics (T_start = N_start*dt)"
+    T_start::FT1
+    "end time to gather statistics (T_end = N_end*dt)"
+    T_end::FT2
 end
 #########################################################################
 ############################ Model Functions ############################
@@ -46,22 +50,28 @@ end
 # - params: structure with F (state-dependent-forcing vector)
 # - x0: initial condition vector
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
-function lorenz_forward(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
+function lorenz_forward(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig, observation_config::ObservationConfig) where {VorM <: AbstractVecOrMat}
     # run the Lorenz simulation
     xn = lorenz_solve(params, x0, config)
     # Get statistics
-    gt = stats(xn)
+    gt = stats(xn, config, observation_config)
     return gt
 end
 
 #Calculates statistics for forward model output
 # Inputs: 
 # - xn: timeseries of states for length of simulation through Lorenz96
-function stats(xn::VorM) where {VorM <: AbstractVecOrMat}
-    N = size(xn, 1)
-    gt = zeros(2*N)
-    gt[1:N] = mean(xn, dims=2) 
-    gt[N+1:2*N]= std(xn, dims=2)
+function stats(xn::VorM, config::LorenzConfig, observation_config::ObservationConfig) where {VorM <: AbstractVecOrMat}
+    T_start = observation_config.T_start 
+    T_end = observation_config.T_end
+    dt = config.dt
+    N_start = Int(ceil(T_start / dt))
+    N_end = Int(ceil(T_end / dt))
+    xn_stat = xn[:, N_start:N_end]
+    N_state = size(xn_stat, 1)
+    gt = zeros(2*N_state)
+    gt[1:N_state] = mean(xn_stat, dims=2) 
+    gt[N_state+1:2*N_state]= std(xn_stat, dims=2)
     return gt
 end
 
@@ -140,7 +150,7 @@ function run_ensembles(params::EnsembleMemberConfig, x0::VorM, config::LorenzCon
     g_ens = zeros(nd, N_ens)
     for i in 1:N_ens
         # run the model with the current parameters, i.e., map θ to G(θ)
-        g_ens[:, i] = lorenz_forward(params[:, i], x0, config)
+        g_ens[:, i] = lorenz_forward(params[:, i], x0, config, observation_config)
     end
     return g_ens
 end
@@ -163,19 +173,25 @@ T_long = 1000.0  #total time
 picking_initial_condition = LorenzConfig(t, T_long)
 
 #beginning state
-int_state = rand(Normal(0.0, 1.0), nx)
+x_initial = rand(Normal(0.0, 1.0), nx)
 
 #Find the initial condition for my data
-spin_up_array = lorenz_solve(true_parameters, int_state, picking_initial_condition)  #Need to make LorenzConfig object with t, T_long
+x_spun_up = lorenz_solve(true_parameters, x_initial, picking_initial_condition)  #Need to make LorenzConfig object with t, T_long
 
 #intital condition used for the data
-x0 = spin_up_array[:, end]  #last element of the run is the initial condition for creating the data
+x0 = x_spun_up[:, end]  #last element of the run is the initial condition for creating the data
 #Creating my sythetic data
 T = 500.0
 ny = nx*2   #number of data points
 lorenz_config_settings = LorenzConfig(t, T)
 
-model_out_y = lorenz_forward(true_parameters, x0, lorenz_config_settings) 
+# construct how we compute Observations
+T_start = 10.0
+T_end = T
+observation_config = ObservationConfig(T_start,T_end)
+
+
+model_out_y = lorenz_forward(true_parameters, x0, lorenz_config_settings, observation_config) 
 
 #Observation covariance R
 model_out_vars = (0.1*model_out_y).^2
@@ -238,7 +254,7 @@ for (kk, method) in enumerate(methods)
         params_i = get_ϕ_final(prior, ekpobj)
 
         G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
-                        x0, lorenz_config_settings) for j in 1:Ne]...)
+                        x0, lorenz_config_settings, observation_config) for j in 1:Ne]...)
 
         EKP.update_ensemble!(ekpobj, G_ens)
     end
