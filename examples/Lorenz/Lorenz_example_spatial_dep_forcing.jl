@@ -136,25 +136,6 @@ function RK4(params::EnsembleMemberConfig, xold::VorM, config::LorenzConfig) whe
     return xnew
 end
 
-########################################################################
-########################## Ensemble Functions ##########################
-########################################################################
-# Running ensemble members through the forward function
-# Inputs: 
-# - params: array of structures with F (state-dependent-forcing vector) 
-# - x0: initial condition vector
-# - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
-# - nd: size of model output (integer)
-# - N_ens: number of ensemble members (integer)
-function run_ensembles(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig, nd, N_ens) where {VorM <: AbstractVecOrMat}
-    g_ens = zeros(nd, N_ens)
-    for i in 1:N_ens
-        # run the model with the current parameters, i.e., map θ to G(θ)
-        g_ens[:, i] = lorenz_forward(params[:, i], x0, config, observation_config)
-    end
-    return g_ens
-end
-# Note: I'm not sure how to make an array of EnsembleMemberConfig objects?
 
 ########################################################################
 ############################ Problem setup #############################
@@ -181,12 +162,12 @@ x_spun_up = lorenz_solve(true_parameters, x_initial, picking_initial_condition) 
 #intital condition used for the data
 x0 = x_spun_up[:, end]  #last element of the run is the initial condition for creating the data
 #Creating my sythetic data
-T = 500.0
+T = 504.0
 ny = nx*2   #number of data points
 lorenz_config_settings = LorenzConfig(t, T)
 
 # construct how we compute Observations
-T_start = 10.0
+T_start = 4.0  #2*max
 T_end = T
 observation_config = ObservationConfig(T_start,T_end)
 
@@ -223,6 +204,11 @@ name = "ml96_prior"
 prior = ParameterDistribution(distribution, constraint, name)
 
 # Need a way to perturb the initial condition when doing the EKI updates
+# Solving for initial condition perturbation covariance
+covT = 2000.0  #time to simulate to calculate a covariance matrix of the system
+cov_solve = lorenz_solve(true_parameters, x0, LorenzConfig(t, covT))
+ic_cov = 0.1*cov(cov_solve, dims = 2)
+ic_cov_sqrt = sqrt(ic_cov)
 
 ########################################################################
 ############################# Running GNKI #############################
@@ -254,7 +240,8 @@ for (kk, method) in enumerate(methods)
         params_i = get_ϕ_final(prior, ekpobj)
 
         G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
-                        x0, lorenz_config_settings, observation_config) for j in 1:Ne]...)
+                        (x0 .+ ic_cov_sqrt*rand(Normal(0.0, 1.0), nx, Ne))[:, j], 
+                        lorenz_config_settings, observation_config) for j in 1:Ne]...)
 
         EKP.update_ensemble!(ekpobj, G_ens)
     end
