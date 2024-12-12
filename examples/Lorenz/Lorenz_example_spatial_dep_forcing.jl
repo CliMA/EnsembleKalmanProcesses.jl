@@ -140,8 +140,8 @@ end
 ########################################################################
 ############################ Problem setup #############################
 ########################################################################
-rng_seed = 3
-rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)
+rng_seed = 11
+rng = MersenneTwister(rng_seed) #Random.seed!(Random.GLOBAL_RNG, rng_seed)
 
 #Creating my sythetic data
 #initalize model variables
@@ -154,7 +154,7 @@ T_long = 1000.0  #total time
 picking_initial_condition = LorenzConfig(t, T_long)
 
 #beginning state
-x_initial = rand(Normal(0.0, 1.0), nx)
+x_initial = rand(rng, Normal(0.0, 1.0), nx)
 
 #Find the initial condition for my data
 x_spun_up = lorenz_solve(true_parameters, x_initial, picking_initial_condition)  #Need to make LorenzConfig object with t, T_long
@@ -181,7 +181,7 @@ R_sqrt = sqrt(R)
 R_inv_var = sqrt(inv(R))
 
 #Observations y
-y = model_out_y  + R_sqrt*rand(Normal(0.0, 1.0), ny)
+y = model_out_y  + R_sqrt*rand(rng, Normal(0.0, 1.0), ny)
 
 pl = 2.0
 psig = 3.0
@@ -242,7 +242,7 @@ for (kk, method) in enumerate(methods)
         params_i = get_ϕ_final(prior, ekpobj)
 
         G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
-                        (x0 .+ ic_cov_sqrt*rand(Normal(0.0, 1.0), nx, Ne))[:, j], 
+                        (x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j], 
                         lorenz_config_settings, observation_config) for j in 1:Ne]...)
 
         EKP.update_ensemble!(ekpobj, G_ens)
@@ -250,7 +250,7 @@ for (kk, method) in enumerate(methods)
         # Calculating RMSE 
         ens_mean = mean(params_i, dims = 2)[:]
         G_ens_mean = lorenz_forward(EnsembleMemberConfig(ens_mean), 
-                       x0 .+ ic_cov_sqrt*rand(Normal(0.0, 1.0), nx, 1), 
+                       x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, 1), 
                        lorenz_config_settings, observation_config)
         RMSE_e = norm(R_inv_var*(y - G_ens_mean[:]))/sqrt(size(y, 1))
         RMSE_f = sqrt(get_error(ekpobj)[end]/size(y, 1))
