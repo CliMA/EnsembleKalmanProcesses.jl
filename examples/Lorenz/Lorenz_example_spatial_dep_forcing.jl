@@ -216,7 +216,7 @@ ic_cov_sqrt = sqrt(ic_cov)
 
 # EKP parameters
 N_ens = 50# number of ensemble members
-N_iter = 4 # number of EKI iterations
+N_iter = 10 # number of EKI iterations
 
 methods = [Inversion(), TransformInversion(), GaussNewtonInversion(prior), 
             Unscented(prior, impose_prior = true)]
@@ -244,6 +244,14 @@ for (kk, method) in enumerate(methods)
                         lorenz_config_settings, observation_config) for j in 1:Ne]...)
 
         EKP.update_ensemble!(ekpobj, G_ens)
+        RMSE = sqrt.(get_error(ekpobj)/size(y, 1))
+        println(RMSE)
+        # Convergence criteria
+        if RMSE[1] < 1.0
+            break
+        else
+            continue
+        end
     end
 
     final_ensemble = get_ϕ_final(prior, ekpobj)
