@@ -178,6 +178,7 @@ model_out_y = lorenz_forward(true_parameters, x0, lorenz_config_settings, observ
 model_out_vars = (0.1*model_out_y).^2
 R = Diagonal(model_out_vars)
 R_sqrt = sqrt(R)
+R_inv_var = sqrt(inv(R))
 
 #Observations y
 y = model_out_y  + R_sqrt*rand(Normal(0.0, 1.0), ny)
@@ -217,6 +218,7 @@ ic_cov_sqrt = sqrt(ic_cov)
 # EKP parameters
 N_ens = 50# number of ensemble members
 N_iter = 10 # number of EKI iterations
+tolerance = 1.0
 
 methods = [Inversion(), TransformInversion(), GaussNewtonInversion(prior), 
             Unscented(prior, impose_prior = true)]
@@ -244,13 +246,19 @@ for (kk, method) in enumerate(methods)
                         lorenz_config_settings, observation_config) for j in 1:Ne]...)
 
         EKP.update_ensemble!(ekpobj, G_ens)
-        RMSE = sqrt.(get_error(ekpobj)/size(y, 1))
-        println(RMSE)
+
+        # Calculating RMSE 
+        ens_mean = mean(params_i, dims = 2)[:]
+        G_ens_mean = lorenz_forward(EnsembleMemberConfig(ens_mean), 
+                       x0 .+ ic_cov_sqrt*rand(Normal(0.0, 1.0), nx, 1), 
+                       lorenz_config_settings, observation_config)
+        RMSE_e = norm(R_inv_var*(y - G_ens_mean[:]))/sqrt(size(y, 1))
+        RMSE_f = sqrt(get_error(ekpobj)[end]/size(y, 1))
+        @info "RMSE (at G(u_mean)): $(RMSE_e)"
+        @info "RMSE (at mean(G(u)): $(RMSE_f)"
         # Convergence criteria
-        if RMSE[1] < 1.0
+        if RMSE_f < tolerance || RMSE_e < tolerance
             break
-        else
-            continue
         end
     end
 
