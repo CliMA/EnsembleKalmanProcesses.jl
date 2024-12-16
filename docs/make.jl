@@ -82,6 +82,7 @@ pages = [
     "Learning rate schedulers" => "learning_rate_scheduler.md",
     "Prior distributions" => "parameter_distributions.md",
     "Observations and Minibatching" => "observations.md",
+    "Update Groups" => "update_groups.md",
     "Localization and SEC" => "localization.md",
     "Accelerators" => "accelerators.md",
     "Inflation" => "inflation.md",

@@ -29,6 +29,7 @@ end
         "ParameterDistributions",
         "PlotRecipes",
         "Observations",
+        "UpdateGroup",
         "EnsembleKalmanProcess",
         "Localizers",
         "TOMLInterface",
