@@ -1,7 +1,7 @@
 # [Gauss Newton Kalman Inversion](@id gnki)
 
 ### What Is It and What Does It Do?
-Gauss Netwon Kalman Inversion (GNKI) ([Chada et al, 2020](https://arxiv.org/pdf/2010.13299)), also known as the Iterative Ensemble Kalman Filter with Statistical Linearization, is a derivative-free ensemble optimizaton method based on the Gauss Newton optimization update and the Iterative Extended Kalman Filter (IExKF) ([Jazwinski, 2007]).  In the linear case and continuous limit, GNKI recovers the true posterior mean and covariance.  Empirically, GNKI performs well as an optimization algorithm in the nonlinear case.  
+Gauss Netwon Kalman Inversion (GNKI) ([Chada et al, 2020](https://doi.org/10.48550/arXiv.2010.13299)), also known as the Iterative Ensemble Kalman Filter with Statistical Linearization, is a derivative-free ensemble optimizaton method based on the Gauss Newton optimization update and the Iterative Extended Kalman Filter (IExKF) ([Jazwinski, 1970](https://books.google.com/books?hl=en&lr=&id=4AqL3vE2J-sC&oi=fnd&pg=PP1&ots=434RD37EaN&sig=MhbgcFsSpqf3UsgqWybtnhBkVDU#v=onepage&q&f=false)).  In the linear case and continuous limit, GNKI recovers the true posterior mean and covariance.  Empirically, GNKI performs well as an optimization algorithm in the nonlinear case.  
 
 ### Problem Formulation
 
@@ -12,7 +12,7 @@ The data ``y`` and parameter vector ``\theta`` are assumed to be related accordi
 where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vector of observations, and ``\eta`` is the observational noise, which is assumed to be drawn from a ``d``-dimensional Gaussian with distribution ``\mathcal{N}(0, \Gamma_y)``. The objective of the inverse problem is to compute the unknown parameters ``\theta`` given the observations ``y``, the known forward map ``\mathcal{G}``, and noise characteristics ``\eta`` of the process.
 
 !!! note
-    GNKI relies on minimizing a loss function that includes regularization.  The user must specify a Gaussian prior distribution. See [Prior distributions](@ref parameter-distributions) to see how one can apply flexible constraints while maintaining Gaussian priors. 
+    GNKI relies on minimizing a loss function that includes regularization.  The user must specify a Gaussian prior with distribution ``\mathcal{N}(m, \Gamma_{\theta})``. See [Prior distributions](@ref parameter-distributions) to see how one can apply flexible constraints while maintaining Gaussian priors. 
 
 The optimal parameters ``\theta^*`` given relation (1) minimize the loss 
 
@@ -42,9 +42,15 @@ First, the ensemble covariance matrices are computed:
 Using the ensemble covariance matrices, the update equation from ``n`` to ``n+1`` under GNKI is
 ```math
 \begin{aligned}
-        & K_n = \Gamma_{\theta} G_n^T \left(G_n \Gamma_{\theta} G_n^T + \Gamma_{y}\right)^{-1} , \qquad G_n = \left(C^{\theta \mathcal{G}}_n\right)^T \left(C^{\theta \theta}_n\right)^{-1} \\
+        & \theta_{n+1}^{(j)} = \theta_n^{(j)} + \alpha \left\{ K_n\left(y_n^{(j)} - \mathcal{G}(\theta_n^{(j)})\right) + \left(I - K_n G_n\right)\left(m_n^{(j)} - \theta_n^{(j)}\right) \right\} \\
+        
+        & \\
 
-        & \theta_{n+1}^{(j)} = \theta_n^{(j)} + \alpha \left\{ K_n\left(y_n^{(j)} - \mathcal{G}(\theta_n^{(j)})\right) + \left(I - K_n G_n\right)\left(m_n^{(j)} - \theta_n^{(j)}\right) \right\},  
+        & K_n = \Gamma_{\theta} G_n^T \left(G_n \Gamma_{\theta} G_n^T + \Gamma_{y}\right)^{-1} \\
+        
+        & G_n = \left(C^{\theta \mathcal{G}}_n\right)^T \left(C^{\theta \theta}_n\right)^{-1}, 
+
+
 \end{aligned}
 ```
 
@@ -52,6 +58,8 @@ where ``y_n^{(j)} \sim \mathcal{N}(y, 2\alpha^{-1}\Gamma_y)`` and ``m_n^{(j)} \s
 
 ## Creating the EKI Object
 
-An ensemble Kalman inversion object can be created using the `EnsembleKalmanProcess` constructor by specifying the ` GaussNewtonInversion()` process type.
+We first build a prior distribution (for details of the construction see [here](@ref constrained-gaussian)). 
+Then we build our EKP object with `EnsembleKalmanProcess(args..., GaussNewtonInversion(prior); kwargs...)`.  For general EKP object creation requirements see [Creating the EKI object](@ref eki).  To make updates using the inversion algorithm see [Updating the Ensemble](@ref eki).  
+
 
 
