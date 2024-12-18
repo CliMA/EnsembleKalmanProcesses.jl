@@ -73,7 +73,7 @@ function etki_update(
     AV2 <: AbstractVector,
     AV3 <: AbstractVector,
 }
-
+    inv_noise_scaling = get_Δt(ekp)[end]
     m = size(u, 2)
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
     Y = FT.((g .- mean(g, dims = 2)) / sqrt(m - 1))
@@ -100,9 +100,9 @@ function etki_update(
         γ_inv = obs_noise_cov_inv[block_idx]
         # This is cumbersome, but will retain e.g. diagonal type for matrix manipulations, else indexing converts back to matrix
         if isa(γ_inv, Diagonal) #
-            tmp[1][1:ys2, global_idx] = (γ_inv.diag[local_idx] .* Y[global_idx, :])' # multiple each row of Y by γ_inv element
+            tmp[1][1:ys2, global_idx] = inv_noise_scaling * (γ_inv.diag[local_idx] .* Y[global_idx, :])' # multiple each row of Y by γ_inv element
         else #much slower
-            tmp[1][1:ys2, global_idx] = (γ_inv[local_idx, local_idx] * Y[global_idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))' row-mult is faster
+            tmp[1][1:ys2, global_idx] = inv_noise_scaling * (γ_inv[local_idx, local_idx] * Y[global_idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))' row-mult is faster
         end
     end
 
@@ -172,7 +172,6 @@ function update_ensemble!(
 
     fh = get_failure_handler(ekp)
 
-    # Scale noise using Δt
     y = get_obs(ekp)
 
     if isnothing(failed_ens)
