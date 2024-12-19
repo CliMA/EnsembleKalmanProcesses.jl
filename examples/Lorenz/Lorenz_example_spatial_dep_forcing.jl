@@ -140,13 +140,13 @@ end
 ########################################################################
 ############################ Problem setup #############################
 ########################################################################
-rng_seed = 11
-rng = MersenneTwister(rng_seed) #Random.seed!(Random.GLOBAL_RNG, rng_seed)
+rng_seed_init = 11
+rng = MersenneTwister(rng_seed_init) 
 
 #Creating my sythetic data
 #initalize model variables
 nx = 40  #dimensions of parameter vector
-gamma = 8 .+ 6*sin.((4*pi*range(0, stop=nx, step=1))/nx)  #forcing (Needs to be of type EnsembleMemberConfig)
+gamma = 8 .+ 6*sin.((4*pi*range(0, stop=nx - 1, step=1))/nx)  #forcing (Needs to be of type EnsembleMemberConfig)
 true_parameters = EnsembleMemberConfig(gamma)
 
 t = 0.01  #time step
@@ -216,54 +216,78 @@ ic_cov_sqrt = sqrt(ic_cov)
 ########################################################################
 
 # EKP parameters
-N_ens = 50# number of ensemble members
+N_ens_sizes = [50] #, 90, 110, 130, 150] # number of ensemble members
 N_iter = 10 # number of EKI iterations
 tolerance = 1.0
 
 methods = [Inversion(), TransformInversion(), GaussNewtonInversion(prior), 
             Unscented(prior, impose_prior = true)]
 
-# initial parameters: N_params x N_ens
-initial_params = construct_initial_ensemble(rng, prior, N_ens)
+rng_seeds = [2]
 
-for (kk, method) in enumerate(methods)
-    if isa(method, Unscented)
-        ekpobj = EKP.EnsembleKalmanProcess(y, R, method; 
-                    rng = copy(rng), verbose = true, accelerator = DefaultAccelerator(), 
-                    localization_method = NoLocalization(), scheduler = DefaultScheduler())
-    else    
-        ekpobj = EKP.EnsembleKalmanProcess(initial_params, y, R, method; 
-                    rng = copy(rng), verbose = true, accelerator = DefaultAccelerator(), 
-                    localization_method = NoLocalization(), scheduler = DefaultScheduler())
-    end
-    Ne = get_N_ens(ekpobj)
+for (rr, rng_seed) in enumerate(rng_seeds)
+    @info "Random seed: $(rng_seed)"
+    rng = MersenneTwister(rng_seed)
+    # initial parameters: N_params x N_ens
+    initial_params = construct_initial_ensemble(rng, prior, N_ens)
 
-    for i in 1:N_iter
-        params_i = get_ϕ_final(prior, ekpobj)
+    for (ee, N_ens) in enumerate(N_ens_sizes)
+        @info "Ensemble size: $(N_ens)"
+        for (kk, method) in enumerate(methods)
+            if isa(method, Unscented)
+                ekpobj = EKP.EnsembleKalmanProcess(y, R, method; 
+                            rng = copy(rng), verbose = true, accelerator = DefaultAccelerator(), 
+                            localization_method = NoLocalization(), scheduler = DefaultScheduler())
+            else    
+                ekpobj = EKP.EnsembleKalmanProcess(initial_params, y, R, method; 
+                            rng = copy(rng), verbose = true, accelerator = DefaultAccelerator(), 
+                            localization_method = NoLocalization(), scheduler = DefaultScheduler())
+            end
+            Ne = get_N_ens(ekpobj)
 
-        G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
-                        (x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j], 
-                        lorenz_config_settings, observation_config) for j in 1:Ne]...)
+            for i in 1:N_iter
+                params_i = get_ϕ_final(prior, ekpobj)
 
-        EKP.update_ensemble!(ekpobj, G_ens)
+                G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
+                                (x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j], 
+                                lorenz_config_settings, observation_config) for j in 1:Ne]...)
 
-        # Calculating RMSE 
-        ens_mean = mean(params_i, dims = 2)[:]
-        G_ens_mean = lorenz_forward(EnsembleMemberConfig(ens_mean), 
-                       x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, 1), 
-                       lorenz_config_settings, observation_config)
-        RMSE_e = norm(R_inv_var*(y - G_ens_mean[:]))/sqrt(size(y, 1))
-        RMSE_f = sqrt(get_error(ekpobj)[end]/size(y, 1))
-        @info "RMSE (at G(u_mean)): $(RMSE_e)"
-        @info "RMSE (at mean(G(u)): $(RMSE_f)"
-        # Convergence criteria
-        if RMSE_f < tolerance || RMSE_e < tolerance
-            break
+                EKP.update_ensemble!(ekpobj, G_ens)
+
+                # Calculating RMSE 
+                ens_mean = mean(params_i, dims = 2)[:]
+                G_ens_mean = lorenz_forward(EnsembleMemberConfig(ens_mean), 
+                            x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, 1), 
+                            lorenz_config_settings, observation_config)
+                RMSE_e = norm(R_inv_var*(y - G_ens_mean[:]))/sqrt(size(y, 1))
+                RMSE_f = sqrt(get_error(ekpobj)[end]/size(y, 1))
+                @info "RMSE (at G(u_mean)): $(RMSE_e)"
+                @info "RMSE (at mean(G(u)): $(RMSE_f)"
+                # Convergence criteria
+                if RMSE_f < tolerance || RMSE_e < tolerance
+                    break
+                end
+            end
+
+            final_ensemble = get_ϕ_final(prior, ekpobj)
         end
     end
-
-    final_ensemble = get_ϕ_final(prior, ekpobj)
 end
+
+# # Create a plot
+# plot(range(0, nx -1, step = 1), gamma, 
+#     label="solution, 
+#     color=:black, 
+#     xlabel="Spatial index", 
+#     ylabel="Gamma")
+
+# # Add the second line
+# plot!(
+#     x, line2, 
+#     label="cos(x)", 
+#     color=:orange)
+
+
 
 # Output figure save directory
 homedir = pwd()
