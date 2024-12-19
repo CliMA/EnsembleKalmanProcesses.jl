@@ -1,7 +1,7 @@
 # [Gauss Newton Kalman Inversion](@id gnki)
 
 ### What Is It and What Does It Do?
-Gauss Netwon Kalman Inversion (GNKI) ([Chada et al, 2020](https://doi.org/10.48550/arXiv.2010.13299)), also known as the Iterative Ensemble Kalman Filter with Statistical Linearization, is a derivative-free ensemble optimizaton method based on the Gauss Newton optimization update and the Iterative Extended Kalman Filter (IExKF) ([Jazwinski, 1970](https://books.google.com/books?hl=en&lr=&id=4AqL3vE2J-sC&oi=fnd&pg=PP1&ots=434RD37EaN&sig=MhbgcFsSpqf3UsgqWybtnhBkVDU#v=onepage&q&f=false)).  In the linear case and continuous limit, GNKI recovers the true posterior mean and covariance.  Empirically, GNKI performs well as an optimization algorithm in the nonlinear case.  
+Gauss Netwon Kalman Inversion (GNKI) ([Chada et al., 2021](https://doi.org/10.48550/arXiv.2010.13299), [Chen & Oliver, 2013](https://doi.org/10.1007/s10596-013-9351-5)), also known as the Iterative Ensemble Kalman Filter with Statistical Linearization, is a derivative-free ensemble optimizaton method based on the Gauss Newton optimization update and the Iterative Extended Kalman Filter (IExKF) ([Jazwinski, 1970](https://books.google.com/books?hl=en&lr=&id=4AqL3vE2J-sC&oi=fnd&pg=PP1&ots=434RD37EaN&sig=MhbgcFsSpqf3UsgqWybtnhBkVDU#v=onepage&q&f=false)).  In the linear case and continuous limit, GNKI recovers the true posterior mean and covariance.  Empirically, GNKI performs well as an optimization algorithm in the nonlinear case.  
 
 ### Problem Formulation
 
