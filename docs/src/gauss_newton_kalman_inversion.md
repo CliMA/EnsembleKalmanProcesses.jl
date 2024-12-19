@@ -59,7 +59,13 @@ where ``y_n^{(j)} \sim \mathcal{N}(y, 2\alpha^{-1}\Gamma_y)`` and ``m_n^{(j)} \s
 ## Creating the EKI Object
 
 We first build a prior distribution (for details of the construction see [here](@ref constrained-gaussian)). 
-Then we build our EKP object with `EnsembleKalmanProcess(args..., GaussNewtonInversion(prior); kwargs...)`.  For general EKP object creation requirements see [Creating the EKI object](@ref eki).  To make updates using the inversion algorithm see [Updating the Ensemble](@ref eki).  
+Then we build our EKP object with 
+```julia
+using EnsembleKalmanProcesses
+
+gnkiobj = EnsembleKalmanProcess(args..., GaussNewtonInversion(prior); kwargs...)
+```
+For general EKP object creation requirements see [Creating the EKI object](@ref eki).  To make updates using the inversion algorithm see [Updating the Ensemble](@ref eki).  
 
 
 
