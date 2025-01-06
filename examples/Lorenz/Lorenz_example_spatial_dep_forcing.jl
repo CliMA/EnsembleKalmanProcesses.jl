@@ -141,7 +141,7 @@ end
 ############################ Problem setup #############################
 ########################################################################
 rng_seed_init = 11
-rng = MersenneTwister(rng_seed_init) 
+rng_i = MersenneTwister(rng_seed_init) 
 
 #Creating my sythetic data
 #initalize model variables
@@ -154,7 +154,7 @@ T_long = 1000.0  #total time
 picking_initial_condition = LorenzConfig(t, T_long)
 
 #beginning state
-x_initial = rand(rng, Normal(0.0, 1.0), nx)
+x_initial = rand(rng_i, Normal(0.0, 1.0), nx)
 
 #Find the initial condition for my data
 x_spun_up = lorenz_solve(true_parameters, x_initial, picking_initial_condition)  #Need to make LorenzConfig object with t, T_long
@@ -181,7 +181,7 @@ R_sqrt = sqrt(R)
 R_inv_var = sqrt(inv(R))
 
 #Observations y
-y = model_out_y  + R_sqrt*rand(rng, Normal(0.0, 1.0), ny)
+y = model_out_y  + R_sqrt*rand(rng_i, Normal(0.0, 1.0), ny)
 
 pl = 2.0
 psig = 3.0
@@ -216,22 +216,26 @@ ic_cov_sqrt = sqrt(ic_cov)
 ########################################################################
 
 # EKP parameters
-N_ens_sizes = [50] #, 90, 110, 130, 150] # number of ensemble members
-N_iter = 10 # number of EKI iterations
+N_ens_sizes = [50, 90] #, 110, 130, 150] # number of ensemble members
+N_iter = 20 # number of EKI iterations
 tolerance = 1.0
 
 methods = [Inversion(), TransformInversion(), GaussNewtonInversion(prior), 
             Unscented(prior, impose_prior = true)]
 
-rng_seeds = [2]
+rng_seeds = [2, 15] #, 42, 101]
+
+conv_alg_iters = zeros(4, length(N_ens_sizes), length(rng_seeds)) #count how many iterations it takes to converge (per algorithm, per rand seed, per ense size)
+final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nx)
 
 for (rr, rng_seed) in enumerate(rng_seeds)
     @info "Random seed: $(rng_seed)"
     rng = MersenneTwister(rng_seed)
-    # initial parameters: N_params x N_ens
-    initial_params = construct_initial_ensemble(rng, prior, N_ens)
 
     for (ee, N_ens) in enumerate(N_ens_sizes)
+        # initial parameters: N_params x N_ens
+        initial_params = construct_initial_ensemble(rng, prior, N_ens)
+
         @info "Ensemble size: $(N_ens)"
         for (kk, method) in enumerate(methods)
             if isa(method, Unscented)
@@ -245,26 +249,39 @@ for (rr, rng_seed) in enumerate(rng_seeds)
             end
             Ne = get_N_ens(ekpobj)
 
+            count = 0
             for i in 1:N_iter
                 params_i = get_ϕ_final(prior, ekpobj)
 
-                G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
-                                (x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j], 
-                                lorenz_config_settings, observation_config) for j in 1:Ne]...)
-
-                EKP.update_ensemble!(ekpobj, G_ens)
-
-                # Calculating RMSE 
+                # Calculating RMSE_e
                 ens_mean = mean(params_i, dims = 2)[:]
                 G_ens_mean = lorenz_forward(EnsembleMemberConfig(ens_mean), 
                             x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, 1), 
                             lorenz_config_settings, observation_config)
                 RMSE_e = norm(R_inv_var*(y - G_ens_mean[:]))/sqrt(size(y, 1))
-                RMSE_f = sqrt(get_error(ekpobj)[end]/size(y, 1))
                 @info "RMSE (at G(u_mean)): $(RMSE_e)"
+                # Convergence criteria
+                if RMSE_e < tolerance
+                    conv_alg_iters[kk, ee, rr] = count*Ne
+                    final_parameters[kk, ee, rr, :] = ens_mean
+                    break
+                end
+                
+                # If RMSE convergence criteria is not satisfied 
+                G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
+                                (x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j], 
+                                lorenz_config_settings, observation_config) for j in 1:Ne]...)
+                # Update 
+                EKP.update_ensemble!(ekpobj, G_ens)
+                count = count + 1
+
+                # Calculate RMSE_f
+                RMSE_f = sqrt(get_error(ekpobj)[end]/size(y, 1))
                 @info "RMSE (at mean(G(u)): $(RMSE_f)"
                 # Convergence criteria
-                if RMSE_f < tolerance || RMSE_e < tolerance
+                if RMSE_f < tolerance 
+                    conv_alg_iters[kk, ee, rr] = count*Ne
+                    final_parameters[kk, ee, rr, :] = ens_mean
                     break
                 end
             end
@@ -274,20 +291,42 @@ for (rr, rng_seed) in enumerate(rng_seeds)
     end
 end
 
-# # Create a plot
-# plot(range(0, nx -1, step = 1), gamma, 
-#     label="solution, 
-#     color=:black, 
-#     xlabel="Spatial index", 
-#     ylabel="Gamma")
+# Create a plot
+plot(range(0, nx -1, step = 1), 
+    [gamma final_parameters[1,1,1,:] final_parameters[2,1,1,:] final_parameters[3,1,1,:] final_parameters[4,1,1,:]], 
+    label = ["solution" "TEKI" "ETKI" "GNKI" "UKI"], 
+    color = [:black :green :blue :orange :purple], 
+    xlabel = "Spatial index", 
+    ylabel= "Gamma",
+    title = "Optimized parameters for ensemble size = 50",
+    show = true)
 
-# # Add the second line
-# plot!(
-#     x, line2, 
-#     label="cos(x)", 
-#     color=:orange)
+readline()
 
+plot(range(0, nx -1, step = 1), 
+    [gamma final_parameters[1,1,2,:] final_parameters[2,1,2,:] final_parameters[3,1,2,:] final_parameters[4,1,2,:]], 
+    label = ["solution" "TEKI" "ETKI" "GNKI" "UKI"], 
+    color = [:black :green :blue :orange :purple], 
+    xlabel = "Spatial index", 
+    ylabel= "Gamma",
+    title = "Optimized parameters for ensemble size = 90",
+    show = true,
+    reuse = false)
 
+readline()
+
+plot(N_ens_sizes, 
+    [mean(conv_alg_iters[1, :, :], dims = 2) mean(conv_alg_iters[2, :, :], dims = 2) mean(conv_alg_iters[3, :, :], dims = 2)],
+    label = ["TEKI" "ETKI" "GNKI"], 
+    color = [:green :blue :orange], 
+    xlabel = "Ensemble size", 
+    ylabel= "Number of forward runs",
+    title = "EKI Race",
+    show = true,
+    reuse = false)
+plot!([81], [mean(conv_alg_iters[4, :, :])],
+    label = "UKI",
+    color = :purple,)
 
 # Output figure save directory
 homedir = pwd()
