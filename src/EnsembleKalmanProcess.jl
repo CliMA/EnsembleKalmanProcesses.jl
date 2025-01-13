@@ -260,18 +260,19 @@ function EnsembleKalmanProcess(
     end
 
     # failure handler
-    failure_handler = FailureHandler(process, configuration["failure_handler_method"])
+    fh_method = configuration["failure_handler_method"]
+    failure_handler = FailureHandler(process, fh_method)
 
     # localizer
-    if isa(process, TransformInversion) && !(isa(configuration["localization_method"], NoLocalization))
+    loc_method = configuration["localization_method"]
+    if isa(process, TransformInversion) && !(isa(loc_method, NoLocalization))
         throw(ArgumentError("`TransformInversion` cannot currently be used with localization."))
     end
-
-    localizer = Localizer(configuration["localization_method"], N_ens, FT)
-
+    
+    localizer = Localizer(loc_method, N_ens, FT)
 
     if verbose
-        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localizer)))\nFailure handler: $(nameof(typeof(failure_handler)))\nScheduler: $(nameof(typeof(scheduler)))\nAccelerator: $(nameof(typeof(accelerator)))"
+        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(loc_method)))\nFailure handler: $(nameof(typeof(fh_method)))\nScheduler: $(nameof(typeof(scheduler)))\nAccelerator: $(nameof(typeof(accelerator)))"
     end
 
     EnsembleKalmanProcess{FT, IT, P, RS, AC, VVV}(
