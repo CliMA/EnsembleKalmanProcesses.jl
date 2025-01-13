@@ -787,10 +787,10 @@ function get_obs(os::OS; build = true) where {OS <: ObservationSeries}
     if !build # return y as vec of vecs
         return get_obs.(observations_vec, build = false)
     else # stack y
-        sample_length = length(get_obs(observations_vec[1], build = true))
-        minibatch_samples = zeros(sample_length * minibatch_length)
-        for (i, observation) in enumerate(observations_vec)
-            idx = ((i - 1) * sample_length + 1):(i * sample_length)
+        sample_lengths = [length(get_obs(ov, build = true)) for ov in observations_vec)]
+        minibatch_samples = zeros(sum(sample_lengths))
+        for (i, observation) in enumerate(observations_vec) 
+            idx = ((i - 1) * sample_lengths[i] + 1):(i * sample_lengths[i])
             minibatch_samples[idx] = get_obs(observation, build = true)
         end
         return minibatch_samples
