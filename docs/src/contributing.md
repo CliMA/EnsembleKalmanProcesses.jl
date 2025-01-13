@@ -156,8 +156,4 @@ do not require the unit tests to be run.
 
 ### The merge process
 
-We use [`bors`](https://bors.tech/) to manage merging PR's in the the `EnsembleKalmanProcesses` repo.
-If you're a collaborator and have the necessary permissions, you can type
-`bors try` in a comment on a PR to have integration test suite run on that
-PR, or `bors r+` to try and merge the code.  Bors ensures that all integration tests
-for a given PR always pass before merging into `main`. The integration tests currently run example cases in `examples/`. Any breaking changes will need to also update the `examples/`, else bors will fail.
+If you're a collaborator and have the necessary permissions, and if you have both approved code-review and the (necessary) integration tests passing, then you may merge the pull-request into `main`. Our preferred method is the to click the `Squash and Merge` button set as default on the pull request.
