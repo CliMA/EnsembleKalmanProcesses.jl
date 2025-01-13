@@ -298,8 +298,8 @@ function sec_nice(cov, δ_ug, δ_gg, N_ens, p, d)
 
         # Find the variability in the corr coeff matrix entries
         # Below has no precomputation and is surprisingly fine accuracy! (~10^-4 error to empirical at N_ens=20)
-        std_corrs = (1 .- corr_tmp)/sqrt(N_ens)
-        
+        std_corrs = (1 .- corr_tmp) / sqrt(N_ens)
+
         std_tol = sqrt(sum(std_corrs .^ 2))
         γ_min_exceeded = max_exponent
         for γ in 2:2:max_exponent # even exponents give a PSD correction
@@ -333,9 +333,7 @@ end
 
 "Sampling error correction of Vishny, Morzfeld, et al. (2024) constructor"
 function Localizer(localization::SECNice, J::Int, T = Float64)
-    return Localizer{SECNice, T}(
-        (cov, T, p, d, J) -> sec_nice(cov, localization.δ_ug, localization.δ_gg, J, p, d),
-    )
+    return Localizer{SECNice, T}((cov, T, p, d, J) -> sec_nice(cov, localization.δ_ug, localization.δ_gg, J, p, d))
 end
 
 
