@@ -207,7 +207,7 @@ function main()
     )
     title!("EKI convergence on Darcy IP")
     xlabel!("Iteration")
-    ylabel!("log(Error)")
+    ylabel!("log(Cost)")
     savefig(conv_plot, joinpath(fig_save_directory, case * "_darcy_conv_comparison.png"))
     savefig(conv_plot, joinpath(fig_save_directory, case * "_darcy_conv_comparison.pdf"))
 end
