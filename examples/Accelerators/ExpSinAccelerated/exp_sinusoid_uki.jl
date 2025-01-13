@@ -59,8 +59,7 @@ function main()
     Γ = 0.01 * I
     noise_dist = MvNormal(zeros(dim_output), Γ)
     theta_true = [1.0, 0.8]
-    y = G(theta_true)
-    
+
     prior_u1 = constrained_gaussian("amplitude", 2, 0.1, 0, 10)
     prior_u2 = constrained_gaussian("vertshift", 0, 0.5, -10, 10)
     prior = combine_distributions([prior_u1, prior_u2])
@@ -70,7 +69,7 @@ function main()
     @info "obtaining statistics over $N_trials trials"
     # Define cost function to compare convergences. We use a logarithmic cost function 
     # to best interpret exponential model. Note we do not explicitly penalize distance from the prior here.
-    function cost(theta)
+    function cost(theta, y)
         return log.(norm(inv(Γ) .^ 0.5 * (G(theta) .- y)) .^ 2)
     end
 
@@ -81,8 +80,9 @@ function main()
     all_convs_acc = zeros(N_trials, N_iterations)
 
     for trial in 1:N_trials
+        ytrial = vec(G(theta_true) .+ rand(noise_dist))
         # a different observational noise sample drawn for each trial provides variety; initial ensembles are deterministic in UKI
-        observation = Observation(Dict("samples" => vec(G(theta_true) .+ rand(noise_dist)), "covariances" => Γ, "names" => ["amplitude_vertshift"]))
+        observation = Observation(Dict("samples" => ytrial, "covariances" => Γ, "names" => ["amplitude_vertshift"]))
 
         priormean = mean(prior)
         priorcov = cov(prior)
@@ -102,7 +102,7 @@ function main()
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
         )
- 
+
         global convs = zeros(N_iterations)
         global convs_acc = zeros(N_iterations)
 
@@ -114,14 +114,14 @@ function main()
             params_i = get_ϕ_final(prior, ensemble_kalman_process)
             G_ens = hcat([G(params_i[:, i]) for i in 1:size(params_i)[2]]...)
             EKP.update_ensemble!(ensemble_kalman_process, G_ens)
-            convs[i] = cost(mean(params_i, dims = 2))
+            convs[i] = cost(mean(params_i, dims = 2), ytrial)
         end
 
         for i in 1:N_iterations # NesterovAccelerator
             params_i_acc = get_ϕ_final(prior, ensemble_kalman_process_acc)
             G_ens_acc = hcat([G(params_i_acc[:, i]) for i in 1:size(params_i_acc)[2]]...)
             EKP.update_ensemble!(ensemble_kalman_process_acc, G_ens_acc)
-            convs_acc[i] = cost(mean(params_i_acc, dims = 2))
+            convs_acc[i] = cost(mean(params_i_acc, dims = 2), ytrial)
         end
 
         all_convs[trial, :] = convs
@@ -129,17 +129,35 @@ function main()
     end
 
     gr(size = (800, 600), legend = true)
-   # p = plot(1:N_iterations, mean(all_convs, dims = 1)[:], color = :black, label = "No acceleration", titlefont=20, legendfontsize=13,guidefontsize=15,tickfontsize=15, linewidth=2)
-   # plot!(1:N_iterations, mean(all_convs_acc, dims = 1)[:], color = :blue, label = "Nesterov",)
+    # p = plot(1:N_iterations, mean(all_convs, dims = 1)[:], color = :black, label = "No acceleration", titlefont=20, legendfontsize=13,guidefontsize=15,tickfontsize=15, linewidth=2)
+    # plot!(1:N_iterations, mean(all_convs_acc, dims = 1)[:], color = :blue, label = "Nesterov",)
     # error bars
-    p = plot(1:N_iterations, mean(all_convs, dims = 1)[:], ribbon = std(all_convs, dims = 1)[:] / sqrt(N_trials), color = :black, label = "No acceleration", titlefont=23, legendfontsize=16,guidefontsize=18,tickfontsize=18, linewidth=2)
-    plot!(1:N_iterations, mean(all_convs_acc, dims = 1)[:], ribbon = std(all_convs_acc, dims = 1)[:] / sqrt(N_trials), color = :blue, label = "Nesterov",linewidth=2)
+    p = plot(
+        1:N_iterations,
+        mean(all_convs, dims = 1)[:],
+        ribbon = std(all_convs, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = "No acceleration",
+        titlefont = 23,
+        legendfontsize = 16,
+        guidefontsize = 18,
+        tickfontsize = 18,
+        linewidth = 2,
+    )
+    plot!(
+        1:N_iterations,
+        mean(all_convs_acc, dims = 1)[:],
+        ribbon = std(all_convs_acc, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = "Nesterov",
+        linewidth = 2,
+    )
     xlabel!("Iteration")
     ylabel!("log(Cost)")
     title!("UKI convergence on Exp Sin IP")
 
     savefig(p, joinpath(fig_save_directory, case * "_exp_sin.png"))
-
+    savefig(p, joinpath(fig_save_directory, case * "_exp_sin.pdf"))
 end
 
 main()

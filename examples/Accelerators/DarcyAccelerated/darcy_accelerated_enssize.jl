@@ -59,7 +59,7 @@ function main()
         localization_method = EKP.Localizers.NoLocalization()
     elseif case == "ens200-step1e-2"
         scheduler = DefaultScheduler(0.01)  #DataMisfitController(terminate_at = 1e4)
-        N_ens = 200 
+        N_ens = 200
         localization_method = EKP.Localizers.NoLocalization()
     elseif case == "ens10-step1e-2"
         scheduler = DefaultScheduler(0.01) #DataMisfitController(terminate_at = 1e2)
@@ -115,22 +115,23 @@ function main()
         for (idx, trial) in enumerate(1:N_trials)
 
             @info "computing trial $idx"
+            ytrial = vec(y_noiseless + rand(rng, MvNormal(zeros(length(y_noiseless)), obs_noise_cov)))
+            observation = Observation(Dict("samples" => ytrial, "covariances" => obs_noise_cov, "names" => ["y"]))
+
             # We sample the initial ensemble from the prior, and create three EKP objects to 
             # perform EKI algorithm using three different acceleration methods.
             initial_params = construct_initial_ensemble(rng, prior, N_ens)
             ekiobj = EKP.EnsembleKalmanProcess(
                 initial_params,
-                truth_sample,
-                obs_noise_cov,
+                observation,
                 Inversion(),
                 scheduler = deepcopy(scheduler),
-                accelerator=DefaultAccelerator(),
+                accelerator = DefaultAccelerator(),
                 localization_method = deepcopy(localization_method),
             )
             ekiobj_acc = EKP.EnsembleKalmanProcess(
                 initial_params,
-                truth_sample,
-                obs_noise_cov,
+                observation,
                 Inversion(),
                 accelerator = NesterovAccelerator(),
                 scheduler = deepcopy(scheduler),
@@ -157,7 +158,7 @@ function main()
             end
 
             GC.gc()
-            
+
         end
         # save convergence history
         writedlm("darcyenssizecomparison_errs_" * case * ".txt", errs)
@@ -167,18 +168,37 @@ function main()
         errs = readdlm("darcyenssizecomparison_errs_" * case * ".txt")
         errs_acc = readdlm("darcyenssizecomparison_errs_acc_" * case * ".txt")
     end
-   
+
 
     # plot recorded convergences with default and Nesterov accelerators
     gr(size = (600, 500), legend = true)
-    conv_plot = plot(1:N_iter, mean(errs, dims = 1)[:], ribbon = std(errs, dims = 1)[:] / sqrt(N_trials), color = :black, label = "No acceleration", titlefont=20, legendfontsize=13,guidefontsize=15,tickfontsize=15, linewidth=2)
-    plot!(1:N_iter, mean(errs_acc, dims = 1)[:], ribbon = std(errs_acc, dims = 1)[:] / sqrt(N_trials), color = :blue, label = "Nesterov", linewidth=2)
+    conv_plot = plot(
+        1:N_iter,
+        mean(errs, dims = 1)[:],
+        ribbon = std(errs, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = "No acceleration",
+        titlefont = 20,
+        legendfontsize = 13,
+        guidefontsize = 15,
+        tickfontsize = 15,
+        linewidth = 2,
+    )
+    plot!(
+        1:N_iter,
+        mean(errs_acc, dims = 1)[:],
+        ribbon = std(errs_acc, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = "Nesterov",
+        linewidth = 2,
+    )
 
     #title!(L"N_{ens} = " * string(N_ens), titlefont = 18)
-    title!("EKI convergence on Darcy IP ") #\n" * L"N_{ens} = " * "$N_ens; " * L"$\Delta t$ = 0.01")
+    title!("EKI convergence on Darcy IP" * "\n" * L"N_{ens} = " * "$N_ens")#; " * L"$\Delta t$ = 0.01")
     xlabel!("Iteration")
     ylabel!("log(Cost)")
     savefig(conv_plot, joinpath(fig_save_directory, "darcy_" * case * "_yaxis.png"))
+    savefig(conv_plot, joinpath(fig_save_directory, "darcy_" * case * "_yaxis.pdf"))
 end
 
 main()

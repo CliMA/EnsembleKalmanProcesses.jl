@@ -33,7 +33,7 @@ end
 function main()
 
     cases = ["momcoeffs_ens25-step1e-1-false", "momcoeffs_ens10-step1e-1-false", "momcoeffs_ens4-step1e-1-false"]
-    case = cases[2]
+    case = cases[1]
 
     @info "running case $case"
     if case == "momcoeffs_ens25-step1e-1-false"
@@ -54,7 +54,6 @@ function main()
     Γ = 0.01 * I
     noise_dist = MvNormal(zeros(dim_output), Γ)
     theta_true = [1.0, 0.8]
-    y = G(theta_true) .+ rand(noise_dist)
 
     # We define a variety of prior distributions so we can study
     # the effectiveness of accelerators on this problem.
@@ -65,14 +64,11 @@ function main()
 
     # To compare the two EKI methods, we will average over several trials, 
     # allowing the methods to run with different initial ensembles and noise samples.
-    N_iterations = 400
+    N_iterations = 500
     N_trials = 50
     @info "obtaining statistics over $N_trials trials"
     # Define cost function to compare convergences. We use a logarithmic cost function 
     # to best interpret exponential model. Note we do not explicitly penalize distance from the prior here.
-    function cost(theta)
-        return log.(norm(inv(Γ) .^ 0.5 * (G(theta) .- y)) .^ 2)
-    end
 
     ## Solving the inverse problem
 
@@ -83,6 +79,11 @@ function main()
     all_convs_acc_const = zeros(N_trials, N_iterations)
 
     for trial in 1:N_trials
+        y = G(theta_true) .+ rand(noise_dist)
+        function cost(theta)
+            return log.(norm(inv(Γ) .^ 0.5 * (G(theta) .- y)) .^ 2)
+        end
+
         # We now generate the initial ensemble and set up two EKI objects, one using an accelerator, 
         # to compare convergence.
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
@@ -174,7 +175,10 @@ function main()
             EKP.update_ensemble!(ensemble_kalman_process_acc_cs, G_ens_acc_cs, deterministic_forward_map = false)
             convs_acc_cs[i] = cost(mean(params_i_acc_cs, dims = 2))
             # save momentum coefficients
-            mom_coeffs_cs[i] = (1 - ensemble_kalman_process_acc_cs.accelerator.r / (get_N_iterations(ensemble_kalman_process_acc_cs) + 3))
+            mom_coeffs_cs[i] = (
+                1 -
+                ensemble_kalman_process_acc_cs.accelerator.r / (get_N_iterations(ensemble_kalman_process_acc_cs) + 3)
+            )
         end
 
         for i in 1:N_iterations  # constant, lambda=0.9
@@ -192,21 +196,66 @@ function main()
 
     gr(size = (700, 600), legend = true)
 
-    p = plot(1:N_iterations, mean(all_convs, dims = 1)[:], ribbon = std(all_convs, dims = 1)[:] / sqrt(N_trials), color = :black, label = "No acceleration", titlefont=24, legendfontsize=18, guidefontsize=20, tickfontsize=20, linewidth=2)
-    plot!(1:N_iterations, mean(all_convs_acc_cs, dims = 1)[:], ribbon = std(all_convs_acc_cs, dims = 1)[:] / sqrt(N_trials), color = :red, label = "Original coefficient", linewidth=2)
-    plot!(1:N_iterations, mean(all_convs_acc, dims = 1)[:], ribbon = std(all_convs_acc, dims = 1)[:] / sqrt(N_trials), color = :blue, label = "Recursive coefficient", linewidth=2)
-    plot!(1:N_iterations, mean(all_convs_acc_const, dims = 1)[:], ribbon = std(all_convs_acc_const, dims = 1)[:] / sqrt(N_trials), color = :green, label = "Constant coefficient", linewidth=2)
+    p = plot(
+        1:N_iterations,
+        mean(all_convs, dims = 1)[:],
+        ribbon = std(all_convs, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = "No acceleration",
+        titlefont = 24,
+        legendfontsize = 18,
+        guidefontsize = 20,
+        tickfontsize = 20,
+        linewidth = 2,
+    )
+    plot!(
+        1:N_iterations,
+        mean(all_convs_acc_cs, dims = 1)[:],
+        ribbon = std(all_convs_acc_cs, dims = 1)[:] / sqrt(N_trials),
+        color = :red,
+        label = "Original coefficient",
+        linewidth = 2,
+    )
+    plot!(
+        1:N_iterations,
+        mean(all_convs_acc, dims = 1)[:],
+        ribbon = std(all_convs_acc, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = "Recursive coefficient",
+        linewidth = 2,
+    )
+    plot!(
+        1:N_iterations,
+        mean(all_convs_acc_const, dims = 1)[:],
+        ribbon = std(all_convs_acc_const, dims = 1)[:] / sqrt(N_trials),
+        color = :green,
+        label = "Constant coefficient",
+        linewidth = 2,
+    )
     xlabel!("Iteration")
     ylabel!("log(Cost)")
-    title!("EKI convergence on Exp Sin IP\n for varying momentum coefficients")
+    title!("EKI convergence on Exp Sin IP")
     savefig(p, joinpath(fig_save_directory, case * "_exp_sin.png"))
+    savefig(p, joinpath(fig_save_directory, case * "_exp_sin.pdf"))
 
-    coeff_plot = plot(1:N_iterations, mom_coeffs_cs, color = :red, label = "Original coefficient", linewidth=2)
-    plot!(1:N_iterations, mom_coeffs, color = :blue, label = "Recursive coefficient", titlefont=24, legendfontsize=18, guidefontsize=20, tickfontsize=20, linewidth=2)
-    plot!(1:N_iterations, ones(N_iterations)*0.9, color = :green, label = "Constant coefficient", linewidth=2)
+    plot_x = 1:40
+    coeff_plot = plot(plot_x, mom_coeffs_cs[plot_x], color = :red, label = "Original coefficient", linewidth = 2)
+    plot!(
+        plot_x,
+        mom_coeffs[plot_x],
+        color = :blue,
+        label = "Recursive coefficient",
+        titlefont = 24,
+        legendfontsize = 18,
+        guidefontsize = 20,
+        tickfontsize = 20,
+        linewidth = 2,
+    )
+    plot!(plot_x, ones(length(plot_x)) * 0.9, color = :green, label = "Constant coefficient", linewidth = 2)
     title!("Momentum coefficient values")
     xlabel!("Iteration")
     savefig(coeff_plot, joinpath(fig_save_directory, "coeff_evolution_exp_sin.png"))
+    savefig(coeff_plot, joinpath(fig_save_directory, "coeff_evolution_exp_sin.pdf"))
 end
 
 main()
