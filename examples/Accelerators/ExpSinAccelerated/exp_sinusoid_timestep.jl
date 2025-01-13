@@ -76,11 +76,6 @@ function main()
     N_trials = 70
     @info "obtaining statistics over $N_trials trials"
 
-    # Define cost function to compare convergences. We use a logarithmic cost function 
-    # to best interpret exponential model. Note we do not explicitly penalize distance from the prior here.
-    function cost(theta, y)
-        return log.(norm(inv(Γ) .^ 0.5 * (G(theta) .- y)) .^ 2)
-    end
     ## Solving the inverse problem
 
     # Preallocate so we can track and compare convergences of the methods
@@ -157,13 +152,6 @@ function main()
             localization_method = deepcopy(localization_method),
         )
 
-        global convs_a = zeros(N_iterations)
-        global convs_acc_a = zeros(N_iterations)
-        global convs_b = zeros(N_iterations)
-        global convs_acc_b = zeros(N_iterations)
-        global convs_c = zeros(N_iterations)
-        global convs_acc_c = zeros(N_iterations)
-
         # We are now ready to carry out the inversion. At each iteration, we get the
         # ensemble from the last iteration, apply ``G(\theta)`` to each ensemble member,
         # and apply the Kalman update to the ensemble.
@@ -182,10 +170,6 @@ function main()
             EKP.update_ensemble!(ensemble_kalman_process_a, G_ens_a, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_b, G_ens_b, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_c, G_ens_c, deterministic_forward_map = false)
-
-            convs_a[i] = cost(mean(params_i_a, dims = 2), ytrial)
-            convs_b[i] = cost(mean(params_i_b, dims = 2), ytrial)
-            convs_c[i] = cost(mean(params_i_c, dims = 2), ytrial)
         end
 
         # now the Nesterov EKI objects
@@ -201,18 +185,18 @@ function main()
             EKP.update_ensemble!(ensemble_kalman_process_acc_a, G_ens_acc_a, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_acc_b, G_ens_acc_b, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_acc_c, G_ens_acc_c, deterministic_forward_map = false)
-
-            convs_acc_a[i] = cost(mean(params_i_acc_a, dims = 2), ytrial)
-            convs_acc_b[i] = cost(mean(params_i_acc_b, dims = 2), ytrial)
-            convs_acc_c[i] = cost(mean(params_i_acc_c, dims = 2), ytrial)
         end
 
-        all_convs_a[trial, :] = convs_a
-        all_convs_acc_a[trial, :] = convs_acc_a
-        all_convs_b[trial, :] = convs_b
-        all_convs_acc_b[trial, :] = convs_acc_b
-        all_convs_c[trial, :] = convs_c
-        all_convs_acc_c[trial, :] = convs_acc_c
+
+        all_convs_a[trial, 1:length(get_error(ensemble_kalman_process_a))] = log.(get_error(ensemble_kalman_process_a))
+        all_convs_acc_a[trial, 1:length(get_error(ensemble_kalman_process_acc_a))] =
+            log.(get_error(ensemble_kalman_process_acc_a))
+        all_convs_b[trial, 1:length(get_error(ensemble_kalman_process_b))] = log.(get_error(ensemble_kalman_process_b))
+        all_convs_acc_b[trial, 1:length(get_error(ensemble_kalman_process_acc_b))] =
+            log.(get_error(ensemble_kalman_process_acc_b))
+        all_convs_c[trial, 1:length(get_error(ensemble_kalman_process_c))] = log.(get_error(ensemble_kalman_process_c))
+        all_convs_acc_c[trial, 1:length(get_error(ensemble_kalman_process_acc_c))] =
+            log.(get_error(ensemble_kalman_process_acc_c))
     end
 
     gr(size = (800, 600), legend = true)

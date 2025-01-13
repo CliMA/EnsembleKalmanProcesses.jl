@@ -80,11 +80,6 @@ function main()
     N_iterations = 100
     N_trials = 50
     @info "obtaining statistics over $N_trials trials"
-    # Define cost function to compare convergences. We use a logarithmic cost function 
-    # to best interpret exponential model. Note we do not explicitly penalize distance from the prior here.
-    function cost(theta, y)
-        return log.(norm(inv(Γ) .^ 0.5 * (G(theta) .- y)) .^ 2)
-    end
 
     ## Solving the inverse problem
 
@@ -129,9 +124,6 @@ function main()
             localization_method = deepcopy(localization_method),
         )
 
-        global convs = zeros(N_iterations)
-        global convs_acc = zeros(N_iterations)
-        global convs_acc_cs = zeros(N_iterations)
         global mom_coeffs = zeros(N_iterations)
         global mom_coeffs_cs = zeros(N_iterations)
 
@@ -153,10 +145,6 @@ function main()
             EKP.update_ensemble!(ensemble_kalman_process_acc, G_ens_acc, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_acc_cs, G_ens_acc_cs, deterministic_forward_map = false)
 
-            convs[i] = cost(mean(params_i, dims = 2), ytrial)
-            convs_acc[i] = cost(mean(params_i_acc, dims = 2), ytrial)
-            convs_acc_cs[i] = cost(mean(params_i_acc_cs, dims = 2), ytrial)
-
             # save momentum coefficients
             mom_coeffs[i] = ensemble_kalman_process_acc.accelerator.θ_prev
             mom_coeffs_cs[i] = (
@@ -164,9 +152,11 @@ function main()
                 ensemble_kalman_process_acc_cs.accelerator.r / (get_N_iterations(ensemble_kalman_process_acc_cs) + 3)
             )
         end
-        all_convs[trial, :] = convs
-        all_convs_acc[trial, :] = convs_acc
-        all_convs_acc_cs[trial, :] = convs_acc_cs
+        all_convs[trial, 1:length(get_error(ensemble_kalman_process))] = log.(get_error(ensemble_kalman_process))
+        all_convs_acc[trial, 1:length(get_error(ensemble_kalman_process_acc))] =
+            log.(get_error(ensemble_kalman_process_acc))
+        all_convs_acc_cs[trial, 1:length(get_error(ensemble_kalman_process_acc_cs))] =
+            log.(get_error(ensemble_kalman_process_acc_cs))
     end
 
     gr(size = (600, 500), legend = true)

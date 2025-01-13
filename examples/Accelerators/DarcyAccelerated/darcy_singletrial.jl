@@ -179,7 +179,7 @@ function main()
     l = @layout [a c]
     plt = plot(p1, p3; layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_it_" * string(N_iter) * "_acc.png"))
-savefig(plt, joinpath(fig_save_directory, "output_it_" * string(N_iter) * "_acc.pdf"))
+    savefig(plt, joinpath(fig_save_directory, "output_it_" * string(N_iter) * "_acc.pdf"))
 
     gr(size = (1500, 400), legend = false)
     final_κ_ens = get_ϕ_final(prior, eki_trad) # the `ϕ` indicates that the `params_i` are in the constrained space
@@ -210,7 +210,7 @@ savefig(plt, joinpath(fig_save_directory, "output_it_" * string(N_iter) * "_acc.
     plt = plot(p1, p3; layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_diff_it_" * string(N_iter) * ".png"))
     savefig(plt, joinpath(fig_save_directory, "output_diff_it_" * string(N_iter) * ".pdf"))
-    
+
     gr(size = (1500, 400), legend = false)
     final_κ_ens = get_ϕ_final(prior, eki_acc) # the `ϕ` indicates that the `params_i` are in the constrained space
     κ_ens_mean = reshape(mean(final_κ_ens, dims = 2), N, N)

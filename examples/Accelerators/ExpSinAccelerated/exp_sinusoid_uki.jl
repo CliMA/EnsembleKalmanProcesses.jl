@@ -67,11 +67,6 @@ function main()
     N_iterations = 100
     N_trials = 100
     @info "obtaining statistics over $N_trials trials"
-    # Define cost function to compare convergences. We use a logarithmic cost function 
-    # to best interpret exponential model. Note we do not explicitly penalize distance from the prior here.
-    function cost(theta, y)
-        return log.(norm(inv(Γ) .^ 0.5 * (G(theta) .- y)) .^ 2)
-    end
 
     ## Solving the inverse problem
 
@@ -103,9 +98,6 @@ function main()
             localization_method = deepcopy(localization_method),
         )
 
-        global convs = zeros(N_iterations)
-        global convs_acc = zeros(N_iterations)
-
         # We are now ready to carry out the inversion. At each iteration, we get the
         # ensemble from the last iteration, apply ``G(\theta)`` to each ensemble member,
         # and apply the Kalman update to the ensemble.
@@ -114,18 +106,18 @@ function main()
             params_i = get_ϕ_final(prior, ensemble_kalman_process)
             G_ens = hcat([G(params_i[:, i]) for i in 1:size(params_i)[2]]...)
             EKP.update_ensemble!(ensemble_kalman_process, G_ens)
-            convs[i] = cost(mean(params_i, dims = 2), ytrial)
         end
 
         for i in 1:N_iterations # NesterovAccelerator
             params_i_acc = get_ϕ_final(prior, ensemble_kalman_process_acc)
             G_ens_acc = hcat([G(params_i_acc[:, i]) for i in 1:size(params_i_acc)[2]]...)
             EKP.update_ensemble!(ensemble_kalman_process_acc, G_ens_acc)
-            convs_acc[i] = cost(mean(params_i_acc, dims = 2), ytrial)
+
         end
 
-        all_convs[trial, :] = convs
-        all_convs_acc[trial, :] = convs_acc
+        all_convs[trial, 1:length(get_error(ensemble_kalman_process))] = log.(get_error(ensemble_kalman_process))
+        all_convs_acc[trial, 1:length(get_error(ensemble_kalman_process_acc))] =
+            log.(get_error(ensemble_kalman_process_acc))
     end
 
     gr(size = (800, 600), legend = true)

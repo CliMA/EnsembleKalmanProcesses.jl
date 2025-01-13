@@ -89,9 +89,6 @@ function main()
     #    y = y0 + randn(D)
     Γ = 1.0 * I
 
-    function cost(theta, y)
-        return log.(norm(inv(Γ) .^ 0.5 * (G(theta) .- y)) .^ 2)
-    end
     #### Define prior information on parameters
     priors = map(1:p) do i
         constrained_gaussian(string("u", i), 0.0, 1.0, -Inf, Inf)
