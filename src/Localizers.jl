@@ -114,7 +114,7 @@ struct SECNice{FT <: Real, AV <: AbstractVector} <: LocalizationMethod
     "A vector that will house a Interpolation object on first call to the localizer"
     std_of_corr::AV
 end
-SECNice() = SECNice(1000, 1.0, 1.0)
+SECNice() = SECNice(1000, 1.0, 1.0) # best 
 SECNice(δ_ug, δ_gg) = SECNice(1000, δ_ug, δ_gg)
 SECNice(n_samples, δ_ug, δ_gg) = SECNice(n_samples, δ_ug, δ_gg, []) # always start with empty
 
@@ -308,9 +308,10 @@ end
 
 """
 Function that performs sampling error correction as per Vishny, Morzfeld, et al. (2024).
-The input is assumed to be a covariance matrix, hence square.
+The input is assumed to be a covariance matrix, hence square. The standard deviation for a correlation `corr` with `N_ens` samples is internally estimated simply by `std_corrs = (1 .- corr)/sqrt(N_ens)`. This requires no precomputation and appears sufficiently accurate.
+
 """
-function sec_nice(cov, std_of_corr, δ_ug, δ_gg, N_ens, p, d)
+function sec_nice(cov, δ_ug, δ_gg, N_ens, p, d)
     bd_tol = 1e8 * eps()
 
     v = sqrt.(diag(cov))
@@ -330,9 +331,11 @@ function sec_nice(cov, std_of_corr, δ_ug, δ_gg, N_ens, p, d)
     for (idx_set, δ) in zip([ug_idx, gg_idx], [δ_ug, δ_gg])
 
         corr_tmp = corr[idx_set...]
-        # use find the variability in the corr coeff matrix entries
-        #        std_corrs = approximate_corr_std.(corr_tmp, N_ens, n_samples) # !! slowest part of code -> could speed up by precomputing/using an interpolation
-        std_corrs = std_of_corr.(corr_tmp)
+
+        # Find the variability in the corr coeff matrix entries
+        # Below has no precomputation and is surprisingly fine accuracy! (~10^-4 error to empirical at N_ens=20)
+        std_corrs = (1 .- corr_tmp)/sqrt(N_ens)
+        
         std_tol = sqrt(sum(std_corrs .^ 2))
         γ_min_exceeded = max_exponent
         for γ in 2:2:max_exponent # even exponents give a PSD correction
@@ -366,15 +369,8 @@ end
 
 "Sampling error correction of Vishny, Morzfeld, et al. (2024) constructor"
 function Localizer(localization::SECNice, J::Int, T = Float64)
-    if length(localization.std_of_corr) == 0 #i.e. if the user hasn't provided an interpolation
-        dr = 0.001
-        grid = LinRange(-1, 1, Int(1 / dr + 1))
-        std_grid = approximate_corr_std.(grid, J, localization.n_samples) # odd number to include 0           
-        push!(localization.std_of_corr, linear_interpolation(grid, std_grid)) # pw-linear interpolation
-    end
-
     return Localizer{SECNice, T}(
-        (cov, T, p, d, J) -> sec_nice(cov, localization.std_of_corr[1], localization.δ_ug, localization.δ_gg, J, p, d),
+        (cov, T, p, d, J) -> sec_nice(cov, localization.δ_ug, localization.δ_gg, J, p, d),
     )
 end
 
