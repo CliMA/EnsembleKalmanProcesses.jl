@@ -926,7 +926,15 @@ function update_ensemble!(
             ),
         )
     end
-
+    # check if columns of g are the same (and not NaN)
+    n_nans = sum(isnan.(sum(g,dims=1)))
+    nan_adjust = (n_nans > 0) ? - n_nans + 1 : 0
+    # as unique reduces NaNs to one column if present. or 0 if not
+    if length(unique(eachcol(g))) < size(g,2) + nan_adjust
+        nonunique_cols = size(g,2) + nan_adjust - length(unique(eachcol(g)))
+        @warn "Detected $(nonunique_cols) clashes where forward map evaluations are exactly equal (and not NaN), this is likely to cause `LinearAlgebra` difficulty. Please check forward evaluations for bugs."
+    end
+    
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
 
