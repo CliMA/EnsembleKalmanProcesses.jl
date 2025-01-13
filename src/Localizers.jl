@@ -7,7 +7,6 @@ using Interpolations
 
 export NoLocalization, Delta, RBF, BernoulliDropout, SEC, SECFisher, SECNice
 export LocalizationMethod, Localizer
-export approximate_corr_std
 abstract type LocalizationMethod end
 
 "Idempotent localization method."
@@ -111,12 +110,9 @@ struct SECNice{FT <: Real, AV <: AbstractVector} <: LocalizationMethod
     δ_ug::FT
     "scaling for discrepancy principle for gg correlation (default 1.0)"
     δ_gg::FT
-    "A vector that will house a Interpolation object on first call to the localizer"
-    std_of_corr::AV
 end
 SECNice() = SECNice(1000, 1.0, 1.0) # best 
 SECNice(δ_ug, δ_gg) = SECNice(1000, δ_ug, δ_gg)
-SECNice(n_samples, δ_ug, δ_gg) = SECNice(n_samples, δ_ug, δ_gg, []) # always start with empty
 
 """
     Localizer{LM <: LocalizationMethod, T}
@@ -273,38 +269,6 @@ end
 function Localizer(localization::SECFisher, J::Int, T = Float64)
     return Localizer{SECFisher, T}((cov, T, p, d, J) -> sec_fisher(cov, J))
 end
-
-"""
-For `N_ens >= 6`: The sampling distribution of a correlation coefficient for Gaussian random variables is, under the Fisher transformation, approximately Gaussian. To estimate the standard deviation in the sampling distribution of the correlation coefficient, we draw samples from a Gaussian, apply the inverse Fisher transformation to them, and estimate an empirical standard deviation from the transformed samples.
-For `N_ens < 6`: Approximate the standard deviation of correlation coefficient empirically by sampling between two correlated Gaussians of known coefficient. 
-"""
-function approximate_corr_std(r, N_ens, n_samples)
-
-    if N_ens >= 6 # apply Fisher Transform
-        # ρ = arctanh(r) from Fisher
-        # assume r input is the mean value, i.e. assume arctanh(E(r)) = E(arctanh(r))
-
-        ρ = r # approx solution is the identity
-        #sample in ρ space
-        ρ_samples = rand(Normal(0.5 * log((1 + ρ) / (1 - ρ)), 1 / sqrt(N_ens - 3)), n_samples)
-
-        # map back through Fisher to get std of r from samples tanh(ρ)
-        return std(tanh.(ρ_samples))
-    else # transformation not appropriate for N < 6
-        # Generate sample pairs with a correlation coefficient r
-        samples_1 = rand(Normal(0, 1), N_ens, n_samples)
-        samples_2 = rand(Normal(0, 1), N_ens, n_samples)
-        samples_corr_with_1 = r * samples_1 + sqrt(1 - r^2) * samples_2 # will have correlation r with samples_1
-
-        corrs = zeros(n_samples)
-        for i in 1:n_samples
-            corrs[i] = cor(samples_1[:, i], samples_corr_with_1[:, i])
-        end
-        return std(corrs)
-    end
-
-end
-
 
 """
 Function that performs sampling error correction as per Vishny, Morzfeld, et al. (2024).
