@@ -219,8 +219,7 @@ function EnsembleKalmanProcess(
 
     if N_ens < 10
         @warn "Recommended minimum ensemble size (`N_ens`) is 10. Got `N_ens` = $(N_ens)."
-    end
-    if (N_par < 10) && (N_ens < 10 * N_par)
+    elseif (N_par < 10) && (N_ens < 10 * N_par)
         @warn "For $(N_par) parameters, the recommended minimum ensemble size (`N_ens`) is $(10*(N_par)). Got `N_ens` = $(N_ens)`."
     end
     if (N_par >= 10) && (N_ens < 100)
