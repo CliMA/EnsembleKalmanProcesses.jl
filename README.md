@@ -44,7 +44,7 @@ What makes EKP different?
 
 ## What does it look like to use?
 
-Below we will outline the current user experience for using `EnsembleKalmanProcesses.jl` to solve the classic inverse problem where we have a vector of observational data ``y``,   ``y = G(u) + \eta`, for `\eta\simN(0,\Gamma).
+Below we will outline the current user experience for using `EnsembleKalmanProcesses.jl` to solve the classic inverse problem where we have a vector of observational data ``y``,   ``y = G(u) + \eta``, for ``\eta\sim N(0,\Gamma)``.
 
 First I load a few packages
 ```julia
