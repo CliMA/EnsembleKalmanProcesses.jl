@@ -44,7 +44,7 @@ What makes EKP different?
 
 ## What does it look like to use?
 
-Below we will outline the current user experience for using `EnsembleKalmanProcesses.jl` to solve the classic inverse problem where we learn `y = G(u) + e`, for `e` distributed with `N(0,Γ)`. Given some prior knowledge of the parameters `u` in the problem (say we have five, one positive and four more that are more uncertain) we are ready to go! 
+Below we will outline the current user experience for using `EnsembleKalmanProcesses.jl` to solve the classic inverse problem where we learn `y = G(u) + e`, for `e` distributed with `N(0,Γ)`. We assume some prior knowledge of the parameters `u` in the problem (say we have five, one positive and four more that are more uncertain), then we are ready to go! 
 
 ```julia
 using EnsembleKalmanProcesses
@@ -56,24 +56,21 @@ prior = combine_distributions([prior_u1, prior_u2])
 using Plots
 plot(prior) # lets see it with Plots.jl
 
-N_ensemble = 10 # ten ensemble members
+N_ensemble = 10
 initial_ensemble = construct_initial_ensemble(prior, N_ensemble)
 ensemble_kalman_process = EnsembleKalmanProcess(
-    initial_ensemble, 
-    y, 
-    Γ, 
-    Inversion() # use Ensemble Kalman Inversion updates
+    initial_ensemble, y, Γ, Inversion() # use Ensemble Kalman Inversion updates
 )
 
 N_iterations = 5
 for i in 1:N_iterations
     params_i = get_ϕ_final(prior, ensemble_kalman_process)
 
-    G_ens = hcat(
-        [G(params_i[:, i]) for i in 1:N_ensemble]... # I'm easy to parallelize!
+    G_matrix = hcat(
+        [G(params_i[:, i]) for i in 1:N_ensemble]... # Parallelize here!
     )
 
-    update_ensemble!(ensemble_kalman_process, G_ens)
+    update_ensemble!(ensemble_kalman_process, G_matrix)
 end
 
 final_solution = get_ϕ_mean_final(prior, ensemble_kalman_process) 
