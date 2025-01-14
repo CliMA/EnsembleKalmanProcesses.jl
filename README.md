@@ -44,49 +44,42 @@ What makes EKP different?
 
 ## What does it look like to use?
 
-Below we will outline the current user experience for using `EnsembleKalmanProcesses.jl` to solve the classic inverse problem where we have a vector of observational data ``y``,   ``y = G(u) + \eta``, for ``\eta\sim N(0,\Gamma)``.
+Below we will outline the current user experience for using `EnsembleKalmanProcesses.jl` to solve the classic inverse problem where we learn `y = G(u) + e`, for `e` distributed with `N(0,Γ)`. Given some prior knowledge of the parameters `u` in the problem (say we have five, one positive and four more that are more uncertain) we are ready to go! 
 
-First I load a few packages
 ```julia
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
-```
-I build my prior distributions with some knowledge (say one positive distribution, and four with wider spread)
-```julia
+
 prior_u1 = constrained_gaussian("positive_with_mean_2", 2, 1, 0, Inf)
 prior_u2 = constrained_gaussian("four_with_spread_5", 0, 5, -Inf, Inf, repeats=4)
 prior = combine_distributions([prior_u1, prior_u2]) 
 using Plots
-plot(prior) # lets see it in Plots.jl
-```
-Given an observation and  `y` and noise covariance `Gamma` I can initialize the algorithm
-```julia
+plot(prior) # lets see it with Plots.jl
+
 N_ensemble = 10 # ten ensemble members
 initial_ensemble = construct_initial_ensemble(prior, N_ensemble)
 ensemble_kalman_process = EnsembleKalmanProcess(
     initial_ensemble, 
-    y, # given data vector
-    Γ, # given noise (cov-matrix) on the vector
+    y, 
+    Γ, 
     Inversion() # use Ensemble Kalman Inversion updates
 )
-```
-Then I fit `my_model` over 5 iterations.
-```julia
+
 N_iterations = 5
 for i in 1:N_iterations
     params_i = get_ϕ_final(prior, ensemble_kalman_process)
 
     G_ens = hcat(
-        [my_model(params_i[:, i]) for i in 1:N_ensemble]... # I'm easy to parallelize!
+        [G(params_i[:, i]) for i in 1:N_ensemble]... # I'm easy to parallelize!
     )
 
-    EKP.update_ensemble!(ensemble_kalman_process, G_ens)
+    update_ensemble!(ensemble_kalman_process, G_ens)
 end
+
+final_solution = get_ϕ_mean_final(prior, ensemble_kalman_process) 
 ```
-My inversion solution is
-```julia
-final_ensemble = get_ϕ_final(prior, ensemble_kalman_process)
-```
+With suitable parallelization, the final solution is obtained in the time it takes to perform ~5 iterations, `G` and five EKP update steps.
+
 See this example working [here!](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/literated/sinusoid_example/). check out our many example scripts above in `examples/`
 
 # [Quick links!](@id quick-links)
