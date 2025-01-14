@@ -37,7 +37,7 @@ EnsembleKalmanProcesses (EKP) enables users to find an (locally-) optimal parame
 What makes EKP different?
 - EKP algorithms are efficient (complexity doesn't strongly scale with number of parameters), and can optimize with noisy and complex parameter-to-data landscapes. 
 - We don't require differentiating the model `G` at all! you just need to be able to run it at different parameter configurations.
-- We don't even require `G` to be in Julia!
+- We don't even require `G` to be coded up in Julia!
 - Ensemble model evaluations are fully parallelizable - so we can exploit our HPC systems capabilities!
 - We provide some lego-like interfaces for creating complex priors and observations.
 - We provied easy interfaces to toggle between many different algorithms and configurable features.
