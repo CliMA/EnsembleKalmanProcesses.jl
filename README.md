@@ -59,7 +59,7 @@ true_u = [3, 1, 2,-3,-4]
 y = G(true_u)
 Γ = (0.1)^2*I
 ```
-We assume some prior knowledge of the parameters `u` in the problem (say we have five, one positive and four more that are more uncertain), then we are ready to go! 
+We assume some prior knowledge of the parameters `u` in the problem (such as approximate scales, and the first parameter being positive), then we are ready to go! 
 
 ```julia
 using EnsembleKalmanProcesses
@@ -97,10 +97,11 @@ for (i,sp) in enumerate(p.subplots)
 end
 display(p)
 ```
+![quick-readme-example](https://github.com/CliMA/EnsembleKalmanProcesses.jl/assets/quick_readme_example.png)
 
 See a similar working example [here!](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/literated/sinusoid_example/). Check out our many example scripts above in `examples/`
 
-# [Quick links!](@id quick-links)
+# Quick links!
 
 - [How do I build prior distributions?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/parameter_distributions/)
 - [How do I build my observations and encode batching?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/observations/)
