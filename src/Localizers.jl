@@ -103,7 +103,7 @@ Thus no algorithm parameters are required, though some tuning of the discrepancy
 $(TYPEDFIELDS)
 
 """
-struct SECNice{FT <: Real, AV <: AbstractVector} <: LocalizationMethod
+struct SECNice{FT <: Real} <: LocalizationMethod
     "number of samples to approximate the std of correlation distribution (default 1000)"
     n_samples::Int
     "scaling for discrepancy principle for ug correlation (default 1.0)"
