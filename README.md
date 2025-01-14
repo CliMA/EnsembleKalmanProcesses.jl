@@ -32,14 +32,15 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 Julia LTS version or newer
 
 ## What does the package do?
-EnsembleKalmanProcesses (EKP) enables users to find an (locally-) optimal parameter set `u` for a computer code `G` to fit some (noisy) observational data `y`. It uses a suite of methods from the Ensemble Kalman filtering literature to do so, that have a long history of use in the weather forecasting community.
+EnsembleKalmanProcesses (EKP) enables users to find an (locally-) optimal parameter set `u` for a computer code `G` to fit some (noisy) observational data `y`. It uses a suite of methods from the Ensemble Kalman filtering literature that have a long history of success in the weather forecasting community.
 
 What makes EKP different?
+- EKP algorithms are efficient, and able to optimize high-dimensional parameters over very noisy cost landscapes.
 - We don't require differentiating the model `G` at all! you just need to be able to run it at different parameter configurations.
-- We don't even require `G` to be in Julia at all.
-- Most model evaluations are fully parallelizable - so we can exploit our HPC systems capabilities!
+- We don't even require `G` to be in Julia!
+- Ensemble model evaluations are fully parallelizable - so we can exploit our HPC systems capabilities!
 - We provide some lego-like interfaces for creating complex priors and observations.
-- EKP algorithms (along with the many bells-and-whistles in this package) are scalable to learning high-dimensional parameters.
+- We provied easy interfaces to toggle between many different algorithms and configurable features.
 
 ## What does it look like to use?
 
