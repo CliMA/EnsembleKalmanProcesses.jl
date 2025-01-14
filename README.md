@@ -31,19 +31,34 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 ### Requirements
 Julia LTS version or newer
 
-## How to use the package
-1. I load some packages
+## What does the package do?
+EnsembleKalmanProcesses (EKP) enables users to find an (locally-) optimal parameter set `u` for a computer code `G` to fit some (noisy) observational data `y`. It uses a suite of methods from the Ensemble Kalman filtering literature to do so, that have a long history of use in the weather forecasting community.
+
+What makes EKP different?
+- We don't require differentiating the model `G` at all! you just need to be able to run it at different parameter configurations.
+- We don't even require `G` to be in Julia at all.
+- Most model evaluations are fully parallelizable - so we can exploit our HPC systems capabilities!
+- We provide some lego-like interfaces for creating complex priors and observations.
+- EKP algorithms (along with the many bells-and-whistles in this package) are scalable to learning high-dimensional parameters.
+
+## What does it look like to use?
+
+Below we will outline the current user experience for using `EnsembleKalmanProcesses.jl` to solve the classic inverse problem where we have a vector of observational data ``y``,   ``y = G(u) + \eta`, for `\eta\simN(0,\Gamma).
+
+First I load a few packages
 ```julia
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 ```
-2. I Build some prior distributions
+I build my prior distributions with some knowledge (say one positive distribution, and four with wider spread)
 ```julia
-prior_u1 = constrained_gaussian("positive_and_around_2", 2, 1, 0, Inf)
-prior_u2 = constrained_gaussian("gaussian_with_std_5", 0, 5, -Inf, Inf)
-prior = combine_distributions([prior_u1, prior_u2])
+prior_u1 = constrained_gaussian("positive_with_mean_2", 2, 1, 0, Inf)
+prior_u2 = constrained_gaussian("four_with_spread_5", 0, 5, -Inf, Inf, repeats=4)
+prior = combine_distributions([prior_u1, prior_u2]) 
+using Plots
+plot(prior) # lets see it in Plots.jl
 ```
-3. Given an observation and  `y` and noise covariance `Gamma` I can initialize the algorithm
+Given an observation and  `y` and noise covariance `Gamma` I can initialize the algorithm
 ```julia
 N_ensemble = 10 # ten ensemble members
 initial_ensemble = construct_initial_ensemble(prior, N_ensemble)
@@ -54,7 +69,7 @@ ensemble_kalman_process = EnsembleKalmanProcess(
     Inversion() # use Ensemble Kalman Inversion updates
 )
 ```
-4. Then I fit `my_model` over 5 iterations.
+Then I fit `my_model` over 5 iterations.
 ```julia
 N_iterations = 5
 for i in 1:N_iterations
@@ -67,13 +82,13 @@ for i in 1:N_iterations
     EKP.update_ensemble!(ensemble_kalman_process, G_ens)
 end
 ```
-5. My Inversion solution is
+My inversion solution is
 ```julia
 final_ensemble = get_ϕ_final(prior, ensemble_kalman_process)
 ```
 See this example working [here!](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/literated/sinusoid_example/). check out our many example scripts above in `examples/`
 
-# Quick links!
+# [Quick links!](@id quick-links)
 
 - [How do I build prior distributions?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/parameter_distributions/)
 - [How do I build my observations and encode batching?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/observations/)
