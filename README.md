@@ -1,5 +1,5 @@
 # EnsembleKalmanProcesses.jl
-Implements optimization and approximate uncertainty quantification algorithms, Ensemble Kalman Inversion, and Ensemble Kalman Processes.
+Implements optimization and approximate uncertainty quantification algorithms, Ensemble Kalman Inversion, and other Ensemble Kalman Processes.
 
 
 | **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]       |
@@ -35,7 +35,7 @@ Julia LTS version or newer
 EnsembleKalmanProcesses (EKP) enables users to find an (locally-) optimal parameter set `u` for a computer code `G` to fit some (noisy) observational data `y`. It uses a suite of methods from the Ensemble Kalman filtering literature that have a long history of success in the weather forecasting community.
 
 What makes EKP different?
-- EKP algorithms are efficient, and able to optimize high-dimensional parameters over very noisy cost landscapes.
+- EKP algorithms are efficient (complexity doesn't strongly scale with number of parameters), and are able to optimize high-dimensional parameters over very noisy cost landscapes. 
 - We don't require differentiating the model `G` at all! you just need to be able to run it at different parameter configurations.
 - We don't even require `G` to be in Julia!
 - Ensemble model evaluations are fully parallelizable - so we can exploit our HPC systems capabilities!
