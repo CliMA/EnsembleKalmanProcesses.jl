@@ -97,7 +97,7 @@ for (i,sp) in enumerate(p.subplots)
 end
 display(p)
 ```
-![quick-readme-example](https://github.com/CliMA/EnsembleKalmanProcesses.jl/docs/src/assets/readme_example.png)
+![quick-readme-example](docs/src/assets/readme_example.png)
 
 See a similar working example [here!](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/literated/sinusoid_example/). Check out our many example scripts above in `examples/`
 
