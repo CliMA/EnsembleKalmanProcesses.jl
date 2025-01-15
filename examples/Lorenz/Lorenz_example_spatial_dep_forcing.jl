@@ -50,7 +50,12 @@ end
 # - params: structure with F (state-dependent-forcing vector)
 # - x0: initial condition vector
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
-function lorenz_forward(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig, observation_config::ObservationConfig) where {VorM <: AbstractVecOrMat}
+function lorenz_forward(
+    params::EnsembleMemberConfig,
+    x0::VorM,
+    config::LorenzConfig,
+    observation_config::ObservationConfig,
+) where {VorM <: AbstractVecOrMat}
     # run the Lorenz simulation
     xn = lorenz_solve(params, x0, config)
     # Get statistics
@@ -62,16 +67,16 @@ end
 # Inputs: 
 # - xn: timeseries of states for length of simulation through Lorenz96
 function stats(xn::VorM, config::LorenzConfig, observation_config::ObservationConfig) where {VorM <: AbstractVecOrMat}
-    T_start = observation_config.T_start 
+    T_start = observation_config.T_start
     T_end = observation_config.T_end
     dt = config.dt
     N_start = Int(ceil(T_start / dt))
     N_end = Int(ceil(T_end / dt))
     xn_stat = xn[:, N_start:N_end]
     N_state = size(xn_stat, 1)
-    gt = zeros(2*N_state)
-    gt[1:N_state] = mean(xn_stat, dims=2) 
-    gt[N_state+1:2*N_state]= std(xn_stat, dims=2)
+    gt = zeros(2 * N_state)
+    gt[1:N_state] = mean(xn_stat, dims = 2)
+    gt[(N_state + 1):(2 * N_state)] = std(xn_stat, dims = 2)
     return gt
 end
 
@@ -83,13 +88,13 @@ end
 function lorenz_solve(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
     # Initialize    
     nstep = Int(ceil(config.T / config.dt))
-    state_dim = isa(x0,AbstractVector) ? length(x0) : size(x0,1)
-    xn = zeros(size(x0,1), nstep+1)
-    xn[:,1] = x0
-    
+    state_dim = isa(x0, AbstractVector) ? length(x0) : size(x0, 1)
+    xn = zeros(size(x0, 1), nstep + 1)
+    xn[:, 1] = x0
+
     # March forward in time
     for j in 1:nstep
-        xn[:,j+1] = RK4(params, xn[:,j], config)
+        xn[:, j + 1] = RK4(params, xn[:, j], config)
     end
     # Output
     return xn
@@ -141,12 +146,12 @@ end
 ############################ Problem setup #############################
 ########################################################################
 rng_seed_init = 11
-rng_i = MersenneTwister(rng_seed_init) 
+rng_i = MersenneTwister(rng_seed_init)
 
 #Creating my sythetic data
 #initalize model variables
 nx = 40  #dimensions of parameter vector
-gamma = 8 .+ 6*sin.((4*pi*range(0, stop=nx - 1, step=1))/nx)  #forcing (Needs to be of type EnsembleMemberConfig)
+gamma = 8 .+ 6 * sin.((4 * pi * range(0, stop = nx - 1, step = 1)) / nx)  #forcing (Needs to be of type EnsembleMemberConfig)
 true_parameters = EnsembleMemberConfig(gamma)
 
 t = 0.01  #time step
@@ -163,39 +168,39 @@ x_spun_up = lorenz_solve(true_parameters, x_initial, picking_initial_condition) 
 x0 = x_spun_up[:, end]  #last element of the run is the initial condition for creating the data
 #Creating my sythetic data
 T = 504.0
-ny = nx*2   #number of data points
+ny = nx * 2   #number of data points
 lorenz_config_settings = LorenzConfig(t, T)
 
 # construct how we compute Observations
 T_start = 4.0  #2*max
 T_end = T
-observation_config = ObservationConfig(T_start,T_end)
+observation_config = ObservationConfig(T_start, T_end)
 
 
-model_out_y = lorenz_forward(true_parameters, x0, lorenz_config_settings, observation_config) 
+model_out_y = lorenz_forward(true_parameters, x0, lorenz_config_settings, observation_config)
 
 #Observation covariance R
-model_out_vars = (0.1*model_out_y).^2
+model_out_vars = (0.1 * model_out_y) .^ 2
 R = Diagonal(model_out_vars)
 R_sqrt = sqrt(R)
 R_inv_var = sqrt(inv(R))
 
 #Observations y
-y = model_out_y  + R_sqrt*rand(rng_i, Normal(0.0, 1.0), ny)
+y = model_out_y + R_sqrt * rand(rng_i, Normal(0.0, 1.0), ny)
 
 pl = 2.0
 psig = 3.0
 #Prior covariance
-B = zeros(nx,nx)
-for ii in 1:nx 
+B = zeros(nx, nx)
+for ii in 1:nx
     for jj in 1:nx
-        B[ii, jj] = psig^2 * exp(-abs(ii - jj)/pl)  
-    end 
+        B[ii, jj] = psig^2 * exp(-abs(ii - jj) / pl)
+    end
 end
 B_sqrt = sqrt(B)
 
 #Prior mean
-mu = 8.0*ones(nx) 
+mu = 8.0 * ones(nx)
 
 #Creating prior distribution
 distribution = Parameterized(MvNormal(mu, B))
@@ -208,7 +213,7 @@ prior = ParameterDistribution(distribution, constraint, name)
 # Solving for initial condition perturbation covariance
 covT = 2000.0  #time to simulate to calculate a covariance matrix of the system
 cov_solve = lorenz_solve(true_parameters, x0, LorenzConfig(t, covT))
-ic_cov = 0.1*cov(cov_solve, dims = 2)
+ic_cov = 0.1 * cov(cov_solve, dims = 2)
 ic_cov_sqrt = sqrt(ic_cov)
 
 ########################################################################
@@ -234,19 +239,34 @@ for (rr, rng_seed) in enumerate(rng_seeds)
         # initial parameters: N_params x N_ens
         initial_params = construct_initial_ensemble(rng, prior, N_ens)
 
-        methods = [Inversion(), TransformInversion(), GaussNewtonInversion(prior), 
-                Unscented(prior, impose_prior = true)]
+        methods =
+            [Inversion(), TransformInversion(), GaussNewtonInversion(prior), Unscented(prior, impose_prior = true)]
 
         @info "Ensemble size: $(N_ens)"
         for (kk, method) in enumerate(methods)
             if isa(method, Unscented)
-                ekpobj = EKP.EnsembleKalmanProcess(y, R, method; 
-                            rng = copy(rng), verbose = true, accelerator = DefaultAccelerator(), 
-                            localization_method = NoLocalization(), scheduler = DefaultScheduler())
-            else    
-                ekpobj = EKP.EnsembleKalmanProcess(initial_params, y, R, method; 
-                            rng = copy(rng), verbose = true, accelerator = DefaultAccelerator(), 
-                            localization_method = NoLocalization(), scheduler = DefaultScheduler())
+                ekpobj = EKP.EnsembleKalmanProcess(
+                    y,
+                    R,
+                    method;
+                    rng = copy(rng),
+                    verbose = true,
+                    accelerator = DefaultAccelerator(),
+                    localization_method = NoLocalization(),
+                    scheduler = DefaultScheduler(),
+                )
+            else
+                ekpobj = EKP.EnsembleKalmanProcess(
+                    initial_params,
+                    y,
+                    R,
+                    method;
+                    rng = copy(rng),
+                    verbose = true,
+                    accelerator = DefaultAccelerator(),
+                    localization_method = NoLocalization(),
+                    scheduler = DefaultScheduler(),
+                )
             end
             Ne = get_N_ens(ekpobj)
 
@@ -256,33 +276,43 @@ for (rr, rng_seed) in enumerate(rng_seeds)
 
                 # Calculating RMSE_e
                 ens_mean = mean(params_i, dims = 2)[:]
-                G_ens_mean = lorenz_forward(EnsembleMemberConfig(ens_mean), 
-                            x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, 1), 
-                            lorenz_config_settings, observation_config)
-                RMSE_e = norm(R_inv_var*(y - G_ens_mean[:]))/sqrt(size(y, 1))
+                G_ens_mean = lorenz_forward(
+                    EnsembleMemberConfig(ens_mean),
+                    x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, 1),
+                    lorenz_config_settings,
+                    observation_config,
+                )
+                RMSE_e = norm(R_inv_var * (y - G_ens_mean[:])) / sqrt(size(y, 1))
                 @info "RMSE (at G(u_mean)): $(RMSE_e)"
                 # Convergence criteria
                 if RMSE_e < tolerance
-                    conv_alg_iters[kk, ee, rr] = count*Ne
+                    conv_alg_iters[kk, ee, rr] = count * Ne
                     final_parameters[kk, ee, rr, :] = ens_mean
                     final_model_output[kk, ee, rr, :] = G_ens_mean
                     break
                 end
-                
+
                 # If RMSE convergence criteria is not satisfied 
-                G_ens = hcat([lorenz_forward(EnsembleMemberConfig(params_i[:, j]), 
-                                (x0 .+ ic_cov_sqrt*rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j], 
-                                lorenz_config_settings, observation_config) for j in 1:Ne]...)
+                G_ens = hcat(
+                    [
+                        lorenz_forward(
+                            EnsembleMemberConfig(params_i[:, j]),
+                            (x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j],
+                            lorenz_config_settings,
+                            observation_config,
+                        ) for j in 1:Ne
+                    ]...,
+                )
                 # Update 
                 EKP.update_ensemble!(ekpobj, G_ens)
                 count = count + 1
 
                 # Calculate RMSE_f
-                RMSE_f = sqrt(get_error(ekpobj)[end]/size(y, 1))
+                RMSE_f = sqrt(get_error(ekpobj)[end] / size(y, 1))
                 @info "RMSE (at mean(G(u)): $(RMSE_f)"
                 # Convergence criteria
-                if RMSE_f < tolerance 
-                    conv_alg_iters[kk, ee, rr] = count*Ne
+                if RMSE_f < tolerance
+                    conv_alg_iters[kk, ee, rr] = count * Ne
                     final_parameters[kk, ee, rr, :] = ens_mean
                     final_model_output[kk, ee, rr, :] = G_ens_mean
                     break
@@ -308,124 +338,119 @@ if ~isdir(data_save_directory)
 end
 
 # Create plots
-p1 = plot(range(0, nx -1, step = 1), 
-    [gamma final_parameters[1,1,1,:] final_parameters[2,1,1,:] final_parameters[3,1,1,:] final_parameters[4,1,1,:]], 
-    label = ["solution" "EKI" "ETKI" "GNKI" "UKI"], 
-    color = [:black :lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1], 
-    linewidth=2,
-    xlabel = "Spatial index", 
-    ylabel= "Gamma",
+p1 = plot(
+    range(0, nx - 1, step = 1),
+    [gamma final_parameters[1, 1, 1, :] final_parameters[2, 1, 1, :] final_parameters[3, 1, 1, :] final_parameters[
+        4,
+        1,
+        1,
+        :,
+    ]],
+    label = ["solution" "EKI" "ETKI" "GNKI" "UKI"],
+    color = [:black :lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1],
+    linewidth = 2,
+    xlabel = "Spatial index",
+    ylabel = "Gamma",
     title = "Optimized parameters for ensemble size = 50",
-    show = true
-    )
+    show = true,
+)
 readline()
-savefig(p1, figure_save_directory*"solution50.png")
+savefig(p1, figure_save_directory * "solution50.png")
 
-p2 = plot(range(0, nx -1, step = 1), 
-    [gamma final_parameters[1,1,2,:] final_parameters[2,1,2,:] final_parameters[3,1,2,:] final_parameters[4,1,2,:]], 
-    label = ["solution" "EKI" "ETKI" "GNKI" "UKI"], 
-    color = [:black :lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1], 
-    linewidth=2,
-    xlabel = "Spatial index", 
-    ylabel= "Gamma",
+p2 = plot(
+    range(0, nx - 1, step = 1),
+    [gamma final_parameters[1, 1, 2, :] final_parameters[2, 1, 2, :] final_parameters[3, 1, 2, :] final_parameters[
+        4,
+        1,
+        2,
+        :,
+    ]],
+    label = ["solution" "EKI" "ETKI" "GNKI" "UKI"],
+    color = [:black :lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1],
+    linewidth = 2,
+    xlabel = "Spatial index",
+    ylabel = "Gamma",
     title = "Optimized parameters for ensemble size = 90",
     show = true,
-    reuse = false
-    )
+    reuse = false,
+)
 readline()
 
-savefig(p2, figure_save_directory*"solution90.png")
+savefig(p2, figure_save_directory * "solution90.png")
 
-p3 = plot(range(0, nx -1, step = 1), 
-     y[1:40], 
-     yerror=diag(R_sqrt)[1:40],
-     label = "data",
-     color = :black,
-     linewidth=2,
-     xlabel = "Spatial index", 
-     ylabel= "Averages",
-     title = "Averages from optimized parameters for ensemble size = 90",
-     show = true,
-     reuse = false)
-plot!(range(0, nx -1, step = 1), 
-    [final_model_output[1,1,2,1:40] final_model_output[2,1,2,1:40] final_model_output[3,1,2,1:40] final_model_output[4,1,2,1:40]], 
-    label = ["EKI" "ETKI" "GNKI" "UKI"], 
-    color = [:lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1],
-    linewidth=2
-    )
-
-readline()
-savefig(p3, figure_save_directory*"averages90.png")
-
-p4 = plot(range(0, nx -1, step = 1), 
-    y[41:end], 
-    yerror=diag(R_sqrt)[41:end],
+p3 = plot(
+    range(0, nx - 1, step = 1),
+    y[1:40],
+    yerror = diag(R_sqrt)[1:40],
     label = "data",
-    xlabel = "Spatial index", 
-    ylabel= "Standard deviations",
+    color = :black,
+    linewidth = 2,
+    xlabel = "Spatial index",
+    ylabel = "Averages",
+    title = "Averages from optimized parameters for ensemble size = 90",
+    show = true,
+    reuse = false,
+)
+plot!(
+    range(0, nx - 1, step = 1),
+    [final_model_output[1, 1, 2, 1:40] final_model_output[2, 1, 2, 1:40] final_model_output[3, 1, 2, 1:40] final_model_output[
+        4,
+        1,
+        2,
+        1:40,
+    ]],
+    label = ["EKI" "ETKI" "GNKI" "UKI"],
+    color = [:lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1],
+    linewidth = 2,
+)
+
+readline()
+savefig(p3, figure_save_directory * "averages90.png")
+
+p4 = plot(
+    range(0, nx - 1, step = 1),
+    y[41:end],
+    yerror = diag(R_sqrt)[41:end],
+    label = "data",
+    xlabel = "Spatial index",
+    ylabel = "Standard deviations",
     title = "SDs from optimized parameters for ensemble size = 90",
     color = :black,
-    linewidth=2,
+    linewidth = 2,
     show = true,
-    reuse = false)
-plot!(range(0, nx -1, step = 1), 
-    [final_model_output[1,1,2,41:end] final_model_output[2,1,2,41:end] final_model_output[3,1,2,41:end] final_model_output[4,1,2,41:end]], 
-    label = ["EKI" "ETKI" "GNKI" "UKI"], 
+    reuse = false,
+)
+plot!(
+    range(0, nx - 1, step = 1),
+    [final_model_output[1, 1, 2, 41:end] final_model_output[2, 1, 2, 41:end] final_model_output[3, 1, 2, 41:end] final_model_output[
+        4,
+        1,
+        2,
+        41:end,
+    ]],
+    label = ["EKI" "ETKI" "GNKI" "UKI"],
     color = [:lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1],
-    linewidth=2
-    )
+    linewidth = 2,
+)
 
 readline()
-savefig(p4, figure_save_directory*"standarddeviations90.png")
+savefig(p4, figure_save_directory * "standarddeviations90.png")
 
-p5 = plot(N_ens_sizes, 
-    [mean(conv_alg_iters[1, :, :], dims = 2) mean(conv_alg_iters[2, :, :], dims = 2) mean(conv_alg_iters[3, :, :], dims = 2)],
-    label = ["EKI" "ETKI" "GNKI"], 
-    color = [:lightgreen :deepskyblue3 :palevioletred1], 
-    xlabel = "Ensemble size", 
-    ylabel= "Number of forward runs",
+p5 = plot(
+    N_ens_sizes,
+    [mean(conv_alg_iters[1, :, :], dims = 2) mean(conv_alg_iters[2, :, :], dims = 2) mean(
+        conv_alg_iters[3, :, :],
+        dims = 2,
+    )],
+    label = ["EKI" "ETKI" "GNKI"],
+    color = [:lightgreen :deepskyblue3 :palevioletred1],
+    xlabel = "Ensemble size",
+    ylabel = "Number of forward runs",
     title = "EKI Race",
     show = true,
-    reuse = false
-    )
-plot!([81], [mean(conv_alg_iters[4, :, :])],
-    label = "UKI",
-    color = :mediumpurple1,
-    marker = :square
-    )
+    reuse = false,
+)
+plot!([81], [mean(conv_alg_iters[4, :, :])], label = "UKI", color = :mediumpurple1, marker = :square)
 
 readline()
-savefig(p5, figure_save_directory*"fow_run_comparison.png")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+savefig(p5, figure_save_directory * "fow_run_comparison.png")
