@@ -589,12 +589,12 @@ end
                     g_ens_t = permutedims(g_ens, (2, 1))
                     @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
                 end
-                
+
                 # test for additional warning if two columns are equal in
                 g_ens_nonunique = copy(g_ens)
-                g_ens_nonunique[:,2] = g_ens_nonunique[:,3]
+                g_ens_nonunique[:, 2] = g_ens_nonunique[:, 3]
                 @test_logs (:warn,) update_ensemble!(ekiobj2, g_ens_nonunique)
-                
+
                 # test the deterministic flag on only one iteration for errors
                 EKP.update_ensemble!(ekiobj_nonoise_update, g_ens, deterministic_forward_map = false)
                 @info "No error with flag deterministic_forward_map = false"
