@@ -7,7 +7,6 @@ using Interpolations
 
 export NoLocalization, Delta, RBF, BernoulliDropout, SEC, SECFisher, SECNice
 export LocalizationMethod, Localizer
-export approximate_corr_std
 abstract type LocalizationMethod end
 
 "Idempotent localization method."
@@ -104,19 +103,16 @@ Thus no algorithm parameters are required, though some tuning of the discrepancy
 $(TYPEDFIELDS)
 
 """
-struct SECNice{FT <: Real, AV <: AbstractVector} <: LocalizationMethod
+struct SECNice{FT <: Real} <: LocalizationMethod
     "number of samples to approximate the std of correlation distribution (default 1000)"
     n_samples::Int
     "scaling for discrepancy principle for ug correlation (default 1.0)"
     δ_ug::FT
     "scaling for discrepancy principle for gg correlation (default 1.0)"
     δ_gg::FT
-    "A vector that will house a Interpolation object on first call to the localizer"
-    std_of_corr::AV
 end
-SECNice() = SECNice(1000, 1.0, 1.0)
+SECNice() = SECNice(1000, 1.0, 1.0) # best 
 SECNice(δ_ug, δ_gg) = SECNice(1000, δ_ug, δ_gg)
-SECNice(n_samples, δ_ug, δ_gg) = SECNice(n_samples, δ_ug, δ_gg, []) # always start with empty
 
 """
     Localizer{LM <: LocalizationMethod, T}
@@ -275,42 +271,11 @@ function Localizer(localization::SECFisher, J::Int, T = Float64)
 end
 
 """
-For `N_ens >= 6`: The sampling distribution of a correlation coefficient for Gaussian random variables is, under the Fisher transformation, approximately Gaussian. To estimate the standard deviation in the sampling distribution of the correlation coefficient, we draw samples from a Gaussian, apply the inverse Fisher transformation to them, and estimate an empirical standard deviation from the transformed samples.
-For `N_ens < 6`: Approximate the standard deviation of correlation coefficient empirically by sampling between two correlated Gaussians of known coefficient. 
-"""
-function approximate_corr_std(r, N_ens, n_samples)
-
-    if N_ens >= 6 # apply Fisher Transform
-        # ρ = arctanh(r) from Fisher
-        # assume r input is the mean value, i.e. assume arctanh(E(r)) = E(arctanh(r))
-
-        ρ = r # approx solution is the identity
-        #sample in ρ space
-        ρ_samples = rand(Normal(0.5 * log((1 + ρ) / (1 - ρ)), 1 / sqrt(N_ens - 3)), n_samples)
-
-        # map back through Fisher to get std of r from samples tanh(ρ)
-        return std(tanh.(ρ_samples))
-    else # transformation not appropriate for N < 6
-        # Generate sample pairs with a correlation coefficient r
-        samples_1 = rand(Normal(0, 1), N_ens, n_samples)
-        samples_2 = rand(Normal(0, 1), N_ens, n_samples)
-        samples_corr_with_1 = r * samples_1 + sqrt(1 - r^2) * samples_2 # will have correlation r with samples_1
-
-        corrs = zeros(n_samples)
-        for i in 1:n_samples
-            corrs[i] = cor(samples_1[:, i], samples_corr_with_1[:, i])
-        end
-        return std(corrs)
-    end
-
-end
-
-
-"""
 Function that performs sampling error correction as per Vishny, Morzfeld, et al. (2024).
-The input is assumed to be a covariance matrix, hence square.
+The input is assumed to be a covariance matrix, hence square. The standard deviation for a correlation `corr` with `N_ens` samples is internally estimated simply by `std_corrs = (1 .- corr)/sqrt(N_ens)`. This requires no precomputation and appears sufficiently accurate.
+
 """
-function sec_nice(cov, std_of_corr, δ_ug, δ_gg, N_ens, p, d)
+function sec_nice(cov, δ_ug, δ_gg, N_ens, p, d)
     bd_tol = 1e8 * eps()
 
     v = sqrt.(diag(cov))
@@ -330,9 +295,11 @@ function sec_nice(cov, std_of_corr, δ_ug, δ_gg, N_ens, p, d)
     for (idx_set, δ) in zip([ug_idx, gg_idx], [δ_ug, δ_gg])
 
         corr_tmp = corr[idx_set...]
-        # use find the variability in the corr coeff matrix entries
-        #        std_corrs = approximate_corr_std.(corr_tmp, N_ens, n_samples) # !! slowest part of code -> could speed up by precomputing/using an interpolation
-        std_corrs = std_of_corr.(corr_tmp)
+
+        # Find the variability in the corr coeff matrix entries
+        # Below has no precomputation and is surprisingly fine accuracy! (~10^-4 error to empirical at N_ens=20)
+        std_corrs = (1 .- corr_tmp) / sqrt(N_ens)
+
         std_tol = sqrt(sum(std_corrs .^ 2))
         γ_min_exceeded = max_exponent
         for γ in 2:2:max_exponent # even exponents give a PSD correction
@@ -366,16 +333,7 @@ end
 
 "Sampling error correction of Vishny, Morzfeld, et al. (2024) constructor"
 function Localizer(localization::SECNice, J::Int, T = Float64)
-    if length(localization.std_of_corr) == 0 #i.e. if the user hasn't provided an interpolation
-        dr = 0.001
-        grid = LinRange(-1, 1, Int(1 / dr + 1))
-        std_grid = approximate_corr_std.(grid, J, localization.n_samples) # odd number to include 0           
-        push!(localization.std_of_corr, linear_interpolation(grid, std_grid)) # pw-linear interpolation
-    end
-
-    return Localizer{SECNice, T}(
-        (cov, T, p, d, J) -> sec_nice(cov, localization.std_of_corr[1], localization.δ_ug, localization.δ_gg, J, p, d),
-    )
+    return Localizer{SECNice, T}((cov, T, p, d, J) -> sec_nice(cov, localization.δ_ug, localization.δ_gg, J, p, d))
 end
 
 

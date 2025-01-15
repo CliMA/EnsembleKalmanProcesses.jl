@@ -219,8 +219,7 @@ function EnsembleKalmanProcess(
 
     if N_ens < 10
         @warn "Recommended minimum ensemble size (`N_ens`) is 10. Got `N_ens` = $(N_ens)."
-    end
-    if (N_par < 10) && (N_ens < 10 * N_par)
+    elseif (N_par < 10) && (N_ens < 10 * N_par)
         @warn "For $(N_par) parameters, the recommended minimum ensemble size (`N_ens`) is $(10*(N_par)). Got `N_ens` = $(N_ens)`."
     end
     if (N_par >= 10) && (N_ens < 100)
@@ -261,18 +260,19 @@ function EnsembleKalmanProcess(
     end
 
     # failure handler
-    failure_handler = FailureHandler(process, configuration["failure_handler_method"])
+    fh_method = configuration["failure_handler_method"]
+    failure_handler = FailureHandler(process, fh_method)
 
     # localizer
-    if isa(process, TransformInversion) && !(isa(configuration["localization_method"], NoLocalization))
+    loc_method = configuration["localization_method"]
+    if isa(process, TransformInversion) && !(isa(loc_method, NoLocalization))
         throw(ArgumentError("`TransformInversion` cannot currently be used with localization."))
     end
 
-    localizer = Localizer(configuration["localization_method"], N_ens, FT)
-
+    localizer = Localizer(loc_method, N_ens, FT)
 
     if verbose
-        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(localizer)))\nFailure handler: $(nameof(typeof(failure_handler)))\nScheduler: $(nameof(typeof(scheduler)))\nAccelerator: $(nameof(typeof(accelerator)))"
+        @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(loc_method)))\nFailure handler: $(nameof(typeof(fh_method)))\nScheduler: $(nameof(typeof(scheduler)))\nAccelerator: $(nameof(typeof(accelerator)))"
     end
 
     EnsembleKalmanProcess{FT, IT, P, RS, AC, VVV}(
@@ -926,6 +926,14 @@ function update_ensemble!(
                 "ensemble size $(get_N_ens(ekp)) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
             ),
         )
+    end
+    # check if columns of g are the same (and not NaN)
+    n_nans = sum(isnan.(sum(g, dims = 1)))
+    nan_adjust = (n_nans > 0) ? -n_nans + 1 : 0
+    # as unique reduces NaNs to one column if present. or 0 if not
+    if length(unique(eachcol(g))) < size(g, 2) + nan_adjust
+        nonunique_cols = size(g, 2) + nan_adjust - length(unique(eachcol(g)))
+        @warn "Detected $(nonunique_cols) clashes where forward map evaluations are exactly equal (and not NaN), this is likely to cause `LinearAlgebra` difficulty. Please check forward evaluations for bugs."
     end
 
     terminate = calculate_timestep!(ekp, g, Δt_new)

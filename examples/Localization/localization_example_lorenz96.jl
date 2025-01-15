@@ -78,8 +78,15 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
 
 # Solve problem without localization
-ekiobj_vanilla =
-    EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng, scheduler = DefaultScheduler())
+ekiobj_vanilla = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    y,
+    Γ,
+    Inversion();
+    rng = rng,
+    scheduler = DefaultScheduler(),
+    localization_method = NoLocalization(),
+)
 for i in 1:N_iter
     g_ens_vanilla = G(get_ϕ_final(prior, ekiobj_vanilla))
     EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = true)
@@ -94,7 +101,7 @@ ekiobj_inflated = EKP.EnsembleKalmanProcess(
     Inversion();
     rng = rng,
     scheduler = DefaultScheduler(),
-    #  localization_method = BernoulliDropout(0.98),
+    localization_method = NoLocalization(),
 )
 
 for i in 1:N_iter
@@ -199,7 +206,7 @@ fig = plot(
     bottom_margin = 5Plots.mm,
     left_margin = 5Plots.mm,
 )
-plot!(get_error(ekiobj_inflated), label = "Inflation only", lw = 6)
+plot!(get_error(ekiobj_inflated), label = "Inflation only", lw = 6, ls = :dash)
 plot!(get_error(ekiobj_sec), label = "SEC (Lee, 2021)", lw = 6)
 plot!(get_error(ekiobj_sec_fisher), label = "SECFisher (Flowerdew, 2015)", lw = 6)
 plot!(get_error(ekiobj_sec_cutoff), label = "SEC with cutoff", lw = 6)
