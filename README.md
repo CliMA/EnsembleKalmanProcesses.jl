@@ -43,8 +43,9 @@ What makes EKP different?
 - We provied easy interfaces to toggle between many different algorithms and configurable features.
 
 ## What does it look like to use?
+Below we will outline the current user experience for using `EnsembleKalmanProcesses.jl`. Copy-paste the snippets to reproduce the results (up to random number generation).
 
-Below we will outline the current user experience for using `EnsembleKalmanProcesses.jl` to solve the classic inverse problem where we learn `y = G(u)`, noisy forward map `G` distributed as `N(0,Γ)`. For this first example
+We solve the classic inverse problem where we learn `y = G(u)`, noisy forward map `G` distributed as `N(0,Γ)`. For example, 
 ```julia
 using LinearAlgebra
 G(u) = [
