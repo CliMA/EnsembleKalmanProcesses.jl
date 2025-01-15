@@ -790,7 +790,7 @@ function get_obs(os::OS; build = true) where {OS <: ObservationSeries}
         sample_lengths = [length(get_obs(ov, build = true)) for ov in observations_vec]
         minibatch_samples = zeros(sum(sample_lengths))
         for (i, observation) in enumerate(observations_vec)
-            idx = sum(sample_lengths[1:(i-1)])+1:sum(sample_lengths[1:i])
+            idx = (sum(sample_lengths[1:(i - 1)]) + 1):sum(sample_lengths[1:i])
             minibatch_samples[idx] = get_obs(observation, build = true)
         end
         return minibatch_samples
