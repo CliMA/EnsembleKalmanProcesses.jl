@@ -220,13 +220,11 @@ N_ens_sizes = [50, 90] #, 110, 130, 150] # number of ensemble members
 N_iter = 20 # number of EKI iterations
 tolerance = 1.0
 
-methods = [Inversion(), TransformInversion(), GaussNewtonInversion(prior), 
-            Unscented(prior, impose_prior = true)]
-
 rng_seeds = [2, 15] #, 42, 101]
 
 conv_alg_iters = zeros(4, length(N_ens_sizes), length(rng_seeds)) #count how many iterations it takes to converge (per algorithm, per rand seed, per ense size)
 final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nx)
+final_model_output = zeros(4, length(N_ens_sizes), length(rng_seeds), ny)
 
 for (rr, rng_seed) in enumerate(rng_seeds)
     @info "Random seed: $(rng_seed)"
@@ -235,6 +233,9 @@ for (rr, rng_seed) in enumerate(rng_seeds)
     for (ee, N_ens) in enumerate(N_ens_sizes)
         # initial parameters: N_params x N_ens
         initial_params = construct_initial_ensemble(rng, prior, N_ens)
+
+        methods = [Inversion(), TransformInversion(), GaussNewtonInversion(prior), 
+                Unscented(prior, impose_prior = true)]
 
         @info "Ensemble size: $(N_ens)"
         for (kk, method) in enumerate(methods)
@@ -264,6 +265,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 if RMSE_e < tolerance
                     conv_alg_iters[kk, ee, rr] = count*Ne
                     final_parameters[kk, ee, rr, :] = ens_mean
+                    final_model_output[kk, ee, rr, :] = G_ens_mean
                     break
                 end
                 
@@ -282,6 +284,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 if RMSE_f < tolerance 
                     conv_alg_iters[kk, ee, rr] = count*Ne
                     final_parameters[kk, ee, rr, :] = ens_mean
+                    final_model_output[kk, ee, rr, :] = G_ens_mean
                     break
                 end
             end
@@ -291,42 +294,6 @@ for (rr, rng_seed) in enumerate(rng_seeds)
     end
 end
 
-# Create a plot
-plot(range(0, nx -1, step = 1), 
-    [gamma final_parameters[1,1,1,:] final_parameters[2,1,1,:] final_parameters[3,1,1,:] final_parameters[4,1,1,:]], 
-    label = ["solution" "TEKI" "ETKI" "GNKI" "UKI"], 
-    color = [:black :green :blue :orange :purple], 
-    xlabel = "Spatial index", 
-    ylabel= "Gamma",
-    title = "Optimized parameters for ensemble size = 50",
-    show = true)
-
-readline()
-
-plot(range(0, nx -1, step = 1), 
-    [gamma final_parameters[1,1,2,:] final_parameters[2,1,2,:] final_parameters[3,1,2,:] final_parameters[4,1,2,:]], 
-    label = ["solution" "TEKI" "ETKI" "GNKI" "UKI"], 
-    color = [:black :green :blue :orange :purple], 
-    xlabel = "Spatial index", 
-    ylabel= "Gamma",
-    title = "Optimized parameters for ensemble size = 90",
-    show = true,
-    reuse = false)
-
-readline()
-
-plot(N_ens_sizes, 
-    [mean(conv_alg_iters[1, :, :], dims = 2) mean(conv_alg_iters[2, :, :], dims = 2) mean(conv_alg_iters[3, :, :], dims = 2)],
-    label = ["TEKI" "ETKI" "GNKI"], 
-    color = [:green :blue :orange], 
-    xlabel = "Ensemble size", 
-    ylabel= "Number of forward runs",
-    title = "EKI Race",
-    show = true,
-    reuse = false)
-plot!([81], [mean(conv_alg_iters[4, :, :])],
-    label = "UKI",
-    color = :purple,)
 
 # Output figure save directory
 homedir = pwd()
@@ -340,18 +307,95 @@ if ~isdir(data_save_directory)
     mkdir(data_save_directory)
 end
 
-# Governing settings
-# Characteristic time scale
-τc = 5.0 # days, prescribed by the L96 problem
-# Stationary or transient dynamics
-dynamics = 1 # This fixes the forcing to be stationary in time.
-# Statistics integration length
-# This has to be less than 360 and 360 must be divisible by Ts_days
-Ts_days = 90.0 # Integration length in days
-# Stats type, which statistics to construct from the L96 system
-# 4 is a linear fit over a batch of length Ts_days
-# 5 is the mean over a batch of length Ts_days
-stats_type = 5
+# Create plots
+p1 = plot(range(0, nx -1, step = 1), 
+    [gamma final_parameters[1,1,1,:] final_parameters[2,1,1,:] final_parameters[3,1,1,:] final_parameters[4,1,1,:]], 
+    label = ["solution" "EKI" "ETKI" "GNKI" "UKI"], 
+    color = [:black :lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1], 
+    linewidth=2,
+    xlabel = "Spatial index", 
+    ylabel= "Gamma",
+    title = "Optimized parameters for ensemble size = 50",
+    show = true
+    )
+readline()
+savefig(p1, figure_save_directory*"solution50.png")
+
+p2 = plot(range(0, nx -1, step = 1), 
+    [gamma final_parameters[1,1,2,:] final_parameters[2,1,2,:] final_parameters[3,1,2,:] final_parameters[4,1,2,:]], 
+    label = ["solution" "EKI" "ETKI" "GNKI" "UKI"], 
+    color = [:black :lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1], 
+    linewidth=2,
+    xlabel = "Spatial index", 
+    ylabel= "Gamma",
+    title = "Optimized parameters for ensemble size = 90",
+    show = true,
+    reuse = false
+    )
+readline()
+
+savefig(p2, figure_save_directory*"solution90.png")
+
+p3 = plot(range(0, nx -1, step = 1), 
+     y[1:40], 
+     yerror=diag(R_sqrt)[1:40],
+     label = "data",
+     color = :black,
+     linewidth=2,
+     xlabel = "Spatial index", 
+     ylabel= "Averages",
+     title = "Averages from optimized parameters for ensemble size = 90",
+     show = true,
+     reuse = false)
+plot!(range(0, nx -1, step = 1), 
+    [final_model_output[1,1,2,1:40] final_model_output[2,1,2,1:40] final_model_output[3,1,2,1:40] final_model_output[4,1,2,1:40]], 
+    label = ["EKI" "ETKI" "GNKI" "UKI"], 
+    color = [:lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1],
+    linewidth=2
+    )
+
+readline()
+savefig(p3, figure_save_directory*"averages90.png")
+
+p4 = plot(range(0, nx -1, step = 1), 
+    y[41:end], 
+    yerror=diag(R_sqrt)[41:end],
+    label = "data",
+    xlabel = "Spatial index", 
+    ylabel= "Standard deviations",
+    title = "SDs from optimized parameters for ensemble size = 90",
+    color = :black,
+    linewidth=2,
+    show = true,
+    reuse = false)
+plot!(range(0, nx -1, step = 1), 
+    [final_model_output[1,1,2,41:end] final_model_output[2,1,2,41:end] final_model_output[3,1,2,41:end] final_model_output[4,1,2,41:end]], 
+    label = ["EKI" "ETKI" "GNKI" "UKI"], 
+    color = [:lightgreen :deepskyblue3 :palevioletred1 :mediumpurple1],
+    linewidth=2
+    )
+
+readline()
+savefig(p4, figure_save_directory*"standarddeviations90.png")
+
+p5 = plot(N_ens_sizes, 
+    [mean(conv_alg_iters[1, :, :], dims = 2) mean(conv_alg_iters[2, :, :], dims = 2) mean(conv_alg_iters[3, :, :], dims = 2)],
+    label = ["EKI" "ETKI" "GNKI"], 
+    color = [:lightgreen :deepskyblue3 :palevioletred1], 
+    xlabel = "Ensemble size", 
+    ylabel= "Number of forward runs",
+    title = "EKI Race",
+    show = true,
+    reuse = false
+    )
+plot!([81], [mean(conv_alg_iters[4, :, :])],
+    label = "UKI",
+    color = :mediumpurple1,
+    marker = :square
+    )
+
+readline()
+savefig(p5, figure_save_directory*"fow_run_comparison.png")
 
 
 
