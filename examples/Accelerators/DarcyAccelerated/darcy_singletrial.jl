@@ -151,6 +151,7 @@ function main()
     l = @layout [a c]
     plt = plot(p1, p3; layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_it_" * string(N_iter) * ".png"))
+    savefig(plt, joinpath(fig_save_directory, "output_it_" * string(N_iter) * ".pdf"))
 
     gr(size = (1500, 400), legend = false)
     final_κ_ens = get_ϕ_final(prior, eki_acc) # the `ϕ` indicates that the `params_i` are in the constrained space
@@ -178,6 +179,7 @@ function main()
     l = @layout [a c]
     plt = plot(p1, p3; layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_it_" * string(N_iter) * "_acc.png"))
+    savefig(plt, joinpath(fig_save_directory, "output_it_" * string(N_iter) * "_acc.pdf"))
 
     gr(size = (1500, 400), legend = false)
     final_κ_ens = get_ϕ_final(prior, eki_trad) # the `ϕ` indicates that the `params_i` are in the constrained space
@@ -207,6 +209,7 @@ function main()
     l = @layout [a c]
     plt = plot(p1, p3; layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_diff_it_" * string(N_iter) * ".png"))
+    savefig(plt, joinpath(fig_save_directory, "output_diff_it_" * string(N_iter) * ".pdf"))
 
     gr(size = (1500, 400), legend = false)
     final_κ_ens = get_ϕ_final(prior, eki_acc) # the `ϕ` indicates that the `params_i` are in the constrained space
@@ -236,6 +239,7 @@ function main()
     l = @layout [a c]
     plt = plot(p1, p3; layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_diff_it_" * string(N_iter) * "_acc.png"))
+    savefig(plt, joinpath(fig_save_directory, "output_diff_it_" * string(N_iter) * "_acc.pdf"))
 
     h_2d = solve_Darcy_2D(darcy, κ_true) #?
     gr(size = (1500, 400), legend = false)
@@ -244,6 +248,7 @@ function main()
     l = @layout [a b]
     plt = plot(p1, p2, layout = l)
     savefig(plt, joinpath(fig_save_directory, "output_true.png"))
+    savefig(plt, joinpath(fig_save_directory, "output_true.pdf"))
 end
 
 main()

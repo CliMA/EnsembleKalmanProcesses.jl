@@ -62,7 +62,6 @@ function main()
     Γ = 0.01 * I
     noise_dist = MvNormal(zeros(dim_output), Γ)
     theta_true = [1.0, 0.8]
-    y = G(theta_true) .+ rand(noise_dist)
 
     # We define a variety of prior distributions so we can study
     # the effectiveness of accelerators on this problem.
@@ -76,11 +75,6 @@ function main()
     N_iterations = 100
     N_trials = 70
     @info "obtaining statistics over $N_trials trials"
-    # Define cost function to compare convergences. We use a logarithmic cost function 
-    # to best interpret exponential model. Note we do not explicitly penalize distance from the prior here.
-    function cost(theta)
-        return log.(norm(inv(Γ) .^ 0.5 * (G(theta) .- y)) .^ 2)
-    end
 
     ## Solving the inverse problem
 
@@ -97,12 +91,15 @@ function main()
     for trial in 1:N_trials
         # We now generate the initial ensemble and set up two EKI objects, one using an accelerator, 
         # to compare convergence.
+        ytrial = vec(G(theta_true) .+ rand(noise_dist))
+        observation = Observation(Dict("samples" => ytrial, "covariances" => Γ, "names" => ["amplitude_vertshift"]))
+
+
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
         ensemble_kalman_process_a = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             accelerator = DefaultAccelerator(),
             rng = rng,
@@ -111,8 +108,7 @@ function main()
         )
         ensemble_kalman_process_acc_a = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             accelerator = NesterovAccelerator(),
             rng = rng,
@@ -121,8 +117,7 @@ function main()
         )
         ensemble_kalman_process_b = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             accelerator = DefaultAccelerator(),
             rng = rng,
@@ -131,8 +126,7 @@ function main()
         )
         ensemble_kalman_process_acc_b = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             accelerator = NesterovAccelerator(),
             rng = rng,
@@ -141,8 +135,7 @@ function main()
         )
         ensemble_kalman_process_c = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             accelerator = DefaultAccelerator(),
             rng = rng,
@@ -151,21 +144,13 @@ function main()
         )
         ensemble_kalman_process_acc_c = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             accelerator = NesterovAccelerator(),
             rng = rng,
             scheduler = DefaultScheduler(timestep_c),
             localization_method = deepcopy(localization_method),
         )
-
-        global convs_a = zeros(N_iterations)
-        global convs_acc_a = zeros(N_iterations)
-        global convs_b = zeros(N_iterations)
-        global convs_acc_b = zeros(N_iterations)
-        global convs_c = zeros(N_iterations)
-        global convs_acc_c = zeros(N_iterations)
 
         # We are now ready to carry out the inversion. At each iteration, we get the
         # ensemble from the last iteration, apply ``G(\theta)`` to each ensemble member,
@@ -185,10 +170,6 @@ function main()
             EKP.update_ensemble!(ensemble_kalman_process_a, G_ens_a, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_b, G_ens_b, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_c, G_ens_c, deterministic_forward_map = false)
-
-            convs_a[i] = cost(mean(params_i_a, dims = 2))
-            convs_b[i] = cost(mean(params_i_b, dims = 2))
-            convs_c[i] = cost(mean(params_i_c, dims = 2))
         end
 
         # now the Nesterov EKI objects
@@ -204,34 +185,93 @@ function main()
             EKP.update_ensemble!(ensemble_kalman_process_acc_a, G_ens_acc_a, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_acc_b, G_ens_acc_b, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_acc_c, G_ens_acc_c, deterministic_forward_map = false)
-
-            convs_acc_a[i] = cost(mean(params_i_acc_a, dims = 2))
-            convs_acc_b[i] = cost(mean(params_i_acc_b, dims = 2))
-            convs_acc_c[i] = cost(mean(params_i_acc_c, dims = 2))
         end
 
-        all_convs_a[trial, :] = convs_a
-        all_convs_acc_a[trial, :] = convs_acc_a
-        all_convs_b[trial, :] = convs_b
-        all_convs_acc_b[trial, :] = convs_acc_b
-        all_convs_c[trial, :] = convs_c
-        all_convs_acc_c[trial, :] = convs_acc_c
+
+        all_convs_a[trial, 1:length(get_error(ensemble_kalman_process_a))] = log.(get_error(ensemble_kalman_process_a))
+        all_convs_acc_a[trial, 1:length(get_error(ensemble_kalman_process_acc_a))] =
+            log.(get_error(ensemble_kalman_process_acc_a))
+        all_convs_b[trial, 1:length(get_error(ensemble_kalman_process_b))] = log.(get_error(ensemble_kalman_process_b))
+        all_convs_acc_b[trial, 1:length(get_error(ensemble_kalman_process_acc_b))] =
+            log.(get_error(ensemble_kalman_process_acc_b))
+        all_convs_c[trial, 1:length(get_error(ensemble_kalman_process_c))] = log.(get_error(ensemble_kalman_process_c))
+        all_convs_acc_c[trial, 1:length(get_error(ensemble_kalman_process_acc_c))] =
+            log.(get_error(ensemble_kalman_process_acc_c))
     end
 
     gr(size = (800, 600), legend = true)
-    p = plot(1:N_iterations, mean(all_convs_a, dims = 1)[:], ribbon = std(all_convs_a, dims = 1)[:] / sqrt(N_trials), color = :black, label = L"\Delta t = "*"$timestep_a", titlefont=20, legendfontsize=13,guidefontsize=15,tickfontsize=15, linewidth=3,alpha=0.1)
-    plot!(1:N_iterations, mean(all_convs_b, dims = 1)[:], ribbon = std(all_convs_b, dims = 1)[:] / sqrt(N_trials), color = :black, label = L"\Delta t = "*"$timestep_b", linestyle = :dash, linewidth=3,alpha=0.1)
-    plot!(1:N_iterations, mean(all_convs_c, dims = 1)[:], ribbon = std(all_convs_c, dims = 1)[:] / sqrt(N_trials), color = :black, label = L"\Delta t = "*"$timestep_c", linestyle = :dot, linewidth=3,alpha=0.1)
+    # plot ribbons
+    p = plot(
+        1:N_iterations,
+        mean(all_convs_a, dims = 1)[:],
+        ribbon = std(all_convs_a, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = L"\Delta t = " * "$timestep_a",
+        titlefont = 20,
+        legendfontsize = 13,
+        guidefontsize = 15,
+        tickfontsize = 15,
+        linewidth = 3,
+        fillalpha = 0.3,
+    )
+    plot!(
+        1:N_iterations,
+        mean(all_convs_b, dims = 1)[:],
+        ribbon = std(all_convs_b, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = L"\Delta t = " * "$timestep_b",
+        linestyle = :dash,
+        linewidth = 3,
+        fillalpha = 0.3,
+    )
+    plot!(
+        1:N_iterations,
+        mean(all_convs_c, dims = 1)[:],
+        ribbon = std(all_convs_c, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = L"\Delta t = " * "$timestep_c",
+        linestyle = :dot,
+        linewidth = 3,
+        fillalpha = 0.3,
+    )
 
-    plot!(1:N_iterations, mean(all_convs_acc_a, dims = 1)[:], ribbon = std(all_convs_acc_a, dims = 1)[:] / sqrt(N_trials), color = :blue, label = L"\Delta t = "*"$timestep_a,  Nesterov", linewidth=3,alpha=0.3)
-    plot!(1:N_iterations, mean(all_convs_acc_b, dims = 1)[:], ribbon = std(all_convs_acc_b, dims = 1)[:] / sqrt(N_trials), color = :blue, label = L"\Delta t = "*"$timestep_b, Nesterov", linestyle = :dash, linewidth=3,alpha=0.3)
-    plot!(1:N_iterations, mean(all_convs_acc_c, dims = 1)[:], ribbon = std(all_convs_acc_c, dims = 1)[:] / sqrt(N_trials), color = :blue, label = L"\Delta t = "*"$timestep_c, Nesterov", linestyle = :dot, linewidth=3,alpha=0.3)
+    plot!(
+        1:N_iterations,
+        mean(all_convs_acc_a, dims = 1)[:],
+        ribbon = std(all_convs_acc_a, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = L"\Delta t = " * "$timestep_a, Nesterov",
+        linewidth = 3,
+        fillalpha = 0.3,
+    )
+    plot!(
+        1:N_iterations,
+        mean(all_convs_acc_b, dims = 1)[:],
+        ribbon = std(all_convs_acc_b, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = L"\Delta t = " * "$timestep_b, Nesterov",
+        linestyle = :dash,
+        linewidth = 3,
+        fillalpha = 0.3,
+    )
+    plot!(
+        1:N_iterations,
+        mean(all_convs_acc_c, dims = 1)[:],
+        ribbon = std(all_convs_acc_c, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = L"\Delta t = " * "$timestep_c, Nesterov",
+        linestyle = :dot,
+        linewidth = 3,
+        fillalpha = 0.3,
+    )
 
+    # replot lines with alpha = 1
     xlabel!("Iteration")
     ylabel!("log(Cost)")
     title!("EKI convergence on Exp Sin IP") # \n" * L"N_{ens} = " * "$N_ens")
 
     savefig(p, joinpath(fig_save_directory, "timestep_comparison_exp_sin.pdf"))
+    savefig(p, joinpath(fig_save_directory, "timestep_comparison_exp_sin.png"))
 
 end
 

@@ -86,7 +86,7 @@ function main()
     G(u) = mapslices((u) -> rk4(lorenz96_sys, u, 0.0, 0.4, dt), u, dims = 1)
     p = D
     # Generate random truth
-    y = y0 + randn(D)
+    #    y = y0 + randn(D)
     Γ = 1.0 * I
 
     #### Define prior information on parameters
@@ -106,40 +106,39 @@ function main()
 
     for trial in 1:N_trials
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+        ytrial = vec(y0 .+ randn(D))
+        observation = Observation(Dict("samples" => ytrial, "covariances" => Γ, "names" => ["u_1,...,u_$(p)"]))
 
         # We create 3 EKP Inversion objects to compare acceleration.
         ekiobj_vanilla = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             rng = rng,
             scheduler = deepcopy(scheduler),
             accelerator = DefaultAccelerator(),
             localization_method = deepcopy(localization_method),
-            failure_handler_method = SampleSuccGauss()
+            failure_handler_method = SampleSuccGauss(),
         )
         ekiobj_acc = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             rng = rng,
             accelerator = NesterovAccelerator(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
-            failure_handler_method = SampleSuccGauss()
+            failure_handler_method = SampleSuccGauss(),
         )
         ekiobj_acc_cs = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             rng = rng,
             accelerator = FirstOrderNesterovAccelerator(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
-            failure_handler_method = SampleSuccGauss()
+            failure_handler_method = SampleSuccGauss(),
         )
 
         err = zeros(N_iter)
@@ -166,13 +165,33 @@ function main()
 
     # COMPARE CONVERGENCES
     gr(size = (600, 500), legend = false)
-    convplot = plot(1:N_iter, mean(errs, dims = 1)[:], ribbon = std(errs, dims = 1)[:] / sqrt(N_trials), color = :black, label = "No acceleration", titlefont=20, legendfontsize=13,guidefontsize=15,tickfontsize=15, linewidth=2)
-    plot!(1:N_iter, mean(errs_acc, dims = 1)[:], ribbon = std(errs_acc, dims = 1)[:] / sqrt(N_trials), color = :blue, label = "Nesterov",linewidth=2)
+    convplot = plot(
+        1:N_iter,
+        mean(errs, dims = 1)[:],
+        ribbon = std(errs, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = "No acceleration",
+        titlefont = 20,
+        legendfontsize = 13,
+        guidefontsize = 15,
+        tickfontsize = 15,
+        linewidth = 2,
+    )
+    plot!(
+        1:N_iter,
+        mean(errs_acc, dims = 1)[:],
+        ribbon = std(errs_acc, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = "Nesterov",
+        linewidth = 2,
+    )
     title!("EKI convergence on Lorenz96 IP") ## \n" * L"N_{ens} = " * "$N_ens; " * L"$\Delta t$ = 0.05")
     xlabel!("Iteration")
     ylabel!("log(Cost)")
-    
+
     savefig(convplot, joinpath(fig_save_directory, case * "_lorenz96_log.png"))
+    savefig(convplot, joinpath(fig_save_directory, case * "_lorenz96_log.pdf"))
+
 end
 
 main()

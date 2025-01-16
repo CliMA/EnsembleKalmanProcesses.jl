@@ -67,7 +67,6 @@ function main()
     Γ = 0.01 * I
     noise_dist = MvNormal(zeros(dim_output), Γ)
     theta_true = [1.0, 0.8]
-    y = G(theta_true) .+ rand(noise_dist)
 
     # We define a variety of prior distributions so we can study
     # the effectiveness of accelerators on this problem.
@@ -81,11 +80,6 @@ function main()
     N_iterations = 100
     N_trials = 50
     @info "obtaining statistics over $N_trials trials"
-    # Define cost function to compare convergences. We use a logarithmic cost function 
-    # to best interpret exponential model. Note we do not explicitly penalize distance from the prior here.
-    function cost(theta)
-        return log.(norm(inv(Γ) .^ 0.5 * (G(theta) .- y)) .^ 2)
-    end
 
     ## Solving the inverse problem
 
@@ -99,10 +93,12 @@ function main()
         # to compare convergence.
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
+        ytrial = vec(G(theta_true) .+ rand(noise_dist))
+        observation = Observation(Dict("samples" => ytrial, "covariances" => Γ, "names" => ["amplitude_vertshift"]))
+
         ensemble_kalman_process = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             accelerator = DefaultAccelerator(),
             rng = rng,
@@ -111,8 +107,7 @@ function main()
         )
         ensemble_kalman_process_acc = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             accelerator = NesterovAccelerator(),
             rng = rng,
@@ -121,8 +116,7 @@ function main()
         )
         ensemble_kalman_process_acc_cs = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             accelerator = FirstOrderNesterovAccelerator(),
             rng = rng,
@@ -130,9 +124,6 @@ function main()
             localization_method = deepcopy(localization_method),
         )
 
-        global convs = zeros(N_iterations)
-        global convs_acc = zeros(N_iterations)
-        global convs_acc_cs = zeros(N_iterations)
         global mom_coeffs = zeros(N_iterations)
         global mom_coeffs_cs = zeros(N_iterations)
 
@@ -154,28 +145,49 @@ function main()
             EKP.update_ensemble!(ensemble_kalman_process_acc, G_ens_acc, deterministic_forward_map = false)
             EKP.update_ensemble!(ensemble_kalman_process_acc_cs, G_ens_acc_cs, deterministic_forward_map = false)
 
-            convs[i] = cost(mean(params_i, dims = 2))
-            convs_acc[i] = cost(mean(params_i_acc, dims = 2))
-            convs_acc_cs[i] = cost(mean(params_i_acc_cs, dims = 2))
-
             # save momentum coefficients
             mom_coeffs[i] = ensemble_kalman_process_acc.accelerator.θ_prev
-            mom_coeffs_cs[i] = (1 - ensemble_kalman_process_acc_cs.accelerator.r / (get_N_iterations(ensemble_kalman_process_acc_cs) + 3))
+            mom_coeffs_cs[i] = (
+                1 -
+                ensemble_kalman_process_acc_cs.accelerator.r / (get_N_iterations(ensemble_kalman_process_acc_cs) + 3)
+            )
         end
-        all_convs[trial, :] = convs
-        all_convs_acc[trial, :] = convs_acc
-        all_convs_acc_cs[trial, :] = convs_acc_cs
+        all_convs[trial, 1:length(get_error(ensemble_kalman_process))] = log.(get_error(ensemble_kalman_process))
+        all_convs_acc[trial, 1:length(get_error(ensemble_kalman_process_acc))] =
+            log.(get_error(ensemble_kalman_process_acc))
+        all_convs_acc_cs[trial, 1:length(get_error(ensemble_kalman_process_acc_cs))] =
+            log.(get_error(ensemble_kalman_process_acc_cs))
     end
 
     gr(size = (600, 500), legend = true)
-    p = plot(1:N_iterations, mean(all_convs, dims = 1)[:], ribbon = std(all_convs, dims = 1)[:] / sqrt(N_trials), color = :black, label = "", titlefont=20, legendfontsize=13,guidefontsize=15,tickfontsize=15, linewidth=2)
-    plot!(1:N_iterations, mean(all_convs_acc, dims = 1)[:], ribbon = std(all_convs_acc, dims = 1)[:] / sqrt(N_trials), color = :blue, label = "")
+    p = plot(
+        1:N_iterations,
+        mean(all_convs, dims = 1)[:],
+        ribbon = std(all_convs, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = "",
+        titlefont = 20,
+        legendfontsize = 13,
+        guidefontsize = 15,
+        tickfontsize = 15,
+        linewidth = 2,
+    )
+    plot!(
+        1:N_iterations,
+        mean(all_convs_acc, dims = 1)[:],
+        ribbon = std(all_convs_acc, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = "",
+    )
 
     xlabel!("Iteration")
     ylabel!("log(Cost)")
     title!("EKI convergence on Exp Sin IP") #\n" * L"N_{ens} = " * "$N_ens; " * L"$\Delta t$ = 0.1")
 
     savefig(p, joinpath(fig_save_directory, case * "_exp_sin.png"))
+    savefig(p, joinpath(fig_save_directory, case * "_exp_sin.pdf"))
+
+
 
 end
 

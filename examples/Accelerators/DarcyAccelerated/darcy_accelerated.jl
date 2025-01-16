@@ -41,12 +41,12 @@ function main()
     rng = Random.MersenneTwister(seed)
 
     cases = ["ens52-step1e-2_check", "ens200-step1e-2", "ens10-step1e-2"]
-    case = cases[3]
+    case = cases[1]
 
     @info "running case $case"
     if case == "ens52-step1e-2_check"
         scheduler = DefaultScheduler(0.01)
-        N_ens = 52 
+        N_ens = 52
         localization_method = EKP.Localizers.NoLocalization()
     elseif case == "ens200-step1e-2"
         scheduler = DefaultScheduler(0.01)  #DataMisfitController(terminate_at = 1e4)
@@ -104,7 +104,6 @@ function main()
     h_2d = solve_Darcy_2D(darcy, κ_true)
     y_noiseless = compute_obs(darcy, h_2d)
     obs_noise_cov = 0.05^2 * I(length(y_noiseless)) * (maximum(y_noiseless) - minimum(y_noiseless))
-    truth_sample = vec(y_noiseless + rand(rng, MvNormal(zeros(length(y_noiseless)), obs_noise_cov)))
 
     # Now we set up the Bayesian inversion algorithm. The prior we have already defined to construct our truth
     prior = pd
@@ -121,23 +120,24 @@ function main()
 
     for (idx, trial) in enumerate(1:N_trials)
 
+        ytrial = vec(y_noiseless + rand(rng, MvNormal(zeros(length(y_noiseless)), obs_noise_cov)))
+        observation = Observation(Dict("samples" => ytrial, "covariances" => obs_noise_cov, "names" => ["y"]))
+
         @info "computing trial $idx"
         # We sample the initial ensemble from the prior, and create three EKP objects to 
         # perform EKI algorithm using three different acceleration methods.
         initial_params = construct_initial_ensemble(rng, prior, N_ens)
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_params,
-            truth_sample,
-            obs_noise_cov,
+            observation,
             Inversion(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
-            accelerator = DefaultAccelerator()
+            accelerator = DefaultAccelerator(),
         )
         ekiobj_acc = EKP.EnsembleKalmanProcess(
             initial_params,
-            truth_sample,
-            obs_noise_cov,
+            observation,
             Inversion(),
             accelerator = NesterovAccelerator(),
             scheduler = deepcopy(scheduler),
@@ -145,8 +145,7 @@ function main()
         )
         ekiobj_acc_cs = EKP.EnsembleKalmanProcess(
             initial_params,
-            truth_sample,
-            obs_noise_cov,
+            observation,
             Inversion(),
             accelerator = FirstOrderNesterovAccelerator(),
             scheduler = deepcopy(scheduler),
@@ -185,13 +184,32 @@ function main()
 
 
     # compare recorded convergences with default, Nesterov, and First-Order Nesterov accelerators
-    gr(size=(600,500), legend = false)
-    conv_plot = plot(1:N_iter, mean(errs, dims = 1)[:], ribbon = std(errs, dims = 1)[:] / sqrt(N_trials), color = :black, label = "No acceleration",titlefont=20, legendfontsize=13,guidefontsize=15,tickfontsize=15, linewidth=2)
-    plot!(1:N_iter, mean(errs_acc, dims = 1)[:], ribbon = std(errs_acc, dims = 1)[:] / sqrt(N_trials), color = :blue, label = "Nesterov", linewidth=2)
+    gr(size = (600, 500), legend = false)
+    conv_plot = plot(
+        1:N_iter,
+        mean(errs, dims = 1)[:],
+        ribbon = std(errs, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = "No acceleration",
+        titlefont = 20,
+        legendfontsize = 13,
+        guidefontsize = 15,
+        tickfontsize = 15,
+        linewidth = 2,
+    )
+    plot!(
+        1:N_iter,
+        mean(errs_acc, dims = 1)[:],
+        ribbon = std(errs_acc, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = "Nesterov",
+        linewidth = 2,
+    )
     title!("EKI convergence on Darcy IP")
     xlabel!("Iteration")
-    ylabel!("log(Error)")
+    ylabel!("log(Cost)")
     savefig(conv_plot, joinpath(fig_save_directory, case * "_darcy_conv_comparison.png"))
+    savefig(conv_plot, joinpath(fig_save_directory, case * "_darcy_conv_comparison.pdf"))
 end
 
 main()
