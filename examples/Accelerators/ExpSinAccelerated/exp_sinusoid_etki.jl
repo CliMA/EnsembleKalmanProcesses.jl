@@ -17,6 +17,7 @@ using Distributions, Plots
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 using LaTeXStrings
+
 const EKP = EnsembleKalmanProcesses
 fig_save_directory = joinpath(@__DIR__, "output")
 if !isdir(fig_save_directory)
@@ -45,19 +46,19 @@ end
 
 function main()
 
-    cases = ["ens25-step1e-1", "ens10-step1e-1", "ens4-step1e-1"]
+    cases = ["etki_ens25-step1e-1-false", "etki_ens10-step1e-1-false", "etki_ens4-step1e-1-false"]
     case = cases[2]
 
     @info "running case $case"
-    if case == "ens25-step1e-1"
+    if case == "etki_ens25-step1e-1-false"
         scheduler = DefaultScheduler(0.1)
         N_ens = 25
         localization_method = EKP.Localizers.NoLocalization()
-    elseif case == "ens10-step1e-1"
+    elseif case == "etki_ens10-step1e-1-false"
         scheduler = DefaultScheduler(0.1) #DataMisfitController(terminate_at = 1e4)
         N_ens = 10
         localization_method = EKP.Localizers.NoLocalization()
-    elseif case == "ens4-step1e-1"
+    elseif case == "etki_ens4-step1e-1-false"
         scheduler = DefaultScheduler(0.1) #DataMisfitController(terminate_at = 1e4)
         N_ens = 4
         localization_method = EKP.Localizers.NoLocalization() #.SEC(1.0, 0.01)
@@ -86,20 +87,18 @@ function main()
     # Preallocate so we can track and compare convergences of the methods
     all_convs = zeros(N_trials, N_iterations)
     all_convs_acc = zeros(N_trials, N_iterations)
-    all_convs_acc_cs = zeros(N_trials, N_iterations)
 
     for trial in 1:N_trials
+        ytrial = vec(G(theta_true) .+ rand(noise_dist))
+        observation = Observation(Dict("samples" => ytrial, "covariances" => Γ, "names" => ["amplitude_vertshift"]))
         # We now generate the initial ensemble and set up two EKI objects, one using an accelerator, 
         # to compare convergence.
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
 
-        ytrial = vec(G(theta_true) .+ rand(noise_dist))
-        observation = Observation(Dict("samples" => ytrial, "covariances" => Γ, "names" => ["amplitude_vertshift"]))
-
         ensemble_kalman_process = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             observation,
-            Inversion();
+            TransformInversion();
             accelerator = DefaultAccelerator(),
             rng = rng,
             scheduler = deepcopy(scheduler),
@@ -108,68 +107,48 @@ function main()
         ensemble_kalman_process_acc = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             observation,
-            Inversion();
+            TransformInversion();
             accelerator = NesterovAccelerator(),
             rng = rng,
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
         )
-        ensemble_kalman_process_acc_cs = EKP.EnsembleKalmanProcess(
-            initial_ensemble,
-            observation,
-            Inversion();
-            accelerator = FirstOrderNesterovAccelerator(),
-            rng = rng,
-            scheduler = deepcopy(scheduler),
-            localization_method = deepcopy(localization_method),
-        )
 
-        global mom_coeffs = zeros(N_iterations)
-        global mom_coeffs_cs = zeros(N_iterations)
-
-        # TODO SPLIT UP THIS LOOP !
         # We are now ready to carry out the inversion. At each iteration, we get the
         # ensemble from the last iteration, apply ``G(\theta)`` to each ensemble member,
         # and apply the Kalman update to the ensemble.
-        # We perform the inversion in parallel to compare the two EKI methods.
-        for i in 1:N_iterations
+
+        for i in 1:N_iterations  # vanilla EKI
             params_i = get_ϕ_final(prior, ensemble_kalman_process)
-            params_i_acc = get_ϕ_final(prior, ensemble_kalman_process_acc)
-            params_i_acc_cs = get_ϕ_final(prior, ensemble_kalman_process_acc_cs)
-
             G_ens = hcat([G(params_i[:, i]) for i in 1:N_ens]...)
+            EKP.update_ensemble!(ensemble_kalman_process, G_ens)
+        end
+
+        for i in 1:N_iterations # NesterovAccelerator
+            params_i_acc = get_ϕ_final(prior, ensemble_kalman_process_acc)
             G_ens_acc = hcat([G(params_i_acc[:, i]) for i in 1:N_ens]...)
-            G_ens_acc_cs = hcat([G(params_i_acc_cs[:, i]) for i in 1:N_ens]...)
-
-            EKP.update_ensemble!(ensemble_kalman_process, G_ens, deterministic_forward_map = false)
-            EKP.update_ensemble!(ensemble_kalman_process_acc, G_ens_acc, deterministic_forward_map = false)
-            EKP.update_ensemble!(ensemble_kalman_process_acc_cs, G_ens_acc_cs, deterministic_forward_map = false)
-
-            # save momentum coefficients
-            mom_coeffs[i] = ensemble_kalman_process_acc.accelerator.θ_prev
-            mom_coeffs_cs[i] = (
-                1 -
-                ensemble_kalman_process_acc_cs.accelerator.r / (get_N_iterations(ensemble_kalman_process_acc_cs) + 3)
-            )
+            EKP.update_ensemble!(ensemble_kalman_process_acc, G_ens_acc)
         end
         all_convs[trial, 1:length(get_error(ensemble_kalman_process))] = log.(get_error(ensemble_kalman_process))
         all_convs_acc[trial, 1:length(get_error(ensemble_kalman_process_acc))] =
             log.(get_error(ensemble_kalman_process_acc))
-        all_convs_acc_cs[trial, 1:length(get_error(ensemble_kalman_process_acc_cs))] =
-            log.(get_error(ensemble_kalman_process_acc_cs))
+
     end
 
-    gr(size = (600, 500), legend = true)
+    gr(size = (800, 600), legend = false)
+    #p = plot(1:N_iterations, mean(all_convs, dims = 1)[:], color = :black, label = "No acceleration", titlefont=20,legendfontsize=13,guidefontsize=15,tickfontsize=15, linewidth=2)
+    #plot!(1:N_iterations, mean(all_convs_acc, dims = 1)[:], color = :blue, label = "Nesterov")
+    # error bars
     p = plot(
         1:N_iterations,
         mean(all_convs, dims = 1)[:],
         ribbon = std(all_convs, dims = 1)[:] / sqrt(N_trials),
         color = :black,
-        label = "",
-        titlefont = 20,
-        legendfontsize = 13,
-        guidefontsize = 15,
-        tickfontsize = 15,
+        label = "No acceleration",
+        titlefont = 23,
+        legendfontsize = 16,
+        guidefontsize = 18,
+        tickfontsize = 18,
         linewidth = 2,
     )
     plot!(
@@ -177,17 +156,15 @@ function main()
         mean(all_convs_acc, dims = 1)[:],
         ribbon = std(all_convs_acc, dims = 1)[:] / sqrt(N_trials),
         color = :blue,
-        label = "",
+        label = "Nesterov",
+        linewidth = 2,
     )
-
     xlabel!("Iteration")
     ylabel!("log(Cost)")
-    title!("EKI convergence on Exp Sin IP") #\n" * L"N_{ens} = " * "$N_ens; " * L"$\Delta t$ = 0.1")
+    title!("ETKI convergence on Exp Sin IP")
 
     savefig(p, joinpath(fig_save_directory, case * "_exp_sin.png"))
     savefig(p, joinpath(fig_save_directory, case * "_exp_sin.pdf"))
-
-
 
 end
 

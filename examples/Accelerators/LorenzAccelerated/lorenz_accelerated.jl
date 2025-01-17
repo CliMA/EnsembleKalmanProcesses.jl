@@ -1,9 +1,8 @@
 using Distributions
 using LinearAlgebra
 using Random
-
 using Plots
-
+using LaTeXStrings
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 using EnsembleKalmanProcesses.Localizers
@@ -57,22 +56,22 @@ end
 function main()
     D = 20
 
-    cases = ["const", "dmc", "dmc-loc-small-ens"]
-    case = cases[1]
+    cases = ["ens50-step5e-2", "ens20-step5e-2", "ens4-step5e-2"]
+    case = cases[2]
 
     @info "running case $case"
-    if case == "const"
-        scheduler = DefaultScheduler()
+    if case == "ens50-step5e-2"
+        scheduler = DefaultScheduler(0.05)
+        N_ens = 50
+        localization_method = EKP.Localizers.NoLocalization()
+    elseif case == "ens20-step5e-2"
+        scheduler = DefaultScheduler(0.05) #DataMisfitController(terminate_at = 1e4)  #DataMisfitController(terminate_at = 1e4)
         N_ens = 20
         localization_method = EKP.Localizers.NoLocalization()
-    elseif case == "dmc"
-        scheduler = DataMisfitController(terminate_at = 1e4)
-        N_ens = 20
-        localization_method = EKP.Localizers.NoLocalization()
-    elseif case == "dmc-loc-small-ens"
-        scheduler = DataMisfitController(terminate_at = 1e4)
-        N_ens = 5
-        localization_method = EKP.Localizers.SEC(1.0, 0.01)
+    elseif case == "ens4-step5e-2"
+        scheduler = DefaultScheduler(0.05) #DataMisfitController(terminate_at = 1e4)
+        N_ens = 4
+        localization_method = EKP.Localizers.NoLocalization()  #.SEC(1.0, 0.01)
     end
 
     lorenz96_sys = (t, u) -> lorenz96(t, u, Dict("N" => D))
@@ -87,7 +86,7 @@ function main()
     G(u) = mapslices((u) -> rk4(lorenz96_sys, u, 0.0, 0.4, dt), u, dims = 1)
     p = D
     # Generate random truth
-    y = y0 + randn(D)
+    #    y = y0 + randn(D)
     Γ = 1.0 * I
 
     #### Define prior information on parameters
@@ -97,7 +96,7 @@ function main()
     prior = combine_distributions(priors)
 
 
-    N_iter = 20
+    N_iter = 100
     N_trials = 50
     @info "obtaining statistics over $N_trials trials"
 
@@ -107,109 +106,92 @@ function main()
 
     for trial in 1:N_trials
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-
+        ytrial = vec(y0 .+ randn(D))
+        observation = Observation(Dict("samples" => ytrial, "covariances" => Γ, "names" => ["u_1,...,u_$(p)"]))
 
         # We create 3 EKP Inversion objects to compare acceleration.
         ekiobj_vanilla = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             rng = rng,
-            accelerator = DefaultAccelerator(),
             scheduler = deepcopy(scheduler),
+            accelerator = DefaultAccelerator(),
             localization_method = deepcopy(localization_method),
+            failure_handler_method = SampleSuccGauss(),
         )
         ekiobj_acc = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             rng = rng,
             accelerator = NesterovAccelerator(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
+            failure_handler_method = SampleSuccGauss(),
         )
         ekiobj_acc_cs = EKP.EnsembleKalmanProcess(
             initial_ensemble,
-            y,
-            Γ,
+            observation,
             Inversion();
             rng = rng,
             accelerator = FirstOrderNesterovAccelerator(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
+            failure_handler_method = SampleSuccGauss(),
         )
 
         err = zeros(N_iter)
         err_acc = zeros(N_iter)
         err_acc_cs = zeros(N_iter)
         for i in 1:N_iter
+            ## TODO split into 3 loops
             g_ens_vanilla = G(get_ϕ_final(prior, ekiobj_vanilla))
-            EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = false)
-            g_ens_acc = G(get_ϕ_final(prior, ekiobj_acc))
-            EKP.update_ensemble!(ekiobj_acc, g_ens_acc)
-            g_ens_acc_cs = G(get_ϕ_final(prior, ekiobj_acc_cs))
-            EKP.update_ensemble!(ekiobj_acc_cs, g_ens_acc_cs)
+            terminate = EKP.update_ensemble!(ekiobj_vanilla, g_ens_vanilla, deterministic_forward_map = false)
+            if !isnothing(terminate)
+                break
+            end
         end
-        errs[trial, :] = get_error(ekiobj_vanilla)
-        errs_acc[trial, :] = get_error(ekiobj_acc)
-        errs_acc_cs[trial, :] = get_error(ekiobj_acc_cs)
+        for i in 1:N_iter
+            g_ens_acc = G(get_ϕ_final(prior, ekiobj_acc))
+            terminate = EKP.update_ensemble!(ekiobj_acc, g_ens_acc, deterministic_forward_map = false)
+            if !isnothing(terminate)
+                break
+            end
+        end
+        errs[trial, 1:length(get_error(ekiobj_vanilla))] = log.(get_error(ekiobj_vanilla))
+        errs_acc[trial, 1:length(get_error(ekiobj_acc))] = log.(get_error(ekiobj_acc))
     end
 
     # COMPARE CONVERGENCES
-
-    convplot = plot(1:(N_iter), mean(errs, dims = 1)[:], color = :black, label = "No acceleration")
-    plot!(1:(N_iter), mean(errs_acc, dims = 1)[:], color = :blue, label = "Nesterov")
-    plot!(1:(N_iter), mean(errs_acc_cs, dims = 1)[:], color = :red, label = "Nesterov, FirstOrder")
-    title!("EKI convergence on Lorenz96 IP, N_trials=" * string(N_trials))
+    gr(size = (600, 500), legend = false)
+    convplot = plot(
+        1:N_iter,
+        mean(errs, dims = 1)[:],
+        ribbon = std(errs, dims = 1)[:] / sqrt(N_trials),
+        color = :black,
+        label = "No acceleration",
+        titlefont = 20,
+        legendfontsize = 13,
+        guidefontsize = 15,
+        tickfontsize = 15,
+        linewidth = 2,
+    )
+    plot!(
+        1:N_iter,
+        mean(errs_acc, dims = 1)[:],
+        ribbon = std(errs_acc, dims = 1)[:] / sqrt(N_trials),
+        color = :blue,
+        label = "Nesterov",
+        linewidth = 2,
+    )
+    title!("EKI convergence on Lorenz96 IP") ## \n" * L"N_{ens} = " * "$N_ens; " * L"$\Delta t$ = 0.05")
     xlabel!("Iteration")
+    ylabel!("log(Cost)")
 
-    # error bars
-    plot!(
-        1:(N_iter),
-        (mean(errs, dims = 1)[:] + std(errs, dims = 1)[:] / sqrt(N_trials)),
-        color = :black,
-        ls = :dash,
-        label = "",
-    )
-    plot!(
-        1:(N_iter),
-        (mean(errs, dims = 1)[:] - std(errs, dims = 1)[:] / sqrt(N_trials)),
-        color = :black,
-        ls = :dash,
-        label = "",
-    )
-    plot!(
-        1:(N_iter),
-        (mean(errs_acc, dims = 1)[:] + std(errs_acc, dims = 1)[:] / sqrt(N_trials)),
-        color = :blue,
-        ls = :dash,
-        label = "",
-    )
-    plot!(
-        1:(N_iter),
-        (mean(errs_acc, dims = 1)[:] - std(errs_acc, dims = 1)[:] / sqrt(N_trials)),
-        color = :blue,
-        ls = :dash,
-        label = "",
-    )
-    plot!(
-        1:(N_iter),
-        (mean(errs_acc_cs, dims = 1)[:] + std(errs_acc_cs, dims = 1)[:] / sqrt(N_trials)),
-        color = :red,
-        ls = :dash,
-        label = "",
-    )
-    plot!(
-        1:(N_iter),
-        (mean(errs_acc_cs, dims = 1)[:] - std(errs_acc_cs, dims = 1)[:] / sqrt(N_trials)),
-        color = :red,
-        ls = :dash,
-        label = "",
-    )
+    savefig(convplot, joinpath(fig_save_directory, case * "_lorenz96_log.png"))
+    savefig(convplot, joinpath(fig_save_directory, case * "_lorenz96_log.pdf"))
 
-    savefig(convplot, joinpath(fig_save_directory, case * "_lorenz96.png"))
 end
 
 main()
