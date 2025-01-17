@@ -495,7 +495,7 @@ end
     #check for small ens
     y_obs_tmp, G_tmp, Γy_tmp, A_tmp = inv_problems[1]
     initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior, 9)
-    @test_logs (:warn,) (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs_tmp, Γy_tmp, Inversion()) # throws two warnings
+    @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs_tmp, Γy_tmp, Inversion())
     prior_60dims = constrained_gaussian("60dims", 0, 1, -Inf, Inf, repeats = 60)
     initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior_60dims, 99)
     @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs_tmp, Γy_tmp, Inversion())
@@ -523,6 +523,16 @@ end
             Γy,
             Inversion();
             rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
+        )
+        ekiobj2 = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            y_obs,
+            Γy,
+            Inversion();
+            rng = copy(rng),
             failure_handler_method = SampleSuccGauss(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
@@ -579,6 +589,11 @@ end
                     g_ens_t = permutedims(g_ens, (2, 1))
                     @test_throws DimensionMismatch EKP.update_ensemble!(ekiobj, g_ens_t)
                 end
+
+                # test for additional warning if two columns are equal in
+                g_ens_nonunique = copy(g_ens)
+                g_ens_nonunique[:, 2] = g_ens_nonunique[:, 3]
+                @test_logs (:warn,) update_ensemble!(ekiobj2, g_ens_nonunique)
 
                 # test the deterministic flag on only one iteration for errors
                 EKP.update_ensemble!(ekiobj_nonoise_update, g_ens, deterministic_forward_map = false)
