@@ -8,6 +8,8 @@ These accelerators have been adapted from gradient-based methods in order to acc
 - Unscented Kalman inversion (UKI), `Unscented()` (experimental, may result in instability)
 - Ensemble Kalman sampler (EKS), `Sampler()` (experimental, may result in instability)
 
+Further theoretical details and experiments of the accelerators, please see [(Vernon, Bach, Dunbar, 2025)](https://doi.org/10.48550/arXiv.2501.08779)
+
 ## Using Accelerators
 
 An EKI struct can be created with acceleration as follows:
@@ -44,11 +46,11 @@ Accelerators have been found to accelerate EKI convergence on a number of exampl
 
 The `NesterovAccelerator()` (shown in blue) has been found to produce the most consistent acceleration on this problem, as seen below. The `FirstOrderNesterovAccelerator()` (shown in red) uses a momentum coefficient very similar to that of the `NesterovAccelerator()`, and enjoys similar performance. The `ConstantNesterovAccelerator(0.9)` (shown in green) is effective in this test case, but can be very unstable. These methods differ only in their momentum coefficient values, which are plotted on the right. Vanilla EKI is shown in black. The experiment is repeated 50 times; ribbons denote one standard error from the mean.
 
-<img src="assets/momentumcoeffs.png" alt="EKI convergence for different momentum coefficients" width="300"/>    <img src="assets/momentumcoeffs_values.png" alt="Coefficient values" width="300"/>
+<img src="../assets/momentumcoeffs.png" alt="EKI convergence for different momentum coefficients" width="300"/>    <img src="../assets/momentumcoeffs_values.png" alt="Coefficient values" width="300"/>
 
 Below is an example of accelerated ETKI convergence on the same problem, using the `NesterovAccelerator()`.
 
-<img src="assets/etki_momentum.png" alt="ETKI convergence with momentum" width="350"/>
+<img src="../assets/etki_momentum.png" alt="ETKI convergence with momentum" width="350"/>
 
 ## Background & Implementation
 
@@ -71,7 +73,9 @@ where $\beta$ is a momentum coefficient. Intuitively, the method mimics a ball g
 
 ### Implementation in EKI Algorithm
 
-Nesterov acceleration can be used to accelerate gradient flows, as shown by [Su et al](https://arxiv.org/abs/1503.01243). EKI, a gradient-free method, can be understood as approximating a form of gradient flow ([Calvello et al](https://arxiv.org/abs/2209.11371)). Additionally, work by [Kovachki and Stuart](https://iopscience.iop.org/article/10.1088/1361-6420/ab1c3a) demonstrated success when using a modified particle-based Nesterov acceleration method. This work inspired the following implementation of accelerators for a variety of EKP processes.
+The exact implementation, theory, and experiments for this work are available at [(Vernon, Bach, Dunbar, 2025)](https://doi.org/10.48550/arXiv.2501.08779).
+
+Nesterov acceleration can be used to accelerate gradient flows, as shown by [(Su et al 2016)](https://arxiv.org/abs/1503.01243). EKI, a gradient-free method, can be understood as approximating a form of gradient flow [(Calvello et al 2023)](https://arxiv.org/abs/2209.11371)). Additionally, work by [(Kovachki and Stuart 2021)](https://iopscience.iop.org/article/10.1088/1361-6420/ab1c3a) demonstrated success when using a modified particle-based Nesterov acceleration method. This work inspired the following implementation of accelerators for a variety of EKP processes.
 
 The traditional update step for EKI is as follows, with $j = 1, ..., J$ denoting the ensemble member and $k$ denoting iteration number.
 ```math
