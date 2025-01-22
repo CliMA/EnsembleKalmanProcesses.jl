@@ -46,11 +46,12 @@ Accelerators have been found to accelerate EKI convergence on a number of exampl
 
 The `NesterovAccelerator()` (shown in blue) has been found to produce the most consistent acceleration on this problem, as seen below. The `FirstOrderNesterovAccelerator()` (shown in red) uses a momentum coefficient very similar to that of the `NesterovAccelerator()`, and enjoys similar performance. The `ConstantNesterovAccelerator(0.9)` (shown in green) is effective in this test case, but can be very unstable. These methods differ only in their momentum coefficient values, which are plotted on the right. Vanilla EKI is shown in black. The experiment is repeated 50 times; ribbons denote one standard error from the mean.
 
-<img src="../assets/momentumcoeffs.png" alt="EKI convergence for different momentum coefficients" width="300"/>    <img src="../assets/momentumcoeffs_values.png" alt="Coefficient values" width="300"/>
+![Momentum coefficients](assets/momentumcoeffs.png)
+![Momentum coefficient values](assets/momentumcoeffs_values.png)
 
 Below is an example of accelerated ETKI convergence on the same problem, using the `NesterovAccelerator()`.
 
-<img src="../assets/etki_momentum.png" alt="ETKI convergence with momentum" width="350"/>
+![etki momentum](assets/etki_momentum.png) ![uki momentum](assets/uki_momentum.png)
 
 ## Background & Implementation
 
