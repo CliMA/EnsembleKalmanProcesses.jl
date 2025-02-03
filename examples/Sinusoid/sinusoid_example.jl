@@ -25,13 +25,7 @@ make_gif = true
 
 # Choose a case
 cases = ["inversion", "sampler", "nonrev_sampler"]
-case = cases[2]
-
-# some methods have better than fixed timesteppers
-fixed_step = 5e-5
-scheduler = DefaultScheduler(fixed_step)
-#scheduler = EKSStableScheduler()
-# scheduler = DataMisfitController()
+case = cases[3]
 
 ## Setting up the model and data for our inverse problem
 
@@ -90,16 +84,30 @@ nothing # hide
 
 if case == "inversion"
     process = Inversion()
+    max_fixed_step = 1.0 # can use DMC for better approximation below
+    scheduler = DefaultScheduler(fixed_step) 
+    #scheduler = DataMisfitController()# terminate in ~6 iterations
+    N_iterations = Int(ceil(1.0/fixed_step))
+
 elseif case == "sampler"
     process = Sampler(prior)
-elseif case == "nonrev_sampler"
+    fixed_step = 5e-3 # 1e-2 unstable
+    scheduler = DefaultScheduler(fixed_step)
+    #scheduler = EKSStableScheduler()
+    N_iterations = 100
+
+
+elseif case == "nonrev_sampler" # max dt = 5e-5
     process = NonreversibleSampler(prior, prefactor = 1.3) # prefactor (1.1 - 1.5) vs stepsize
+    fixed_step = 5e-5 # 1e-4 unstable
+    scheduler = DefaultScheduler(fixed_step)
+    N_iterations = 2000
+
 end
 
 
 # We now generate the initial ensemble and set up the ensemble Kalman inversion.
 N_ensemble = 20
-N_iterations = 2000
 
 initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
 
