@@ -76,7 +76,7 @@ function eks_update(
     D = (1 / get_N_ens(ekp)) * (E' * (get_obs_noise_cov(ekp) \ R))
 
     # Default: Δt = 1 / (norm(D) + eps(FT))
-    Δt = ekp_Δt(ekp)[end]
+    Δt = get_Δt(ekp)[end]
 
     noise = MvNormal(zeros(size(u, 2)), I(size(u, 2)))
 

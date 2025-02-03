@@ -21,23 +21,16 @@ const EKP = EnsembleKalmanProcesses
 nothing # hide
 
 # Make gif (slow)
-make_gif = false
+make_gif = true
 
 # Choose a case
 cases = ["inversion", "sampler", "nonrev_sampler"]
 case = cases[2]
 
-if case == "inversion"
-    process = Inversion()
-elseif case == "sampler"
-    process = Sampler(prior)
-elseif case == "nonrev_sampler"
-    process = NonreversibleSampler(prior, prefactor = 1.5) # prefactor (1.1 - 1.5) vs stepsize
-end
 # some methods have better than fixed timesteppers
-fixed_step = 5e-3
-#scheduler = DefaultScheduler(fixed_step)
-scheduler = EKSStableScheduler()
+fixed_step = 5e-5
+scheduler = DefaultScheduler(fixed_step)
+#scheduler = EKSStableScheduler()
 # scheduler = DataMisfitController()
 
 ## Setting up the model and data for our inverse problem
@@ -95,6 +88,15 @@ prior = combine_distributions([prior_u1, prior_u2])
 
 nothing # hide
 
+if case == "inversion"
+    process = Inversion()
+elseif case == "sampler"
+    process = Sampler(prior)
+elseif case == "nonrev_sampler"
+    process = NonreversibleSampler(prior, prefactor = 1.3) # prefactor (1.1 - 1.5) vs stepsize
+end
+
+
 # We now generate the initial ensemble and set up the ensemble Kalman inversion.
 N_ensemble = 20
 N_iterations = 2000
@@ -127,14 +129,14 @@ println(final_ensemble)
 
 ppp = plot(trange, model(theta_true...), c = :black, label = "Truth", legend = :bottomright, linewidth = 2)
 plot!(
-    p,
+    ppp,
     trange,
     [model(get_ϕ(prior, ensemble_kalman_process, 1)[:, i]...) for i in 1:N_ensemble],
     c = :red,
     label = ["Initial ensemble" "" "" "" ""],
 )
 plot!(
-    p,
+    ppp,
     trange,
     [model(final_ensemble[:, i]...) for i in 1:N_ensemble],
     c = :blue,

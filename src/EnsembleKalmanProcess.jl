@@ -36,7 +36,6 @@ abstract type FailureHandlingMethod end
 abstract type Accelerator end
 
 
-
 "Failure handling method that ignores forward model failures"
 struct IgnoreFailures <: FailureHandlingMethod end
 
@@ -85,6 +84,13 @@ function default_options_dict(process::P) where {P <: Process}
     elseif isa(process, Sampler)
         return Dict(
             "scheduler" => EKSStableScheduler(1.0, eps()),
+            "localization_method" => NoLocalization(),
+            "failure_handler_method" => IgnoreFailures(),
+            "accelerator" => DefaultAccelerator(),
+        )
+    elseif isa(process, NonreversibleSampler)
+        return Dict(
+            "scheduler" => EKSStableScheduler(),
             "localization_method" => NoLocalization(),
             "failure_handler_method" => IgnoreFailures(),
             "accelerator" => DefaultAccelerator(),

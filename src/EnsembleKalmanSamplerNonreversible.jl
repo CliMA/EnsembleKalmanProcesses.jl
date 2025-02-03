@@ -143,7 +143,8 @@ function eksnr_update(
     #@assert all(abs.([norm(Ψ[k,:]) for k=1:dimen] .- ones(dimen)) .< tol) #true if normal
 
     # now calculate J
-    prefactor = get_prefactor(ekp.process)
+    process = get_process(ekp)
+    prefactor = get_prefactor(process)
     if prefactor <= 1
         throw(ArgumentError("Nonreversible prefactor must be > 1, continuing with value 1.1"))
     end
@@ -164,9 +165,9 @@ function eksnr_update(
     J_opt = sqC * Ψ * Ĵ_opt * Ψ' * sqC
 
     # Default: Δt = 1 / (norm(D) + eps(FT))
-    Δt = ekp.Δt[end]
+    Δt = get_Δt(ekp)[end]
     noise_cov = MvNormal(zeros(dimen), I(dimen)) # only D in here
-
+    obs_noise_cov = get_obs_noise_cov(ekp)
 
     # From Alg 3: Explicit scheme!
     # u_n+1 = u_n - Δt(D+J)[(C^uu)^-1 C^ug Γ⁻¹(y - g') + C_0⁻¹ (m_0 - u')] + sqrt(2Δt)*χ,  χ∼N(0,D)    
@@ -177,38 +178,38 @@ function eksnr_update(
             (D_opt + J_opt) *
             (
                 cov_uu \ (cov_ug * (ekp.obs_noise_cov \ (ekp.obs_mean .- g'))) +
-                ekp.process.prior_cov \ (ekp.process.prior_mean .- u')
+                process.prior_cov \ (process.prior_mean .- u')
             )
 
-        u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(ekp.rng, noise_cov, ekp.N_ens))'
+        u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(get_rng(ekp), noise_cov, get_N_ens(ekp)))'
     =#
 
     # Alg 3: Split-implicit update
     implicit =
-        (I(size(u, 2)) + Δt * (ekp.process.prior_cov' \ (D_opt + J_opt)')') \ (
+        (I(size(u, 2)) + Δt * (process.prior_cov' \ (D_opt + J_opt)')') \ (
             u' .-
             Δt *
             (D_opt + J_opt) *
             (
-                (cov_uu \ (cov_ug * (ekp.obs_noise_cov \ (g' .- ekp.obs_mean)))) .+
-                (ekp.process.prior_cov \ ekp.process.prior_mean)
+                (cov_uu \ (cov_ug * (obs_noise_cov \ (g' .- get_obs(ekp))))) .+
+                (process.prior_cov \ process.prior_mean)
             )
         )
 
-    u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(ekp.rng, noise_cov, ekp.N_ens))'
+    u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(get_rng(ekp), noise_cov, get_N_ens(ekp)))'
 
     # (rewritten update in style of EKS: same as split-implicit)
     #=    
         E = g' .- g_mean
-        R = g' .- ekp.obs_mean
+        R d= g'.- ekp.obs_mean
         # D: N_ens × N_ens
-        F = (1 / ekp.N_ens) * (E' * (ekp.obs_noise_cov \ R))
+        F = (1 / get_N_ens(ekp)) * (E' * (get_obs_noise_cov(ekp) \ R))
 
         implicit =
-            (I(size(u,2)) + Δt * (ekp.process.prior_cov' \ (D_opt + J_opt)')') \
-            (u' .- Δt * (D_opt + J_opt) * ((cov_uu \ (u' .- u_mean) * F) .+ (ekp.process.prior_cov \ ekp.process.prior_mean)))       
+            (I(size(u,2)) + Δt * (process.prior_cov' \ (D_opt + J_opt)')') \
+            (u' .- Δt * (D_opt + J_opt) * ((cov_uu \ (u' .- u_mean) * F) .+ (process.prior_cov \ process.prior_mean)))       
 
-        u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(ekp.rng, noise_cov, ekp.N_ens))'
+        u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(get_rng(ekp), noise_cov, get_N_ens(ekp)))'
       =#
 
     return u
@@ -234,7 +235,9 @@ Inputs:
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, NonreversibleSampler{FT}},
     g::AbstractMatrix{FT},
-    process::NonreversibleSampler{FT};
+    process::NonreversibleSampler{FT},
+    u_idx::Vector{Int},
+    g_idx::Vector{Int};
     failed_ens = nothing,
 ) where {FT, IT}
 
@@ -245,15 +248,6 @@ function update_ensemble!(
 
     fh = ekp.failure_handler
 
-    if ekp.verbose
-        if get_N_iterations(ekp) == 0
-            @info "Iteration 0 (prior)"
-            @info "Covariance trace: $(tr(cov_init))"
-        end
-
-        @info "Iteration $(get_N_iterations(ekp)+1) (T=$(sum(ekp.Δt)))"
-    end
-
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
     end
@@ -262,20 +256,6 @@ function update_ensemble!(
     end
 
     u = fh.failsafe_update(ekp, u_old, g, failed_ens)
-
-    # store new parameters (and model outputs)
-    push!(ekp.g, DataContainer(g, data_are_columns = true))
-    # u_old is N_ens × N_par, g is N_ens × N_obs,
-    # but stored in data container with N_ens as the 2nd dim
-
-    compute_error!(ekp)
-
-    # Diagnostics
-    cov_new = cov(u, dims = 2)
-
-    if ekp.verbose
-        @info "Covariance-weighted error: $(get_error(ekp)[end])\nCovariance trace: $(tr(cov_new))\nCovariance trace ratio (current/previous): $(tr(cov_new)/tr(cov_init))"
-    end
 
     return u
 end
