@@ -138,8 +138,7 @@ function eksnr_update(
             end
         end
     end
-
-
+  
     #@assert all(abs.([norm(Ψ[k,:]) for k=1:dimen] .- ones(dimen)) .< tol) #true if normal
 
     # now calculate J
@@ -150,7 +149,7 @@ function eksnr_update(
     end
 
     λ = [(dimen - 1) / (prefactor^2 - 1) + k - 1 for k in 1:dimen]
-    Ĵ_opt = zeros(dimen, dimen)
+   Ĵ_opt = zeros(dimen, dimen)
     for k in 1:(dimen - 1)
         for j in (k + 1):dimen
 
@@ -170,28 +169,29 @@ function eksnr_update(
     obs_noise_cov = get_obs_noise_cov(ekp)
 
     # From Alg 3: Explicit scheme!
-    # u_n+1 = u_n - Δt(D+J)[(C^uu)^-1 C^ug Γ⁻¹(y - g') + C_0⁻¹ (m_0 - u')] + sqrt(2Δt)*χ,  χ∼N(0,D)    
+    # u_n+1 = u_n - Δt(D+J)[(C^uu)^-1 C^ug Γ⁻¹(y - g') + C_0⁻¹ (u' - m_0)] + sqrt(2Δt)*χ,  χ∼N(0,D)    
     #=
-        implicit =
+        lhs =
             u' -
             Δt *
             (D_opt + J_opt) *
             (
-                cov_uu \ (cov_ug * (ekp.obs_noise_cov \ (ekp.obs_mean .- g'))) +
-                process.prior_cov \ (process.prior_mean .- u')
+                cov_uu \ (cov_ug * (ekp.obs_noise_cov \ (ekp.obs_mean .- g'))) -
+                process.prior_cov \ (process.prior_mean .- u' )
             )
 
-        u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(get_rng(ekp), noise_cov, get_N_ens(ekp)))'
+        u = lhs' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(get_rng(ekp), noise_cov, get_N_ens(ekp)))'
     =#
 
     # Alg 3: Split-implicit update
+    # u^*_n+1 = u_n - Δt(D+J)( (C^uu)^-1 C^ug Γ⁻¹(y - g') + C_0⁻¹ (u' - m_0)]
     implicit =
         (I(size(u, 2)) + Δt * (process.prior_cov' \ (D_opt + J_opt)')') \ (
             u' .-
             Δt *
             (D_opt + J_opt) *
             (
-                (cov_uu \ (cov_ug * (obs_noise_cov \ (g' .- get_obs(ekp))))) .+
+                (cov_uu \ (cov_ug * (obs_noise_cov \ (g' .- get_obs(ekp))))) .-
                 (process.prior_cov \ process.prior_mean)
             )
         )
@@ -199,15 +199,15 @@ function eksnr_update(
     u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(get_rng(ekp), noise_cov, get_N_ens(ekp)))'
 
     # (rewritten update in style of EKS: same as split-implicit)
-    #=    
+     #=   
         E = g' .- g_mean
-        R d= g'.- ekp.obs_mean
+        R = g'.- get_obs(ekp)
         # D: N_ens × N_ens
         F = (1 / get_N_ens(ekp)) * (E' * (get_obs_noise_cov(ekp) \ R))
 
         implicit =
             (I(size(u,2)) + Δt * (process.prior_cov' \ (D_opt + J_opt)')') \
-            (u' .- Δt * (D_opt + J_opt) * ((cov_uu \ (u' .- u_mean) * F) .+ (process.prior_cov \ process.prior_mean)))       
+            (u' .- Δt * (D_opt + J_opt) * ((cov_uu \ (u' .- u_mean) * F) .- (process.prior_cov \ process.prior_mean)))       
 
         u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(get_rng(ekp), noise_cov, get_N_ens(ekp)))'
       =#
