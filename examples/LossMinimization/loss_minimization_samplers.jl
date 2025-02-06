@@ -13,12 +13,12 @@ using EnsembleKalmanProcesses.ParameterDistributions
 const EKP = EnsembleKalmanProcesses
 
 cases = ["inversion", "sampler", "nonrev_sampler"]
-case = cases[3]
+case = cases[2]
 antisymmetric_multipliers = [1]#[collect(0.1:0.1:1.0)...]
 
 # user configurables:
 N_ensemble = 20
-anim_skip = 10
+anim_skip = 50
 
 
 # ## Loss function with single minimum
@@ -35,18 +35,20 @@ nothing # hide
 
 # We set a stabilization level, which can aid the algorithm convergence
 dim_output = 1
-stabilization_level = 1.0
+stabilization_level = 10.0
 Γ_stabilization = stabilization_level * Matrix(I, dim_output, dim_output)
-
+inv_Γ_stabilization = inv(Γ_stabilization)
 
 # ### Prior distributions
 #
 # As we work with a Bayesian method, we define a prior. This will behave like an "initial guess"
 # for the likely region of parameter space we expect the solution to live in. Here we define
 # ``Normal(0,1)`` distributions with no constraints 
-prior_u1 = constrained_gaussian("u1", -4, 1, -Inf, Inf)
-prior_u2 = constrained_gaussian("u2", 4, 1, -Inf, Inf)
+prior_u1 = constrained_gaussian("u1", 0, 3, -Inf, Inf)
+prior_u2 = constrained_gaussian("u2", 0, 3, -Inf, Inf)
 prior = combine_distributions([prior_u1, prior_u2])
+inv_prior_cov = inv(cov(prior))
+prior_mean = mean(prior)
 nothing # hide
 # !!! note
 #     In this example there are no constraints, therefore no parameter transformations.
@@ -62,17 +64,17 @@ for am in antisymmetric_multipliers
 
     elseif case == "sampler"
         process = Sampler(prior)
-        fixed_step = 1e-4 # 2e-6 unstable
+        fixed_step = 1e-3 # 2e-6 unstable
         scheduler = DefaultScheduler(fixed_step)
-#        scheduler = EKSStableScheduler()
-        N_iterations = 1000
+#       scheduler = EKSStableScheduler()
+        N_iterations = 5000
         
     elseif case == "nonrev_sampler" # max dt = 5e-5
-        process = NonreversibleSampler(prior, prefactor = 10, antisymmetric_multiplier = am) # prefactor (1.1 - 1.5) vs stepsize
-    fixed_step = 1e-4 # 2e-6 unstable
-    scheduler = DefaultScheduler(fixed_step)
-#    scheduler = EKSStableScheduler(0.3,1e-6)
-    N_iterations = 1000
+        process = NonreversibleSampler(prior, prefactor = 2, antisymmetric_multiplier = am) # prefactor (1.1 - 1.5) vs stepsize
+        fixed_step = 1e-3 # 2e-6 unstable
+        scheduler = DefaultScheduler(fixed_step)
+        #    scheduler = EKSStableScheduler(0.3,1e-6)
+    N_iterations = 5000
         
     end
     
@@ -111,9 +113,6 @@ for am in antisymmetric_multipliers
     G_target = [0]
     
     # We choose the stabilization as in the single-minimum example
-
-    # plot posterior
-    
     
     
     # ### Calibration
@@ -143,6 +142,36 @@ for am in antisymmetric_multipliers
     end
     
     # and visualize the results:
+
+    # plot posterior exact (2D)
+    plotrange = collect(-8:0.05:8)
+#    plot_square = [[x,y] for x in plotrange, y in plotrange]
+
+    function post_potential(uu, ff, yy, inv_Γ, mm, inv_C)        
+        return exp(- 0.5 * (yy - ff)' * inv_Γ * (yy - ff) - 0.5 * (uu - mm)' * inv_C * (uu - mm))
+        
+    end
+    function prior_potential(uu, mm, inv_C)        
+        return exp(- 0.5 * (uu - mm)' * inv_C * (uu - mm))
+    end
+    PP_unnorm = zeros(length(plotrange),length(plotrange))
+    VV_unnorm = zeros(length(plotrange),length(plotrange))
+    for (i,pr1) in enumerate(plotrange)
+        for (j,pr2) in enumerate(plotrange)            
+            VV_unnorm[i,j]= post_potential([pr1,pr2], [G₂([pr1,pr2])], G_target, inv_Γ_stabilization, prior_mean, inv_prior_cov)
+            PP_unnorm[i,j]= prior_potential([pr1,pr2], prior_mean, inv_prior_cov)            
+        end
+    end
+    
+    # normalization
+    using Trapz
+    ZZ = trapz((plotrange,plotrange),VV_unnorm)
+    VV = VV_unnorm/ZZ 
+    pZZ = trapz((plotrange,plotrange),PP_unnorm)
+    PP = PP_unnorm/pZZ
+    
+    
+
     u_init = get_u_prior(ensemble_kalman_process)
     
     anim_two_minima = @animate for i in 1:anim_skip:N_iterations
@@ -172,8 +201,8 @@ for am in antisymmetric_multipliers
             u_i[1, :],
             u_i[2, :],
             seriestype = :scatter,
-#            xlims = [min(v★[1],w★[1])-5, max(v★[1],w★[1])+5],
-#            ylims = [min(v★[2],w★[2])-5, max(v★[2],w★[2])+5],
+            xlims = [minimum(plotrange),maximum(plotrange)],
+            ylims = [minimum(plotrange),maximum(plotrange)],
             xlabel = "u₁",
             ylabel = "u₂",
             markersize = 5,
@@ -181,6 +210,22 @@ for am in antisymmetric_multipliers
             markercolor = :blue,
             label = "particles",
             title = "EKI iteration = " * string(i),
+        )
+
+        contour!(
+            plotrange,
+            plotrange,
+            VV,
+            levels=exp.(collect(-5:1:5)),
+            cbar=false,
+        )
+        contour!(
+            plotrange,
+            plotrange,
+            PP,
+            levels=exp.(collect(-5:1:5)),
+            color = :red,
+            cbar = false,
         )
     end
     nothing # hide
