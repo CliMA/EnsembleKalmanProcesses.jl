@@ -153,7 +153,7 @@ function update_ensemble!(
     if impose_prior
         prior_mean = get_prior_mean(get_process(ekp))[u_idx]
         scaled_prior_cov = get_prior_cov(get_process(ekp))[u_idx,u_idx] / get_Δt(ekp)[end]
-        prior_contribution = scaled_prior_cov \ (u .- reshape(prior_mean, :, 1))
+        prior_contribution = scaled_prior_cov \ (u .- reshape(prior_mean, :, 1)) # UNCHECKED SIGN etc.
     else
         prior_contribution = zeros(size(u))
     end
