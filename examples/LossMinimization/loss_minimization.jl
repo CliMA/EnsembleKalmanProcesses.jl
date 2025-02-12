@@ -20,7 +20,7 @@ const EKP = EnsembleKalmanProcesses
 # ```
 # where ``u`` is a 2-vector of parameters and ``u_*`` is given; here ``u_* = (-1, 1)``. 
 ustar = [1, -1]
-G₁(u) = [norm(u-ustar)]
+G₁(u) = [norm(u - ustar)]
 nothing # hide
 
 # We set the seed for pseudo-random number generator for reproducibility.
@@ -131,7 +131,7 @@ gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 
 vstar = [1, -1]
 wstar = [-1, -1]
-G₂(u) = [norm(u-vstar) * norm(u-wstar)]
+G₂(u) = [norm(u - vstar) * norm(u - wstar)]
 nothing # hide
 #
 # The procedure is same as the single-minimum example above.

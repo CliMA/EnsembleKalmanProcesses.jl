@@ -5,7 +5,8 @@
 
 An ensemble Kalman Inversion process
 """
-struct Inversion{NorV <: Union{Nothing, AbstractVector}, NorAMorUS <: Union{Nothing, AbstractMatrix, UniformScaling}} <: Process
+struct Inversion{NorV <: Union{Nothing, AbstractVector}, NorAMorUS <: Union{Nothing, AbstractMatrix, UniformScaling}} <:
+       Process
     "Mean of Gaussian parameter prior in unconstrained space"
     prior_mean::NorV
     "Covariance of Gaussian parameter prior in unconstrained space"
@@ -19,7 +20,7 @@ get_prior_cov(process::Inversion) = process.prior_cov
 get_impose_prior(process::Inversion) = process.impose_prior
 
 
-function Inversion(mean_prior, cov_prior; impose_prior=true)
+function Inversion(mean_prior, cov_prior; impose_prior = true)
     return Inversion(mean_prior, cov_prior, impose_prior)
 end
 
@@ -28,7 +29,7 @@ $(TYPEDSIGNATURES)
 
 Constructor for prior enforcing process, (unless keyword is set false) 
 """
-function Inversion(prior::ParameterDistribution; impose_prior=true)
+function Inversion(prior::ParameterDistribution; impose_prior = true)
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     return Inversion(mean_prior, cov_prior, impose_prior = impose_prior)
@@ -40,9 +41,10 @@ $(TYPEDSIGNATURES)
 Constructor for standard non-prior enforcing inversion process
 """
 Inversion() = Inversion(nothing, nothing, false)
-                 
+
 function FailureHandler(process::Inversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov) = eki_update(ekp, u, g, y, obs_noise_cov, prior_mean, scaled_prior_cov)
+    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov) =
+        eki_update(ekp, u, g, y, obs_noise_cov, prior_mean, scaled_prior_cov)
     return FailureHandler{Inversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -57,8 +59,15 @@ function FailureHandler(process::Inversion, method::SampleSuccGauss)
     function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
-        u[:, successful_ens] =
-            eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov, prior_mean, scaled_prior_cov)
+        u[:, successful_ens] = eki_update(
+            ekp,
+            u[:, successful_ens],
+            g[:, successful_ens],
+            y[:, successful_ens],
+            obs_noise_cov,
+            prior_mean,
+            scaled_prior_cov,
+        )
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
@@ -90,13 +99,20 @@ function eki_update(
     obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
     prior_mean::NorAV,
     prior_cov::NorAM,
-) where {FT <: Real, IT, CT <: Real, II <: Inversion, NorAV <: Union{Nothing, AbstractVector}, NorAM <: Union{Nothing,AbstractMatrix}}
+) where {
+    FT <: Real,
+    IT,
+    CT <: Real,
+    II <: Inversion,
+    NorAV <: Union{Nothing, AbstractVector},
+    NorAM <: Union{Nothing, AbstractMatrix},
+}
 
     impose_prior = get_impose_prior(get_process(ekp))
-    if impose_prior     
+    if impose_prior
         g_ext = [g; u]
         y_ext = [y; repeat(prior_mean, 1, get_N_ens(ekp))]
-      
+
         cov_est = cov([u; g_ext], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
         # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
@@ -105,9 +121,9 @@ function eki_update(
 
         dim1 = size(obs_noise_cov, 1)
         dim2 = size(prior_cov, 1)
-        obs_noise_cov_ext = zeros(dim1+dim2, dim1+dim2)
-        obs_noise_cov_ext[1:dim1,1:dim1] += obs_noise_cov
-        obs_noise_cov_ext[dim1+1:dim1+dim2, dim1+1:dim1+dim2] += prior_cov
+        obs_noise_cov_ext = zeros(dim1 + dim2, dim1 + dim2)
+        obs_noise_cov_ext[1:dim1, 1:dim1] += obs_noise_cov
+        obs_noise_cov_ext[(dim1 + 1):(dim1 + dim2), (dim1 + 1):(dim1 + dim2)] += prior_cov
 
     else # no extension
         g_ext = g
@@ -122,7 +138,7 @@ function eki_update(
     end
 
 
-    
+
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
     tmp = try
@@ -178,7 +194,7 @@ function update_ensemble!(
     impose_prior = get_impose_prior(get_process(ekp))
     if impose_prior
         prior_mean = get_prior_mean(get_process(ekp))[u_idx]
-        scaled_prior_cov = get_prior_cov(get_process(ekp))[u_idx,u_idx] / get_Δt(ekp)[end]
+        scaled_prior_cov = get_prior_cov(get_process(ekp))[u_idx, u_idx] / get_Δt(ekp)[end]
     else
         prior_mean = nothing
         scaled_prior_cov = nothing
@@ -193,7 +209,7 @@ function update_ensemble!(
     # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic, else just repeat the observation
     y = add_stochastic_perturbation ? (obs_mean .+ noise) : repeat(obs_mean, 1, get_N_ens(ekp))
-    
+
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
     end
@@ -205,6 +221,3 @@ function update_ensemble!(
 
     return u
 end
-
-
-
