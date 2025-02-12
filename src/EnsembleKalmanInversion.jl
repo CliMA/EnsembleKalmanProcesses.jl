@@ -38,7 +38,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Constructor for standard non-prior enforcing inversion process
+Constructor for standard non-prior enforcing `Inversion` process
 """
 Inversion() = Inversion(nothing, nothing, false)
 

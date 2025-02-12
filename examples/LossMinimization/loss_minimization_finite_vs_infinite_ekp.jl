@@ -47,12 +47,12 @@ G_target = [0]
 nothing # hide
 
 cases = ["inversion-finite", "inversion-infinite", "transform-finite", "transform-infinite", "sampler"]
-case_list = cases[[1, 2, 5]]
+case_list = cases[1:5]
 
 # add noise to every "G" call?
-stoch_G_flag = true
+stoch_G_flag = false
 
-anim_flag = false
+anim_flag = true
 
 @info "add stochastic noise to G evaluations?: $(stoch_G_flag)"
 # ### Prior distributions
@@ -72,17 +72,18 @@ anim_skip = 1
 N_ensemble = 20
 
 # The initial ensemble is constructed by sampling the prior
-if case ∈ ["inversion-finite", "transform-finite"]
-    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
-else # doesn't need to sample the prior
-    initial_u1 = constrained_gaussian("u", 5, 1, -Inf, Inf)
-    initial_u2 = constrained_gaussian("u2", 7, sqrt(2.0), -Inf, Inf)
-    initial_dist = combine_distributions([initial_u1, initial_u2])
-    initial_ensemble = EKP.construct_initial_ensemble(rng, initial_dist, N_ensemble)
-end
 
 u_trajs = []
 for case in case_list
+    @info "Running case $case"
+    if case ∈ ["inversion-finite", "transform-finite"]
+        initial_ensemble = EKP.construct_initial_ensemble(copy(rng), prior, N_ensemble)
+    else # doesn't need to sample the prior
+        initial_u1 = constrained_gaussian("u", 5, 1, -Inf, Inf)
+        initial_u2 = constrained_gaussian("u2", 7, sqrt(2.0), -Inf, Inf)
+        initial_dist = combine_distributions([initial_u1, initial_u2])
+        initial_ensemble = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ensemble)
+    end
 
     if case == "inversion-finite"
         process = Inversion()
@@ -94,6 +95,16 @@ for case in case_list
         scheduler = DataMisfitController(terminate_at = 100)# >>1
         N_iterations = 200
         inflate_flag = true# true #inflate 
+    elseif case == "transform-finite"
+        process = TransformInversion()
+        scheduler = DataMisfitController(terminate_at = 1) # =1
+        N_iterations = 200
+        inflate_flag = false
+    elseif case == "transform-infinite"
+        process = TransformInversion(prior)
+        scheduler = DataMisfitController(terminate_at = 100) # =1
+        N_iterations = 200
+        inflate_flag = true
     elseif case == "sampler"
         process = Sampler(prior)
         #fixed_step = 1e-3 # 2e-6 unstable
@@ -279,10 +290,9 @@ for u_traj in u_trajs
     push!(u_means, [mean(uu, dims = 2) for uu in u_traj])
     push!(u_stds, [std(uu, dims = 2) for uu in u_traj])
 end
-
 pp = plot(legend = true)
 for (i, case) in enumerate(case_list)
-    colors = [:red, :blue, :black]
+    colors = [:red, :blue, :black, :orange, :green]
     u_mean_diff = [norm(u_means[i][idx] - ustar) for idx in 1:length(u_means[i])]
     u_stds_size = [norm(u_stds[i][idx]) for idx in 1:length(u_stds[i])]
     plot!(pp, 1:length(u_means[i]), u_mean_diff, label = case, color = colors[i], lw = 3)
