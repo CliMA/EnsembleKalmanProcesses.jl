@@ -9,7 +9,7 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 | **Unit tests**                    | [![unit tests][unit-tests-img]][unit-tests-url]  |
 | **Code Coverage**                 | [![codecov][codecov-img]][codecov-url]           |
 | **JOSS**                          | [![status][joss-img]][joss-url]                  |
-| [![Downloads][dlt-img]][dlt-url]  | [![Downloads][dlm-img]][dlm-url]                 |
+| **Downloads**                     | [![Downloads][dlt-img]][dlt-url]                 |
 
 [zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6382967.svg
 [zenodo-latest-url]: https://doi.org/10.5281/zenodo.6382967
