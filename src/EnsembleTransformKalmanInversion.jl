@@ -9,18 +9,51 @@ An ensemble transform Kalman inversion process.
 
 $(TYPEDFIELDS)
 """
-struct TransformInversion <: Process
+struct TransformInversion{
+    NorV <: Union{Nothing, AbstractVector},
+    NorAMorUS <: Union{Nothing, AbstractMatrix, UniformScaling},
+} <: Process
+    "Mean of Gaussian parameter prior in unconstrained space"
+    prior_mean::NorV
+    "Covariance of Gaussian parameter prior in unconstrained space"
+    prior_cov::NorAMorUS
+    "flag to explicitly impose the prior mean and covariance during updates"
+    impose_prior::Bool
     "used to store matrices: buffer[1] = Y' *Γ_inv, buffer[2] = Y' * Γ_inv * Y"
     buffer::AbstractVector
 end
 
-TransformInversion() = TransformInversion([])
-
+get_prior_mean(process::TransformInversion) = process.prior_mean
+get_prior_cov(process::TransformInversion) = process.prior_cov
+get_impose_prior(process::TransformInversion) = process.impose_prior
 get_buffer(p::TI) where {TI <: TransformInversion} = p.buffer
 
+function TransformInversion(mean_prior, cov_prior; impose_prior = true)
+    return TransformInversion(mean_prior, cov_prior, impose_prior, [])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Constructor for prior-enforcing process, (unless keyword is set false) 
+"""
+function TransformInversion(prior::ParameterDistribution; impose_prior = true)
+    mean_prior = Vector(mean(prior))
+    cov_prior = Matrix(cov(prior))
+    return TransformInversion(mean_prior, cov_prior, impose_prior = impose_prior)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Constructor for standard non-prior-enforcing `TransformInversion` process
+"""
+TransformInversion() = TransformInversion(nothing, nothing, false, [])
+
+
 function FailureHandler(process::TransformInversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens) =
-        etki_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx)
+    failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean) =
+        etki_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, prior_mean)
     return FailureHandler{TransformInversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -32,11 +65,11 @@ Provides a failsafe update that
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::TransformInversion, method::SampleSuccGauss)
-    function failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
         u[:, successful_ens] =
-            etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, obs_noise_cov_inv, onci_idx)
+            etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, obs_noise_cov_inv, onci_idx, prior_mean)
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
@@ -58,12 +91,13 @@ Returns the updated parameter vectors given their current values and
 the corresponding forward model evaluations.
 """
 function etki_update(
-    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
+    ekp::EnsembleKalmanProcess{FT, IT, TI},
     u::AM1,
     g::AM2,
     y::AV1,
     obs_noise_cov_inv::AV2,
     onci_idx::AV3,
+    prior_mean::NorAV,
 ) where {
     FT <: Real,
     IT,
@@ -72,11 +106,23 @@ function etki_update(
     AV1 <: AbstractVector,
     AV2 <: AbstractVector,
     AV3 <: AbstractVector,
+    TI <: TransformInversion,
+    NorAV <: Union{Nothing, AbstractVector},
 }
     inv_noise_scaling = get_Δt(ekp)[end]
     m = size(u, 2)
+
+    impose_prior = get_impose_prior(get_process(ekp))
+    if impose_prior
+        # extend y and G
+        g_ext = [g; u]
+        y_ext = [y; prior_mean]
+    else
+        y_ext = y
+        g_ext = g
+    end
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
-    Y = FT.((g .- mean(g, dims = 2)) / sqrt(m - 1))
+    Y = FT.((g_ext .- mean(g_ext, dims = 2)) / sqrt(m - 1))
 
     # we have three options with the buffer:
     # (1) in the first iteration, create a buffer
@@ -112,7 +158,7 @@ function etki_update(
         tmp[2][i, i] += 1.0
     end
     Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = inv(I + Y' * Γ_inv * Y)
-    w = FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y .- mean(g, dims = 2))) #  w = Ω * Y' * Γ_inv * (y .- g_mean))
+    w = FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- mean(g_ext, dims = 2))) #  w = Ω * Y' * Γ_inv * (y .- g_mean))
 
     return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
 
@@ -137,14 +183,14 @@ Inputs:
  - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
 """
 function update_ensemble!(
-    ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
+    ekp::EnsembleKalmanProcess{FT, IT, TI},
     g::AbstractMatrix{FT},
     process::TransformInversion,
     u_idx::Vector{Int},
     g_idx::Vector{Int};
     failed_ens = nothing,
     kwargs...,
-) where {FT, IT}
+) where {FT, IT, TI <: TransformInversion}
 
     # update only u_idx parameters/ with g_idx data
     # u: length(u_idx) × N_ens   
@@ -154,20 +200,38 @@ function update_ensemble!(
     obs_mean = get_obs(ekp)[g_idx]
     # get relevant inverse covariance blocks
     obs_noise_cov_inv = get_obs_noise_cov_inv(ekp, build = false)# NEVER build=true for this - ruins scaling.
+    impose_prior = get_impose_prior(get_process(ekp))
+    if impose_prior # these quantitites are truncated to with onci_idx
+        prior_mean = get_prior_mean(get_process(ekp))
+        prior_cov_inv = inv(get_prior_cov(get_process(ekp)))
+    else
+        prior_mean = nothing
+        prior_cov = nothing
+    end
+
 
     # need to sweep over local blocks
+    if impose_prior
+        # extend nois_cov_inv
+        push!(obs_noise_cov_inv, prior_cov_inv) # extend noise cov inv to include prior cov inv
+        # MUST pop! later
+    end
     γ_sizes = [size(γ_inv, 1) for γ_inv in obs_noise_cov_inv]
+    prior_flag = repeat([false], length(γ_sizes))
+    if impose_prior
+        prior_flag[end] = true # needed to swap g_idx to u_idx in loop
+    end
     onci_idx = []
     shift = 0
-    for (block_id, γs) in enumerate(γ_sizes)
-        loc_idx = intersect(1:γs, g_idx .- shift)
+    for (block_id, (γs, pf)) in enumerate(zip(γ_sizes, prior_flag))
+        loc_idx = !(pf) ? intersect(1:γs, g_idx .- shift) : intersect(1:γs, u_idx)
         if !(length(loc_idx) == 0)
-            push!(onci_idx, (block_id, loc_idx, loc_idx .+ shift)) # 
+            push!(onci_idx, (block_id, loc_idx, loc_idx .+ shift))
         end
         shift += γs
     end
     #   obs_noise_cov_inv = [obs_noise_cov_inv[pair[1]][pair[2],pair[2]] for pair in local_intersect] # SLOW
-
+    @info onci_idx
     N_obs = length(g_idx)
 
     fh = get_failure_handler(ekp)
@@ -181,7 +245,10 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens)
+    u = fh.failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean)
 
+    if impose_prior
+        pop!(obs_noise_cov_inv) # as push! alters the stored observations
+    end
     return u
 end

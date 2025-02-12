@@ -733,7 +733,6 @@ The error is stored within the `EnsembleKalmanProcess`.
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
     diff = get_obs(ekp) - mean_g
-
     Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
     γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
     X = zeros(sum(γ_sizes), size(diff, 2)) # stores Y' * Γ_inv
