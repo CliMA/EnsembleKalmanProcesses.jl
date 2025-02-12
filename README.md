@@ -2,13 +2,14 @@
 Implements optimization and approximate uncertainty quantification algorithms, Ensemble Kalman Inversion, and other Ensemble Kalman Processes.
 
 
-| **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]       |
-|----------------------|--------------------------------------------------|
-| **DOI**              | [![DOI][zenodo-img]][zenodo-latest-url]          |
-| **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]      |
-| **Unit tests**       | [![unit tests][unit-tests-img]][unit-tests-url]  |
-| **Code Coverage**    | [![codecov][codecov-img]][codecov-url]           |
-| **JOSS**             | [![status][joss-img]][joss-url]                  |
+| **Documentation**                 | [![dev][docs-latest-img]][docs-latest-url]       |
+|-----------------------------------|--------------------------------------------------|
+| **DOI**                           | [![DOI][zenodo-img]][zenodo-latest-url]          |
+| **Docs Build**                    | [![docs build][docs-bld-img]][docs-bld-url]      |
+| **Unit tests**                    | [![unit tests][unit-tests-img]][unit-tests-url]  |
+| **Code Coverage**                 | [![codecov][codecov-img]][codecov-url]           |
+| **JOSS**                          | [![status][joss-img]][joss-url]                  |
+| **Downloads**                     | [![Downloads][dlt-img]][dlt-url]                 |
 
 [zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6382967.svg
 [zenodo-latest-url]: https://doi.org/10.5281/zenodo.6382967
@@ -16,10 +17,10 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://CliMA.github.io/EnsembleKalmanProcesses.jl/dev/
 
-[docs-bld-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Docs.yml/badge.svg?branch=main
+[docs-bld-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Docs.yml/badge.svg
 [docs-bld-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Docs.yml
 
-[unit-tests-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Tests.yml/badge.svg?branch=main
+[unit-tests-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Tests.yml/badge.svg
 [unit-tests-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Tests.yml
 
 [codecov-img]: https://codecov.io/gh/CliMA/EnsembleKalmanProcesses.jl/branch/main/graph/badge.svg
@@ -27,6 +28,13 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 
 [joss-img]: https://joss.theoj.org/papers/5cb2d4c6af8840af61b44071ae1e672a/status.svg
 [joss-url]: https://joss.theoj.org/papers/5cb2d4c6af8840af61b44071ae1e672a
+
+[dlm-img]: https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Fmonthly_downloads%2FEnsembleKalmanProcesses&query=total_requests&suffix=%2Fmonth&label=Downloads
+[dlm-url]: https://juliapkgstats.com/pkg/EnsembleKalmanProcesses.c
+
+[dlt-img]: https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Ftotal_downloads%2FEnsembleKalmanProcesses&query=total_requests&label=Downloads
+[dlt-url]: https://juliapkgstats.com/pkg/EnsembleKalmanProcesses.c
+
 
 ### Requirements
 Julia LTS version or newer
