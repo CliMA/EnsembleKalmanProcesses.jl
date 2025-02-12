@@ -29,8 +29,8 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 [joss-img]: https://joss.theoj.org/papers/5cb2d4c6af8840af61b44071ae1e672a/status.svg
 [joss-url]: https://joss.theoj.org/papers/5cb2d4c6af8840af61b44071ae1e672a
 
-[dl-img]: (https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Fmonthly_downloads%2FEnsembleKalmanProcesses.c&query=total_requests&suffix=%2Fmonth&label=Downloads)
-[dl-url]: (https://juliapkgstats.com/pkg/EnsembleKalmanProcesses.c)
+[dl-img]: https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Fmonthly_downloads%2FEnsembleKalmanProcesses.c&query=total_requests&suffix=%2Fmonth&label=Downloads
+[dl-url]: https://juliapkgstats.com/pkg/EnsembleKalmanProcesses.c
 
 ### Requirements
 Julia LTS version or newer
