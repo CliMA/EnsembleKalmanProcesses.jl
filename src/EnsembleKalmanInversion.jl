@@ -19,8 +19,8 @@ get_prior_cov(process::Inversion) = process.prior_cov
 get_impose_prior(process::Inversion) = process.impose_prior
 
 
-function Inversion(mean_prior, cov_prior, impose_prior=true)
-    return Inversion(m_prior, c_prior, impose_prior)
+function Inversion(mean_prior, cov_prior; impose_prior=true)
+    return Inversion(mean_prior, cov_prior, impose_prior)
 end
 
 """
@@ -28,7 +28,7 @@ $(TYPEDSIGNATURES)
 
 Constructor for prior enforcing process, (unless keyword is set false) 
 """
-function Inversion(prior::ParameterDistribution, impose_prior=true)
+function Inversion(prior::ParameterDistribution; impose_prior=true)
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     return Inversion(mean_prior, cov_prior, impose_prior = impose_prior)
@@ -42,7 +42,7 @@ Constructor for standard non-prior enforcing inversion process
 Inversion() = Inversion(nothing, nothing, false)
                  
 function FailureHandler(process::Inversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_contribution) = eki_update(ekp, u, g, y, obs_noise_cov, prior_contribution)
+    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov) = eki_update(ekp, u, g, y, obs_noise_cov, prior_mean, scaled_prior_cov)
     return FailureHandler{Inversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -54,11 +54,11 @@ Provides a failsafe update that
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::Inversion, method::SampleSuccGauss)
-    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_contribution)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
         u[:, successful_ens] =
-            eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov, prior_contribution[:, successful_ens])
+            eki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov, prior_mean, scaled_prior_cov)
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
@@ -88,19 +88,45 @@ function eki_update(
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
     obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
-    prior_contribution::AbstractMatrix{FT},
-) where {FT <: Real, IT, CT <: Real, II <: Inversion}
+    prior_mean::NorAV,
+    prior_cov::NorAM,
+) where {FT <: Real, IT, CT <: Real, II <: Inversion, NorAV <: Union{Nothing, AbstractVector}, NorAM <: Union{Nothing,AbstractMatrix}}
 
-    cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
+    impose_prior = get_impose_prior(get_process(ekp))
+    if impose_prior     
+        g_ext = [g; u]
+        y_ext = [y; repeat(prior_mean, 1, get_N_ens(ekp))]
+      
+        cov_est = cov([u; g_ext], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
-    # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
-    cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), size(u, 2))
-    cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
+        # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
+        cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g_ext, 1), size(u, 2))
+        cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
 
+        dim1 = size(obs_noise_cov, 1)
+        dim2 = size(prior_cov, 1)
+        obs_noise_cov_ext = zeros(dim1+dim2, dim1+dim2)
+        obs_noise_cov_ext[1:dim1,1:dim1] += obs_noise_cov
+        obs_noise_cov_ext[dim1+1:dim1+dim2, dim1+1:dim1+dim2] += prior_cov
+
+    else # no extension
+        g_ext = g
+        y_ext = y
+        cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
+
+        # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
+        cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), size(u, 2))
+        cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
+
+        obs_noise_cov_ext = obs_noise_cov
+    end
+
+
+    
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
     tmp = try
-        FT.((cov_gg + obs_noise_cov) \ (y - g))
+        FT.((cov_gg + obs_noise_cov_ext) \ (y_ext - g_ext))
     catch e
         if e isa SingularException
             LHS = Matrix{BigFloat}(cov_gg + obs_noise_cov)
@@ -110,7 +136,7 @@ function eki_update(
             rethrow(e)
         end
     end
-    return u + (cov_ug * tmp) + prior_contribution # [N_par × N_ens]  
+    return u + (cov_ug * tmp) # [N_par × N_ens]  
 end
 
 """
@@ -153,9 +179,9 @@ function update_ensemble!(
     if impose_prior
         prior_mean = get_prior_mean(get_process(ekp))[u_idx]
         scaled_prior_cov = get_prior_cov(get_process(ekp))[u_idx,u_idx] / get_Δt(ekp)[end]
-        prior_contribution = scaled_prior_cov \ (u .- reshape(prior_mean, :, 1)) # UNCHECKED SIGN etc.
     else
-        prior_contribution = zeros(size(u))
+        prior_mean = nothing
+        scaled_prior_cov = nothing
     end
 
     fh = get_failure_handler(ekp)
@@ -167,7 +193,7 @@ function update_ensemble!(
     # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic, else just repeat the observation
     y = add_stochastic_perturbation ? (obs_mean .+ noise) : repeat(obs_mean, 1, get_N_ens(ekp))
-
+    
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
     end
@@ -175,7 +201,10 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens, prior_contribution)
+    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov)
 
     return u
 end
+
+
+
