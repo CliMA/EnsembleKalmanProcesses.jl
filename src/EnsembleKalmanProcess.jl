@@ -733,7 +733,6 @@ The error is stored within the `EnsembleKalmanProcess`.
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
     diff = get_obs(ekp) - mean_g
-
     Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
     γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
     X = zeros(sum(γ_sizes), size(diff, 2)) # stores Y' * Γ_inv
@@ -826,11 +825,9 @@ function get_cov_blocks(cov::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <:
 end
 
 """
-    multiplicative_inflation!(
-        ekp::EnsembleKalmanProcess;
-        s,
-    ) where {FT, IT}
-Applies multiplicative noise to particles.
+$(TYPEDSIGNATURES)
+
+Applies multiplicative noise to particles, and is aware of the current Δt (see Docs page for details). 
 Inputs:
     - ekp :: The EnsembleKalmanProcess to update.
     - s :: Scaling factor for time step in multiplicative perturbation.
@@ -852,13 +849,10 @@ function multiplicative_inflation!(ekp::EnsembleKalmanProcess; s::FT = 1.0) wher
 end
 
 """
-    additive_inflation!(
-        ekp::EnsembleKalmanProcess
-        inflation_cov::AM;
-        s::FT = 1.0,
-    ) where {FT <: Real}
+$(TYPEDSIGNATURES)
+
 Applies additive Gaussian noise to particles. Noise is drawn from normal distribution with 0 mean
-and scaled parameter covariance. The original parameter covariance is a provided matrix, assumed positive semi-definite.
+and scaled parameter covariance, and accounting for the current Δt . The original parameter covariance is a provided matrix, assumed positive semi-definite.
 Inputs:
     - ekp :: The EnsembleKalmanProcess to update.
     - s :: Scaling factor for time step in additive perturbation.
