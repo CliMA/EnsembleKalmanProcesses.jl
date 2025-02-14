@@ -208,11 +208,11 @@ function calculate_timestep!(
 end
 
 function calculate_timestep!(
-    ekp::EnsembleKalmanProcess,
+    ekp::EnsembleKalmanProcess{IT, FT, SS},
     g::MM,
     Δt_new::NFT,
     scheduler::EKSStableScheduler,
-) where {MM <: AbstractMatrix, NFT <: Union{Nothing, AbstractFloat}}
+) where {MM <: AbstractMatrix, NFT <: Union{Nothing, AbstractFloat}, IT, FT, SS <: Sampler}
     if !isnothing(Δt_new)
         @info "Cannot override EKSStableScheduler-type timestep selection, ignoring Δt_new = $(Δt_new)"
     end
@@ -342,3 +342,136 @@ function Base.:(==)(lrs_a::LRS, lrs_b::LRS) where {LRS <: LearningRateScheduler}
     end
     return all(checks)
 end
+
+
+##########################################################
+
+function calculate_timestep!(
+    ekp::EnsembleKalmanProcess{FT, IT, NRS},
+    g::MM,
+    Δt_new::NFT,
+    scheduler::EKSStableScheduler,
+    ) where {MM <: AbstractMatrix, NFT <: Union{Nothing, AbstractFloat}, IT, FT, NRS <: NonreversibleSampler}
+    if !isa(get_process(ekp), NonreversibleSampler)
+        throw(ArgumentError("EKSNR sampler only constructable for `process=NonreversibleSampler()`"))
+    end
+    # compute preconditioners! 
+    tol = 1e8 * eps()
+    # u_mean: N_par × 1
+    # g_mean: N_obs × 1
+    u = get_u_final(ekp)
+    u_mean = mean(u, dims = 2)
+    dimen = size(u_mean, 1)
+    g_mean = mean(g, dims = 2)
+    cov_uu, cov_ug, cov_gg = get_cov_blocks(cov([u; g], dims = 2, corrected = false), dimen)
+
+    # Build the preconditioners:
+    decomp_Cuu = eigen(cov_uu)
+    # .values = min -> max evals,
+    # .vectors stores evecs as rows
+    # D̃_opt = d * λ_min⁻¹ * v_min ⊗ v_min = λ_min⁻¹ D_opt
+    λ_min_un = decomp_Cuu.values[1]
+    v = decomp_Cuu.vectors[:, 1]
+    
+    # normalize
+    v /= norm(v) # normalize v
+    λ_min = norm(v) * λ_min_un #rescale lambda for a normlized v
+    λ_opt = 1 / λ_min
+
+
+    D_opt = Symmetric(dimen * v * v')
+    #D̃_opt = 1 / λ_min * D_opt
+
+    # orthonormal basis such that ⟨Ψₖ, D̃_optΨₖ⟩ = Tr(D̃_opt) / d
+    # Assume first: e_k are the standard basis
+    ξ = 1.0 / sqrt(dimen) .* ones(dimen) # true when e_k standard basis
+
+    # create ṽ, the (normalized) normal vector from v that passes through ξ
+    ṽ = ξ - dot(ξ, v) * v
+    ṽ /= norm(ṽ)
+
+    θ = acos(dot(ξ, v))
+    T1 = [cos(θ) -sin(θ); sin(θ) cos(θ)]
+    T2 = [cos(-θ) -sin(-θ); sin(-θ) cos(-θ)]
+    A_θ = all(abs.(T1 * [dot(ξ, v); dot(ξ, ṽ)] .- [1.0; 0.0]) .< tol) ? T1 : T2
+    @assert all(abs.(A_θ * [dot(ξ, v); dot(ξ, ṽ)] .- [1.0; 0.0]) .< tol) # just make sure T2 version works too...
+
+    Ψ = zeros(dimen, dimen) #columns are evecs
+    for k in 1:dimen
+        # true when e_k standard basis 
+        e_parr_coeff = [v[k] ṽ[k]]
+        e_parr_vec = [v ṽ]'
+
+        if dimen > 2
+            e_parr = e_parr_coeff * e_parr_vec
+            # e_perp satisfies e_parr + e_perp = e_k
+            e_perp = -e_parr
+            e_perp[k] += 1.0
+
+            Ψ[k, :] = (A_θ * e_parr_coeff')' * e_parr_vec + e_perp
+        else
+            Ψ[k, :] = (A_θ * e_parr_coeff')' * e_parr_vec
+        end
+        Ψ[k, :] /= norm(Ψ[k, :])
+    end
+    # useful test: if this produces a ONB
+
+    for j in 1:dimen
+        for k in 1:dimen
+            if j == k
+                @assert (norm(Ψ[k, :]) - 1.0 < tol) #true if normal
+            else
+                @assert (abs(dot(Ψ[k, :], Ψ[j, :])) < tol) #true if orthogonal
+            end
+        end
+    end
+   
+    @assert all(abs.([norm(Ψ[k,:]) for k=1:dimen] .- ones(dimen)) .< tol) #true if normal
+
+    # now calculate J
+    process = get_process(ekp)
+    prefactor = get_prefactor(process)
+    if prefactor <= 1
+        throw(ArgumentError("Nonreversible prefactor must be > 1, continuing with value 1.1"))
+    end
+    
+    λ = [(dimen - 1) / (prefactor^2 - 1) + k - 1 for k in 1:dimen]
+    Ĵ_opt = zeros(dimen, dimen)
+    for k in 1:(dimen - 1)
+        for j in (k + 1):dimen
+            Ĵ_opt[j, k] = (λ[j] + λ[k]) / (λ[j] - λ[k]) * (1 / λ_min)
+            Ĵ_opt[k, j] = -Ĵ_opt[j, k]
+        end
+    end
+    Ψ=Ψ'
+    sqC = sqrt(cov_uu)
+    # as ΨΨ' = I
+    J_opt = sqC * Ψ * Ĵ_opt * Ψ' * sqC
+    # g_mean: 1 x N_obs
+    M, J = size(g)
+    y_mean = get_obs(ekp)
+    Γ_inv = get_obs_noise_cov_inv(ekp)
+    
+    
+    #DD = (D_opt + J_opt) * (cov_uu \ cov_ug * Γ_inv * (g .- y_mean))
+    # could we use that (D_opt+J_opt)C^{-1} < ubd*I
+    # Then setting dt = 1/||ubd...|| < 1/||DD|| is conservative
+    # paper bound of (D+J)*inv(C)
+    # lambda_opt*(d+sqrt(cond(C))*(2*pi*c^2)/(sqrt(3)(c^2-1))*sqrt(d)(d-1)
+    ubd_paper = λ_opt * (dimen + sqrt(cond(cov_uu)) * 2*pi*prefactor^2/(sqrt(3)*(prefactor^2-1))*sqrt(dimen)*(dimen-1))
+    DpJCinv = (D_opt + J_opt)*inv(cov_uu)
+    @info "$(ubd) < $(ubd_paper)"
+
+    ubd = ubd_paper
+    DD = ubd * (1 / J) * ((g .- g_mean)' * Γ_inv * (g .- y_mean))   
+
+    # numerator = max(scheduler.numerator, eps())
+    # nugget = max(scheduler.nugget, eps())
+    # Δt = numerator * norm(u_mean)  / (norm(DD) + nugget)
+
+    Δt = numerator / (norm(DD) + nugget)
+
+    push!(get_Δt(ekp), Δt)
+    nothing
+end
+

@@ -375,9 +375,6 @@ function EnsembleKalmanProcess(
 
     return EnsembleKalmanProcess(params, observation, args...; kwargs...)
 end
-
-include("LearningRateSchedulers.jl")
-
 """
     get_u(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
 
@@ -1022,5 +1019,10 @@ export Gaussian_2d
 export construct_initial_ensemble, construct_mean, construct_cov
 include("UnscentedKalmanInversion.jl")
 
+include("LearningRateSchedulers.jl")
+
 # struct Accelerator
 include("Accelerators.jl")
+
+
+

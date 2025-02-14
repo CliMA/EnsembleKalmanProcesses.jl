@@ -18,7 +18,7 @@ struct NonreversibleSampler{FT <: AbstractFloat} <: Process
     prior_mean::Vector{FT}
     "Covariance of Gaussian parameter prior in unconstrained space"
     prior_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}}
-    "prefactor"
+    "prefactor - giving the sqrt of condition number of J_opt"
     prefactor::FT
 end
 
@@ -29,7 +29,7 @@ function NonreversibleSampler(prior::ParameterDistribution; prefactor = 1.1)
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     FT = eltype(mean_prior)
-    return NonreversibleSampler{FT}(mean_prior, cov_prior, prefactor)
+    return NonreversibleSampler{FT}(mean_prior, cov_prior, FT(prefactor))
 end
 
 
@@ -72,10 +72,11 @@ function eksnr_update(
     # u_mean: N_par × 1
     u_mean = mean(u', dims = 2)
     dimen = size(u_mean, 1)
-    if dimen != 2
+    #=if dimen != 2
         throw(ArgumentError("Nonreversible Implementation is only for dimension = 2, received $dimen"))
     end
-
+=#
+    
     # g_mean: N_obs × 1
     u_mean = mean(u', dims = 2)
     g_mean = mean(g', dims = 2)
@@ -88,12 +89,13 @@ function eksnr_update(
     # D̃_opt = d * λ_min⁻¹ * v_min ⊗ v_min = λ_min⁻¹ D_opt
     λ_min = decomp_Cuu.values[1]
     v = decomp_Cuu.vectors[:, 1]
+    
     # normalize
     v /= norm(v) # normalize v
-    λ_min = norm(v) * λ_min #rescale lambda for a normlized v
-
-    D_opt = dimen * v * v'
-    #D̃_opt = 1 / λ_min * D_opt
+    λ_min = norm(v) * λ_min #rescale lambda for a normlized 
+    λ_opt = 1 / λ_min
+    D_opt = Symmetric(dimen * v * v')
+    D̃_opt = λ_opt * D_opt
 
     # orthonormal basis such that ⟨Ψₖ, D̃_optΨₖ⟩ = Tr(D̃_opt) / d
     # Assume first: e_k are the standard basis
@@ -138,8 +140,8 @@ function eksnr_update(
             end
         end
     end
-  
-    #@assert all(abs.([norm(Ψ[k,:]) for k=1:dimen] .- ones(dimen)) .< tol) #true if normal
+   
+    @assert all(abs.([norm(Ψ[k,:]) for k=1:dimen] .- ones(dimen)) .< tol) #true if normal
 
     # now calculate J
     process = get_process(ekp)
@@ -147,27 +149,45 @@ function eksnr_update(
     if prefactor <= 1
         throw(ArgumentError("Nonreversible prefactor must be > 1, continuing with value 1.1"))
     end
-
+    
     λ = [(dimen - 1) / (prefactor^2 - 1) + k - 1 for k in 1:dimen]
-   Ĵ_opt = zeros(dimen, dimen)
+    Ĵ_opt = zeros(dimen, dimen)
     for k in 1:(dimen - 1)
         for j in (k + 1):dimen
-
-            #            Ĵ_opt[j, k] = (λ[j] + λ[k]) / (λ[j] - λ[k]) * Ψ[j, :]' * D̃_opt * Ψ[k, :]
-            Ĵ_opt[j, k] = (λ[j] + λ[k]) / (λ[j] - λ[k]) * (dimen / λ_min) * dot(Ψ[j, :], v) * dot(Ψ[k, :], v)
+#            Ĵ_opt[j, k] = (λ[j] + λ[k]) / (λ[j] - λ[k]) * (dimen / λ_min) * dot(Ψ[j, :], v) * dot(Ψ[k, :], v)
+            Ĵ_opt[j, k] = (λ[j] + λ[k]) / (λ[j] - λ[k]) * (1 / λ_min) 
             Ĵ_opt[k, j] = -Ĵ_opt[j, k]
-
+#            @assert  isapprox(dot(Ψ[j, :], v) * dot(Ψ[k, :], v),1 ./ dimen) # 
         end
     end
+    #@info "λs = $(λ)"
+    
+    ### !!! note that for Lin alg below the Psi basis vectors should be columns
+    Ψ=Ψ'
+    ### 
+    
     sqC = sqrt(cov_uu)
     # as ΨΨ' = I
     J_opt = sqC * Ψ * Ĵ_opt * Ψ' * sqC
+    
+    # (D̃_opt + JJ_opt) * Q + Q * (D̃_opt - JJ_opt) = 2 * λ_opt * Q
+    # Sanity check: Lyapunov condition from Arnold, Signorello 2021 eqn (3.7)
+    JJ_opt = Ψ * Ĵ_opt * Ψ'
+    Q = Ψ * Diagonal(λ) * Ψ'
+    Qinv = inv(Q)
+    @assert all(isapprox.(Qinv*((JJ_opt + D̃_opt)*Q + Q*(D̃_opt-JJ_opt)) ./(2*λ_opt), I(dimen); atol=1e-8 ))
 
-    # Default: Δt = 1 / (norm(D) + eps(FT))
+    # Default: Δt = 1 / (norm(grad(misfit)) + eps(FT))
     Δt = get_Δt(ekp)[end]
     noise_cov = MvNormal(zeros(dimen), I(dimen)) # only D in here
-    obs_noise_cov = get_obs_noise_cov(ekp)
+    obs_noise_cov_inv = get_obs_noise_cov_inv(ekp)
 
+    # uncomment to see EKS behaviour (check timestepping too)
+    #= 
+    D_opt = I(size(D_opt,1))
+    J_opt = zeros(size(J_opt))
+    =#
+    
     # From Alg 3: Explicit scheme!
     # u_n+1 = u_n - Δt(D+J)[(C^uu)^-1 C^ug Γ⁻¹(y - g') + C_0⁻¹ (u' - m_0)] + sqrt(2Δt)*χ,  χ∼N(0,D)    
     #=
@@ -176,7 +196,7 @@ function eksnr_update(
             Δt *
             (D_opt + J_opt) *
             (
-                cov_uu \ (cov_ug * (ekp.obs_noise_cov \ (ekp.obs_mean .- g'))) -
+                cov_uu \ (cov_ug * obs_noise_cov_inv * (get_obs(ekp) .- g')) -
                 process.prior_cov \ (process.prior_mean .- u' )
             )
 
@@ -184,34 +204,32 @@ function eksnr_update(
     =#
 
     # Alg 3: Split-implicit update
-    # u^*_n+1 = u_n - Δt(D+J)( (C^uu)^-1 C^ug Γ⁻¹(y - g') + C_0⁻¹ (u' - m_0)]
+    # u*_n+1 = u_n - Δt(D+J)( (C^uu)^-1 C^ug Γ⁻¹(y - g') + C_0⁻¹ (u*_{n+1}' - m_0)] + sqrt(2Δt)*χ,  χ∼N(0,D)
     implicit =
         (I(size(u, 2)) + Δt * (process.prior_cov' \ (D_opt + J_opt)')') \ (
             u' .-
             Δt *
             (D_opt + J_opt) *
             (
-                (cov_uu \ (cov_ug * (obs_noise_cov \ (g' .- get_obs(ekp))))) .-
+                (cov_uu \ cov_ug * obs_noise_cov_inv * (g' .- get_obs(ekp))) .-
                 (process.prior_cov \ process.prior_mean)
             )
         )
-
     u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(get_rng(ekp), noise_cov, get_N_ens(ekp)))'
+    @info "λ_opt: $(λ_opt)"
 
-    # (rewritten update in style of EKS: same as split-implicit)
-     #=   
-        E = g' .- g_mean
-        R = g'.- get_obs(ekp)
-        # D: N_ens × N_ens
-        F = (1 / get_N_ens(ekp)) * (E' * (get_obs_noise_cov(ekp) \ R))
-
-        implicit =
-            (I(size(u,2)) + Δt * (process.prior_cov' \ (D_opt + J_opt)')') \
-            (u' .- Δt * (D_opt + J_opt) * ((cov_uu \ (u' .- u_mean) * F) .- (process.prior_cov \ process.prior_mean)))       
-
-        u = implicit' + sqrt(2 * Δt) * (sqrt(D_opt) * rand(get_rng(ekp), noise_cov, get_N_ens(ekp)))'
-      =#
-
+#=
+    # quantities of interest
+    # lambda_opt*(d+sqrt(cond(C))*(2*pi*c^2)/(sqrt(3)(c^2-1))*sqrt(d)(d-1)  
+    ubd_paper = λ_opt * (dimen + sqrt(cond(cov_uu)) * 2*pi*prefactor^2/(sqrt(3)*(prefactor^2-1))*sqrt(dimen)*(dimen-1))
+    DpJCinv = (D_opt + J_opt)*inv(cov_uu)
+    ubd = norm(DpJCinv)
+    @info "$(ubd) < $(ubd_paper)"
+    eval_ubd = eigen(DpJCinv)
+    @info "$(eval_ubd.values)"
+    @info "$(cond(DpJCinv))"
+=#
+    
     return u
 end
 
