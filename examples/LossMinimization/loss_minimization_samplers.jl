@@ -13,12 +13,11 @@ using EnsembleKalmanProcesses.ParameterDistributions
 const EKP = EnsembleKalmanProcesses
 
 cases = ["inversion", "sampler", "nonrev_sampler"]
-case = cases[2]
-antisymmetric_multipliers = [1]#[collect(0.1:0.1:1.0)...]
+case = cases[3]
 
 # user configurables:
 N_ensemble = 20
-anim_skip = 50
+anim_skip = 20
 
 
 # ## Loss function with single minimum
@@ -44,8 +43,8 @@ inv_Γ_stabilization = inv(Γ_stabilization)
 # As we work with a Bayesian method, we define a prior. This will behave like an "initial guess"
 # for the likely region of parameter space we expect the solution to live in. Here we define
 # ``Normal(0,1)`` distributions with no constraints 
-prior_u1 = constrained_gaussian("u1", 0, 3, -Inf, Inf)
-prior_u2 = constrained_gaussian("u2", 0, 3, -Inf, Inf)
+prior_u1 = constrained_gaussian("u1", 4, 1, -Inf, Inf)
+prior_u2 = constrained_gaussian("u2", 4, 1, -Inf, Inf)
 prior = combine_distributions([prior_u1, prior_u2])
 inv_prior_cov = inv(cov(prior))
 prior_mean = mean(prior)
@@ -53,30 +52,33 @@ nothing # hide
 # !!! note
 #     In this example there are no constraints, therefore no parameter transformations.
 
-# ### Calibration
-for am in antisymmetric_multipliers
-    if case == "inversion"
-        process = Inversion()
-        fixed_step = 1e-6 # can use DMC for better approximation below
-        #    scheduler = DefaultScheduler(fixed_step) 
-        scheduler = DataMisfitController(terminate_at=10)# terminate in ~6 iterations
-        N_iterations = 100# Int(ceil(10.0/fixed_step))
 
-    elseif case == "sampler"
-        process = Sampler(prior)
-        fixed_step = 1e-3 # 2e-6 unstable
-        scheduler = DefaultScheduler(fixed_step)
-#       scheduler = EKSStableScheduler()
-        N_iterations = 5000
-        
-    elseif case == "nonrev_sampler" # max dt = 5e-5
-        process = NonreversibleSampler(prior, prefactor = 2, antisymmetric_multiplier = am) # prefactor (1.1 - 1.5) vs stepsize
-        fixed_step = 1e-3 # 2e-6 unstable
-        scheduler = DefaultScheduler(fixed_step)
-        #    scheduler = EKSStableScheduler(0.3,1e-6)
-    N_iterations = 5000
-        
-    end
+if case == "inversion"
+    process = Inversion()
+    fixed_step = 1 # can use DMC for better approximation below
+    #    scheduler = DefaultScheduler(fixed_step) 
+    scheduler = DataMisfitController(terminate_at=1)# terminate in ~6 iterations
+    N_iterations = 500# Int(ceil(10.0/fixed_step))
+    
+elseif case == "sampler"
+    process = Sampler(prior)
+    fixed_step = 1e-3 # 2e-6 unstable
+    #scheduler = DefaultScheduler(fixed_step)
+    scheduler = EKSStableScheduler()
+    N_iterations = 2000
+    
+elseif case == "nonrev_sampler" # max dt = 5e-5
+    process = NonreversibleSampler(prior, prefactor = 2) # prefactor (1.1 - 1.5) vs stepsize
+    fixed_step = 1e-3 # 2e-6 unstable
+    #scheduler = DefaultScheduler(fixed_step)
+    scheduler = EKSStableScheduler()
+    N_iterations = 2000
+    
+end
+
+
+
+# ### Calibration
     
     # The initial ensemble is constructed by 
     #initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
@@ -169,8 +171,6 @@ for am in antisymmetric_multipliers
     VV = VV_unnorm/ZZ 
     pZZ = trapz((plotrange,plotrange),PP_unnorm)
     PP = PP_unnorm/pZZ
-    
-    
 
     u_init = get_u_prior(ensemble_kalman_process)
     
@@ -234,9 +234,4 @@ for am in antisymmetric_multipliers
     # thus increases the likelihood (over different instances of the random number generator) of
     # finding the minimizer ``u=w_*``.
     
-    if isa(process, NonreversibleSampler)
-        gif(anim_two_minima, "two_minima_$(case)_multiplier_$(am).gif", fps = 30) # hide
-    else
-        gif(anim_two_minima, "two_minima_$(case).gif", fps = 30) # hide
-    end
-end
+    gif(anim_two_minima, "two_minima_$(case).gif", fps = 30) # hide
