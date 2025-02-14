@@ -459,10 +459,10 @@ function calculate_timestep!(
     # paper bound of (D+J)*inv(C)
     # lambda_opt*(d+sqrt(cond(C))*(2*pi*c^2)/(sqrt(3)(c^2-1))*sqrt(d)(d-1)
     ubd_paper = λ_opt * (dimen + sqrt(cond(cov_uu)) * 2*pi*prefactor^2/(sqrt(3)*(prefactor^2-1))*sqrt(dimen)*(dimen-1))
-    DpJCinv = (D_opt + J_opt)*inv(cov_uu)
-    @info "$(ubd) < $(ubd_paper)"
+    #DpJCinv = (D_opt + J_opt)*inv(cov_uu)
 
     ubd = ubd_paper
+    #@info "$(ubd) < $(ubd_paper)"
     DD = ubd * (1 / J) * ((g .- g_mean)' * Γ_inv * (g .- y_mean))   
 
     numerator = max(scheduler.numerator, eps())
