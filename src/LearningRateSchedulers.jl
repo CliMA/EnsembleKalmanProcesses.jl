@@ -465,8 +465,8 @@ function calculate_timestep!(
     ubd = ubd_paper
     DD = ubd * (1 / J) * ((g .- g_mean)' * Γ_inv * (g .- y_mean))   
 
-    # numerator = max(scheduler.numerator, eps())
-    # nugget = max(scheduler.nugget, eps())
+    numerator = max(scheduler.numerator, eps())
+    nugget = max(scheduler.nugget, eps())
     # Δt = numerator * norm(u_mean)  / (norm(DD) + nugget)
 
     Δt = numerator / (norm(DD) + nugget)
