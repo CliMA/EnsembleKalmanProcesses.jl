@@ -163,7 +163,7 @@ xlabel!("Time")
 
 # We see that the final ensemble is much closer to the truth. Note that the
 # random phase shift is of no consequence.
-savefig(ppp, "sinusoid_output_model_$case.png")
+savefig(ppp, "sinusoid_bias_ic_output_model_$case.png")
 
 if make_gif
     anim_sin = @animate for i in 1:anim_skip:N_iterations

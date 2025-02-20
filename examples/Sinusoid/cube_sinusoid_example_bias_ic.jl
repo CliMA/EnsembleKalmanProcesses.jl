@@ -97,20 +97,20 @@ elseif case == "sampler"
     #scheduler = EKSStableScheduler()
     N_iterations = 1000
 
-
 elseif case == "nonrev_sampler" # max dt = 5e-5
     # NB For this problem to converge well:     # large prefactor  >> 1 (=> larger timestep => less exploration(?))
-    process = NonreversibleSampler(prior, prefactor = 100)    
-    fixed_step = 3e-7 # 5e-5 unstable
-    scheduler = DefaultScheduler(fixed_step)
-    N_iterations = 3000
+    process = NonreversibleSampler(prior, prefactor = 5)    
+    fixed_step = 2e-7 # 5e-5 unstable
+#    scheduler = DefaultScheduler(fixed_step)
+    scheduler = EKSStableScheduler()
+    N_iterations = 2000
 end
 
 # Without acceleration
 accelerator = DefaultAccelerator()
 
 # We now generate the initial ensemble and set up the ensemble Kalman inversion.
-N_ensemble = 20
+N_ensemble = 100
 
 # We add bias into the initial ensemble to make it more challenging
 initial_u1 = constrained_gaussian("amplitude", 8, 1, 0, Inf)
@@ -163,7 +163,7 @@ xlabel!("Time")
 
 # We see that the final ensemble is much closer to the truth. Note that the
 # random phase shift is of no consequence.
-savefig(ppp, "sinusoid_output_model_$case.png")
+savefig(ppp, "cube_sinusoid_bias_ic_output_model_$case.png")
 
 if make_gif
     anim_sin = @animate for i in 1:anim_skip:N_iterations
