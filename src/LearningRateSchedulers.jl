@@ -445,32 +445,47 @@ function calculate_timestep!(
     end
     Ψ=Ψ'
     sqC = sqrt(cov_uu)
-    # as ΨΨ' = I
     J_opt = sqC * Ψ * Ĵ_opt * Ψ' * sqC
     # g_mean: 1 x N_obs
     M, J = size(g)
     y_mean = get_obs(ekp)
     Γ_inv = get_obs_noise_cov_inv(ekp)
     
-    
-    #DD = (D_opt + J_opt) * (cov_uu \ cov_ug * Γ_inv * (g .- y_mean))
-    # could we use that (D_opt+J_opt)C^{-1} < ubd*I
-    # Then setting dt = 1/||ubd...|| < 1/||DD|| is conservative
-    # paper bound of (D+J)*inv(C)
-    # lambda_opt*(d+sqrt(cond(C))*(2*pi*c^2)/(sqrt(3)(c^2-1))*sqrt(d)(d-1)
-    ubd_paper = λ_opt * (dimen + sqrt(cond(cov_uu)) * 2*pi*prefactor^2/(sqrt(3)*(prefactor^2-1))*sqrt(dimen)*(dimen-1))
-    #DpJCinv = (D_opt + J_opt)*inv(cov_uu)
-
-    ubd = ubd_paper
-    #@info "$(ubd) < $(ubd_paper)"
-    DD = ubd * (1 / J) * ((g .- g_mean)' * Γ_inv * (g .- y_mean))   
-
     numerator = max(scheduler.numerator, eps())
     nugget = max(scheduler.nugget, eps())
-    # Δt = numerator * norm(u_mean)  / (norm(DD) + nugget)
 
-    Δt = numerator / (norm(DD) + nugget)
-
+    #=
+    # [1.] likely the most "correct" 
+    DD = (D_opt + J_opt) * (cov_uu \ cov_ug * Γ_inv * (g .- y_mean))
+    Δt = numerator * norm(u_mean)  / (norm(DD) + nugget)
+    =#
+    
+      
+    # [2.] using an upper bound of (D_opt+J_opt)C^{-1} < ubd*I for a conservative stepsize
+    # from Arnold signorello 2021, Theorem 3.1(b)
+    # lambda_opt*(d+sqrt(cond(C))*(2*pi*c^2)/(sqrt(3)(c^2-1))*sqrt(d)(d-1)
+    ubd_paper = λ_opt * (dimen + sqrt(cond(cov_uu)) * 2*pi*prefactor^2/(sqrt(3)*(prefactor^2-1))*sqrt(dimen)*(dimen-1))
+    ubd = ubd_paper
+    DD = ubd * (1 / J) * ((g .- g_mean)' * Γ_inv * (g .- y_mean))   
+    Δt = numerator  / (norm(DD) + nugget)
+        
+    
+    
+#=
+    # [3.] Playground for other heuristic bounds, multiplying the EKS step control (requires norm(u) in numerator)
+    # here one replaces (D + J) Cuu^-1 with another value
+    DpJCinv = (D_opt + J_opt)*inv(cov_uu)
+    @info "DJC(cond): $(cond(DpJCinv))"
+    @info "DJC(norm): $(norm(DpJCinv))"
+    @info "DJC(vals): $(eigen(DpJCinv).values)"
+    ubd = norm(DpJCinv) # can be fast but no guarantees
+    DD = ubd * (1 / J) * ((g .- g_mean)' * Γ_inv * (g .- y_mean))   
+    
+    ubd_paper = λ_opt * (dimen + sqrt(cond(cov_uu)) * 2*pi*prefactor^2/(sqrt(3)*(prefactor^2-1))*sqrt(dimen)*(dimen-1))
+    @info "$(ubd) < $(ubd_paper)"
+    Δt = numerator  / (norm(DD) + nugget)
+    =#
+    
     push!(get_Δt(ekp), Δt)
     nothing
 end
