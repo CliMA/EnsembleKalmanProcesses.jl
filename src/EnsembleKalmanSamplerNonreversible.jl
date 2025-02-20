@@ -184,7 +184,7 @@ function eksnr_update(
 
     # uncomment to see EKS behaviour (check timestepping too)
     #= 
-    D_opt = I(size(D_opt,1))
+    D_opt = cov_uu
     J_opt = zeros(size(J_opt))
     =#
     
