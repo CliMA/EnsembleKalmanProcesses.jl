@@ -231,7 +231,6 @@ function update_ensemble!(
         shift += γs
     end
     #   obs_noise_cov_inv = [obs_noise_cov_inv[pair[1]][pair[2],pair[2]] for pair in local_intersect] # SLOW
-    @info onci_idx
     N_obs = length(g_idx)
 
     fh = get_failure_handler(ekp)

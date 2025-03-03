@@ -89,28 +89,23 @@ for case in case_list
         process = Inversion()
         scheduler = DataMisfitController(terminate_at = 1) # =1
         N_iterations = 200
-        inflate_flag = false
     elseif case == "inversion-infinite"
         process = Inversion(prior) # given the prior to impose
         scheduler = DataMisfitController(terminate_at = 100)# >>1
         N_iterations = 200
-        inflate_flag = true# true #inflate 
     elseif case == "transform-finite"
         process = TransformInversion()
         scheduler = DataMisfitController(terminate_at = 1) # =1
         N_iterations = 200
-        inflate_flag = false
     elseif case == "transform-infinite"
         process = TransformInversion(prior)
         scheduler = DataMisfitController(terminate_at = 100) # =1
         N_iterations = 200
-        inflate_flag = true
     elseif case == "sampler"
         process = Sampler(prior)
         #fixed_step = 1e-3 # 2e-6 unstable
         scheduler = EKSStableScheduler()
         N_iterations = 200
-        inflate_flag = false
     else
         throw(ArgumentError("Case not implemented yet"))
     end
@@ -138,7 +133,7 @@ for case in case_list
 
         g_ens = hcat([G(params_i[:, i], stoch = stoch_G_flag) for i in 1:N_ensemble]...)
 
-        terminate = EKP.update_ensemble!(ensemble_kalman_process, g_ens, multiplicative_inflation = inflate_flag)
+        terminate = EKP.update_ensemble!(ensemble_kalman_process, g_ens)
         if !isnothing(terminate)
             N_iter[1] = i
             break

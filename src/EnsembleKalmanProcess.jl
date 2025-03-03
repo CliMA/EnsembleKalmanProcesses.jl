@@ -929,7 +929,7 @@ function update_ensemble!(
         nonunique_cols = size(g, 2) + nan_adjust - length(unique(eachcol(g)))
         @warn "Detected $(nonunique_cols) clashes where forward map evaluations are exactly equal (and not NaN), this is likely to cause `LinearAlgebra` difficulty. Please check forward evaluations for bugs."
     end
-
+    
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
 
@@ -953,11 +953,22 @@ function update_ensemble!(
 
         accelerate!(ekp, u)
 
-        if s > 0.0
+        if s > 0.0 #if user specifies inflation 
             multiplicative_inflation ? multiplicative_inflation!(ekp; s = s) : nothing
             additive_inflation ? additive_inflation!(ekp, additive_inflation_cov, s = s) : nothing
+        else # if, by default there is inflation due to the process imposing the prior
+            process = get_process(ekp)
+            if any([isa(process, Inversion), isa(process, TransformInversion)])
+                if get_impose_prior(process) # if true then add inflation
+                    # need sΔt << 1 realistically for stability
+                    ss = 0.1 * min(1.0 , 1.0 / get_Δt(ekp)[end]) # heuristic to bound ss for very large timesteps.
+                    multiplicative_inflation!(ekp; s = ss)
+                end
+            end
+            
         end
 
+        
         # wrapping up
         push!(ekp.g, DataContainer(g, data_are_columns = true)) # store g
         compute_error!(ekp)
