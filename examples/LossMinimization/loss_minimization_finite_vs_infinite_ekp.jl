@@ -50,7 +50,7 @@ cases = ["inversion-finite", "inversion-infinite", "transform-finite", "transfor
 case_list = cases[1:5]
 
 # add noise to every "G" call?
-stoch_G_flag = false
+stoch_G_flag = true
 
 anim_flag = true
 
@@ -79,8 +79,8 @@ for case in case_list
     if case ∈ ["inversion-finite", "transform-finite"]
         initial_ensemble = EKP.construct_initial_ensemble(copy(rng), prior, N_ensemble)
     else # doesn't need to sample the prior
-        initial_u1 = constrained_gaussian("u", 5, 1, -Inf, Inf)
-        initial_u2 = constrained_gaussian("u2", 7, sqrt(2.0), -Inf, Inf)
+        initial_u1 = constrained_gaussian("u1", -2, 1, -Inf, Inf)
+        initial_u2 = constrained_gaussian("u2", 4, sqrt(2.0), -Inf, Inf)
         initial_dist = combine_distributions([initial_u1, initial_u2])
         initial_ensemble = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ensemble)
     end
