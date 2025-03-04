@@ -7,8 +7,11 @@ export get_prior_mean, get_prior_cov, get_impose_prior, get_default_multiplicati
 
 An ensemble Kalman Inversion process
 """
-struct Inversion{FT <: AbstractFloat, NorV <: Union{Nothing, AbstractVector}, NorAMorUS <: Union{Nothing, AbstractMatrix, UniformScaling}} <:
-       Process
+struct Inversion{
+    FT <: AbstractFloat,
+    NorV <: Union{Nothing, AbstractVector},
+    NorAMorUS <: Union{Nothing, AbstractMatrix, UniformScaling},
+} <: Process
     "Mean of Gaussian parameter prior in unconstrained space"
     prior_mean::NorV
     "Covariance of Gaussian parameter prior in unconstrained space"
@@ -47,8 +50,8 @@ Returns the stored `default_multiplicative_inflation` from the Inversion process
 """
 get_default_multiplicative_inflation(process::Inversion) = process.default_multiplicative_inflation
 
-function Inversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation=1e-3)
-     dmi = max(0.0, default_multiplicative_inflation)
+function Inversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation = 1e-3)
+    dmi = max(0.0, default_multiplicative_inflation)
     return Inversion(mean_prior, cov_prior, impose_prior, dmi)
 end
 
@@ -57,10 +60,15 @@ $(TYPEDSIGNATURES)
 
 Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 1e-3. 
 """
-function Inversion(prior::ParameterDistribution; impose_prior = true, default_multiplicative_inflation=1e-3)
+function Inversion(prior::ParameterDistribution; impose_prior = true, default_multiplicative_inflation = 1e-3)
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
-    return Inversion(mean_prior, cov_prior, impose_prior = impose_prior, default_multiplicative_inflation=default_multiplicative_inflation)
+    return Inversion(
+        mean_prior,
+        cov_prior,
+        impose_prior = impose_prior,
+        default_multiplicative_inflation = default_multiplicative_inflation,
+    )
 end
 
 """
@@ -139,7 +147,7 @@ function eki_update(
     impose_prior = get_impose_prior(get_process(ekp))
     if impose_prior
         g_ext = [g; u]
-        y_ext = [y; repeat(prior_mean, 1, size(y,2))]
+        y_ext = [y; repeat(prior_mean, 1, size(y, 2))]
 
         cov_est = cov([u; g_ext], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
