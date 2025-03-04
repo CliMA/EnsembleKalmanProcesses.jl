@@ -214,11 +214,11 @@ function update_ensemble!(
 
     # need to sweep over local blocks
     if impose_prior
-        # extend nois_cov_inv
-        push!(obs_noise_cov_inv, prior_cov_inv) # extend noise cov inv to include prior cov inv
-        # MUST pop! later
+        # extend noise_cov_inv must make copy due to typing
+        obs_noise_cov_inv_tmp = Vector{AbstractMatrx}(obs_noise_cov_inv)
+        push!(obs_noise_cov_inv_tmp, prior_cov_inv) # extend noise cov inv to include prior cov inv
     end
-    γ_sizes = [size(γ_inv, 1) for γ_inv in obs_noise_cov_inv]
+    γ_sizes = [size(γ_inv, 1) for γ_inv in obs_noise_cov_inv_tmp]
     prior_flag = repeat([false], length(γ_sizes))
     if impose_prior
         prior_flag[end] = true # needed to swap g_idx to u_idx in loop
@@ -246,10 +246,7 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean)
+    u = fh.failsafe_update(ekp, u, g, y, obs_noise_cov_inv_tmp, onci_idx, failed_ens, prior_mean)
 
-    if impose_prior
-        pop!(obs_noise_cov_inv) # as push! alters the stored observations
-    end
     return u
 end
