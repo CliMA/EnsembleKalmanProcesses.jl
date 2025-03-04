@@ -1,5 +1,10 @@
 #Ensemble Transform Kalman Inversion: specific structures and function definitions
 
+export get_prior_mean,
+    get_prior_cov,
+    get_impose_prior,
+    get_buffer
+
 """
     TransformInversion <: Process
 

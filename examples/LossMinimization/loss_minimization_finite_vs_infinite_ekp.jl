@@ -46,12 +46,14 @@ nothing # hide
 G_target = [0]
 nothing # hide
 
+# In this example we run several cases. The EKI ("inversion"), ETKI ("transform") find the mode of the posterior, while the EKS ("sampler") samples an approximation of the Gaussian spread of the posterior too. The EKI/ETKI have two variants, a variant which finds the mode of the posterior at algorithm time 1 ("finite"), and a variante which finds the mode of the posterior at algorithm time ∞ ("infinite"). The latter has an additional flexibility in that the initial ensemble does not need to be sampled at the prior.
 cases = ["inversion-finite", "inversion-infinite", "transform-finite", "transform-infinite", "sampler"]
 case_list = cases[1:5]
 
-# add noise to every "G" call?
+# We can choose to add noise to every "G" call? (making the loss function of the problem noisy)
 stoch_G_flag = true
 
+# and whether we produce animations
 anim_flag = true
 
 @info "add stochastic noise to G evaluations?: $(stoch_G_flag)"
@@ -59,19 +61,20 @@ anim_flag = true
 #
 # As we work with a Bayesian method, we define a prior. This will behave like an "initial guess"
 # for the likely region of parameter space we expect the solution to live in. Here we define
-# ``Normal(0,1)`` distributions with no constraints 
+# ``Normal(3,1)`` distributions with no constraints 
 prior_u1 = constrained_gaussian("u1", 3, 1, -Inf, Inf)
 prior_u2 = constrained_gaussian("u2", 3, 1, -Inf, Inf)
 prior = combine_distributions([prior_u1, prior_u2])
 nothing # hide
 # !!! note
 
-#     In this example there are no constraints, therefore no parameter transformations.
+#  In this example there are no constraints, therefore no parameter transformations.
 anim_skip = 1
 
+
+# The initial ensemble is constructed by sampling 20 particles. The "finite" cases must sample these from the prior, while the "infinite" cases do not. We choose an off-centered distribution to illustrate this property (centered at (-2,4)).
 N_ensemble = 20
 
-# The initial ensemble is constructed by sampling the prior
 
 u_trajs = []
 for case in case_list
