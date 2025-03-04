@@ -240,6 +240,8 @@ function update_ensemble!(
         # extend noise_cov_inv must make copy due to typing
         obs_noise_cov_inv_tmp = Vector{AbstractMatrx}(obs_noise_cov_inv)
         push!(obs_noise_cov_inv_tmp, prior_cov_inv) # extend noise cov inv to include prior cov inv
+    else
+        obs_noise_cov_inv_tmp = obs_noise_cov_inv
     end
     γ_sizes = [size(γ_inv, 1) for γ_inv in obs_noise_cov_inv_tmp]
     prior_flag = repeat([false], length(γ_sizes))
