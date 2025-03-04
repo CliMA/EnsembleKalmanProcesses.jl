@@ -25,9 +25,32 @@ struct TransformInversion{
     buffer::AbstractVector
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Returns the stored `prior_mean` from the TransformInversion process 
+"""
 get_prior_mean(process::TransformInversion) = process.prior_mean
+
+"""
+$(TYPEDSIGNATURES)
+
+Returns the stored `prior_cov` from the TransformInversion process 
+"""
 get_prior_cov(process::TransformInversion) = process.prior_cov
+
+"""
+$(TYPEDSIGNATURES)
+
+Returns the stored `impose_prior` from the TransformInversion process 
+"""
 get_impose_prior(process::TransformInversion) = process.impose_prior
+
+"""
+$(TYPEDSIGNATURES)
+
+Returns the stored `buffer` from the TransformInversion process 
+"""
 get_buffer(p::TI) where {TI <: TransformInversion} = p.buffer
 
 function TransformInversion(mean_prior, cov_prior; impose_prior = true)

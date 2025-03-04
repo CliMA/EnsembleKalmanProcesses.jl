@@ -17,8 +17,25 @@ struct Inversion{NorV <: Union{Nothing, AbstractVector}, NorAMorUS <: Union{Noth
     impose_prior::Bool
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Returns the stored `prior_mean` from the Inversion process 
+"""
 get_prior_mean(process::Inversion) = process.prior_mean
+
+"""
+$(TYPEDSIGNATURES)
+
+Returns the stored `prior_cov` from the Inversion process 
+"""
 get_prior_cov(process::Inversion) = process.prior_cov
+
+"""
+$(TYPEDSIGNATURES)
+
+Returns the stored `impose_prior` from the Inversion process 
+"""
 get_impose_prior(process::Inversion) = process.impose_prior
 
 
