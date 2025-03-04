@@ -63,7 +63,7 @@ Returns the stored `default_multiplicative_inflation` from the TransformInversio
 """
 get_default_multiplicative_inflation(p::TI) where {TI <: TransformInversion} = p.default_multiplicative_inflation
 
-function TransformInversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation = 1e-3)
+function TransformInversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation = 0.0)
     dmi = max(0.0, default_multiplicative_inflation)
     return TransformInversion(mean_prior, cov_prior, impose_prior, dmi, [])
 end
@@ -71,9 +71,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 1e-3.
+Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 0.0.
 """
-function TransformInversion(prior::ParameterDistribution; impose_prior = true, default_multiplicative_inflation = 1e-3)
+function TransformInversion(prior::ParameterDistribution; impose_prior = true, default_multiplicative_inflation = 0.0)
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     return TransformInversion(

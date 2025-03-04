@@ -925,7 +925,7 @@ end
     @test isapprox(get_prior_cov(process_inf), Matrix(cov(prior)))
     @test get_impose_prior(process_inf) == true
     @test isa(get_buffer(process_inf), AbstractVector)
-    @test get_default_multiplicative_inflation(process_inf) == 1e-3
+    @test get_default_multiplicative_inflation(process_inf) == 0.0
 
     for (i_prob, inv_problem) in enumerate(inv_problems)
 
