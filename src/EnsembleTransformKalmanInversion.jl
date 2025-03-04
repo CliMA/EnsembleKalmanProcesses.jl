@@ -238,7 +238,7 @@ function update_ensemble!(
     # need to sweep over local blocks
     if impose_prior
         # extend noise_cov_inv must make copy due to typing
-        obs_noise_cov_inv_tmp = Vector{AbstractMatrx}(obs_noise_cov_inv)
+        obs_noise_cov_inv_tmp = Vector{AbstractMatrix}(obs_noise_cov_inv)
         push!(obs_noise_cov_inv_tmp, prior_cov_inv) # extend noise cov inv to include prior cov inv
     else
         obs_noise_cov_inv_tmp = obs_noise_cov_inv
