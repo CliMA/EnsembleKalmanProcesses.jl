@@ -1,6 +1,6 @@
 #Ensemble Transform Kalman Inversion: specific structures and function definitions
 
-export get_prior_mean, get_prior_cov, get_impose_prior, get_buffer
+export get_prior_mean, get_prior_cov, get_impose_prior, get_buffer, get_default_multiplicative_inflation
 
 """
     TransformInversion <: Process
@@ -12,6 +12,7 @@ An ensemble transform Kalman inversion process.
 $(TYPEDFIELDS)
 """
 struct TransformInversion{
+    FT <: AbstractFloat,
     NorV <: Union{Nothing, AbstractVector},
     NorAMorUS <: Union{Nothing, AbstractMatrix, UniformScaling},
 } <: Process
@@ -21,6 +22,8 @@ struct TransformInversion{
     prior_cov::NorAMorUS
     "flag to explicitly impose the prior mean and covariance during updates"
     impose_prior::Bool
+    "if prior is imposed, inflation is often required. This sets a default multiplicative inflation with `s = default_multiplicative_inflation`"
+    default_multiplicative_inflation::FT
     "used to store matrices: buffer[1] = Y' *Γ_inv, buffer[2] = Y' * Γ_inv * Y"
     buffer::AbstractVector
 end
@@ -53,19 +56,27 @@ Returns the stored `buffer` from the TransformInversion process
 """
 get_buffer(p::TI) where {TI <: TransformInversion} = p.buffer
 
-function TransformInversion(mean_prior, cov_prior; impose_prior = true)
-    return TransformInversion(mean_prior, cov_prior, impose_prior, [])
+"""
+$(TYPEDSIGNATURES)
+
+Returns the stored `default_multiplicative_inflation` from the TransformInversion process 
+"""
+get_default_multiplicative_inflation(p::TI) where {TI <: TransformInversion} = p.default_multiplicative_inflation
+
+function TransformInversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation=1e-3)
+    dmi = max(0.0, default_multiplicative_inflation)
+    return TransformInversion(mean_prior, cov_prior, impose_prior, dmi, [])
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Constructor for prior-enforcing process, (unless keyword is set false) 
+Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 1e-3.
 """
-function TransformInversion(prior::ParameterDistribution; impose_prior = true)
+function TransformInversion(prior::ParameterDistribution; impose_prior = true, default_multiplicative_inflation=1e-3)
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
-    return TransformInversion(mean_prior, cov_prior, impose_prior = impose_prior)
+    return TransformInversion(mean_prior, cov_prior, impose_prior = impose_prior, default_multiplicative_inflation=default_multiplicative_inflation)
 end
 
 """
@@ -73,8 +84,7 @@ $(TYPEDSIGNATURES)
 
 Constructor for standard non-prior-enforcing `TransformInversion` process
 """
-TransformInversion() = TransformInversion(nothing, nothing, false, [])
-
+TransformInversion() = TransformInversion(nothing, nothing, false, 0.0, [])
 
 function FailureHandler(process::TransformInversion, method::IgnoreFailures)
     failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean) =

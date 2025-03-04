@@ -58,4 +58,5 @@ get_prior_mean
 get_prior_cov
 get_impose_prior
 get_buffer
+get_default_multiplicative_inflation
 ```

@@ -1,13 +1,13 @@
 #Ensemble Kalman Inversion: specific structures and function definitions
 
-export get_prior_mean, get_prior_cov, get_impose_prior
+export get_prior_mean, get_prior_cov, get_impose_prior, get_default_multiplicative_inflation
 
 """
     Inversion <: Process
 
 An ensemble Kalman Inversion process
 """
-struct Inversion{NorV <: Union{Nothing, AbstractVector}, NorAMorUS <: Union{Nothing, AbstractMatrix, UniformScaling}} <:
+struct Inversion{FT <: AbstractFloat, NorV <: Union{Nothing, AbstractVector}, NorAMorUS <: Union{Nothing, AbstractMatrix, UniformScaling}} <:
        Process
     "Mean of Gaussian parameter prior in unconstrained space"
     prior_mean::NorV
@@ -15,6 +15,8 @@ struct Inversion{NorV <: Union{Nothing, AbstractVector}, NorAMorUS <: Union{Noth
     prior_cov::NorAMorUS
     "flag to explicitly impose the prior mean and covariance during updates"
     impose_prior::Bool
+    "if prior is imposed, inflation is often required. This sets a default multiplicative inflation with `s = default_multiplicative_inflation`"
+    default_multiplicative_inflation::FT
 end
 
 """
@@ -38,28 +40,35 @@ Returns the stored `impose_prior` from the Inversion process
 """
 get_impose_prior(process::Inversion) = process.impose_prior
 
+"""
+$(TYPEDSIGNATURES)
 
-function Inversion(mean_prior, cov_prior; impose_prior = true)
-    return Inversion(mean_prior, cov_prior, impose_prior)
+Returns the stored `default_multiplicative_inflation` from the Inversion process 
+"""
+get_default_multiplicative_inflation(process::Inversion) = process.default_multiplicative_inflation
+
+function Inversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation=1e-3)
+     dmi = max(0.0, default_multiplicative_inflation)
+    return Inversion(mean_prior, cov_prior, impose_prior, dmi)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Constructor for prior enforcing process, (unless keyword is set false) 
+Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 1e-3. 
 """
-function Inversion(prior::ParameterDistribution; impose_prior = true)
+function Inversion(prior::ParameterDistribution; impose_prior = true, default_multiplicative_inflation=1e-3)
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
-    return Inversion(mean_prior, cov_prior, impose_prior = impose_prior)
+    return Inversion(mean_prior, cov_prior, impose_prior = impose_prior, default_multiplicative_inflation=default_multiplicative_inflation)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Constructor for standard non-prior enforcing `Inversion` process
+Constructor for standard non-prior-enforcing `Inversion` process
 """
-Inversion() = Inversion(nothing, nothing, false)
+Inversion() = Inversion(nothing, nothing, false, 0.0)
 
 function FailureHandler(process::Inversion, method::IgnoreFailures)
     failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov) =

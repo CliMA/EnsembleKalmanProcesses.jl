@@ -960,8 +960,8 @@ function update_ensemble!(
             process = get_process(ekp)
             if any([isa(process, Inversion), isa(process, TransformInversion)])
                 if get_impose_prior(process) # if true then add inflation
-                    # need sΔt << 1 realistically for stability
-                    ss = 0.1 * min(1.0, 1.0 / get_Δt(ekp)[end]) # heuristic to bound ss for very large timesteps.
+                    # need sΔt < 1 
+                    ss = get_default_multiplicative_inflation(process) * min(1.0, 1.0 / get_Δt(ekp)[end]) # heuristic to bound ss for very large timesteps.
                     multiplicative_inflation!(ekp; s = ss)
                 end
             end
