@@ -1,8 +1,6 @@
 #Ensemble Kalman Inversion: specific structures and function definitions
 
-export get_prior_mean,
-    get_prior_cov,
-    get_impose_prior
+export get_prior_mean, get_prior_cov, get_impose_prior
 
 """
     Inversion <: Process

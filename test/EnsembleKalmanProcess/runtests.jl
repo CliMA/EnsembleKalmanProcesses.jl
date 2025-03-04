@@ -520,7 +520,7 @@ end
     @test isapprox(get_prior_mean(process_inf), Vector(mean(prior)))
     @test isapprox(get_prior_cov(process_inf), Matrix(cov(prior)))
     @test get_impose_prior(process_inf) == true
-    
+
     ekiobj = nothing
     eki_final_result = nothing
 
@@ -922,7 +922,7 @@ end
     @test isapprox(get_prior_cov(process_inf), Matrix(cov(prior)))
     @test get_impose_prior(process_inf) == true
     @test isa(get_buffer(process_inf), AbstractVector)
-    
+
     for (i_prob, inv_problem) in enumerate(inv_problems)
 
         # Get inverse problem
@@ -952,7 +952,7 @@ end
             failure_handler_method = SampleSuccGauss(),
             scheduler = deepcopy(scheduler),
         )
-        
+
         ekiobj_unsafe = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs,
@@ -1066,7 +1066,7 @@ end
             @test norm(ϕ_star - ϕ_inf_final_mean) < norm(ϕ_star - ϕ_inf_init_mean)
             @test norm(y_obs .- G(eki_inf_final_result))^2 < norm(y_obs .- G(eki_inf_init_result))^2
             @test norm(y_obs .- g_mean_inf_final)^2 < norm(y_obs .- g_mean_inf_init)^2
-            
+
         end
 
         if i_prob <= n_lin_inv_probs && isa(get_localizer(ekiobj), EKP.Localizers.NoLocalization)
@@ -1124,14 +1124,14 @@ end
                 dt = @elapsed EKP.update_ensemble!(ekp, g_ens)
                 T += dt
             end
-            
+
             # Skip timing of first due to precompilation
             if i >= 2
                 @info "$N_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(N_iter)))"
                 if T / Float64(N_iter) > 0.2
                     @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(N_iter)). Significant slowdowns encountered in ETKI"
                 end
-                
+
             end
         end
     end
