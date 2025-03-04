@@ -113,7 +113,7 @@ function eki_update(
     impose_prior = get_impose_prior(get_process(ekp))
     if impose_prior
         g_ext = [g; u]
-        y_ext = [y; repeat(prior_mean, 1, size(y,2)]
+        y_ext = [y; repeat(prior_mean, 1, size(y,2))]
 
         cov_est = cov([u; g_ext], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
