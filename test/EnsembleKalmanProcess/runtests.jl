@@ -1139,14 +1139,33 @@ end
             plot_inv_problem_ensemble(prior, ekiobj, joinpath(@__DIR__, "ETKI_test_$(i_prob).png"))
         end
     end
-    n_iter = 4
-    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000])
+
+    n_iter = 10
+    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000, 1_000_000]) # also 1_000_000 works (may terminate early)
         # first i effectively ignored - just for precompile!
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens)
 
         y_obs_test, G_test, Γ_test, A_test =
             linear_inv_problem(ϕ_star, noise_level, n_obs_test, rng; return_matrix = true)
+        Γ_test = Diagonal(0.01 * ones(size(y_obs_test)))
+
+
+        # test the SVD option with low rank approx of a matrix
+        Z_test = 0.01 * randn(rng, (n_obs_test, 5))
+        Γ_test_svd = tsvd_cov_from_samples(Z_test)
+        observation_svd = Observation(Dict(
+            "samples" => y_obs_test,
+            "covariances" => Γ_test_svd, # should calc the psuedoinverse with SVD properly
+            "names" => "cov_as_svd",
+        ))
+        # also do some kind of transposed form (nonsensical values) to go into other test branch
+        ΓT_test_svd = tsvd_mat(Z_test) # just take rank to be dim for a UniformScaling     
+        observation_svdT = Observation(Dict(
+            "samples" => y_obs_test,
+            "covariances" => ΓT_test_svd, # should calc the psuedoinverse with SVD properly
+            "names" => "cov_as_svd_transpose",
+        ))
 
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -1166,20 +1185,44 @@ end
             failure_handler_method = SampleSuccGauss(),
             scheduler = DataMisfitController(terminate_at = 1e8),
         )
-        for ekp in [ekiobj, ekiobj_inf]
+
+        ekiobj_svd = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            observation_svd,
+            TransformInversion();
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = DataMisfitController(terminate_at = 1e8),
+        )
+
+        ekiobj_svdT = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            observation_svdT,
+            TransformInversion();
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = DataMisfitController(terminate_at = 1e8),
+        )
+        n_final = n_iter
+        for ekp in (ekiobj, ekiobj_inf, ekiobj_svd, ekiobj_svdT)
             T = 0.0
             for i in 1:n_iter
                 params_i = get_ϕ_final(prior, ekp)
                 g_ens = G_test(params_i)
-                dt = @elapsed EKP.update_ensemble!(ekp, g_ens)
+                dt = @elapsed begin
+                    terminate = EKP.update_ensemble!(ekp, g_ens)
+                end
+                if !isnothing(terminate)
+                    n_final = i - 1
+                    break
+                end
                 T += dt
             end
-
             # Skip timing of first due to precompilation
             if i >= 2
-                @info "$n_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(n_iter)))"
-                if T / (n_obs_test * Float64(n_iter)) > 5e-6 || n_obs_test < 5_000 # tol back-computed from 1_000_000 computation
-                    @error "The ETKI update for $(n_obs_test) observations should take under $(n_obs_test*4e-6) per update, received $(T/Float64(n_iter)). Significant slowdowns encountered in ETKI"
+                @info "$n_final iterations of ETKI with $n_obs_test observations took $T seconds. \n (avg update: $(T/Float64(n_final)))"
+                if T / (n_obs_test * Float64(n_final)) > 5e-6 && n_obs_test > 5_000 # tol back-computed from 1_000_000 computation
+                    @error "The ETKI update for $(n_obs_test) observations should take under $(n_obs_test*4e-6) per update, received $(T/Float64(n_final)). Significant slowdowns encountered in ETKI"
                 end
 
             end

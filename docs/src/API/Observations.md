@@ -16,6 +16,12 @@ get_obs(o::OB) where {OB <: Observation}
 get_obs_noise_cov(o::OB) where {OB <: Observation}
 get_obs_noise_cov_inv(o::OB) where {OB <: Observation}
 ```
+## Covariance utilities
+```@docs
+tsvd_mat
+tsvd_cov_from_samples
+```
+
 ## Minibatcher
 ```@docs
 FixedMinibatcher

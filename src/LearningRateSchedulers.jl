@@ -307,19 +307,9 @@ function calculate_timestep!(
     y_mean = get_obs(ekp)
 
     # efficiently compute [0.5 * norm(inv(sqrt(Γ)) * (g_j - y))^2 for j in 1:J]
-    Φ = zeros(J)
-    Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
-    γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
-    diff = g .- reshape(y_mean, :, 1) # - y from each column of g
-    X = zeros(sum(γ_sizes), size(diff, 2)) # stores Γ_inv * Y
-    shift = [0]
-    for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
-        idx = (shift[1] + 1):(shift[1] + γs)
-        X[idx, :] = γ_inv * diff[idx, :]
-        shift[1] = maximum(idx)
-    end
+    diff = g .- reshape(y_mean, :, 1) # - y from each column of g    
+    X = lmul_obs_noise_cov_inv(ekp, diff)
     Φ = [0.5 * dot(diff[:, j], X[:, j]) for j in 1:J]
-
     Φ_mean = mean(Φ)
     Φ_var = var(Φ)
 

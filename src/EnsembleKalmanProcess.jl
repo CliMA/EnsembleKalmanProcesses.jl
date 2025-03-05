@@ -17,7 +17,14 @@ export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get
 export get_scheduler,
     get_localizer, get_localizer_type, get_accelerator, get_rng, get_Δt, get_failure_handler, get_N_ens, get_process
 export get_nan_tolerance, get_nan_row_values
-export get_observation_series, get_obs, get_obs_noise_cov, get_obs_noise_cov_inv
+export get_observation_series,
+    get_obs,
+    get_obs_noise_cov,
+    get_obs_noise_cov_inv,
+    lmul_obs_noise_cov,
+    lmul_obs_noise_cov_inv,
+    lmul_obs_noise_cov!,
+    lmul_obs_noise_cov_inv!
 export compute_error!
 export update_ensemble!
 export list_update_groups_over_minibatch
@@ -721,6 +728,59 @@ function get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess; build = true)
 end
 
 """
+$(TYPEDSIGNATURES)
+
+Convenience function to multiply `X` by `obs_noise_cov` on the left without building the full matrix.
+"""
+function lmul_obs_noise_cov(ekp::EnsembleKalmanProcess, X::AVorM) where {AVorM <: AbstractVecOrMat}
+    return lmul_obs_noise_cov(get_observation_series(ekp), X)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Convenience function to multiply `X` by `obs_noise_cov_inv` on the left without building the full matrix.
+"""
+function lmul_obs_noise_cov_inv(ekp::EnsembleKalmanProcess, X::AVorM) where {AVorM <: AbstractVecOrMat}
+    return lmul_obs_noise_cov_inv(get_observation_series(ekp), X)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Convenience function to multiply `X` by `obs_noise_cov` on the left without building the full matrix, and storing the result in the first argument `out`, and at a set of indices `idx_triple = [(block_idx, local_idx, global_idx), ...]`. Here, for each triple the multiplication will: 
+- select block `block_idx` from the unbuilt `obs_noise_cov_inv`
+- select local indices `[:,local_idx]` of this block
+- multiply with the corresponding global indices `X[global_idx,:]`
+"""
+function lmul_obs_noise_cov!(
+    out::AM,
+    ekp::EnsembleKalmanProcess,
+    X::AVorM,
+    idx_triple::AV,
+) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector, AM <: AbstractMatrix}
+    return lmul_obs_noise_cov!(out, get_observation_series(ekp), X, idx_triple)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Convenience function to multiply `X` by `obs_noise_cov_inv` on the left without building the full matrix, and storing the result in the first argument `out`, and at a set of indices `idx_triple = [(block_idx, local_idx, global_idx), ...]`. Here, for each triple the multiplication will: 
+- select block `block_idx` from the unbuilt `obs_noise_cov_inv`
+- select local indices `[:,local_idx]` of this block
+- multiply with the corresponding global indices `X[global_idx,:]`
+The primary use case is in `update_ensemble!` for `TransformInversion()`
+"""
+function lmul_obs_noise_cov_inv!(
+    out::AM,
+    ekp::EnsembleKalmanProcess,
+    X::AVorM,
+    idx_triple::AV,
+) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector, AM <: AbstractMatrix}
+    return lmul_obs_noise_cov_inv!(out, get_observation_series(ekp), X, idx_triple)
+end
+
+"""
     get_obs(ekp::EnsembleKalmanProcess; build=true)
 Get the observation from the current batch in ObservationSeries
 build=false: returns a vector of vectors,
@@ -769,15 +829,7 @@ The error is stored within the `EnsembleKalmanProcess`.
 function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
     diff = get_obs(ekp) - mean_g
-    Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
-    γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
-    X = zeros(sum(γ_sizes), size(diff, 2)) # stores Y' * Γ_inv
-    shift = [0]
-    for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
-        idx = (shift[1] + 1):(shift[1] + γs)
-        X[idx, :] = γ_inv * diff[idx, :]
-        shift[1] = maximum(idx)
-    end
+    X = lmul_obs_noise_cov_inv(ekp, diff)
     newerr = dot(diff, X)
     push!(get_error(ekp), newerr)
 end

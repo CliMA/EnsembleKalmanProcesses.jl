@@ -134,6 +134,81 @@ using EnsembleKalmanProcesses
 
 end
 
+@testset "covariance utilities" begin
+    rng = Random.MersenneTwister(11023)
+    testmat1 = randn(rng, 100, 100)
+    svd_testmat1 = svd(testmat1)
+    testmat2 = randn(rng, 5, 100)
+    svd_testmat2 = svd(testmat2)
+    r = 8
+    mat_lr, mat_inv_lr = tsvd_mat(testmat1, r, return_inverse = true)
+    @test all(isapprox.(mat_lr.S, svd_testmat1.S[1:r]))
+    @test all(isapprox.(mat_inv_lr.S, 1.0 ./ svd_testmat1.S[1:r]))
+    @test size(mat_lr.U) == (size(testmat1, 1), r)
+    @test size(mat_lr.Vt) == (r, size(testmat1, 2))
+    @test all(isapprox.(mat_inv_lr.U, mat_lr.V))
+    @test all(isapprox.(mat_inv_lr.Vt, mat_lr.U'))
+
+    badr = 106
+    mat_lr, mat_inv_lr = tsvd_mat(testmat1, badr, return_inverse = true)
+    @test all(isapprox.(mat_lr.S, svd_testmat1.S))
+    @test all(isapprox.(mat_inv_lr.S, 1.0 ./ svd_testmat1.S))
+    @test size(mat_lr.U) == size(testmat1)
+    @test size(mat_lr.Vt) == size(testmat1)
+    @test all(isapprox.(mat_inv_lr.U, mat_lr.V))
+    @test all(isapprox.(mat_inv_lr.Vt, mat_lr.U'))
+
+    mat_lr, mat_inv_lr = tsvd_mat(testmat2, return_inverse = true)
+    @test all(isapprox.(mat_lr.S, svd_testmat2.S))
+    @test all(isapprox.(mat_inv_lr.S, 1.0 ./ svd_testmat2.S))
+    @test size(mat_lr.U) == (size(testmat2, 1), rank(testmat2))
+    @test size(mat_lr.Vt) == (rank(testmat2), size(testmat2, 2))
+
+    test_scale = 3.0 * I
+    @test_throws ArgumentError tsvd_mat(test_scale)
+    mat_lr, mat_inv_lr = tsvd_mat(test_scale, r, return_inverse = true)
+    @test all(isapprox.(mat_lr.S, 3.0 * ones(r)))
+    @test all(isapprox.(mat_inv_lr.S, 1.0 ./ 3.0 * ones(r)))
+
+    # test getting the cov sqrt
+    testmat3 = randn(rng, 100, 5)
+    full_cov = cov(testmat3, dims = 2)
+    pinv_full_cov = pinv(full_cov) # inv is not well defined, but psuedoinv is
+
+    mat_lr, mat_inv_lr = tsvd_cov_from_samples(testmat3, return_inverse = true)
+    @test norm(full_cov - mat_lr.U * Diagonal(mat_lr.S) * mat_lr.Vt) < 1e-10
+    @test norm(pinv_full_cov - mat_inv_lr.U * Diagonal(mat_inv_lr.S) * mat_inv_lr.Vt) < 1e-10
+
+    @test_throws ArgumentError tsvd_cov_from_samples(testmat3[:, 1:1])
+    @test_logs (:warn,) tsvd_cov_from_samples(testmat3, data_are_columns = false)
+    # create covariance from lowrank
+    # full cov created by:
+    samples = randn(rng, 100)
+
+    obs_lr = Observation(Dict("samples" => samples, "covariances" => mat_lr, "names" => "lr"))
+
+    obs_inv_lr = Observation(
+        Dict("samples" => samples, "covariances" => mat_lr, "inv_covariances" => mat_inv_lr, "names" => "inv_lr"),
+    )
+
+    cov_lr = get_obs_noise_cov(obs_lr)
+    cov_lr2 = get_obs_noise_cov(obs_inv_lr)
+    @test norm(full_cov - cov_lr) < 1e-10
+    @test norm(full_cov - cov_lr2) < 1e-10
+
+    cov_inv_lr = get_obs_noise_cov_inv(obs_lr)
+    cov_inv_lr2 = get_obs_noise_cov_inv(obs_inv_lr)
+    @test norm(pinv_full_cov - cov_inv_lr) < 1e-10
+    @test norm(pinv_full_cov - cov_inv_lr2) < 1e-10
+
+    # even more reduced rank
+    rk = 3
+    mat_lr3 = tsvd_cov_from_samples(testmat3, rk)
+    @test length(mat_lr3.S) == rk
+
+end
+
+
 @testset "Minibatching" begin
 
     m_size = 6
@@ -335,6 +410,21 @@ end
         idx_min[1] += block_sizes[i]
     end
     @test minibatch_cov_full == obs_noise_cov_minibatch_full
+
+    # test lmul get_obs_noise_cov
+    Γ = get_obs_noise_cov(observation_series)
+    Xvec = randn(size(Γ, 1))
+    X = randn(size(Γ, 1), 50)
+    test1 = Γ * Xvec
+    test2 = Γ * X
+    @test norm(test1 - lmul_obs_noise_cov(observation_series, Xvec)) < 1e-12
+    @test norm(test2 - lmul_obs_noise_cov(observation_series, X)) < 1e-12
+
+    Γinv = get_obs_noise_cov_inv(observation_series)
+    test1 = Γinv * Xvec
+    test2 = Γinv * X
+    @test norm(test1 - lmul_obs_noise_cov_inv(observation_series, Xvec)) < 1e-12
+    @test norm(test2 - lmul_obs_noise_cov_inv(observation_series, X)) < 1e-12
 
 
 
