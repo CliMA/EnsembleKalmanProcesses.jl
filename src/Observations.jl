@@ -2,6 +2,7 @@ using DocStringExtensions
 using LinearAlgebra
 using Statistics
 using Random
+using TSVD
 
 export Observation, Minibatcher, FixedMinibatcher, RandomFixedSizeMinibatcher, ObservationSeries
 export get_samples,
@@ -23,11 +24,41 @@ export get_samples,
     get_minibatcher,
     update_minibatch!,
     get_current_minibatch,
-    no_minibatcher
+    no_minibatcher,
+    tsvd_mat_and_inv
+
+# wrapper for tsvd - putting solution in SVD object
+"""
+$(TYPEDSIGNATURES)
+
+For a given matrix `X` and `rank`, return the truncated SVD for X and it's psuedoinverse X⁺ as LinearAlgebra.jl `SVD` objects
+"""
+function tsvd_mat_and_inv(X, r::Int; tsvd_kwargs...)
+    if isa(X, UniformScaling)
+        return svd(X(r))
+    else
+        rx = rank(X) 
+        if rx > r 
+            @warn("Requested truncation to rank $(r), of an input matrix of rank $(rx). Performing truncated SVD for rank $(rx) matrix.")
+            cut_to = rx
+        else
+            cut_to = r
+        end
+        U, s, V = tsvd(X, cut_to; tsvd_kwargs...)
+        return SVD(U, s, permutedims(V, (2,1))), SVD(V, 1.0 ./ s, permutedims(U, (2,1)))
+    end
+end
+
+function tsvd_mat_and_inv(X; tsvd_kwargs...)
+    if isa(X, UniformScaling)
+        throw(ArgumentError("Cannot perform a low rank decomposition on `UniformScaling` type without providing a rank in the second argument."))
+    end
+    return tsvd_mat_and_inv(X, rank(X); tsvd_kwargs...)
+end
+
+
 
 # TODO: Define == and copy for these structs
-
-
 """
     Observation
 
@@ -152,7 +183,11 @@ function Observation(obs_dict::Dict)
     if !("inv_covariances" ∈ collect(keys(obs_dict)))
         inv_covariances = []
         for c in cnew # ensures its a vector
-            push!(inv_covariances, inv(c))
+            if isa(c, SVD)
+                push!(inv_covariances, SVD(permutedims(c.Vt, (2,1)), 1.0 ./ c.S, permutedims(c.U, (2,1))))
+            else
+                push!(inv_covariances, inv(c))
+            end
         end
     else
         inv_covariances = obs_dict["inv_covariances"]

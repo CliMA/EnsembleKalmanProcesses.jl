@@ -99,9 +99,11 @@ function etki_update(
     for (block_idx, local_idx, global_idx) in onci_idx
         γ_inv = obs_noise_cov_inv[block_idx]
         # This is cumbersome, but will retain e.g. diagonal type for matrix manipulations, else indexing converts back to matrix
-        if isa(γ_inv, Diagonal) #
+        if isa(γ_inv, Diagonal) # if inverse is diagonal
             tmp[1][1:ys2, global_idx] = inv_noise_scaling * (γ_inv.diag[local_idx] .* Y[global_idx, :])' # multiple each row of Y by γ_inv element
-        else #much slower
+        elseif isa(γ_inv, SVD) # if inverse is represented as an SVD
+            tmp[1][1:ys2, global_idx] = inv_noise_scaling * (γ_inv.U[local_idx, :] * Diagonal(γ_inv.S) * γ_inv.Vt[:, local_idx] * Y[global_idx, :])' # multiple each row of Y by γ_inv element
+        else # assume general matrix, much slower
             tmp[1][1:ys2, global_idx] = inv_noise_scaling * (γ_inv[local_idx, local_idx] * Y[global_idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))' row-mult is faster
         end
     end
