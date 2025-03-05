@@ -988,14 +988,12 @@ end
 
         # test the SVD options 
         Γ_test_svd, Γinv_test_svd = tsvd_mat_and_inv(Γ_test, length(y_obs_test)) # just take rank to be dim for a UniformScaling 
-        observation_svd = Observation(
-            Dict(
-                "samples" => y_obs_test,
-                "covariances" => Γ_test_svd, # should calc the inverse with SVD properly
-                "names" => "cov_as_svd",
-            ),
-        )  
-        
+        observation_svd = Observation(Dict(
+            "samples" => y_obs_test,
+            "covariances" => Γ_test_svd, # should calc the inverse with SVD properly
+            "names" => "cov_as_svd",
+        ))
+
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs_test,
@@ -1005,7 +1003,7 @@ end
             failure_handler_method = SampleSuccGauss(),
             scheduler = DefaultScheduler(1),
         )
-             
+
         ekiobj_svd = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             observation_svd,
@@ -1028,7 +1026,7 @@ end
                 if T / Float64(N_iter) > 0.2
                     @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(N_iter)). Significant slowdowns encountered in ETKI"
                 end
-                
+
             end
         end
     end
