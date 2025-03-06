@@ -31,22 +31,28 @@ export get_samples,
 """
 $(TYPEDSIGNATURES)
 
-For a given matrix `X` and `rank`, return the truncated SVD for X and it's psuedoinverse X⁺ as LinearAlgebra.jl `SVD` objects
+For a given matrix `X` and `rank`, return the truncated SVD for X and it's psuedoinverse X⁺ as LinearAlgebra.jl `SVD` objects. 
 """
 function tsvd_mat_and_inv(X, r::Int; tsvd_kwargs...)
+    # Note, must only use tsvd approximation when rank < minimum dimension of X or you get very poor approximation.
     if isa(X, UniformScaling)
-        return svd(X(r))
+        return svd(X(r)), svd(inv(X)(r))
     else
         rx = rank(X)
-        if rx > r
+        mindim = minimum(size(X))
+        if rx <= r
             @warn(
-                "Requested truncation to rank $(r), of an input matrix of rank $(rx). Performing truncated SVD for rank $(rx) matrix."
+                "Requested truncation to rank $(r) for an input matrix of rank $(rx). Performing (truncated) SVD for rank $(rx) matrix."
             )
-            cut_to = rx
+            if rx < mindim 
+                U, s, V = tsvd(X, rx; tsvd_kwargs...)
+            else # perform exact svd (do NOT use tsvd for this! very poor approximation)
+                SS = svd(X)
+                return SS, SVD(permutedims(SS.Vt, (2,1)), 1.0 ./ SS.S, permutedims(SS.U, (2,1)))  
+            end
         else
-            cut_to = r
+            U, s, V = tsvd(X, r; tsvd_kwargs...)
         end
-        U, s, V = tsvd(X, cut_to; tsvd_kwargs...)
         return SVD(U, s, permutedims(V, (2, 1))), SVD(V, 1.0 ./ s, permutedims(U, (2, 1)))
     end
 end
