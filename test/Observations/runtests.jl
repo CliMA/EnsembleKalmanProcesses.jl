@@ -139,7 +139,6 @@ end
     svd_testmat1 = svd(testmat1)
     testmat2 = randn(5, 100)
     svd_testmat2 = svd(testmat2)
-    @info svd_testmat2.S
     r = 8
     mat_lr, mat_inv_lr = tsvd_mat_and_inv(testmat1, r)
     @test all(isapprox.(mat_lr.S, svd_testmat1.S[1:r]))
@@ -159,7 +158,6 @@ end
     @test all(isapprox.(mat_inv_lr.Vt, mat_lr.U'))
 
     mat_lr, mat_inv_lr = tsvd_mat_and_inv(testmat2)
-    @info mat_lr.S    
     @test all(isapprox.(mat_lr.S, svd_testmat2.S))
     @test all(isapprox.(mat_inv_lr.S, 1.0 ./ svd_testmat2.S))
     @test size(mat_lr.U) == (size(testmat2,1), rank(testmat2))
@@ -168,7 +166,6 @@ end
     test_scale = 3.0*I
     @test_throws ArgumentError tsvd_mat_and_inv(test_scale)
     mat_lr, mat_inv_lr = tsvd_mat_and_inv(test_scale, r)
-    @info mat_lr.S
     @test all(isapprox.(mat_lr.S, 3.0*ones(r)))
     @test all(isapprox.(mat_inv_lr.S, 1.0 ./ 3.0*ones(r)))
     
