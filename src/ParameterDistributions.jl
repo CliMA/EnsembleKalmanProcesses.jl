@@ -177,9 +177,9 @@ function bounded_above(upper_bound::FT) where {FT <: Real}
     if isinf(upper_bound)
         return no_constraint()
     end
-    c_to_u = (x -> -log(upper_bound - x))
+    c_to_u = (x -> log(upper_bound - x))
     jacobian = (x -> 1.0 / (upper_bound - x))
-    u_to_c = (x -> upper_bound - exp(-x))
+    u_to_c = (x -> upper_bound - exp(x))
     bounds = Dict("upper_bound" => upper_bound)
     return Constraint{BoundedAbove}(c_to_u, jacobian, u_to_c, bounds)
 end
