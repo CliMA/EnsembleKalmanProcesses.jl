@@ -227,8 +227,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         @test get_bounds(c1) == Dict("lower_bound" => 0.2)
 
         c2 = bounded_above(0.2)
-        @test isapprox(c2.constrained_to_unconstrained(-1.0) - (-log(0.2 - -1.0)), 0.0, atol = tol)
-        @test isapprox(c2.unconstrained_to_constrained(10.0) - (0.2 - exp(-10.0)), 0.0, atol = tol)
+        @test isapprox(c2.constrained_to_unconstrained(-1.0) - (log(0.2 - -1.0)), 0.0, atol = tol)
+        @test isapprox(c2.unconstrained_to_constrained(10.0) - (0.2 - exp(10.0)), 0.0, atol = tol)
         @test get_constraint_type(c2) == BoundedAbove
         @test get_bounds(c2) == Dict("upper_bound" => 0.2)
 
