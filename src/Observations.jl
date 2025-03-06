@@ -44,11 +44,11 @@ function tsvd_mat_and_inv(X, r::Int; tsvd_kwargs...)
             @warn(
                 "Requested truncation to rank $(r) for an input matrix of rank $(rx). Performing (truncated) SVD for rank $(rx) matrix."
             )
-            if rx < mindim 
+            if rx < mindim
                 U, s, V = tsvd(X, rx; tsvd_kwargs...)
             else # perform exact svd (do NOT use tsvd for this! very poor approximation)
                 SS = svd(X)
-                return SS, SVD(permutedims(SS.Vt, (2,1)), 1.0 ./ SS.S, permutedims(SS.U, (2,1)))  
+                return SS, SVD(permutedims(SS.Vt, (2, 1)), 1.0 ./ SS.S, permutedims(SS.U, (2, 1)))
             end
         else
             U, s, V = tsvd(X, r; tsvd_kwargs...)
