@@ -79,7 +79,7 @@ inv_problems = [inv_problems..., nl_inv_problems...]
     # sum(y-G)^2 ~ n_obs*noise_level^2
     @test isapprox(norm(y_obs .- A * ϕ_star)^2 - n_obs * noise_level^2, 0; atol = 0.06)
 end
-#=
+
 @testset "Accelerators" begin
     # Get an inverse problem
     y_obs, G, Γy, _ = inv_problems[end - 2] # additive noise inv problem (deterministic map)
@@ -840,7 +840,7 @@ end
 
     end
 end
-=#
+
 @testset "EnsembleTransformKalmanInversion" begin
 
     # Seed for pseudo-random number generator
