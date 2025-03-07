@@ -19,6 +19,7 @@ export get_scheduler,
 export get_observation_series, get_obs, get_obs_noise_cov, get_obs_noise_cov_inv
 export compute_error!
 export update_ensemble!
+export list_update_groups_over_minibatch
 export sample_empirical_gaussian, split_indices_by_success
 export SampleSuccGauss, IgnoreFailures, FailureHandler
 

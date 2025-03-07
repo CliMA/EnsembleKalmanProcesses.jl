@@ -39,6 +39,7 @@ construct_initial_ensemble
 update_ensemble!
 sample_empirical_gaussian
 split_indices_by_success
+list_update_groups_over_minibatch
 ```
 
 ## [Learning Rate Schedulers](@id scheduler_api)
