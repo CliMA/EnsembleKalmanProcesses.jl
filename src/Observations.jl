@@ -41,9 +41,12 @@ function tsvd_mat_and_inv(X, r::Int; tsvd_kwargs...)
         rx = rank(X)
         mindim = minimum(size(X))
         if rx <= r
-            @warn(
-                "Requested truncation to rank $(r) for an input matrix of rank $(rx). Performing (truncated) SVD for rank $(rx) matrix."
-            )
+            if rx < r
+                @warn(
+                    "Requested truncation to rank $(r) for an input matrix of rank $(rx). Performing (truncated) SVD for rank $(rx) matrix."
+                )
+            end
+
             if rx < mindim
                 U, s, V = tsvd(X, rx; tsvd_kwargs...)
             else # perform exact svd (do NOT use tsvd for this! very poor approximation)
