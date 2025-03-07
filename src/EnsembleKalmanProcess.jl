@@ -743,10 +743,10 @@ function compute_error!(ekp::EnsembleKalmanProcess)
         if isa(γ_inv, Diagonal)
             X[idx, :] = γ_inv.diag .* diff[idx, :]
         elseif isa(γ_inv, SVD)
-            if size(γ_inv.U,1) == size(γ_inv.U,2) # then work with Vt
-                X[idx, :] = γ_inv.Vt[:,idx]' * (γ_inv.S .* γ_inv.Vt[:,idx]) * diff[idx, :]
+            if size(γ_inv.U, 1) == size(γ_inv.U, 2) # then work with Vt
+                X[idx, :] = γ_inv.Vt[:, idx]' * (γ_inv.S .* γ_inv.Vt[:, idx]) * diff[idx, :]
             else
-                X[idx, :] = γ_inv.U[idx,:] * (γ_inv.S .* γ_inv.U[idx,:]') * diff[idx, :]
+                X[idx, :] = γ_inv.U[idx, :] * (γ_inv.S .* γ_inv.U[idx, :]') * diff[idx, :]
             end
         else
             X[idx, :] = γ_inv * diff[idx, :]

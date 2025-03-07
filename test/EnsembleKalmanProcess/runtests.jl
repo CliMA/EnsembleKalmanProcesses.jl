@@ -986,7 +986,7 @@ end
             linear_inv_problem(ϕ_star, noise_level, n_obs_test, rng; return_matrix = true)
 
         # test the SVD options - low rank approx of a matrix
-        Z_test = 0.01*randn(rng, (5,n_obs_test))
+        Z_test = 0.01 * randn(rng, (5, n_obs_test))
         Γ_test_svd, Γinv_test_svd = tsvd_mat_and_inv(Z_test)
         observation_svd = Observation(Dict(
             "samples" => y_obs_test,
@@ -1000,7 +1000,7 @@ end
             "covariances" => ΓT_test_svd, # should calc the inverse with SVD properly
             "names" => "cov_as_svd_transpose",
         ))
-        
+
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs_test,
@@ -1019,7 +1019,7 @@ end
             failure_handler_method = SampleSuccGauss(),
             scheduler = DefaultScheduler(1),
         )
-        
+
         ekiobj_svdT = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             observation_svdT,
