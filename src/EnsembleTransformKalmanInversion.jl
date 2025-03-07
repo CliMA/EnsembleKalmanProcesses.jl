@@ -101,10 +101,16 @@ function etki_update(
         # This is cumbersome, but will retain e.g. diagonal type for matrix manipulations, else indexing converts back to matrix
         if isa(γ_inv, Diagonal) # if inverse is diagonal
             tmp[1][1:ys2, global_idx] = inv_noise_scaling * (γ_inv.diag[local_idx] .* Y[global_idx, :])' # multiple each row of Y by γ_inv element
-        elseif isa(γ_inv, SVD) # if inverse is represented as an SVD
-            tmp[1][1:ys2, global_idx] =
-                inv_noise_scaling *
-                (γ_inv.U[local_idx, :] * Diagonal(γ_inv.S) * γ_inv.Vt[:, local_idx] * Y[global_idx, :])' # multiple each row of Y by γ_inv element
+        elseif isa(γ_inv, SVD) # if inverse is represented as an SVD [NB only use Vt here, as U = Vt']
+            if size(γ_inv.U,1) == size(γ_inv.U,2) # then work with Vt
+                tmp[1][1:ys2, global_idx] =
+                    inv_noise_scaling *
+                    (γ_inv.Vt[:,local_idx]' * (γ_inv.S .* γ_inv.Vt[:,local_idx]) * Y[global_idx, :])' # multiple each row of Y by γ_inv element
+            else
+                tmp[1][1:ys2, global_idx] =
+                    inv_noise_scaling *
+                    (γ_inv.U[local_idx,:] * (γ_inv.S .* γ_inv.U[local_idx,:]') * Y[global_idx, :])' # multiple each row of Y by γ_inv element
+            end
         else # assume general matrix, much slower
             tmp[1][1:ys2, global_idx] = inv_noise_scaling * (γ_inv[local_idx, local_idx] * Y[global_idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))' row-mult is faster
         end
@@ -158,9 +164,8 @@ function update_ensemble!(
     obs_mean = get_obs(ekp)[g_idx]
     # get relevant inverse covariance blocks
     obs_noise_cov_inv = get_obs_noise_cov_inv(ekp, build = false)# NEVER build=true for this - ruins scaling.
-
     # need to sweep over local blocks
-    γ_sizes = [size(γ_inv, 1) for γ_inv in obs_noise_cov_inv]
+    γ_sizes = [maximum(size(γ_inv)) for γ_inv in obs_noise_cov_inv]
     onci_idx = []
     shift = 0
     for (block_id, γs) in enumerate(γ_sizes)

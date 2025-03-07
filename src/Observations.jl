@@ -220,7 +220,6 @@ function Observation(obs_dict::Dict)
     end
     T = promote_type((typeof(c) for c in ictmp2)...)
     icnew = [convert(T, c) for c in ictmp2] # to re-infer eltype
-
     if !isa(names, AbstractVector) # "name" -> ["name"]
         nnew = [names]
     else

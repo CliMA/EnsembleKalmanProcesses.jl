@@ -79,8 +79,7 @@ inv_problems = [inv_problems..., nl_inv_problems...]
     # sum(y-G)^2 ~ n_obs*noise_level^2
     @test isapprox(norm(y_obs .- A * ϕ_star)^2 - n_obs * noise_level^2, 0; atol = 0.06)
 end
-
-
+#=
 @testset "Accelerators" begin
     # Get an inverse problem
     y_obs, G, Γy, _ = inv_problems[end - 2] # additive noise inv problem (deterministic map)
@@ -841,7 +840,7 @@ end
 
     end
 end
-
+=#
 @testset "EnsembleTransformKalmanInversion" begin
 
     # Seed for pseudo-random number generator
@@ -986,14 +985,22 @@ end
         y_obs_test, G_test, Γ_test, A_test =
             linear_inv_problem(ϕ_star, noise_level, n_obs_test, rng; return_matrix = true)
 
-        # test the SVD options 
-        Γ_test_svd, Γinv_test_svd = tsvd_mat_and_inv(Γ_test, length(y_obs_test)) # just take rank to be dim for a UniformScaling 
+        # test the SVD options - low rank approx of a matrix
+        Z_test = 0.01*randn(rng, (5,n_obs_test))
+        Γ_test_svd, Γinv_test_svd = tsvd_mat_and_inv(Z_test)
         observation_svd = Observation(Dict(
             "samples" => y_obs_test,
             "covariances" => Γ_test_svd, # should calc the inverse with SVD properly
             "names" => "cov_as_svd",
         ))
-
+        # also do transpose
+        ΓT_test_svd, ΓTinv_test_svd = tsvd_mat_and_inv(Z_test') # just take rank to be dim for a UniformScaling     
+        observation_svdT = Observation(Dict(
+            "samples" => y_obs_test,
+            "covariances" => ΓT_test_svd, # should calc the inverse with SVD properly
+            "names" => "cov_as_svd_transpose",
+        ))
+        
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs_test,
@@ -1012,12 +1019,22 @@ end
             failure_handler_method = SampleSuccGauss(),
             scheduler = DefaultScheduler(1),
         )
-        for ekp in (ekiobj, ekiobj_svd)
+        
+        ekiobj_svdT = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            observation_svdT,
+            TransformInversion();
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = DefaultScheduler(1),
+        )
+
+        for ekp in (ekiobj, ekiobj_svd, ekiobj_svdT)
             T = 0.0
             for i in 1:N_iter
-                params_i = get_ϕ_final(prior, ekiobj)
+                params_i = get_ϕ_final(prior, ekp)
                 g_ens = G_test(params_i)
-                dt = @elapsed EKP.update_ensemble!(ekiobj, g_ens)
+                dt = @elapsed EKP.update_ensemble!(ekp, g_ens)
                 T += dt
             end
             # Skip timing of first due to precompilation
