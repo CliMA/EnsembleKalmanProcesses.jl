@@ -599,7 +599,7 @@ function list_update_groups_over_minibatch(ekp::EnsembleKalmanProcess)
     u_groups = get_u_group.(update_groups) # update_group indices
     g_groups = get_g_group.(update_groups)
     # extend group indices from one obs to the minibatch of obs
-    new_u_groups = [reduce(vcat, [(i - 1) * len_obs .+ u_group for i in 1:len_mb]) for u_group in u_groups]
+    new_u_groups = u_groups
     new_g_groups = [reduce(vcat, [(i - 1) * len_obs .+ g_group for i in 1:len_mb]) for g_group in g_groups]
 
     return new_u_groups, new_g_groups
