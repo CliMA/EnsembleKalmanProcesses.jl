@@ -736,12 +736,22 @@ function compute_error!(ekp::EnsembleKalmanProcess)
     diff = get_obs(ekp) - mean_g
 
     Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
-    γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
+    γ_sizes = [maximum(size(γ_inv)) for γ_inv in Γ_inv]
     X = zeros(sum(γ_sizes), size(diff, 2)) # stores Y' * Γ_inv
     shift = [0]
     for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
         idx = (shift[1] + 1):(shift[1] + γs)
-        X[idx, :] = γ_inv * diff[idx, :]
+        if isa(γ_inv, Diagonal)
+            X[idx, :] = γ_inv.diag .* diff[idx, :]
+        elseif isa(γ_inv, SVD)
+            if size(γ_inv.U, 1) == size(γ_inv.U, 2) # then work with Vt
+                X[idx, :] = γ_inv.Vt[:, idx]' * (γ_inv.S .* γ_inv.Vt[:, idx]) * diff[idx, :]
+            else
+                X[idx, :] = γ_inv.U[idx, :] * (γ_inv.S .* γ_inv.U[idx, :]') * diff[idx, :]
+            end
+        else
+            X[idx, :] = γ_inv * diff[idx, :]
+        end
         shift[1] = maximum(idx)
     end
     newerr = dot(diff, X)

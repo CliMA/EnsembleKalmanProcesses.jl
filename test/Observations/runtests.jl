@@ -134,6 +134,45 @@ using EnsembleKalmanProcesses
 
 end
 
+@testset "covariance utilities" begin
+    testmat1 = randn(100, 100)
+    svd_testmat1 = svd(testmat1)
+    testmat2 = randn(5, 100)
+    svd_testmat2 = svd(testmat2)
+    r = 8
+    mat_lr, mat_inv_lr = tsvd_mat_and_inv(testmat1, r)
+    @test all(isapprox.(mat_lr.S, svd_testmat1.S[1:r]))
+    @test all(isapprox.(mat_inv_lr.S, 1.0 ./ svd_testmat1.S[1:r]))
+    @test size(mat_lr.U) == (size(testmat1, 1), r)
+    @test size(mat_lr.Vt) == (r, size(testmat1, 2))
+    @test all(isapprox.(mat_inv_lr.U, mat_lr.V))
+    @test all(isapprox.(mat_inv_lr.Vt, mat_lr.U'))
+
+    badr = 106
+    mat_lr, mat_inv_lr = tsvd_mat_and_inv(testmat1, badr)
+    @test all(isapprox.(mat_lr.S, svd_testmat1.S))
+    @test all(isapprox.(mat_inv_lr.S, 1.0 ./ svd_testmat1.S))
+    @test size(mat_lr.U) == size(testmat1)
+    @test size(mat_lr.Vt) == size(testmat1)
+    @test all(isapprox.(mat_inv_lr.U, mat_lr.V))
+    @test all(isapprox.(mat_inv_lr.Vt, mat_lr.U'))
+
+    mat_lr, mat_inv_lr = tsvd_mat_and_inv(testmat2)
+    @test all(isapprox.(mat_lr.S, svd_testmat2.S))
+    @test all(isapprox.(mat_inv_lr.S, 1.0 ./ svd_testmat2.S))
+    @test size(mat_lr.U) == (size(testmat2, 1), rank(testmat2))
+    @test size(mat_lr.Vt) == (rank(testmat2), size(testmat2, 2))
+
+    test_scale = 3.0 * I
+    @test_throws ArgumentError tsvd_mat_and_inv(test_scale)
+    mat_lr, mat_inv_lr = tsvd_mat_and_inv(test_scale, r)
+    @test all(isapprox.(mat_lr.S, 3.0 * ones(r)))
+    @test all(isapprox.(mat_inv_lr.S, 1.0 ./ 3.0 * ones(r)))
+
+
+end
+
+
 @testset "Minibatching" begin
 
     m_size = 6
