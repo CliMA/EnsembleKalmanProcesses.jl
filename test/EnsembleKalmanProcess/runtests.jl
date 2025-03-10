@@ -29,6 +29,11 @@ prior_2 = Dict("distribution" => Parameterized(Normal(3.0, 0.5)), "constraint" =
 prior = ParameterDistribution([prior_1, prior_2])
 prior_mean = mean(prior)
 prior_cov = cov(prior)
+# infinite-time variants, give an initial != prior
+initial_1 = Dict("distribution" => Parameterized(Normal(1.5, 0.1)), "constraint" => bounded(-2, 2), "name" => "cons_p")
+initial_2 = Dict("distribution" => Parameterized(Normal(1.0, 1)), "constraint" => no_constraint(), "name" => "uncons_p")
+initial_dist = ParameterDistribution([initial_1, initial_2])
+
 # Define a few inverse problems to compare algorithmic performance
 rng_seed = 42
 rng = Random.MersenneTwister(rng_seed)
@@ -485,6 +490,7 @@ end
 
 end
 
+
 @testset "EnsembleKalmanInversion" begin
 
     # Seed for pseudo-random number generator
@@ -501,6 +507,21 @@ end
     @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs_tmp, Γy_tmp, Inversion())
 
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+
+    #
+    initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens) # for the _inf object initial != prior
+
+    # test process getters
+    process = Inversion()
+    @test get_prior_mean(process) == nothing
+    @test get_prior_cov(process) == nothing
+    @test get_impose_prior(process) == false
+    @test get_default_multiplicative_inflation(process) == 0.0
+    process_inf = Inversion(prior)
+    @test isapprox(get_prior_mean(process_inf), Vector(mean(prior)))
+    @test isapprox(get_prior_cov(process_inf), Matrix(cov(prior)))
+    @test get_impose_prior(process_inf) == true
+    @test get_default_multiplicative_inflation(process_inf) == 1e-3
 
     ekiobj = nothing
     eki_final_result = nothing
@@ -557,6 +578,16 @@ end
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
         )
+        ekiobj_inf = EKP.EnsembleKalmanProcess(
+            initial_ensemble_inf,
+            y_obs,
+            Γy,
+            Inversion(prior);
+            rng = copy(rng),
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = deepcopy(scheduler),
+            localization_method = deepcopy(localization_method),
+        )
 
         ## some getters in EKP
         @test get_obs(ekiobj) == y_obs
@@ -573,6 +604,8 @@ end
         # EKI iterations
         u_i_vec = Array{Float64, 2}[]
         g_ens_vec = Array{Float64, 2}[]
+        u_i_inf_vec = Array{Float64, 2}[]
+        g_ens_inf_vec = Array{Float64, 2}[]
         for i in 1:N_iter
             # Check SampleSuccGauss handler
             params_i = get_ϕ_final(prior, ekiobj)
@@ -584,6 +617,16 @@ end
             end
             EKP.update_ensemble!(ekiobj, g_ens)
             push!(g_ens_vec, g_ens)
+
+            # repeat with inf-time variant
+            params_i_inf = get_ϕ_final(prior, ekiobj_inf)
+            g_ens_inf = G(params_i_inf)
+            if i in iters_with_failure
+                g_ens_inf[:, 1] .= NaN
+            end
+            EKP.update_ensemble!(ekiobj_inf, g_ens_inf)
+            push!(g_ens_inf_vec, g_ens_inf)
+
             if i == 1
                 if !(size(g_ens, 1) == size(g_ens, 2))
                     g_ens_t = permutedims(g_ens, (2, 1))
@@ -636,12 +679,18 @@ end
         # EKI results: Test if ensemble has collapsed toward the true parameter 
         # values
         eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
+        eki_inf_init_result = vec(mean(get_u_prior(ekiobj_inf), dims = 2))
         eki_final_result = get_u_mean_final(ekiobj)
+        eki_inf_final_result = get_u_mean_final(ekiobj_inf)
         eki_init_spread = tr(get_u_cov(ekiobj, 1))
+        eki_inf_init_spread = tr(get_u_cov(ekiobj_inf, 1))
         eki_final_spread = tr(get_u_cov_final(ekiobj))
+        eki_inf_final_spread = tr(get_u_cov_final(ekiobj_inf))
 
         g_mean_init = get_g_mean(ekiobj, 1)
         g_mean_final = get_g_mean_final(ekiobj)
+        g_mean_inf_init = get_g_mean(ekiobj_inf, 1)
+        g_mean_inf_final = get_g_mean_final(ekiobj_inf)
 
         @test eki_init_result == get_u_mean(ekiobj, 1)
         @test eki_final_result == vec(mean(get_u_final(ekiobj), dims = 2))
@@ -650,11 +699,17 @@ end
 
         ϕ_final_mean = get_ϕ_mean_final(prior, ekiobj)
         ϕ_init_mean = get_ϕ_mean(prior, ekiobj, 1)
+        ϕ_inf_final_mean = get_ϕ_mean_final(prior, ekiobj_inf)
+        ϕ_inf_init_mean = get_ϕ_mean(prior, ekiobj_inf, 1)
 
         if isa(get_localizer(ekiobj), EKP.Localizers.NoLocalization)
             @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
             @test norm(y_obs .- G(eki_final_result))^2 < norm(y_obs .- G(eki_init_result))^2
             @test norm(y_obs .- g_mean_final)^2 < norm(y_obs .- g_mean_init)^2
+
+            @test norm(ϕ_star - ϕ_inf_final_mean) < norm(ϕ_star - ϕ_inf_init_mean)
+            @test norm(y_obs .- G(eki_inf_final_result))^2 < norm(y_obs .- G(eki_inf_init_result))^2
+            @test norm(y_obs .- g_mean_inf_final)^2 < norm(y_obs .- g_mean_inf_init)^2
         end
 
         if i_prob <= n_lin_inv_probs && isa(get_localizer(ekiobj), EKP.Localizers.NoLocalization)
@@ -665,8 +720,12 @@ end
 
             # EKI provides a solution closer to the ordinary Least Squares estimate
             @test norm(ols_mean - ϕ_final_mean) < norm(ols_mean - ϕ_init_mean)
+            @test norm(ols_mean - ϕ_inf_final_mean) < norm(ols_mean - ϕ_inf_init_mean)
             # EKS provides a solution closer to the posterior mean -- NOT ROBUST
             # @test norm(posterior_mean - eks_final_result) < norm(posterior_mean - eki_final_result)
+
+            # EKI with inf-solution should converge to posterior mean as T-> inf 
+            @test norm(posterior_mean - ϕ_inf_final_mean) < norm(posterior_mean - ϕ_inf_init_mean)
 
             ##### I expect this test to make sense:
             # In words: the ensemble covariance is still a bit ill-dispersed since the
@@ -848,10 +907,25 @@ end
     rng = Random.MersenneTwister(rng_seed)
 
     initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+    initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens) # doesnt need to be the prior
 
     ekiobj = nothing
     eki_final_result = nothing
     iters_with_failure = [5, 8, 9, 15]
+
+    # test the process getters
+    process = TransformInversion()
+    @test get_prior_mean(process) == nothing
+    @test get_prior_cov(process) == nothing
+    @test get_impose_prior(process) == false
+    @test isa(get_buffer(process), AbstractVector)
+    @test get_default_multiplicative_inflation(process) == 0.0
+    process_inf = TransformInversion(prior)
+    @test isapprox(get_prior_mean(process_inf), Vector(mean(prior)))
+    @test isapprox(get_prior_cov(process_inf), Matrix(cov(prior)))
+    @test get_impose_prior(process_inf) == true
+    @test isa(get_buffer(process_inf), AbstractVector)
+    @test get_default_multiplicative_inflation(process_inf) == 0.0
 
     for (i_prob, inv_problem) in enumerate(inv_problems)
 
@@ -869,6 +943,16 @@ end
             Γy,
             TransformInversion();
             rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = deepcopy(scheduler),
+        )
+
+        ekiobj_inf = EKP.EnsembleKalmanProcess(
+            initial_ensemble_inf,
+            y_obs,
+            Γy,
+            TransformInversion(prior);
+            rng = copy(rng),
             failure_handler_method = SampleSuccGauss(),
             scheduler = deepcopy(scheduler),
         )
@@ -892,6 +976,8 @@ end
         # ETKI iterations
         u_i_vec = Array{Float64, 2}[]
         g_ens_vec = Array{Float64, 2}[]
+        u_i_inf_vec = Array{Float64, 2}[]
+        g_ens_inf_vec = Array{Float64, 2}[]
         for i in 1:N_iter
             params_i = get_ϕ_final(prior, ekiobj)
             push!(u_i_vec, get_u_final(ekiobj))
@@ -904,6 +990,17 @@ end
 
             EKP.update_ensemble!(ekiobj, g_ens)
             push!(g_ens_vec, g_ens)
+
+            # repeat with inf-time variant
+            params_i_inf = get_ϕ_final(prior, ekiobj_inf)
+            g_ens_inf = G(params_i_inf)
+            if i in iters_with_failure
+                g_ens_inf[:, 1] .= NaN
+            end
+            EKP.update_ensemble!(ekiobj_inf, g_ens_inf)
+            push!(g_ens_inf_vec, g_ens_inf)
+
+            # check dimensionality
             if i == 1
                 if !(size(g_ens, 1) == size(g_ens, 2))
                     g_ens_t = permutedims(g_ens, (2, 1))
@@ -942,12 +1039,18 @@ end
         # ETKI results: Test if ensemble has collapsed toward the true parameter 
         # values
         eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
+        eki_inf_init_result = vec(mean(get_u_prior(ekiobj_inf), dims = 2))
         eki_final_result = get_u_mean_final(ekiobj)
+        eki_inf_final_result = get_u_mean_final(ekiobj_inf)
         eki_init_spread = tr(get_u_cov(ekiobj, 1))
+        eki_inf_init_spread = tr(get_u_cov(ekiobj_inf, 1))
         eki_final_spread = tr(get_u_cov_final(ekiobj))
+        eki_inf_final_spread = tr(get_u_cov_final(ekiobj_inf))
 
         g_mean_init = get_g_mean(ekiobj, 1)
         g_mean_final = get_g_mean_final(ekiobj)
+        g_mean_inf_init = get_g_mean(ekiobj_inf, 1)
+        g_mean_inf_final = get_g_mean_final(ekiobj_inf)
 
         @test eki_init_result == get_u_mean(ekiobj, 1)
         @test eki_final_result == vec(mean(get_u_final(ekiobj), dims = 2))
@@ -956,11 +1059,18 @@ end
 
         ϕ_final_mean = get_ϕ_mean_final(prior, ekiobj)
         ϕ_init_mean = get_ϕ_mean(prior, ekiobj, 1)
+        ϕ_inf_final_mean = get_ϕ_mean_final(prior, ekiobj_inf)
+        ϕ_inf_init_mean = get_ϕ_mean(prior, ekiobj_inf, 1)
 
         if isa(get_localizer(ekiobj), EKP.Localizers.NoLocalization)
             @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
             @test norm(y_obs .- G(eki_final_result))^2 < norm(y_obs .- G(eki_init_result))^2
             @test norm(y_obs .- g_mean_final)^2 < norm(y_obs .- g_mean_init)^2
+
+            @test norm(ϕ_star - ϕ_inf_final_mean) < norm(ϕ_star - ϕ_inf_init_mean)
+            @test norm(y_obs .- G(eki_inf_final_result))^2 < norm(y_obs .- G(eki_inf_init_result))^2
+            @test norm(y_obs .- g_mean_inf_final)^2 < norm(y_obs .- g_mean_inf_init)^2
+
         end
 
         if i_prob <= n_lin_inv_probs && isa(get_localizer(ekiobj), EKP.Localizers.NoLocalization)
@@ -971,6 +1081,11 @@ end
 
             # ETKI provides a solution closer to the ordinary Least Squares estimate
             @test norm(ols_mean - ϕ_final_mean) < norm(ols_mean - ϕ_init_mean)
+            @test norm(ols_mean - ϕ_inf_final_mean) < norm(ols_mean - ϕ_inf_init_mean)
+
+            # EKTI with inf-solution should converge to posterior mean as T-> inf 
+            @test norm(posterior_mean - ϕ_inf_final_mean) < norm(posterior_mean - ϕ_inf_init_mean)
+
         end
 
         # Plot evolution of the ETKI particles
@@ -982,6 +1097,7 @@ end
     for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000])
 
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
+        initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens)
 
         y_obs_test, G_test, Γ_test, A_test =
             linear_inv_problem(ϕ_star, noise_level, n_obs_test, rng; return_matrix = true)
@@ -995,20 +1111,32 @@ end
             failure_handler_method = SampleSuccGauss(),
             scheduler = DefaultScheduler(1),
         )
-        T = 0.0
-        for i in 1:N_iter
-            params_i = get_ϕ_final(prior, ekiobj)
-            g_ens = G_test(params_i)
-            dt = @elapsed EKP.update_ensemble!(ekiobj, g_ens)
-            T += dt
-        end
-        # Skip timing of first due to precompilation
-        if i >= 2
-            @info "$N_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(N_iter)))"
-            if T / Float64(N_iter) > 0.2
-                @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(N_iter)). Significant slowdowns encountered in ETKI"
+        ekiobj_inf = EKP.EnsembleKalmanProcess(
+            initial_ensemble_inf,
+            y_obs_test,
+            Γ_test,
+            TransformInversion(prior);
+            rng = copy(rng),
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = DefaultScheduler(1),
+        )
+        for ekp in [ekiobj, ekiobj_inf]
+            T = 0.0
+            for i in 1:N_iter
+                params_i = get_ϕ_final(prior, ekp)
+                g_ens = G_test(params_i)
+                dt = @elapsed EKP.update_ensemble!(ekp, g_ens)
+                T += dt
             end
 
+            # Skip timing of first due to precompilation
+            if i >= 2
+                @info "$N_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(N_iter)))"
+                if T / Float64(N_iter) > 0.2
+                    @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(N_iter)). Significant slowdowns encountered in ETKI"
+                end
+
+            end
         end
     end
 end

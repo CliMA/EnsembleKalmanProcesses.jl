@@ -19,8 +19,8 @@ const EKP = EnsembleKalmanProcesses
 # G₁(u) = \|u - u_*\| ,
 # ```
 # where ``u`` is a 2-vector of parameters and ``u_*`` is given; here ``u_* = (-1, 1)``. 
-u★ = [1, -1]
-G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]
+ustar = [1, -1]
+G₁(u) = [norm(u - ustar)]
 nothing # hide
 
 # We set the seed for pseudo-random number generator for reproducibility.
@@ -90,8 +90,8 @@ anim_unique_minimum = @animate for i in 1:N_iterations
     u_i = get_u(ensemble_kalman_process, i)
 
     plot(
-        [u★[1]],
-        [u★[2]],
+        [ustar[1]],
+        [ustar[2]],
         seriestype = :scatter,
         markershape = :star5,
         markersize = 11,
@@ -129,9 +129,9 @@ gif(anim_unique_minimum, "unique_minimum.gif", fps = 1) # hide
 # ```
 # where again ``u`` is a 2-vector, and ``v_{*}`` and ``w_{*}`` are given 2-vectors. Here, we take ``v_{*} = (1, -1)`` and ``w_{*} = (-1, -1)``.
 
-v★ = [1, -1]
-w★ = [-1, -1]
-G₂(u) = [sqrt(((u[1] - v★[1])^2 + (u[2] - v★[2])^2) * ((u[1] - w★[1])^2 + (u[2] - w★[2])^2))]
+vstar = [1, -1]
+wstar = [-1, -1]
+G₂(u) = [norm(u - vstar) * norm(u - wstar)]
 nothing # hide
 #
 # The procedure is same as the single-minimum example above.
@@ -193,8 +193,8 @@ anim_two_minima = @animate for i in 1:N_iterations
     u_i = get_u(ensemble_kalman_process, i)
 
     plot(
-        [v★[1]],
-        [v★[2]],
+        [vstar[1]],
+        [vstar[2]],
         seriestype = :scatter,
         markershape = :star5,
         markersize = 11,
@@ -203,8 +203,8 @@ anim_two_minima = @animate for i in 1:N_iterations
     )
 
     plot!(
-        [w★[1]],
-        [w★[2]],
+        [wstar[1]],
+        [wstar[2]],
         seriestype = :scatter,
         markershape = :star5,
         markersize = 11,
