@@ -100,6 +100,22 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
     @test update_groups == update_groups_test
 
+    # Series
+    rfs_minibatcher = RandomFixedSizeMinibatcher(2)
+    observations_vec = repeat([observations], 4)
+    names = ["obs_$(string(i))" for i in 1:4]
+    os = ObservationSeries(observations_vec, rfs_minibatcher, names)
+    initial_ensemble = EKP.construct_initial_ensemble(priors, 10) # e.g. 10 particles
+    ekp = EnsembleKalmanProcess(initial_ensemble, os, Inversion(), update_groups = update_groups)
+
+    u_group_test, g_group_test = list_update_groups_over_minibatch(ekp)
+    @test u_group_test == get_u_group.(update_groups)
+
+    len_mb = length(get_current_minibatch(os))
+    len_obs = Int(length(get_obs(os)) / len_mb)
+    @test g_group_test ==
+          [reduce(vcat, [(i - 1) * len_obs .+ gg for i in 1:len_mb]) for gg in get_g_group.(update_groups)]
+
     # throw errors
     bad_group_identifiers = Dict(["FF"] => ["<X>"], ["G"] => ["<X>", "<Y>"])
     @test_throws ArgumentError create_update_groups(priors, observations, bad_group_identifiers)
