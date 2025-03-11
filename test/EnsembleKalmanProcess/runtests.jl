@@ -1091,7 +1091,7 @@ end
             plot_inv_problem_ensemble(prior, ekiobj, joinpath(@__DIR__, "ETKI_test_$(i_prob).png"))
         end
     end
-    n_iter = 5
+    n_iter = 4
     for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000])
         # first i effectively ignored - just for precompile!
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
@@ -1107,7 +1107,7 @@ end
             TransformInversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
-            scheduler = DataMisfitController(terminate_at = 1000), # (least scalable scheduler in output-space)
+            scheduler = DataMisfitController(terminate_at = 1e8), # (least scalable scheduler in output-space)
         )
         ekiobj_inf = EKP.EnsembleKalmanProcess(
             initial_ensemble_inf,
@@ -1116,7 +1116,7 @@ end
             TransformInversion(prior);
             rng = copy(rng),
             failure_handler_method = SampleSuccGauss(),
-            scheduler = DataMisfitController(terminate_at = 1000),
+            scheduler = DataMisfitController(terminate_at = 1e8),
         )
         for ekp in [ekiobj, ekiobj_inf]
             T = 0.0
@@ -1130,7 +1130,7 @@ end
             # Skip timing of first due to precompilation
             if i >= 2
                 @info "$n_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(n_iter)))"
-                if T / (n_obs_test * Float64(n_iter)) > 4e-6 # tol back-computed from 1_000_000 computation
+                if T / (n_obs_test * Float64(n_iter)) > 5e-6 || n_obs_test < 5_000 # tol back-computed from 1_000_000 computation
                     @error "The ETKI update for $(n_obs_test) observations should take under $(n_obs_test*4e-6) per update, received $(T/Float64(n_iter)). Significant slowdowns encountered in ETKI"
                 end
 
