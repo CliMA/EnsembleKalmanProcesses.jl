@@ -917,9 +917,9 @@ end
 $(TYPEDSIGNATURES)
 
 Imputation of "reasonable values" over NaNs in the following manner
-1. Detect failures: check if any column contains NaNs exceeding the fraction `get_nan_tolerance(ekp)`, such members are flagged as failures
+1. Detect failures: check if any column contains NaNs exceeding the fraction `nan_tolerance`, such members are flagged as failures
 2. Impute values in rows with few NaNs: Of the admissible columns, any NaNs are replaced by finite values of the ensemble-mean (without NaNs) over the row. 
-3. Impute a value for row with all NaNs: Of the admissible columns, the value of the observation itself "get_obs(ekp)" is imputed
+3. Impute a value for row with all NaNs: Of the admissible columns, the value of the observation itself "y" is imputed
 """
 function impute_over_nans(g::AM, nan_tolerance::FT, y::AV; verbose=false) where {AM <: AbstractMatrix, AV <: AbstractVector, FT}
     out = copy(g) # or will modify g
