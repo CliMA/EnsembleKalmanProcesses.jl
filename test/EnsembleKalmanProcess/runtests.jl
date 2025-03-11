@@ -643,9 +643,9 @@ end
 
                 # add some redeemable failures
                 n_nans = 5
-                make_nan = shuffle!(rng, collect(1:N_ensemble))
+                make_nan = shuffle!(rng, collect(1:N_ens))
                 g_ens[1,make_nan[1:n_nans]] .= NaN
-                make_nan = shuffle!(rng, collect(1:N_ensemble))
+                make_nan = shuffle!(rng, collect(1:N_ens))
                 g_ens[end,make_nan[1:n_nans]] .= NaN
 
             end
