@@ -939,7 +939,7 @@ function impute_over_nans(g::AM, nan_tolerance::FT, y::AV; verbose=false) where 
 In forward map ensemble g, detected $(sum(nan_loc)) NaNs. 
 Given nan_tolerance = $(nan_tolerance) to determine failed members: 
 - Ensemble members failed:       $(sum((sum(nan_loc, dims=1) .> tol))) 
-- NaNs in successful members:    $(sum(nan_in_row)) 
+- NaNs in successful members:    $(sum(nan_loc[:,not_fail])) 
 - rows index set for imputation: $(rows_for_imputation) 
 - rows index entirely NaN:       $(rows_all_nan)
 """
