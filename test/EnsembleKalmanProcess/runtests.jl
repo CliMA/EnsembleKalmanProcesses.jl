@@ -85,7 +85,6 @@ inv_problems = [inv_problems..., nl_inv_problems...]
     @test isapprox(norm(y_obs .- A * ϕ_star)^2 - n_obs * noise_level^2, 0; atol = 0.06)
 end
 
-
 @testset "Accelerators" begin
     # Get an inverse problem
     y_obs, G, Γy, _ = inv_problems[end - 2] # additive noise inv problem (deterministic map)
@@ -901,6 +900,7 @@ end
     end
 end
 
+
 @testset "EnsembleTransformKalmanInversion" begin
 
     # Seed for pseudo-random number generator
@@ -1093,15 +1093,15 @@ end
             plot_inv_problem_ensemble(prior, ekiobj, joinpath(@__DIR__, "ETKI_test_$(i_prob).png"))
         end
     end
-
-    for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000])
-
+    N_iter=5
+    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000, 1_000_000])
+        # first i effectively ignored - just for precompile!
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens)
-
+        
         y_obs_test, G_test, Γ_test, A_test =
             linear_inv_problem(ϕ_star, noise_level, n_obs_test, rng; return_matrix = true)
-
+        
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs_test,
@@ -1109,7 +1109,7 @@ end
             TransformInversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
-            scheduler = DefaultScheduler(1),
+            scheduler = DataMisfitController(), # (least scalable scheduler in output-space)
         )
         ekiobj_inf = EKP.EnsembleKalmanProcess(
             initial_ensemble_inf,
@@ -1118,7 +1118,7 @@ end
             TransformInversion(prior);
             rng = copy(rng),
             failure_handler_method = SampleSuccGauss(),
-            scheduler = DefaultScheduler(1),
+            scheduler = DataMisfitController(),
         )
         for ekp in [ekiobj, ekiobj_inf]
             T = 0.0
