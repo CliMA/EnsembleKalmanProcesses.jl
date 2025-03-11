@@ -85,7 +85,6 @@ inv_problems = [inv_problems..., nl_inv_problems...]
     @test isapprox(norm(y_obs .- A * ϕ_star)^2 - n_obs * noise_level^2, 0; atol = 0.06)
 end
 
-
 @testset "Accelerators" begin
     # Get an inverse problem
     y_obs, G, Γy, _ = inv_problems[end - 2] # additive noise inv problem (deterministic map)
@@ -301,8 +300,6 @@ end
     dmclrs1 = EKP.DataMisfitController()
     @test typeof(dmclrs1.iteration) == Vector{Int}
     @test length(dmclrs1.iteration) == 0
-    @test typeof(dmclrs1.inv_sqrt_noise) == Vector{Matrix{Float64}}
-    @test length(dmclrs1.inv_sqrt_noise) == 0
     @test dmclrs1.terminate_at == Float64(1)
     @test dmclrs1.on_terminate == "stop"
     dmclrs2 = EKP.DataMisfitController(terminate_at = 7, on_terminate = "continue")
@@ -901,6 +898,7 @@ end
     end
 end
 
+
 @testset "EnsembleTransformKalmanInversion" begin
 
     # Seed for pseudo-random number generator
@@ -1093,9 +1091,9 @@ end
             plot_inv_problem_ensemble(prior, ekiobj, joinpath(@__DIR__, "ETKI_test_$(i_prob).png"))
         end
     end
-
-    for (i, n_obs_test) in enumerate([10, 10, 100, 1000, 10000])
-
+    n_iter = 4
+    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000])
+        # first i effectively ignored - just for precompile!
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens)
 
@@ -1109,7 +1107,7 @@ end
             TransformInversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
-            scheduler = DefaultScheduler(1),
+            scheduler = DataMisfitController(terminate_at = 1e8), # (least scalable scheduler in output-space)
         )
         ekiobj_inf = EKP.EnsembleKalmanProcess(
             initial_ensemble_inf,
@@ -1118,11 +1116,11 @@ end
             TransformInversion(prior);
             rng = copy(rng),
             failure_handler_method = SampleSuccGauss(),
-            scheduler = DefaultScheduler(1),
+            scheduler = DataMisfitController(terminate_at = 1e8),
         )
         for ekp in [ekiobj, ekiobj_inf]
             T = 0.0
-            for i in 1:N_iter
+            for i in 1:n_iter
                 params_i = get_ϕ_final(prior, ekp)
                 g_ens = G_test(params_i)
                 dt = @elapsed EKP.update_ensemble!(ekp, g_ens)
@@ -1131,9 +1129,9 @@ end
 
             # Skip timing of first due to precompilation
             if i >= 2
-                @info "$N_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(N_iter)))"
-                if T / Float64(N_iter) > 0.2
-                    @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(N_iter)). Significant slowdowns encountered in ETKI"
+                @info "$n_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(n_iter)))"
+                if T / (n_obs_test * Float64(n_iter)) > 5e-6 || n_obs_test < 5_000 # tol back-computed from 1_000_000 computation
+                    @error "The ETKI update for $(n_obs_test) observations should take under $(n_obs_test*4e-6) per update, received $(T/Float64(n_iter)). Significant slowdowns encountered in ETKI"
                 end
 
             end
