@@ -1091,7 +1091,7 @@ end
             plot_inv_problem_ensemble(prior, ekiobj, joinpath(@__DIR__, "ETKI_test_$(i_prob).png"))
         end
     end
-    N_iter = 5
+    n_iter = 5
     for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000, 1_000_000])
         # first i effectively ignored - just for precompile!
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
@@ -1120,7 +1120,7 @@ end
         )
         for ekp in [ekiobj, ekiobj_inf]
             T = 0.0
-            for i in 1:N_iter
+            for i in 1:n_iter
                 params_i = get_ϕ_final(prior, ekp)
                 g_ens = G_test(params_i)
                 dt = @elapsed EKP.update_ensemble!(ekp, g_ens)
@@ -1129,9 +1129,9 @@ end
 
             # Skip timing of first due to precompilation
             if i >= 2
-                @info "$N_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(N_iter)))"
-                if T / Float64(N_iter) > 0.2
-                    @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(N_iter)). Significant slowdowns encountered in ETKI"
+                @info "$n_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(n_iter)))"
+                if T / Float64(n_iter) > 0.2
+                    @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(n_iter)). Significant slowdowns encountered in ETKI"
                 end
 
             end
