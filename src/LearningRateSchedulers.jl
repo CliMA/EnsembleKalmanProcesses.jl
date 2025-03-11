@@ -118,13 +118,11 @@ The user may also change the `T` with `terminate_at` keyword.
 
 $(TYPEDFIELDS)
 """
-struct DataMisfitController{FT, M, S} <:
-       LearningRateScheduler where {FT <: AbstractFloat, M <: AbstractMatrix, S <: AbstractString}
+struct DataMisfitController{FT, S} <:
+    LearningRateScheduler where {FT <: AbstractFloat, S <: AbstractString}
     "the current iteration"
     iteration::Vector{Int}
-    "the inverse square-root of the noise covariance is stored"
-    inv_sqrt_noise::Vector{M}
-    "the algorithm time for termination, default: 1.0"
+    "the inverse square-root of the noise covariance is stored (in reduced form)"
     terminate_at::FT
     "the action on termination, default: \"stop\", "
     on_terminate::S
@@ -137,9 +135,7 @@ Sets `terminate_at = 1.0` and `on_terminate="stop"`
 """
 function DataMisfitController(; terminate_at = 1.0, on_terminate = "stop")
     FT = Float64
-    M = Matrix{FT}
     iteration = Int[]
-    inv_sqrt_noise = M[]
 
     if terminate_at > 0 #can be infinity
         ta = FT(terminate_at)
@@ -155,7 +151,7 @@ function DataMisfitController(; terminate_at = 1.0, on_terminate = "stop")
         )
     end
 
-    return DataMisfitController{FT, M, typeof(on_terminate)}(iteration, inv_sqrt_noise, ta, on_terminate)
+    return DataMisfitController{FT, typeof(on_terminate)}(iteration, ta, on_terminate)
 end
 
 """
@@ -259,6 +255,8 @@ function posdef_correct(mat::AbstractMatrix; tol::Real = 1e8 * eps())
 end
 
 
+
+
 # Iglesias Yan 2021 paper
 function calculate_timestep!(
     ekp::EnsembleKalmanProcess,
@@ -280,16 +278,12 @@ function calculate_timestep!(
 
     if isempty(get_Δt(ekp))
         push!(scheduler.iteration, 1)
-        inv_sqrt_Γ = sqrt(posdef_correct(get_obs_noise_cov_inv(ekp)))
-        push!(scheduler.inv_sqrt_noise, inv_sqrt_Γ)
     elseif len_epoch == 1 # only no minibatching
         scheduler.iteration[end] += 1
-        inv_sqrt_Γ = scheduler.inv_sqrt_noise[end]
     else
         scheduler.iteration[end] += 1
-        inv_sqrt_Γ = sqrt(posdef_correct(get_obs_noise_cov_inv(ekp)))
-        scheduler.inv_sqrt_noise[1] = inv_sqrt_Γ
     end
+    
     n = scheduler.iteration[end]
     sum_Δt = (n == 1) ? 0.0 : sum(get_Δt(ekp))
     sum_Δt_min1 = (n <= 2) ? 0.0 : sum(get_Δt(ekp)[1:(end - 1)])
@@ -313,7 +307,20 @@ function calculate_timestep!(
 
     y_mean = get_obs(ekp)
 
-    Φ = [0.5 * norm(inv_sqrt_Γ * (g[:, j] - reshape(y_mean, :, 1)))^2 for j in 1:J]
+    # efficiently compute [0.5 * norm(inv(sqrt(Γ)) * (g_j - y))^2 for j in 1:J]
+    Φ = zeros(J)
+    Γ_inv = get_obs_noise_cov_inv(ekp, build = false)
+    γ_sizes = [size(γ_inv, 1) for γ_inv in Γ_inv]
+    diff = g .- reshape(y_mean, :, 1) # - y from each column of g
+    X = zeros(sum(γ_sizes), size(diff, 2)) # stores Γ_inv * Y
+    shift = [0]
+    for (γs, γ_inv) in zip(γ_sizes, Γ_inv)
+        idx = (shift[1] + 1):(shift[1] + γs)
+        X[idx, :] = γ_inv * diff[idx, :]
+        shift[1] = maximum(idx)
+    end
+    Φ = [0.5 * dot(diff[:,j],X[:,j]) for j in 1:J]
+
     Φ_mean = mean(Φ)
     Φ_var = var(Φ)
 
