@@ -300,8 +300,6 @@ end
     dmclrs1 = EKP.DataMisfitController()
     @test typeof(dmclrs1.iteration) == Vector{Int}
     @test length(dmclrs1.iteration) == 0
-    @test typeof(dmclrs1.inv_sqrt_noise) == Vector{Matrix{Float64}}
-    @test length(dmclrs1.inv_sqrt_noise) == 0
     @test dmclrs1.terminate_at == Float64(1)
     @test dmclrs1.on_terminate == "stop"
     dmclrs2 = EKP.DataMisfitController(terminate_at = 7, on_terminate = "continue")
@@ -1109,7 +1107,7 @@ end
             TransformInversion();
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
-            scheduler = DataMisfitController(), # (least scalable scheduler in output-space)
+            scheduler = DataMisfitController(terminate_at = 1000), # (least scalable scheduler in output-space)
         )
         ekiobj_inf = EKP.EnsembleKalmanProcess(
             initial_ensemble_inf,
@@ -1118,7 +1116,7 @@ end
             TransformInversion(prior);
             rng = copy(rng),
             failure_handler_method = SampleSuccGauss(),
-            scheduler = DataMisfitController(),
+            scheduler = DataMisfitController(terminate_at = 1000),
         )
         for ekp in [ekiobj, ekiobj_inf]
             T = 0.0
