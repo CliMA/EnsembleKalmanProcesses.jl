@@ -651,7 +651,9 @@ end
             end
             
             EKP.update_ensemble!(ekiobj, g_ens)
-            push!(g_ens_vec, g_ens)
+            # fix if added redeemable failues
+            imputed_g_ens = impute_over_nans(g_ens, 0.1, y_obs)
+            push!(g_ens_vec, imputed_g_ens)
 
             # repeat with inf-time variant
             params_i_inf = get_ϕ_final(prior, ekiobj_inf)
