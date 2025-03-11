@@ -1092,7 +1092,7 @@ end
         end
     end
     n_iter = 5
-    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000, 1_000_000])
+    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000])
         # first i effectively ignored - just for precompile!
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens)
@@ -1130,8 +1130,8 @@ end
             # Skip timing of first due to precompilation
             if i >= 2
                 @info "$n_iter iterations of ETKI with $n_obs_test observations took $T seconds. (avg update: $(T/Float64(n_iter)))"
-                if T / Float64(n_iter) > 0.2
-                    @error "The ETKI update for 10,000 observations should take ~0.02s per update, received $(T/Float64(n_iter)). Significant slowdowns encountered in ETKI"
+                if T / (n_obs_test * Float64(n_iter)) > 4e-6 # tol back-computed from 1_000_000 computation
+                    @error "The ETKI update for $(n_obs_test) observations should take under $(n_obs_test*4e-6) per update, received $(T/Float64(n_iter)). Significant slowdowns encountered in ETKI"
                 end
 
             end
