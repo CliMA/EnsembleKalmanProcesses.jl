@@ -638,8 +638,18 @@ end
             g_ens = G(params_i)
             # Add random failures
             if i in iters_with_failure
+                # fail particle 1
                 g_ens[:, 1] .= NaN
+
+                # add some redeemable failures
+                n_nans = 5
+                make_nan = shuffle!(rng, collect(1:N_ensemble))
+                g_ens[1,make_nan[1:n_nans]] .= NaN
+                make_nan = shuffle!(rng, collect(1:N_ensemble))
+                g_ens[end,make_nan[1:n_nans]] .= NaN
+
             end
+            
             EKP.update_ensemble!(ekiobj, g_ens)
             push!(g_ens_vec, g_ens)
 
