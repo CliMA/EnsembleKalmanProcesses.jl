@@ -921,7 +921,7 @@ Imputation of "reasonable values" over NaNs in the following manner
 2. Impute values in rows with few NaNs: Of the admissible columns, any NaNs are replaced by finite values of the ensemble-mean (without NaNs) over the row. 
 3. Impute a value for row with all NaNs: Of the admissible columns, the value of the observation itself "get_obs(ekp)" is imputed
 """
-function impute_over_nans(g::AM, nan_tolerance::FT, y::AV) where {AM <: AbstractMatrix, AV <: AbstractVector, FT}
+function impute_over_nans(g::AM, nan_tolerance::FT, y::AV; verbose=false) where {AM <: AbstractMatrix, AV <: AbstractVector, FT}
     out = copy(g) # or will modify g
     tol = Int(floor(nan_tolerance * size(out,1)))
     nan_loc = isnan.(out)
@@ -929,6 +929,24 @@ function impute_over_nans(g::AM, nan_tolerance::FT, y::AV) where {AM <: Abstract
     # find if NaNs are in succesful particles still
     nan_in_row = sum(nan_loc[:,not_fail], dims=2) .> 0
     rows_for_imputation = [nan_in_row[i] * i for i in 1:size(out,1) if nan_in_row[i]>0]
+
+    if verbose
+        if length(rows_for_imputation)>0
+            all_nan = sum(nan_loc, dims=2) .== size(out,2)
+            rows_all_nan = [all_nan[i] * i for i in 1:size(out,1) if all_nan[i] > 0 ]
+            
+            @warn """
+In forward map ensemble g, detected $(sum(nan_loc)) NaNs. 
+Given nan_tolerance = $(nan_tolerance) to determine failed members: 
+- Ensemble members failed:       $(sum((sum(nan_loc, dims=1) .> tol))) 
+- NaNs in successful members:    $(sum(nan_in_row)) 
+- rows index set for imputation: $(rows_for_imputation) 
+- rows index entirely NaN:       $(rows_all_nan)
+"""
+        end
+        
+    end
+        
     # loop over rows with NaNs that are in successful particles
     for row in rows_for_imputation
         not_nan = .! nan_loc[row, :] # use all non-NaN cols to compute value (if there are some)
@@ -945,7 +963,7 @@ function impute_over_nans(g::AM, nan_tolerance::FT, y::AV) where {AM <: Abstract
 end
     
 function impute_over_nans(ekp::EnsembleKalmanProcess, g::AM) where {AM <: AbstractMatrix}
-    return impute_over_nans(g, get_nan_tolerance(ekp), get_obs(ekp))
+    return impute_over_nans(g, get_nan_tolerance(ekp), get_obs(ekp), verbose=ekp.verbose)
 end
 
 """

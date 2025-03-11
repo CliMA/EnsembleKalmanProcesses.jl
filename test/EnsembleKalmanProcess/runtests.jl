@@ -99,7 +99,7 @@ end
     # mat has 2 NaN rows (3&4)
     # mat has column 3 being a failed particle (4/7>nan_tolerance rows failed)
     # mat[1,1] and mat[5,2] are replaceable
-    mat_new = impute_over_nans(mat, nan_tolerance, bad_row_vals)
+    mat_new = impute_over_nans(mat, nan_tolerance, bad_row_vals, verbose=true)
     # check ignored values
     @test sum((mat-mat_new)[.! isnan.(mat-mat_new)]) == 0
     # check there are no "new" NaNs
