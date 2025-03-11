@@ -118,8 +118,7 @@ The user may also change the `T` with `terminate_at` keyword.
 
 $(TYPEDFIELDS)
 """
-struct DataMisfitController{FT, S} <:
-    LearningRateScheduler where {FT <: AbstractFloat, S <: AbstractString}
+struct DataMisfitController{FT, S} <: LearningRateScheduler where {FT <: AbstractFloat, S <: AbstractString}
     "the current iteration"
     iteration::Vector{Int}
     "the algorithm time for termination, default: 1.0"
@@ -283,7 +282,7 @@ function calculate_timestep!(
     else
         scheduler.iteration[end] += 1
     end
-    
+
     n = scheduler.iteration[end]
     sum_Δt = (n == 1) ? 0.0 : sum(get_Δt(ekp))
     sum_Δt_min1 = (n <= 2) ? 0.0 : sum(get_Δt(ekp)[1:(end - 1)])
@@ -319,7 +318,7 @@ function calculate_timestep!(
         X[idx, :] = γ_inv * diff[idx, :]
         shift[1] = maximum(idx)
     end
-    Φ = [0.5 * dot(diff[:,j],X[:,j]) for j in 1:J]
+    Φ = [0.5 * dot(diff[:, j], X[:, j]) for j in 1:J]
 
     Φ_mean = mean(Φ)
     Φ_var = var(Φ)
