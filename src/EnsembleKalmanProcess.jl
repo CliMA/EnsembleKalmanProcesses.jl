@@ -919,22 +919,27 @@ $(TYPEDSIGNATURES)
 Imputation of "reasonable values" over NaNs in the following manner
 1. Detect failures: check if any column contains NaNs exceeding the fraction `nan_tolerance`, such members are flagged as failures
 2. Impute values in rows with few NaNs: Of the admissible columns, any NaNs are replaced by finite values of the ensemble-mean (without NaNs) over the row. 
-3. Impute a value for row with all NaNs: Of the admissible columns, the value of the observation itself "y" is imputed
+3. Impute a value for row with all NaNs: Of the admissible columns, the value of the observation itself `y` is imputed
 """
-function impute_over_nans(g::AM, nan_tolerance::FT, y::AV; verbose=false) where {AM <: AbstractMatrix, AV <: AbstractVector, FT}
+function impute_over_nans(
+    g::AM,
+    nan_tolerance::FT,
+    y::AV;
+    verbose = false,
+) where {AM <: AbstractMatrix, AV <: AbstractVector, FT}
     out = copy(g) # or will modify g
-    tol = Int(floor(nan_tolerance * size(out,1)))
+    tol = Int(floor(nan_tolerance * size(out, 1)))
     nan_loc = isnan.(out)
-    not_fail = (.! (sum(nan_loc, dims=1) .> tol))[:] # "not" fail vector
+    not_fail = (@. !(sum(nan_loc, dims = 1) .> tol))[:] # "not" fail vector
     # find if NaNs are in succesful particles still
-    nan_in_row = sum(nan_loc[:,not_fail], dims=2) .> 0
-    rows_for_imputation = [nan_in_row[i] * i for i in 1:size(out,1) if nan_in_row[i]>0]
+    nan_in_row = sum(nan_loc[:, not_fail], dims = 2) .> 0
+    rows_for_imputation = [nan_in_row[i] * i for i in 1:size(out, 1) if nan_in_row[i] > 0]
 
     if verbose
-        if length(rows_for_imputation)>0
-            all_nan = sum(nan_loc, dims=2) .== size(out,2)
-            rows_all_nan = [all_nan[i] * i for i in 1:size(out,1) if all_nan[i] > 0 ]
-            
+        if length(rows_for_imputation) > 0
+            all_nan = sum(nan_loc, dims = 2) .== size(out, 2)
+            rows_all_nan = [all_nan[i] * i for i in 1:size(out, 1) if all_nan[i] > 0]
+
             @warn """
 In forward map ensemble g, detected $(sum(nan_loc)) NaNs. 
 Given nan_tolerance = $(nan_tolerance) to determine failed members: 
@@ -944,26 +949,26 @@ Given nan_tolerance = $(nan_tolerance) to determine failed members:
 - rows index entirely NaN:       $(rows_all_nan)
 """
         end
-        
+
     end
-        
+
     # loop over rows with NaNs that are in successful particles
     for row in rows_for_imputation
-        not_nan = .! nan_loc[row, :] # use all non-NaN cols to compute value (if there are some)
+        not_nan = @. !nan_loc[row, :] # use all non-NaN cols to compute value (if there are some)
         if sum(not_nan) == 0
             val = y[row]
         else
             val = mean(out[row, not_nan])
         end
-        suc_and_nan = nan_loc[row, :] .* not_fail  
+        suc_and_nan = nan_loc[row, :] .* not_fail
         out[row, suc_and_nan] .= val # change values only if not-fail and NaN
     end
-    
+
     return out
 end
-    
+
 function impute_over_nans(ekp::EnsembleKalmanProcess, g::AM) where {AM <: AbstractMatrix}
-    return impute_over_nans(g, get_nan_tolerance(ekp), get_obs(ekp), verbose=ekp.verbose)
+    return impute_over_nans(g, get_nan_tolerance(ekp), get_obs(ekp), verbose = ekp.verbose)
 end
 
 """
@@ -999,9 +1004,9 @@ function update_ensemble!(
         )
     end
     warn_on_repeated_columns(g_in)
-    
+
     g = impute_over_nans(ekp, g_in)
-    
+
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
 
