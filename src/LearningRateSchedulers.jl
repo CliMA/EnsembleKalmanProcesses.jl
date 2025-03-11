@@ -122,7 +122,7 @@ struct DataMisfitController{FT, S} <:
     LearningRateScheduler where {FT <: AbstractFloat, S <: AbstractString}
     "the current iteration"
     iteration::Vector{Int}
-    "the inverse square-root of the noise covariance is stored (in reduced form)"
+    "the algorithm time for termination, default: 1.0"
     terminate_at::FT
     "the action on termination, default: \"stop\", "
     on_terminate::S
