@@ -89,27 +89,27 @@ end
 @testset "NaN imputation" begin
 
     # handling failures.
-    mat = randn(7,4)
-    bad_row_vals = 1.0.*collect(1:size(mat,1)) # value to replace if whole row is NaN
+    mat = randn(7, 4)
+    bad_row_vals = 1.0 .* collect(1:size(mat, 1)) # value to replace if whole row is NaN
     nan_tolerance = 0.5 # threshold fraction of mat to determine bad column
-    mat[3:4,:] .= NaN 
-    mat[2,3] = NaN 
-    mat[1,[1,3]] .= NaN
-    mat[5,2] = NaN
+    mat[3:4, :] .= NaN
+    mat[2, 3] = NaN
+    mat[1, [1, 3]] .= NaN
+    mat[5, 2] = NaN
     # mat has 2 NaN rows (3&4)
     # mat has column 3 being a failed particle (4/7>nan_tolerance rows failed)
     # mat[1,1] and mat[5,2] are replaceable
-    mat_new = impute_over_nans(mat, nan_tolerance, bad_row_vals, verbose=true)
+    mat_new = impute_over_nans(mat, nan_tolerance, bad_row_vals, verbose = true)
     # check ignored values
-    @test sum((mat-mat_new)[.! isnan.(mat-mat_new)]) == 0
+    @test sum((mat - mat_new)[.!isnan.(mat - mat_new)]) == 0
     # check there are no "new" NaNs
-    @test sum((.! isnan.(mat)) .* isnan.(mat_new)) == 0
+    @test sum((.!isnan.(mat)) .* isnan.(mat_new)) == 0
     # check changed NaN values
-    @test mat_new[1,1] == mean([mat[1,2], mat[1,4]])
-    @test mat_new[5,2] == mean([mat[5,1], mat[5,3], mat[5,4]]) # includes mat[5,3]
-    @test all(mat_new[3,[1,2,4]] .== bad_row_vals[3])
-    @test all(mat_new[4,[1,2,4]] .== bad_row_vals[4])
-                             
+    @test mat_new[1, 1] == mean([mat[1, 2], mat[1, 4]])
+    @test mat_new[5, 2] == mean([mat[5, 1], mat[5, 3], mat[5, 4]]) # includes mat[5,3]
+    @test all(mat_new[3, [1, 2, 4]] .== bad_row_vals[3])
+    @test all(mat_new[4, [1, 2, 4]] .== bad_row_vals[4])
+
 end
 
 
@@ -644,12 +644,12 @@ end
                 # add some redeemable failures
                 n_nans = 5
                 make_nan = shuffle!(rng, collect(1:N_ens))
-                g_ens[1,make_nan[1:n_nans]] .= NaN
+                g_ens[1, make_nan[1:n_nans]] .= NaN
                 make_nan = shuffle!(rng, collect(1:N_ens))
-                g_ens[end,make_nan[1:n_nans]] .= NaN
+                g_ens[end, make_nan[1:n_nans]] .= NaN
 
             end
-            
+
             EKP.update_ensemble!(ekiobj, g_ens)
             # fix if added redeemable failues
             imputed_g_ens = impute_over_nans(g_ens, 0.1, y_obs)
