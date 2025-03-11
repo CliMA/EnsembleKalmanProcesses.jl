@@ -930,7 +930,7 @@ function impute_over_nans(
     out = copy(g) # or will modify g
     tol = Int(floor(nan_tolerance * size(out, 1)))
     nan_loc = isnan.(out)
-    not_fail = (@. !(sum(nan_loc, dims = 1) .> tol))[:] # "not" fail vector
+    not_fail = (.!(sum(nan_loc, dims = 1) .> tol))[:] # "not" fail vector
     # find if NaNs are in succesful particles still
     nan_in_row = sum(nan_loc[:, not_fail], dims = 2) .> 0
     rows_for_imputation = [nan_in_row[i] * i for i in 1:size(out, 1) if nan_in_row[i] > 0]
@@ -954,7 +954,7 @@ Given nan_tolerance = $(nan_tolerance) to determine failed members:
 
     # loop over rows with NaNs that are in successful particles
     for row in rows_for_imputation
-        not_nan = @. !nan_loc[row, :] # use all non-NaN cols to compute value (if there are some)
+        not_nan = .!nan_loc[row, :] # use all non-NaN cols to compute value (if there are some)
         if sum(not_nan) == 0
             val = y[row]
         else
