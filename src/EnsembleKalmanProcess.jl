@@ -42,7 +42,7 @@ abstract type Accelerator end
 "Failure handling method that ignores forward model failures"
 struct IgnoreFailures <: FailureHandlingMethod end
 
-""""
+"""
     SampleSuccGauss <: FailureHandlingMethod
 
 Failure handling method that substitutes failed ensemble members by new samples from
@@ -964,8 +964,7 @@ Given nan_tolerance = $(nan_tolerance) to determine failed members:
 - Ensemble members failed:      $(sum((sum(nan_loc, dims=1) .> tol))) 
 - NaNs in successful members:   $(sum(nan_loc[:,not_fail])) 
 - row index set for imputation: $(rows_for_imputation) 
-- row index entirely NaN:      $(rows_all_nan)
-    """
+- row index entirely NaN:      $(rows_all_nan)    """
         else
             if length(rows_all_nan) > 0
                 @warn "Detected rows entirely NaN: $(rows_all_nan)"
