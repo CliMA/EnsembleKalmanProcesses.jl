@@ -287,8 +287,8 @@ function EnsembleKalmanProcess(
     if verbose
         @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(loc_method)))\nFailure handler: $(nameof(typeof(fh_method)))\nScheduler: $(nameof(typeof(scheduler)))\nAccelerator: $(nameof(typeof(accelerator)))"
     end
-
-    EnsembleKalmanProcess{FT, IT, P, RS, AC, VVV}(
+    NorVV=typeof(nan_row_values)
+    EnsembleKalmanProcess{FT, IT, P, RS, AC, VVV, NorVV}(
         [init_params],
         observation_series,
         N_ens,
