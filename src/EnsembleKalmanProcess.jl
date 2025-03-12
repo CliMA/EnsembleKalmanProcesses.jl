@@ -935,22 +935,27 @@ function impute_over_nans(
     nan_in_row = sum(nan_loc[:, not_fail], dims = 2) .> 0
     rows_for_imputation = [nan_in_row[i] * i for i in 1:size(out, 1) if nan_in_row[i] > 0]
 
-    if verbose
-        if length(rows_for_imputation) > 0
+    if length(rows_for_imputation) > 0
             all_nan = sum(nan_loc, dims = 2) .== size(out, 2)
             rows_all_nan = [all_nan[i] * i for i in 1:size(out, 1) if all_nan[i] > 0]
-
+        if verbose            
             @warn """
 In forward map ensemble g, detected $(sum(nan_loc)) NaNs. 
 Given nan_tolerance = $(nan_tolerance) to determine failed members: 
-- Ensemble members failed:       $(sum((sum(nan_loc, dims=1) .> tol))) 
-- NaNs in successful members:    $(sum(nan_loc[:,not_fail])) 
-- rows index set for imputation: $(rows_for_imputation) 
-- rows index entirely NaN:       $(rows_all_nan)
-"""
+- Ensemble members failed:      $(sum((sum(nan_loc, dims=1) .> tol))) 
+- NaNs in successful members:   $(sum(nan_loc[:,not_fail])) 
+- row index set for imputation: $(rows_for_imputation) 
+- row index entirely NaN:      $(rows_all_nan)
+    """
+        else
+            if length(rows_all_nan)>0
+                @warn "Detected rows entirely NaN: $(rows_all_nan)"
+            end
         end
+        @info "Imputed $(sum(nan_loc[:,not_fail])) NaNs"
 
     end
+    
 
     # loop over rows with NaNs that are in successful particles
     for row in rows_for_imputation
