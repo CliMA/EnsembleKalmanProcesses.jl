@@ -35,6 +35,8 @@ get_Δt
 get_failure_handler
 get_localizer
 get_localizer_type
+get_nan_tolerance
+get_nan_row_values
 construct_initial_ensemble
 update_ensemble!
 sample_empirical_gaussian

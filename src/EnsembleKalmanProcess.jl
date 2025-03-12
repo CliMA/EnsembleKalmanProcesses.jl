@@ -16,6 +16,7 @@ export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
 export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
 export get_scheduler,
     get_localizer, get_localizer_type, get_accelerator, get_rng, get_Δt, get_failure_handler, get_N_ens, get_process
+export get_nan_tolerance, get_nan_row_values
 export get_observation_series, get_obs, get_obs_noise_cov, get_obs_noise_cov_inv
 export compute_error!
 export update_ensemble!
@@ -144,6 +145,7 @@ $(TYPEDFIELDS)
         rng::AbstractRNG = Random.GLOBAL_RNG,
         failure_handler_method::FM = IgnoreFailures(),
         nan_tolerance = 0.1,
+        nan_row_values = nothing,
         localization_method::LM = NoLocalization(),
         verbose::Bool = false,
     ) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod, OS <: ObservationSeries}
@@ -157,7 +159,8 @@ Inputs:
  - `Δt`                     :: Initial time step or learning rate
  - `rng`                    :: Random number generator
  - `failure_handler_method` :: Method used to handle particle failures
- - `nan_tolerance`          :: Fraction of allowable NaNs before considered failure (0.1 by default)
+ - `nan_tolerance`          :: Fraction of allowable NaNs in ensemble member before considered failure (0.1 by default)
+ - `nan_row_values`         :: Default-value vector to impute over entire-NaN rows of data (`get_obs(ekp)` used if value `nothing`)
  - `localization_method`    :: Method used to localize sample covariances
  - `verbose`                :: Whether to print diagnostic information
 
@@ -172,6 +175,7 @@ struct EnsembleKalmanProcess{
     LRS <: LearningRateScheduler,
     ACC <: Accelerator,
     VV <: AbstractVector,
+    NorVV <: Union{Nothing, AbstractVector}
 }
     "array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
     u::Array{DataContainer{FT}}
@@ -201,6 +205,8 @@ struct EnsembleKalmanProcess{
     localizer::Localizer
     "Fraction of allowable `NaN`s in model output before an ensemble member is considered a failed member and handled by failure handler"
     nan_tolerance::FT
+    "Default-value vector to impute over entire-NaN rows of data (`get_obs(ekp)` used if value `nothing`)"
+    nan_row_values::NorVV
     "Whether to print diagnostics for each EK iteration"
     verbose::Bool
 end
@@ -214,8 +220,9 @@ function EnsembleKalmanProcess(
     update_groups::Union{Nothing, VV} = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG,
     nan_tolerance = 0.1,
+    nan_row_values::Union{Nothing, VV2} = nothing,
     verbose::Bool = false,
-) where {FT <: AbstractFloat, P <: Process, OS <: ObservationSeries, VV <: AbstractVector}
+) where {FT <: AbstractFloat, P <: Process, OS <: ObservationSeries, VV <: AbstractVector, VV2 <: AbstractVector}
 
     #initial parameters stored as columns
     init_params = DataContainer(params, data_are_columns = true)
@@ -296,6 +303,7 @@ function EnsembleKalmanProcess(
         failure_handler,
         localizer,
         nan_tolerance,
+        nan_row_values,
         verbose,
     )
 end
@@ -312,6 +320,7 @@ function EnsembleKalmanProcess(
     update_groups::Union{Nothing, VV} = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG,
     nan_tolerance = 0.1,
+    nan_row_values::Union{Nothing, VV2} = nothing,
     verbose::Bool = false,
 ) where {
     FT <: AbstractFloat,
@@ -322,6 +331,7 @@ function EnsembleKalmanProcess(
     FM <: FailureHandlingMethod,
     LM <: LocalizationMethod,
     OS <: ObservationSeries,
+    VV2 <: AbstractVector,
 }
 
     if !(isnothing(Δt))
@@ -352,6 +362,7 @@ function EnsembleKalmanProcess(
         update_groups = update_groups,
         rng = rng,
         nan_tolerance = nan_tolerance,
+        nan_row_values = nan_row_values,
         verbose = verbose,
     )
 end
@@ -594,6 +605,14 @@ Return `nan_tolerance` field of EnsembleKalmanProcess.
 """
 function get_nan_tolerance(ekp::EnsembleKalmanProcess)
     return ekp.nan_tolerance
+end
+
+"""
+    get_nan_row_values(ekp::EnsembleKalmanProcess)
+Return `nan_row_values` field of EnsembleKalmanProcess.
+"""
+function get_nan_row_values(ekp::EnsembleKalmanProcess)
+    return ekp.nan_row_values
 end
 
 """
@@ -924,7 +943,7 @@ Imputation of "reasonable values" over NaNs in the following manner
 function impute_over_nans(
     g::AM,
     nan_tolerance::FT,
-    y::AV;
+    nan_row_values::AV;
     verbose = false,
 ) where {AM <: AbstractMatrix, AV <: AbstractVector, FT}
     out = copy(g) # or will modify g
@@ -961,7 +980,7 @@ Given nan_tolerance = $(nan_tolerance) to determine failed members:
     for row in rows_for_imputation
         not_nan = .!nan_loc[row, :] # use all non-NaN cols to compute value (if there are some)
         if sum(not_nan) == 0
-            val = y[row]
+            val = nan_row_values[row]
         else
             val = mean(out[row, not_nan])
         end
@@ -973,7 +992,8 @@ Given nan_tolerance = $(nan_tolerance) to determine failed members:
 end
 
 function impute_over_nans(ekp::EnsembleKalmanProcess, g::AM) where {AM <: AbstractMatrix}
-    return impute_over_nans(g, get_nan_tolerance(ekp), get_obs(ekp), verbose = ekp.verbose)
+    nan_row_values = isnothing(get_nan_row_values(ekp)) ? get_obs(ekp) : get_nan_row_values(ekp)
+    return impute_over_nans(g, get_nan_tolerance(ekp), nan_row_values, verbose = ekp.verbose)
 end
 
 """
