@@ -85,6 +85,34 @@ inv_problems = [inv_problems..., nl_inv_problems...]
     @test isapprox(norm(y_obs .- A * ϕ_star)^2 - n_obs * noise_level^2, 0; atol = 0.06)
 end
 
+
+@testset "NaN imputation" begin
+
+    # handling failures.
+    mat = randn(7, 4)
+    bad_row_vals = 1.0 .* collect(1:size(mat, 1)) # value to replace if whole row is NaN
+    nan_tolerance = 0.5 # threshold fraction of mat to determine bad column
+    mat[3:4, :] .= NaN
+    mat[2, 3] = NaN
+    mat[1, [1, 3]] .= NaN
+    mat[5, 2] = NaN
+    # mat has 2 NaN rows (3&4)
+    # mat has column 3 being a failed particle (4/7>nan_tolerance rows failed)
+    # mat[1,1] and mat[5,2] are replaceable
+    mat_new = impute_over_nans(mat, nan_tolerance, bad_row_vals, verbose = true)
+    # check ignored values
+    @test sum((mat - mat_new)[.!isnan.(mat - mat_new)]) == 0
+    # check there are no "new" NaNs
+    @test sum((.!isnan.(mat)) .* isnan.(mat_new)) == 0
+    # check changed NaN values
+    @test mat_new[1, 1] == mean([mat[1, 2], mat[1, 4]])
+    @test mat_new[5, 2] == mean([mat[5, 1], mat[5, 3], mat[5, 4]]) # includes mat[5,3]
+    @test all(mat_new[3, [1, 2, 4]] .== bad_row_vals[3])
+    @test all(mat_new[4, [1, 2, 4]] .== bad_row_vals[4])
+
+end
+
+
 @testset "Accelerators" begin
     # Get an inverse problem
     y_obs, G, Γy, _ = inv_problems[end - 2] # additive noise inv problem (deterministic map)
@@ -564,6 +592,8 @@ end
             failure_handler_method = IgnoreFailures(),
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
+            nan_tolerance = 0.2,
+            nan_row_values = 1.0 * collect(1:length(y_obs)),
         )
         ekiobj_nonoise_update = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -610,10 +640,28 @@ end
             g_ens = G(params_i)
             # Add random failures
             if i in iters_with_failure
+                # fail particle 1
                 g_ens[:, 1] .= NaN
+
+                # add some redeemable failures
+                n_nans = 5
+                make_nan = shuffle!(rng, collect(1:N_ens))
+                g_ens[1, make_nan[1:n_nans]] .= NaN
+                make_nan = shuffle!(rng, collect(1:N_ens))
+                g_ens[end, make_nan[1:n_nans]] .= NaN
+
+                # quick getter test
+                @test get_nan_tolerance(ekiobj) == 0.1 # default
+                @test isnothing(get_nan_row_values(ekiobj)) # default
+                @test get_nan_tolerance(ekiobj_unsafe) == 0.2
+                @test get_nan_row_values(ekiobj_unsafe) == 1.0 * collect(1:length(y_obs))
+
             end
+
             EKP.update_ensemble!(ekiobj, g_ens)
-            push!(g_ens_vec, g_ens)
+            # fix if added redeemable failues
+            imputed_g_ens = impute_over_nans(g_ens, 0.1, y_obs)
+            push!(g_ens_vec, imputed_g_ens)
 
             # repeat with inf-time variant
             params_i_inf = get_ϕ_final(prior, ekiobj_inf)

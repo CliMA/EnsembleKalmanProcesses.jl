@@ -16,11 +16,12 @@ export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
 export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
 export get_scheduler,
     get_localizer, get_localizer_type, get_accelerator, get_rng, get_Δt, get_failure_handler, get_N_ens, get_process
+export get_nan_tolerance, get_nan_row_values
 export get_observation_series, get_obs, get_obs_noise_cov, get_obs_noise_cov_inv
 export compute_error!
 export update_ensemble!
 export list_update_groups_over_minibatch
-export sample_empirical_gaussian, split_indices_by_success
+export sample_empirical_gaussian, split_indices_by_success, impute_over_nans
 export SampleSuccGauss, IgnoreFailures, FailureHandler
 
 
@@ -41,7 +42,7 @@ abstract type Accelerator end
 "Failure handling method that ignores forward model failures"
 struct IgnoreFailures <: FailureHandlingMethod end
 
-""""
+"""
     SampleSuccGauss <: FailureHandlingMethod
 
 Failure handling method that substitutes failed ensemble members by new samples from
@@ -143,6 +144,8 @@ $(TYPEDFIELDS)
         Δt = FT(1),
         rng::AbstractRNG = Random.GLOBAL_RNG,
         failure_handler_method::FM = IgnoreFailures(),
+        nan_tolerance = 0.1,
+        nan_row_values = nothing,
         localization_method::LM = NoLocalization(),
         verbose::Bool = false,
     ) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod, OS <: ObservationSeries}
@@ -156,6 +159,8 @@ Inputs:
  - `Δt`                     :: Initial time step or learning rate
  - `rng`                    :: Random number generator
  - `failure_handler_method` :: Method used to handle particle failures
+ - `nan_tolerance`          :: Fraction of allowable NaNs in ensemble member before considered failure (0.1 by default)
+ - `nan_row_values`         :: Default-value vector to impute over entire-NaN rows of data (`get_obs(ekp)` used if value `nothing`)
  - `localization_method`    :: Method used to localize sample covariances
  - `verbose`                :: Whether to print diagnostic information
 
@@ -170,6 +175,7 @@ struct EnsembleKalmanProcess{
     LRS <: LearningRateScheduler,
     ACC <: Accelerator,
     VV <: AbstractVector,
+    NorVV <: Union{Nothing, AbstractVector},
 }
     "array of stores for parameters (`u`), each of size [`N_par × N_ens`]"
     u::Array{DataContainer{FT}}
@@ -197,6 +203,10 @@ struct EnsembleKalmanProcess{
     failure_handler::FailureHandler
     "Localization kernel, implemented for (`Inversion`, `SparseInversion`, `Unscented`)"
     localizer::Localizer
+    "Fraction of allowable `NaN`s in model output before an ensemble member is considered a failed member and handled by failure handler"
+    nan_tolerance::FT
+    "Default-value vector to impute over entire-NaN rows of data (`get_obs(ekp)` used if value `nothing`)"
+    nan_row_values::NorVV
     "Whether to print diagnostics for each EK iteration"
     verbose::Bool
 end
@@ -209,8 +219,10 @@ function EnsembleKalmanProcess(
     configuration::Dict;
     update_groups::Union{Nothing, VV} = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG,
+    nan_tolerance = 0.1,
+    nan_row_values::Union{Nothing, VV2} = nothing,
     verbose::Bool = false,
-) where {FT <: AbstractFloat, P <: Process, OS <: ObservationSeries, VV <: AbstractVector}
+) where {FT <: AbstractFloat, P <: Process, OS <: ObservationSeries, VV <: AbstractVector, VV2 <: AbstractVector}
 
     #initial parameters stored as columns
     init_params = DataContainer(params, data_are_columns = true)
@@ -275,8 +287,8 @@ function EnsembleKalmanProcess(
     if verbose
         @info "Initializing ensemble Kalman process of type $(nameof(typeof(process)))\nNumber of ensemble members: $(N_ens)\nLocalization: $(nameof(typeof(loc_method)))\nFailure handler: $(nameof(typeof(fh_method)))\nScheduler: $(nameof(typeof(scheduler)))\nAccelerator: $(nameof(typeof(accelerator)))"
     end
-
-    EnsembleKalmanProcess{FT, IT, P, RS, AC, VVV}(
+    NorVV = typeof(nan_row_values)
+    EnsembleKalmanProcess{FT, IT, P, RS, AC, VVV, NorVV}(
         [init_params],
         observation_series,
         N_ens,
@@ -290,6 +302,8 @@ function EnsembleKalmanProcess(
         rng,
         failure_handler,
         localizer,
+        nan_tolerance,
+        nan_row_values,
         verbose,
     )
 end
@@ -305,6 +319,8 @@ function EnsembleKalmanProcess(
     Δt = nothing,
     update_groups::Union{Nothing, VV} = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG,
+    nan_tolerance = 0.1,
+    nan_row_values::Union{Nothing, VV2} = nothing,
     verbose::Bool = false,
 ) where {
     FT <: AbstractFloat,
@@ -315,6 +331,7 @@ function EnsembleKalmanProcess(
     FM <: FailureHandlingMethod,
     LM <: LocalizationMethod,
     OS <: ObservationSeries,
+    VV2 <: AbstractVector,
 }
 
     if !(isnothing(Δt))
@@ -344,6 +361,8 @@ function EnsembleKalmanProcess(
         configuration,
         update_groups = update_groups,
         rng = rng,
+        nan_tolerance = nan_tolerance,
+        nan_row_values = nan_row_values,
         verbose = verbose,
     )
 end
@@ -573,11 +592,27 @@ function get_Δt(ekp::EnsembleKalmanProcess)
 end
 
 """
-    get_failuer_handler(ekp::EnsembleKalmanProcess)
+    get_failure_handler(ekp::EnsembleKalmanProcess)
 Return `failure_handler` field of EnsembleKalmanProcess.
 """
 function get_failure_handler(ekp::EnsembleKalmanProcess)
     return ekp.failure_handler
+end
+
+"""
+    get_nan_tolerance(ekp::EnsembleKalmanProcess)
+Return `nan_tolerance` field of EnsembleKalmanProcess.
+"""
+function get_nan_tolerance(ekp::EnsembleKalmanProcess)
+    return ekp.nan_tolerance
+end
+
+"""
+    get_nan_row_values(ekp::EnsembleKalmanProcess)
+Return `nan_row_values` field of EnsembleKalmanProcess.
+"""
+function get_nan_row_values(ekp::EnsembleKalmanProcess)
+    return ekp.nan_row_values
 end
 
 """
@@ -880,19 +915,89 @@ function additive_inflation!(
     ekp.u[end] = DataContainer(u_updated, data_are_columns = true)
 end
 
+"""
+$(TYPEDSIGNATURES)
 
-
+Throws a warning if any columns of g are exactly repeated.
+The warning indicates that different ensemble members provided identical output (typically due to a bug in the forward map).
+"""
+function warn_on_repeated_columns(g::AM) where {AM <: AbstractMatrix}
+    # check if columns of g are the same (and not NaN)
+    n_nans = sum(isnan.(sum(g, dims = 1)))
+    nan_adjust = (n_nans > 0) ? -n_nans + 1 : 0
+    # as unique reduces NaNs to one column if present. or 0 if not
+    if length(unique(eachcol(g))) < size(g, 2) + nan_adjust
+        nonunique_cols = size(g, 2) + nan_adjust - length(unique(eachcol(g)))
+        @warn "Detected $(nonunique_cols) clashes where forward map evaluations are exactly equal (and not NaN), this is likely to cause `LinearAlgebra` difficulty. Please check forward evaluations for bugs."
+    end
+end
 
 """
-    update_ensemble!(
-        ekp::EnsembleKalmanProcess,
-        g::AbstractMatrix{FT};
-        multiplicative_inflation::Bool = false,
-        additive_inflation::Bool = false,
-        additive_inflation_cov::MorUS = get_u_cov_prior(ekp),
-        s::FT = 0.0,
-        ekp_kwargs...,
-    ) where {FT, IT}
+$(TYPEDSIGNATURES)
+
+Imputation of "reasonable values" over NaNs in the following manner
+1. Detect failures: check if any column contains NaNs exceeding the fraction `nan_tolerance`, such members are flagged as failures
+2. Impute values in rows with few NaNs: Of the admissible columns, any NaNs are replaced by finite values of the ensemble-mean (without NaNs) over the row. 
+3. Impute a value for row with all NaNs: Of the admissible columns, the value of the observation itself `y` is imputed
+"""
+function impute_over_nans(
+    g::AM,
+    nan_tolerance::FT,
+    nan_row_values::AV;
+    verbose = false,
+) where {AM <: AbstractMatrix, AV <: AbstractVector, FT}
+    out = copy(g) # or will modify g
+    tol = Int(floor(nan_tolerance * size(out, 1)))
+    nan_loc = isnan.(out)
+    not_fail = (.!(sum(nan_loc, dims = 1) .> tol))[:] # "not" fail vector
+    # find if NaNs are in succesful particles still
+    nan_in_row = sum(nan_loc[:, not_fail], dims = 2) .> 0
+    rows_for_imputation = [nan_in_row[i] * i for i in 1:size(out, 1) if nan_in_row[i] > 0]
+
+    if length(rows_for_imputation) > 0
+        all_nan = sum(nan_loc, dims = 2) .== size(out, 2)
+        rows_all_nan = [all_nan[i] * i for i in 1:size(out, 1) if all_nan[i] > 0]
+        if verbose
+            @warn """
+In forward map ensemble g, detected $(sum(nan_loc)) NaNs. 
+Given nan_tolerance = $(nan_tolerance) to determine failed members: 
+- Ensemble members failed:      $(sum((sum(nan_loc, dims=1) .> tol))) 
+- NaNs in successful members:   $(sum(nan_loc[:,not_fail])) 
+- row index set for imputation: $(rows_for_imputation) 
+- row index entirely NaN:      $(rows_all_nan)    """
+        else
+            if length(rows_all_nan) > 0
+                @warn "Detected rows entirely NaN: $(rows_all_nan)"
+            end
+        end
+        @info "Imputed $(sum(nan_loc[:,not_fail])) NaNs"
+
+    end
+
+
+    # loop over rows with NaNs that are in successful particles
+    for row in rows_for_imputation
+        not_nan = .!nan_loc[row, :] # use all non-NaN cols to compute value (if there are some)
+        if sum(not_nan) == 0
+            val = nan_row_values[row]
+        else
+            val = mean(out[row, not_nan])
+        end
+        suc_and_nan = nan_loc[row, :] .* not_fail
+        out[row, suc_and_nan] .= val # change values only if not-fail and NaN
+    end
+
+    return out
+end
+
+function impute_over_nans(ekp::EnsembleKalmanProcess, g::AM) where {AM <: AbstractMatrix}
+    nan_row_values = isnothing(get_nan_row_values(ekp)) ? get_obs(ekp) : get_nan_row_values(ekp)
+    return impute_over_nans(g, get_nan_tolerance(ekp), nan_row_values, verbose = ekp.verbose)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Updates the ensemble according to an Inversion process.
 Inputs:
  - ekp :: The EnsembleKalmanProcess to update.
@@ -906,30 +1011,25 @@ Inputs:
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess,
-    g::AbstractMatrix{FT};
+    g_in::AM;
     multiplicative_inflation::Bool = false,
     additive_inflation::Bool = false,
     additive_inflation_cov::MorUS = get_u_cov_prior(ekp),
     s::FT = 0.0,
     Δt_new::NFT = nothing,
     ekp_kwargs...,
-) where {FT, NFT <: Union{Nothing, AbstractFloat}, MorUS <: Union{AbstractMatrix, UniformScaling}}
+) where {FT, AM <: AbstractMatrix, NFT <: Union{Nothing, AbstractFloat}, MorUS <: Union{AbstractMatrix, UniformScaling}}
     #catch works when g non-square 
-    if !(size(g)[2] == get_N_ens(ekp))
+    if !(size(g_in)[2] == get_N_ens(ekp))
         throw(
             DimensionMismatch(
-                "ensemble size $(get_N_ens(ekp)) in EnsembleKalmanProcess does not match the columns of g ($(size(g)[2])); try transposing g or check the ensemble size",
+                "ensemble size $(get_N_ens(ekp)) in EnsembleKalmanProcess does not match the columns of g ($(size(g_in)[2])); try transposing g or check the ensemble size",
             ),
         )
     end
-    # check if columns of g are the same (and not NaN)
-    n_nans = sum(isnan.(sum(g, dims = 1)))
-    nan_adjust = (n_nans > 0) ? -n_nans + 1 : 0
-    # as unique reduces NaNs to one column if present. or 0 if not
-    if length(unique(eachcol(g))) < size(g, 2) + nan_adjust
-        nonunique_cols = size(g, 2) + nan_adjust - length(unique(eachcol(g)))
-        @warn "Detected $(nonunique_cols) clashes where forward map evaluations are exactly equal (and not NaN), this is likely to cause `LinearAlgebra` difficulty. Please check forward evaluations for bugs."
-    end
+    warn_on_repeated_columns(g_in)
+
+    g = impute_over_nans(ekp, g_in)
 
     terminate = calculate_timestep!(ekp, g, Δt_new)
     if isnothing(terminate)
