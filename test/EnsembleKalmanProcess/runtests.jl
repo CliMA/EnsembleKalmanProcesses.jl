@@ -593,7 +593,7 @@ end
             scheduler = deepcopy(scheduler),
             localization_method = deepcopy(localization_method),
             nan_tolerance = 0.2,
-            nan_row_values = 1.0*collect(1:length(y_obs))
+            nan_row_values = 1.0 * collect(1:length(y_obs)),
         )
         ekiobj_nonoise_update = EKP.EnsembleKalmanProcess(
             initial_ensemble,
@@ -654,8 +654,8 @@ end
                 @test get_nan_tolerance(ekiobj) == 0.1 # default
                 @test isnothing(get_nan_row_values(ekiobj)) # default
                 @test get_nan_tolerance(ekiobj_unsafe) == 0.2
-                @test get_nan_row_values(ekiobj_unsafe) == 1.0*collect(1:length(y_obs))
-                
+                @test get_nan_row_values(ekiobj_unsafe) == 1.0 * collect(1:length(y_obs))
+
             end
 
             EKP.update_ensemble!(ekiobj, g_ens)
