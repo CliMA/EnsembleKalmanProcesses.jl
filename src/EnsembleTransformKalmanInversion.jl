@@ -180,17 +180,10 @@ function etki_update(
         tmp[2] = zeros(ys2, ys2)
     end
 
-    # construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv
-    # this loop is very fast for diagonal, slow for nondiagonal
-    for (block_idx, local_idx, global_idx) in onci_idx
-        γ_inv = obs_noise_cov_inv[block_idx]
-        # This is cumbersome, but will retain e.g. diagonal type for matrix manipulations, else indexing converts back to matrix
-        if isa(γ_inv, Diagonal) #
-            tmp[1][1:ys2, global_idx] = inv_noise_scaling * (γ_inv.diag[local_idx] .* Y[global_idx, :])' # multiple each row of Y by γ_inv element
-        else #much slower
-            tmp[1][1:ys2, global_idx] = inv_noise_scaling * (γ_inv[local_idx, local_idx] * Y[global_idx, :])' # NB: col(Y') * γ_inv = (γ_inv * row(Y))' row-mult is faster
-        end
-    end
+    ## construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv
+    # left multiply obs_noise_cov_inv in-place (see src/Observations.jl) with the additional index restrictions
+    lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), ekp, Y, onci_idx) # store in transpose, with view helping reduce allocations
+    view(tmp[1], 1:ys2, :) .*= inv_noise_scaling
 
     tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
 
@@ -258,11 +251,24 @@ function update_ensemble!(
     else
         obs_noise_cov_inv_tmp = obs_noise_cov_inv
     end
-    γ_sizes = [size(γ_inv, 1) for γ_inv in obs_noise_cov_inv_tmp]
+
+    γ_sizes = zeros(Int, length(obs_noise_cov_inv))
+    for (i, γ_inv) in enumerate(obs_noise_cov_inv)
+        if isa(γ_inv, SVD)
+            if size(γ_inv.U, 1) == size(γ_inv.U, 2)
+                γ_sizes[i] = size(γ_inv.Vt, 2)
+            else
+                γ_sizes[i] = size(γ_inv.U, 1)
+            end
+        else
+            γ_sizes[i] = size(γ_inv, 1)
+        end
+    end
     prior_flag = repeat([false], length(γ_sizes))
     if impose_prior
         prior_flag[end] = true # needed to swap g_idx to u_idx in loop
     end
+
     onci_idx = []
     shift = 0
     for (block_id, (γs, pf)) in enumerate(zip(γ_sizes, prior_flag))

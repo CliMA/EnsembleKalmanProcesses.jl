@@ -2,6 +2,7 @@ using DocStringExtensions
 using LinearAlgebra
 using Statistics
 using Random
+using TSVD
 
 export Observation, Minibatcher, FixedMinibatcher, RandomFixedSizeMinibatcher, ObservationSeries
 export get_samples,
@@ -23,11 +24,123 @@ export get_samples,
     get_minibatcher,
     update_minibatch!,
     get_current_minibatch,
-    no_minibatcher
+    no_minibatcher,
+    tsvd_mat,
+    tsvd_cov_from_samples,
+    lmul_without_build
+
+# wrapper for tsvd - putting solution in SVD object
+"""
+$(TYPEDSIGNATURES)
+
+For a given matrix `X` and rank `r`, return the truncated SVD for X as a LinearAlgebra.jl `SVD` object. Setting `return_inverse=true` also return it's psuedoinverse X⁺.
+"""
+function tsvd_mat(X, r::Int; return_inverse = false, tsvd_kwargs...)
+    # Note, must only use tsvd approximation when rank < minimum dimension of X or you get very poor approximation.
+    if isa(X, UniformScaling)
+        if return_inverse
+            return svd(X(r)), svd(inv(X)(r))
+        else
+            return svd(X(r))
+        end
+    else
+        rx = rank(X)
+        mindim = minimum(size(X))
+        if rx <= r
+            if rx < r
+                @warn(
+                    "Requested truncation to rank $(r) for an input matrix of rank $(rx). Performing (truncated) SVD for rank $(rx) matrix."
+                )
+            end
+
+            if rx < mindim
+                U, s, V = tsvd(X, rx; tsvd_kwargs...)
+            else # perform exact svd (do NOT use tsvd for this! very poor approximation)
+                SS = svd(X)
+                if return_inverse
+                    return SS, SVD(permutedims(SS.Vt, (2, 1)), 1.0 ./ SS.S, permutedims(SS.U, (2, 1)))
+                else
+                    return SS
+                end
+            end
+        else
+            U, s, V = tsvd(X, r; tsvd_kwargs...)
+        end
+        if return_inverse
+            return SVD(U, s, permutedims(V, (2, 1))), SVD(V, 1.0 ./ s, permutedims(U, (2, 1)))
+        else
+            return SVD(U, s, permutedims(V, (2, 1)))
+        end
+    end
+end
+
+function tsvd_mat(X; return_inverse = false, tsvd_kwargs...)
+    if isa(X, UniformScaling)
+        throw(
+            ArgumentError(
+                "Cannot perform a low rank decomposition on `UniformScaling` type without providing a rank in the second argument.",
+            ),
+        )
+    end
+    return tsvd_mat(X, rank(X); return_inverse = return_inverse, tsvd_kwargs...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+For a given `sample_mat`, (with `data_are_columns = true`), rank "r" is optionally provided. Returns the SVDs corresponding to the matrix `cov(sample_mat; dims=2)`. Efficient representation when size(sample_mat,1) << size(sample_mat,2). Setting `return_inverse=true` also returns its psuedoinverse.
+"""
+function tsvd_cov_from_samples(
+    sample_mat::AM,
+    r::Int;
+    data_are_columns::Bool = true,
+    return_inverse = false,
+    tsvd_kwargs...,
+) where {AM <: AbstractMatrix}
+
+    mat = data_are_columns ? sample_mat : permutedims(sample_mat, (2, 1))
+    N = size(mat, 2)
+    if N > size(mat, 1)
+        @warn(
+            "SVD representation is efficient when estimating high-dimensional covariance with few samples. \n here # samples is $(N), while the space dimension is $(size(mat,1)), and representation will be inefficient."
+        )
+    elseif N == 1
+        throw(ArgumentError("Require multiple samples to estimate covariance matrix, only 1 provided"))
+    end
+    debiased_scaled_mat = 1.0 / sqrt(N - 1) * (mat .- mean(mat, dims = 2))
+    rk = min(rank(debiased_scaled_mat), r)
+
+    if return_inverse
+        A, Ainv = tsvd_mat(debiased_scaled_mat, rk; return_inverse = return_inverse, tsvd_kwargs...)
+        # A now represents the sqrt of the covariance, so we square the singular values 
+        return SVD(A.U, A.S .^ 2, permutedims(A.U, (2, 1))), SVD(permutedims(Ainv.Vt, (2, 1)), Ainv.S .^ 2, Ainv.Vt)
+    else
+        A = tsvd_mat(debiased_scaled_mat, rk; return_inverse = return_inverse, tsvd_kwargs...)
+        # A now represents the sqrt of the covariance, so we square the singular values 
+        return SVD(A.U, A.S .^ 2, permutedims(A.U, (2, 1)))
+    end
+end
+
+function tsvd_cov_from_samples(
+    sample_mat::AM;
+    data_are_columns::Bool = true,
+    return_inverse = false,
+    tsvd_kwargs...,
+) where {AM <: AbstractMatrix}
+    # (need to compute this to get the rank as debiasing can change it)
+    mat = data_are_columns ? sample_mat : permutedims(sample_mat, (2, 1))
+    rk = rank(mat .- mean(mat, dims = 2))
+
+    return tsvd_cov_from_samples(
+        sample_mat,
+        rk;
+        data_are_columns = data_are_columns,
+        return_inverse = return_inverse,
+        tsvd_kwargs...,
+    )
+end
 
 # TODO: Define == and copy for these structs
-
-
 """
     Observation
 
@@ -152,7 +265,11 @@ function Observation(obs_dict::Dict)
     if !("inv_covariances" ∈ collect(keys(obs_dict)))
         inv_covariances = []
         for c in cnew # ensures its a vector
-            push!(inv_covariances, inv(c))
+            if isa(c, SVD)
+                push!(inv_covariances, SVD(permutedims(c.Vt, (2, 1)), 1.0 ./ c.S, permutedims(c.U, (2, 1))))
+            else
+                push!(inv_covariances, inv(c))
+            end
         end
     else
         inv_covariances = obs_dict["inv_covariances"]
@@ -173,7 +290,6 @@ function Observation(obs_dict::Dict)
     end
     T = promote_type((typeof(c) for c in ictmp2)...)
     icnew = [convert(T, c) for c in ictmp2] # to re-infer eltype
-
     if !isa(names, AbstractVector) # "name" -> ["name"]
         nnew = [names]
     else
@@ -293,7 +409,15 @@ function get_obs_noise_cov(o::Observation; build = true)
         covs = get_covs(o)
         cov_full = zeros(maximum(indices[end]), maximum(indices[end]))
         for (idx, c) in zip(indices, covs)
-            cov_full[idx, idx] .= c
+            if isa(c, SVD)
+                if size(c.U, 1) == size(c.U, 2) # then work with Vt
+                    cov_full[idx, idx] .= c.Vt' * Diagonal(c.S) * c.Vt
+                else
+                    cov_full[idx, idx] .= c.U * Diagonal(c.S) * c.U'
+                end
+            else
+                cov_full[idx, idx] .= c
+            end
         end
 
         return cov_full
@@ -314,7 +438,15 @@ function get_obs_noise_cov_inv(o::Observation; build = true)
         inv_covs = get_inv_covs(o)
         inv_cov_full = zeros(maximum(indices[end]), maximum(indices[end]))
         for (idx, c) in zip(indices, inv_covs)
-            inv_cov_full[idx, idx] .= c
+            if isa(c, SVD)
+                if size(c.U, 1) == size(c.U, 2) # then work with Vt
+                    inv_cov_full[idx, idx] .= c.Vt' * Diagonal(c.S) * c.Vt
+                else
+                    inv_cov_full[idx, idx] .= c.U * Diagonal(c.S) * c.U'
+                end
+            else
+                inv_cov_full[idx, idx] .= c
+            end
         end
         return inv_cov_full
     end
@@ -866,6 +998,88 @@ function get_obs_noise_cov_inv(os::OS; build = true) where {OS <: ObservationSer
 
 end
 
+## Most common operation
+function lmul_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
+    a_sizes = zeros(Int, length(A))
+    for (i, a) in enumerate(A)
+        if isa(a, SVD)
+            if size(a.U, 1) == size(a.U, 2)
+                a_sizes[i] = size(a.Vt, 2)
+            else
+                a_sizes[i] = size(a.U, 1)
+            end
+        else
+            a_sizes[i] = size(a, 1)
+        end
+    end
+    Y = zeros(sum(a_sizes), size(X, 2)) # stores A * X
+    Xmat = isa(X, AbstractVector) ? reshape(X, :, 1) : X
+    shift = [0]
+    for (γs, a) in zip(a_sizes, A)
+        idx = (shift[1] + 1):(shift[1] + γs)
+        if isa(a, Diagonal)
+            Y[idx, :] = a.diag .* Xmat[idx, :]
+        elseif isa(a, SVD)
+            if size(a.U, 1) == size(a.U, 2) # then work with Vt
+                Y[idx, :] = a.Vt[:, idx]' * (a.S .* a.Vt[:, idx]) * Xmat[idx, :]
+            else
+                Y[idx, :] = a.U[idx, :] * (a.S .* a.U[idx, :]') * Xmat[idx, :]
+            end
+        else
+            Y[idx, :] = a * Xmat[idx, :]
+        end
+        shift[1] = maximum(idx)
+    end
+    return Y
+end
+
+function lmul_without_build!(out, A, X::AVorM, idx_triple::AV) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
+    Xmat = isa(X, AbstractVector) ? reshape(X, :, 1) : X
+    for (block_idx, local_idx, global_idx) in idx_triple
+        a = A[block_idx]
+        if isa(a, Diagonal)
+            out[global_idx, :] = a.diag[local_idx] .* Xmat[global_idx, :]
+        elseif isa(a, SVD)
+            if size(a.U, 1) == size(a.U, 2) # then work with Vt
+                out[global_idx, :] = a.Vt[:, local_idx]' * (a.S .* a.Vt[:, local_idx]) * Xmat[global_idx, :]
+            else
+                out[global_idx, :] = a.U[local_idx, :] * (a.S .* a.U[local_idx, :]') * Xmat[global_idx, :]
+            end
+        else # assume general matrix, much slower
+            out[global_idx, :] = a[local_idx, local_idx] * Xmat[global_idx, :]
+        end
+    end
+end
+
+function lmul_obs_noise_cov(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
+    A = get_obs_noise_cov(os, build = false)
+    return lmul_without_build(A, X)
+end
+
+function lmul_obs_noise_cov_inv(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
+    A = get_obs_noise_cov_inv(os, build = false)
+    return lmul_without_build(A, X)
+end
+
+function lmul_obs_noise_cov!(
+    out,
+    os::ObservationSeries,
+    X::AVorM,
+    idx_triple::AV,
+) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
+    A = get_obs_noise_cov(os, build = false)
+    return lmul_without_build!(out, A, X, idx_triple)
+end
+
+function lmul_obs_noise_cov_inv!(
+    out,
+    os::ObservationSeries,
+    X::AVorM,
+    idx_triple::AV,
+) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
+    A = get_obs_noise_cov_inv(os, build = false)
+    return lmul_without_build!(out, A, X, idx_triple)
+end
 
 
 
