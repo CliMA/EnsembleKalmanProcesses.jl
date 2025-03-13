@@ -230,7 +230,6 @@ function update_ensemble!(
     # g: lenght(g_idx) × N_ens
     u = get_u_final(ekp)[u_idx, :]
     g = g[g_idx, :]
-    obs_mean = get_obs(ekp)[g_idx]
     # get relevant inverse covariance blocks
     obs_noise_cov_inv = get_obs_noise_cov_inv(ekp, build = false)# NEVER build=true for this - ruins scaling.
     impose_prior = get_impose_prior(get_process(ekp))
@@ -283,7 +282,7 @@ function update_ensemble!(
 
     fh = get_failure_handler(ekp)
 
-    y = get_obs(ekp)
+    y = get_obs(ekp)[g_idx]
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
