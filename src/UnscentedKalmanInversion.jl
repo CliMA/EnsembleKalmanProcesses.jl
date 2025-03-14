@@ -716,7 +716,7 @@ end
 function compute_error!(uki::EnsembleKalmanProcess{FT, IT, U}) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     mean_g = get_process(uki).obs_pred[end]
     diff = get_obs(uki) - mean_g
-    X = get_obs_noise_cov(uki) \ diff # diff: column vector
+    X = lmul_obs_noise_cov_inv(uki, diff)
     newerr = dot(diff, X)
     push!(get_error(uki), newerr)
 end
