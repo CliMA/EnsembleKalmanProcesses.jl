@@ -210,7 +210,7 @@ function Unscented(
 end
 
 function Unscented(prior::ParameterDistribution; kwargs...)
-    
+
     u0_mean = Vector(mean(prior)) # mean of unconstrained distribution
     uu0_cov = Matrix(cov(prior)) # cov of unconstrained distribution
 

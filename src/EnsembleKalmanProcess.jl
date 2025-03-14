@@ -244,7 +244,7 @@ function EnsembleKalmanProcess(
     # dimensionality
     N_par, N_ens = size(init_params) #stored with data as columns
 
-    if !isa(process, Union{Unscented,TransformUnscented}) # define their own fixed N_ens size
+    if !isa(process, Union{Unscented, TransformUnscented}) # define their own fixed N_ens size
         if N_ens < 10
             @warn "Recommended minimum ensemble size (`N_ens`) is 10. Got `N_ens` = $(N_ens)."
         elseif (N_par < 10) && (N_ens < 10 * N_par)
@@ -254,7 +254,7 @@ function EnsembleKalmanProcess(
             @warn "For $(N_par) parameters, the recommended minimum ensemble size (`N_ens`) is 100. Got `N_ens` = $(N_ens)`."
         end
     end
-    
+
     obs_for_minibatch = get_obs(observation_series) # get stacked observation over minibatch
     obs_size_for_minibatch = length(obs_for_minibatch) # number of dims in the stacked observation
     IT = typeof(N_ens)

@@ -1146,7 +1146,7 @@ end
     rng = Random.MersenneTwister(rng_seed)
 
     n_iter = 10
-    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000])#, 1_000_000]) # also 1_000_000 works (may terminate early)
+    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000, 1_000_000]) # also 1_000_000 works (may terminate early)
         # first i effectively ignored - just for precompile!
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens)
@@ -1180,7 +1180,7 @@ end
             failure_handler_method = SampleSuccGauss(),
             scheduler = DataMisfitController(terminate_at = 1e8), # (least scalable scheduler in output-space)
         )
-        
+
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs_test,
@@ -1218,7 +1218,7 @@ end
             scheduler = DataMisfitController(terminate_at = 1e8),
         )
         n_final = n_iter
-        names=["etki", "etki-inf", "etki-svd", "etki-svdT", "utki"]
+        names = ["etki", "etki-inf", "etki-svd", "etki-svdT", "utki"]
         for (ekp, name) in zip((ekiobj, ekiobj_inf, ekiobj_svd, ekiobj_svdT, utkiobj), names)
             T = 0.0
             for i in 1:n_iter
