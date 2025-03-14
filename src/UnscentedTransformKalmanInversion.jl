@@ -182,7 +182,7 @@ function TransformUnscented(
     push!(u_mean, u0_mean) # insert parameters at end of array (in this case just 1st entry)
     uu_cov = Matrix{FT}[]  # array of Matrix{FT}'s
     push!(uu_cov, uu0_cov) # insert parameters at end of array (in this case just 1st entry)
-    
+
     obs_pred = Vector{FT}[]  # array of Vector{FT}'s
 
     Σ_ω = (2 - α_reg^2) * uu0_cov
@@ -216,7 +216,7 @@ function TransformUnscented(prior::ParameterDistribution; kwargs...)
 
     u0_mean = Vector(mean(prior)) # mean of unconstrained distribution
     uu0_cov = Matrix(cov(prior)) # cov of unconstrained distribution
-    
+
     return TransformUnscented(u0_mean, uu0_cov; prior_mean = u0_mean, prior_cov = uu0_cov, kwargs...)
 
 end
@@ -264,7 +264,7 @@ function EnsembleKalmanProcess(
 end
 
 function FailureHandler(process::TransformUnscented, method::IgnoreFailures)
-    function failsafe_update(uki, u, g,  u_idx, g_idx, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean)
+    function failsafe_update(uki, u, g, u_idx, g_idx, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean)
         #perform analysis on the model runs
         update_ensemble_analysis!(uki, u, g, u_idx, g_idx, obs_noise_cov_inv, onci_idx, prior_mean)
         #perform new prediction output to model parameters u_p
@@ -283,7 +283,17 @@ Provides a failsafe update that
     successful particles to sum to the same value as the original weight sums.
 """
 function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
-    function succ_gauss_analysis!(uki::EnsembleKalmanProcess{FT,IT,TU}, u_p, g, u_idx, g_idx, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean) where {FT <: Real, IT <: Int, TU <: TransformUnscented}
+    function succ_gauss_analysis!(
+        uki::EnsembleKalmanProcess{FT, IT, TU},
+        u_p,
+        g,
+        u_idx,
+        g_idx,
+        obs_noise_cov_inv,
+        onci_idx,
+        failed_ens,
+        prior_mean,
+    ) where {FT <: Real, IT <: Int, TU <: TransformUnscented}
 
         y = get_obs(uki)
         process = get_process(uki)
@@ -291,12 +301,12 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         process = get_process(uki)
 
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
-        
+
         ############# Prediction step
         u_p_mean = construct_successful_mean(uki, u_p, successful_ens)
         uu_p_cov = construct_successful_cov(uki, u_p, u_p_mean, successful_ens)
         m = size(u_p, 2)
-        
+
         ###########  Analysis step
         g_mean = construct_successful_mean(uki, g, successful_ens)
 
@@ -342,20 +352,20 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             tmp[1] = zeros(ys2, ys1)
             tmp[2] = zeros(ys2, ys2)
         end
-        
+
         lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, onci_idx) # store in transpose, with view helping reduce allocations
         view(tmp[1], 1:ys2, :) .*= inv_noise_scaling
-        
+
         tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
-        
+
         for i in 1:ys2
             tmp[2][i, i] += 1.0
         end
         Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
         u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
-        uu_cov = X*Ω*X' # cov update 
+        uu_cov = X * Ω * X' # cov update 
 
-        
+
         ########### Save results
         push!(process.obs_pred, g_mean) # N_ens x N_data
         push!(process.u_mean, u_mean) # N_ens x N_params
@@ -580,20 +590,24 @@ $(TYPEDSIGNATURES)
 
 UKI prediction step : generate sigma points.
 """
-function update_ensemble_prediction!(process::TransformUnscented, Δt::FT, u_idx::Vector{Int}) where {FT <: AbstractFloat}
+function update_ensemble_prediction!(
+    process::TransformUnscented,
+    Δt::FT,
+    u_idx::Vector{Int},
+) where {FT <: AbstractFloat}
 
     process.iter += 1
     # update evolution covariance matrix
     if process.update_freq > 0 && process.iter % process.update_freq == 0
-        process.Σ_ω[u_idx,u_idx] = (2 - process.α_reg^2) * process.uu_cov[end][u_idx,u_idx]
+        process.Σ_ω[u_idx, u_idx] = (2 - process.α_reg^2) * process.uu_cov[end][u_idx, u_idx]
     end
 
     u_mean = process.u_mean[end][u_idx]
-    uu_cov = process.uu_cov[end][u_idx,u_idx]
+    uu_cov = process.uu_cov[end][u_idx, u_idx]
 
     α_reg = process.α_reg
     r = process.r[u_idx]
-    Σ_ω = process.Σ_ω[u_idx,u_idx]
+    Σ_ω = process.Σ_ω[u_idx, u_idx]
 
     N_par = length(u_mean[1])
     ############# Prediction step:
@@ -606,7 +620,8 @@ function update_ensemble_prediction!(process::TransformUnscented, Δt::FT, u_idx
     return u_p
 end
 
-update_ensemble_prediction!(process::TransformUnscented, Δt::FT) where {FT <: AbstractFloat} = update_ensemble_prediction!(process, Δt, collect(1:length(process.u_mean[end])))
+update_ensemble_prediction!(process::TransformUnscented, Δt::FT) where {FT <: AbstractFloat} =
+    update_ensemble_prediction!(process, Δt, collect(1:length(process.u_mean[end])))
 
 """
 $(TYPEDSIGNATURES)
@@ -619,17 +634,26 @@ function update_ensemble_analysis!(
     g::AM2,
     u_idx::Vector{Int},
     g_idx::Vector{Int},
-    obs_noise_cov_inv::AV,    
+    obs_noise_cov_inv::AV,
     onci_idx::AV2,
     prior_mean::NorAV,
-) where {FT <: Real, IT <: Int, TU <: TransformUnscented, AM1 <: AbstractMatrix, AM2 <: AbstractMatrix, AV <: AbstractVector, AV2 <: AbstractVector, NorAV <: Union{Nothing,AbstractVector}}
-    
+) where {
+    FT <: Real,
+    IT <: Int,
+    TU <: TransformUnscented,
+    AM1 <: AbstractMatrix,
+    AM2 <: AbstractMatrix,
+    AV <: AbstractVector,
+    AV2 <: AbstractVector,
+    NorAV <: Union{Nothing, AbstractVector},
+}
+
 
     y = get_obs(uki)
     process = get_process(uki)
-   # Σ_ν = process.Σ_ν_scale * get_obs_noise_cov(uki) # inefficient
+    # Σ_ν = process.Σ_ν_scale * get_obs_noise_cov(uki) # inefficient
     inv_noise_scaling = get_Δt(uki)[end] / process.Σ_ν_scale #   multiplies the inverse Σ_ν
-    
+
     ############# Prediction step: [rebuilding where g was evaluated]
 
     u_p_mean = construct_mean(uki, u_p)
@@ -650,11 +674,11 @@ function update_ensemble_analysis!(
         g_mean_ext = g_mean
         g_ext = g
     end
-    
+
     # sqrt-increments
     X = FT.((u_p .- u_p_mean) / sqrt(m - 1))
     Y = FT.((g_ext .- g_mean_ext) / sqrt(m - 1))
-    
+
     # Create/Enlarge buffers if needed
     tmp = get_buffer(get_process(uki)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
     ys1, ys2 = size(Y)
@@ -665,10 +689,10 @@ function update_ensemble_analysis!(
         tmp[1] = zeros(ys2, ys1)
         tmp[2] = zeros(ys2, ys2)
     end
-    
+
     lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, onci_idx) # store in transpose, with view helping reduce allocations
     view(tmp[1], 1:ys2, :) .*= inv_noise_scaling
-    
+
     tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
 
     for i in 1:ys2
@@ -676,8 +700,8 @@ function update_ensemble_analysis!(
     end
     Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
     u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
-    uu_cov = (m - 1) * X*Ω*X' # cov update 
-    
+    uu_cov = (m - 1) * X * Ω * X' # cov update 
+
     ########### Save results
     push!(process.obs_pred, g_mean) # N_ens x N_data
     push!(process.u_mean, u_mean) # N_ens x N_params
@@ -754,7 +778,7 @@ function update_ensemble!(
         end
         shift += γs
     end
-    
+
     fh = get_failure_handler(uki)
 
     if isnothing(failed_ens)
@@ -793,12 +817,12 @@ function get_u_cov(
     return get_process(uki).uu_cov[iteration]
 end
 
-function compute_error!(uki::EnsembleKalmanProcess{FT, IT, TU}) where {FT <: AbstractFloat, IT <: Int, TU <: TransformUnscented}
+function compute_error!(
+    uki::EnsembleKalmanProcess{FT, IT, TU},
+) where {FT <: AbstractFloat, IT <: Int, TU <: TransformUnscented}
     mean_g = get_process(uki).obs_pred[end]
     diff = get_obs(uki) - mean_g
     X = lmul_obs_noise_cov_inv(uki, diff)
     newerr = dot(diff, X)
     push!(get_error(uki), newerr)
 end
-
-
