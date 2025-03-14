@@ -287,7 +287,6 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
 
         y = get_obs(uki)
         process = get_process(uki)
-        # Σ_ν = process.Σ_ν_scale * get_obs_noise_cov(uki) # inefficient
         inv_noise_scaling = get_Δt(uki)[end] / process.Σ_ν_scale #   multiplies the inverse Σ_ν
         process = get_process(uki)
 
@@ -332,7 +331,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         # sqrt-increments
         X = FT.((u_p .- u_p_mean) / sqrt(m - 1))
         Y = FT.((g_ext .- g_mean_ext) / sqrt(m - 1)) # may cause issue as first row = 0? TBD
-        
+
         # Create/Enlarge buffers if needed
         tmp = get_buffer(get_process(uki)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
         ys1, ys2 = size(Y)
@@ -353,8 +352,9 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             tmp[2][i, i] += 1.0
         end
         Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
+        @info Ω
         u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
-        uu_cov = (m - 1) * X*Ω*X' # cov update 
+        uu_cov = X*Ω*X' # cov update 
 
         
         ########### Save results
