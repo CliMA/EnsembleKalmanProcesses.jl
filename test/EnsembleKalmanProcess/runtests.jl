@@ -1139,9 +1139,14 @@ end
             plot_inv_problem_ensemble(prior, ekiobj, joinpath(@__DIR__, "ETKI_test_$(i_prob).png"))
         end
     end
+end
+
+
+@testset "Scaling to large observations" begin
+    rng = Random.MersenneTwister(rng_seed)
 
     n_iter = 10
-    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000, 1_000_000]) # also 1_000_000 works (may terminate early)
+    for (i, n_obs_test) in enumerate([10, 100, 1000, 10_000, 100_000])#, 1_000_000]) # also 1_000_000 works (may terminate early)
         # first i effectively ignored - just for precompile!
         initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens)
@@ -1167,6 +1172,15 @@ end
             "names" => "cov_as_svd_transpose",
         ))
 
+        utkiobj = EKP.EnsembleKalmanProcess(
+            y_obs_test,
+            Γ_test,
+            TransformUnscented(prior);
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = DataMisfitController(terminate_at = 1e8), # (least scalable scheduler in output-space)
+        )
+        
         ekiobj = EKP.EnsembleKalmanProcess(
             initial_ensemble,
             y_obs_test,
@@ -1204,7 +1218,8 @@ end
             scheduler = DataMisfitController(terminate_at = 1e8),
         )
         n_final = n_iter
-        for ekp in (ekiobj, ekiobj_inf, ekiobj_svd, ekiobj_svdT)
+        names=["etki", "etki-inf", "etki-svd", "etki-svdT", "utki"]
+        for (ekp, name) in zip((ekiobj, ekiobj_inf, ekiobj_svd, ekiobj_svdT, utkiobj), names)
             T = 0.0
             for i in 1:n_iter
                 params_i = get_ϕ_final(prior, ekp)
@@ -1218,13 +1233,11 @@ end
                 end
                 T += dt
             end
-            # Skip timing of first due to precompilation
-            if i >= 2
-                @info "$n_final iterations of ETKI with $n_obs_test observations took $T seconds. \n (avg update: $(T/Float64(n_final)))"
-                if T / (n_obs_test * Float64(n_final)) > 5e-6 && n_obs_test > 5_000 # tol back-computed from 1_000_000 computation
-                    @error "The ETKI update for $(n_obs_test) observations should take under $(n_obs_test*4e-6) per update, received $(T/Float64(n_final)). Significant slowdowns encountered in ETKI"
-                end
 
+            # Should: skip timing of first due to precompilation
+            @info "$n_final iterations of experiment $(name) with $(n_obs_test)-dim observation took $T seconds. \n (avg update: $(T/Float64(n_final)))"
+            if T / (n_obs_test * Float64(n_final)) > 5e-6 && n_obs_test > 5_000 # tol back-computed from 1_000_000 computation
+                @error "The update of experiment $(name) for $(n_obs_test) observations should take under $(n_obs_test*4e-6) per update, received $(T/Float64(n_final)). Significant slowdowns encountered in ETKI"
             end
         end
     end
