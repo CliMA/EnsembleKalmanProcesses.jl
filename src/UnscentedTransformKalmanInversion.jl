@@ -352,7 +352,6 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             tmp[2][i, i] += 1.0
         end
         Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
-        @info Ω
         u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
         uu_cov = X*Ω*X' # cov update 
 
