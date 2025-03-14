@@ -270,12 +270,14 @@ function update_ensemble!(
 
     onci_idx = []
     shift = 0
+    int_shift = 0
     for (block_id, (γs, pf)) in enumerate(zip(γ_sizes, prior_flag))
         loc_idx = !(pf) ? intersect(1:γs, g_idx .- shift) : intersect(1:γs, u_idx)
         if !(length(loc_idx) == 0)
-            push!(onci_idx, (block_id, loc_idx, loc_idx .+ shift))
+            push!(onci_idx, (block_id, loc_idx, loc_idx .+ int_shift))
         end
         shift += γs
+        int_shift += length(loc_idx)
     end
     #   obs_noise_cov_inv = [obs_noise_cov_inv[pair[1]][pair[2],pair[2]] for pair in local_intersect] # SLOW
     N_obs = length(g_idx)
