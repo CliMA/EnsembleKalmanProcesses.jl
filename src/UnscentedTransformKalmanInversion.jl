@@ -54,7 +54,7 @@ Inputs:
 $(METHODLIST)
 """
 mutable struct TransformUnscented{FT <: AbstractFloat, IT <: Int} <: Process
-    "an interable of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added), note - this is not the same as the ensemble mean of the sigma ensemble as it is taken prior to prediction"
+    "an iterable of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added), note - this is not the same as the ensemble mean of the sigma ensemble as it is taken prior to prediction"
     u_mean::Any  # ::Iterable{AbtractVector{FT}}
     "an iterable of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added), note - this is not the same as the ensemble cov of the sigma ensemble as it is taken prior to prediction"
     uu_cov::Any  # ::Iterable{AbstractMatrix{FT}}
