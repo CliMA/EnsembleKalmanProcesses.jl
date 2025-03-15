@@ -1065,22 +1065,62 @@ function lmul_obs_noise_cov!(
     out,
     os::ObservationSeries,
     X::AVorM,
-    idx_triple::AV,
+    idx_set::AV,
 ) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
     A = get_obs_noise_cov(os, build = false)
-    return lmul_without_build!(out, A, X, idx_triple)
+    idx_triple = generate_block_product_subindices(A, idx_set)
+    if isa(X, AbstractVector)
+        Xtrim = length(X) > length(idx_set) ? X[idx_set] : X
+    else
+        Xtrim = size(X, 1) > length(idx_set) ? X[idx_set, :] : X
+    end
+    return lmul_without_build!(out, A, Xtrim, idx_triple)
 end
 
 function lmul_obs_noise_cov_inv!(
     out,
     os::ObservationSeries,
     X::AVorM,
-    idx_triple::AV,
+    idx_set::AV,
 ) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
     A = get_obs_noise_cov_inv(os, build = false)
-    return lmul_without_build!(out, A, X, idx_triple)
+    idx_triple = generate_block_product_subindices(A, idx_set)
+    # trim X if not already, (idx-triple expects it trimmed)
+    if isa(X, AbstractVector)
+        Xtrim = length(X) > length(idx_set) ? X[idx_set] : X
+    else
+        Xtrim = size(X, 1) > length(idx_set) ? X[idx_set, :] : X
+    end
+    return lmul_without_build!(out, A, Xtrim, idx_triple)
 end
 
+function generate_block_product_subindices(Ablocks, idx_set)
+    A_sizes = zeros(Int, length(Ablocks))
+    for (i, Ai) in enumerate(Ablocks)
+        if isa(Ai, SVD)
+            if size(Ai.U, 1) == size(Ai.U, 2)
+                A_sizes[i] = size(Ai.Vt, 2)
+            else
+                A_sizes[i] = size(Ai.U, 1)
+            end
+        else
+            A_sizes[i] = size(Ai, 1)
+        end
+    end
+
+    idx_triple = []
+    shift = 0
+    int_shift = 0
+    for (block_id, As) in enumerate(A_sizes)
+        loc_idx = intersect(1:As, idx_set .- shift)
+        if !(length(loc_idx) == 0)
+            push!(idx_triple, (block_id, loc_idx, collect(1:length(loc_idx)) .+ int_shift))
+        end
+        shift += As
+        int_shift += length(loc_idx)
+    end
+    return idx_triple
+end
 
 
 function Base.:(==)(os_a::OS1, os_b::OS2) where {OS1 <: ObservationSeries, OS2 <: ObservationSeries}
