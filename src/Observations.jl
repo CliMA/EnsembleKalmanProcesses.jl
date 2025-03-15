@@ -1100,7 +1100,7 @@ function generate_block_product_subindices(Ablocks, idx_set)
     idx_triple = []
     shift = 0
     int_shift = 0
-    for (block_id, As) in enumerate(A_sizes) 
+    for (block_id, As) in enumerate(A_sizes)
         loc_idx = intersect(1:As, idx_set .- shift)
         if !(length(loc_idx) == 0)
             push!(idx_triple, (block_id, loc_idx, collect(1:length(loc_idx)) .+ int_shift))

@@ -92,8 +92,7 @@ Constructor for standard non-prior-enforcing `TransformInversion` process
 TransformInversion() = TransformInversion(nothing, nothing, false, 0.0, [])
 
 function FailureHandler(process::TransformInversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, y, u_idx, g_idx, failed_ens) =
-        etki_update(ekp, u, g, y, u_idx, g_idx)
+    failsafe_update(ekp, u, g, y, u_idx, g_idx, failed_ens) = etki_update(ekp, u, g, y, u_idx, g_idx)
     return FailureHandler{TransformInversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -108,8 +107,7 @@ function FailureHandler(process::TransformInversion, method::SampleSuccGauss)
     function failsafe_update(ekp, u, g, y, u_idx, g_idx, failed_ens)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
-        u[:, successful_ens] =
-            etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, u_idx, g_idx)
+        u[:, successful_ens] = etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, u_idx, g_idx)
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
@@ -131,21 +129,14 @@ function etki_update(
     y::AV1,
     u_idx::Vector{Int},
     g_idx::Vector{Int},
-) where {
-    FT <: Real,
-    IT,
-    AM1 <: AbstractMatrix,
-    AM2 <: AbstractMatrix,
-    AV1 <: AbstractVector,
-    TI <: TransformInversion,
-}
+) where {FT <: Real, IT, AM1 <: AbstractMatrix, AM2 <: AbstractMatrix, AV1 <: AbstractVector, TI <: TransformInversion}
     inv_noise_scaling = get_Δt(ekp)[end]
     m = size(u, 2)
 
     impose_prior = get_impose_prior(get_process(ekp))
     if impose_prior
         prior_mean = get_prior_mean(get_process(ekp))[u_idx]
-        prior_cov_inv = inv(get_prior_cov(get_process(ekp)))[u_idx,u_idx] # take idx later
+        prior_cov_inv = inv(get_prior_cov(get_process(ekp)))[u_idx, u_idx] # take idx later
         # extend y and G
         g_ext = [g; u]
         y_ext = [y; prior_mean]
@@ -175,8 +166,8 @@ function etki_update(
     ## construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv
     # left multiply obs_noise_cov_inv in-place (see src/Observations.jl) with the additional index restrictions
     if impose_prior
-        lmul_obs_noise_cov_inv!(view(tmp[1]', 1:size(g,1), 1:ys2), ekp, Y[1:size(g,1),:], g_idx) # store in transpose, with view helping reduce allocations
-        view(tmp[1]', size(g,1)+1:ys1, 1:ys2) .= prior_cov_inv * Y[size(g,1)+1:end,:]
+        lmul_obs_noise_cov_inv!(view(tmp[1]', 1:size(g, 1), 1:ys2), ekp, Y[1:size(g, 1), :], g_idx) # store in transpose, with view helping reduce allocations
+        view(tmp[1]', (size(g, 1) + 1):ys1, 1:ys2) .= prior_cov_inv * Y[(size(g, 1) + 1):end, :]
     else
         lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), ekp, Y, g_idx) # store in transpose, with view helping reduce allocations
     end
