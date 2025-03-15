@@ -213,7 +213,7 @@ function update_ensemble!(
     g_idx::Vector{Int};
     deterministic_forward_map::Bool = true,
     failed_ens = nothing,
-    kwargs...
+    kwargs...,
 ) where {FT, IT, II <: Inversion}
 
     if !(isa(get_accelerator(ekp), DefaultAccelerator))
