@@ -271,12 +271,12 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         u_p = u_p_full[u_idx, :]
         y = get_obs(uki)[g_idx]
         g = g_full[g_idx, :]
-        
+
         u_p_mean = construct_successful_mean(uki, u_p, successful_ens)
         m = length(successful_ens)
         g_mean = construct_successful_mean(uki, g, successful_ens)
 
-        u_p = u_p[:,successful_ens]
+        u_p = u_p[:, successful_ens]
         g = g[:, successful_ens]
 
         ## extend the state (NB obs_noise_cov_inv already extended)
@@ -291,7 +291,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             g_ext = g
         end
 
-       
+
         #=
         # TODO: Weirdly the covariance in the below is not the prior cov but the sum of (cov_u + prior_cov)!
         if process.impose_prior
@@ -337,7 +337,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         ########### Save results
         process.obs_pred[end][g_idx] .= g_mean
         process.u_mean[end][u_idx] .= u_mean
-        process.uu_cov[end][u_idx,u_idx] .= uu_cov
+        process.uu_cov[end][u_idx, u_idx] .= uu_cov
 
     end
     function failsafe_update(uki, u, g, u_idx, g_idx, obs_noise_cov_inv, onci_idx, failed_ens)
@@ -381,7 +381,7 @@ function update_ensemble_analysis!(
     prior_mean = process.prior_mean[u_idx]
     u_p = u_p_full[u_idx, :]
     y = get_obs(uki)[g_idx]
-    g = g_full[g_idx, :] 
+    g = g_full[g_idx, :]
 
     u_p_mean = construct_mean(uki, u_p)
     m = size(u_p, 2)
@@ -428,7 +428,7 @@ function update_ensemble_analysis!(
     ########### Save results
     process.obs_pred[end][g_idx] .= g_mean
     process.u_mean[end][u_idx] .= u_mean
-    process.uu_cov[end][u_idx,u_idx] .= uu_cov
+    process.uu_cov[end][u_idx, u_idx] .= uu_cov
 
 end
 
@@ -453,7 +453,7 @@ function update_ensemble!(
     process::TU,
     u_idx::Vector{Int},
     g_idx::Vector{Int};
-    group_idx=0,
+    group_idx = 0,
     failed_ens = nothing,
     kwargs...,
 ) where {FT <: AbstractFloat, IT <: Int, TU <: TransformUnscented}
@@ -471,7 +471,7 @@ function update_ensemble!(
     else
         obs_noise_cov_inv_tmp = obs_noise_cov_inv
     end
-    
+
     # get indexing for local blocks of this matrix 
     γ_sizes = zeros(Int, length(obs_noise_cov_inv))
     for (i, γ_inv) in enumerate(obs_noise_cov_inv)
@@ -501,9 +501,9 @@ function update_ensemble!(
             push!(onci_idx, (block_id, loc_idx, collect(1:length(loc_idx)) .+ int_shift))
         end
         shift += γs
-        int_shift += length(loc_idx) 
+        int_shift += length(loc_idx)
     end
-    
+
     fh = get_failure_handler(uki)
 
     if isnothing(failed_ens)
@@ -516,8 +516,8 @@ function update_ensemble!(
     # create on first group, then populate later
     if group_idx == 1
         push!(process.obs_pred, zeros(size(g_in, 1)))
-        push!(process.u_mean, zeros(size(u_p_old, 1))) 
-        push!(process.uu_cov, zeros(size(u_p_old, 1), size(u_p_old, 1))) 
+        push!(process.u_mean, zeros(size(u_p_old, 1)))
+        push!(process.uu_cov, zeros(size(u_p_old, 1), size(u_p_old, 1)))
     end
 
     u_p = fh.failsafe_update(uki, u_p_old, g_in, u_idx, g_idx, obs_noise_cov_inv_tmp, onci_idx, failed_ens)
