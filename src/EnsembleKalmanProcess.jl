@@ -1109,8 +1109,8 @@ function update_ensemble!(
         u = zeros(size(get_u_prior(ekp)))
 
         # update each u_block with every g_block
-        for (u_idx, g_idx) in zip(u_groups, g_groups)
-            u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)
+        for (group_idx, (u_idx, g_idx)) in enumerate(zip(u_groups, g_groups))
+            u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; group_idx=group_idx, ekp_kwargs...)
         end
 
         accelerate!(ekp, u)
@@ -1173,6 +1173,9 @@ include("SparseEnsembleKalmanInversion.jl")
 export Sampler
 include("EnsembleKalmanSampler.jl")
 
+# struct TransformUnscented
+export TransformUnscented
+include("UnscentedTransformKalmanInversion.jl")
 
 # struct Unscented
 export Unscented
@@ -1180,9 +1183,6 @@ export Gaussian_2d
 export construct_initial_ensemble, construct_mean, construct_cov
 include("UnscentedKalmanInversion.jl")
 
-# struct TransformUnscented
-export TransformUnscented
-include("UnscentedTransformKalmanInversion.jl")
 
 # struct Accelerator
 include("Accelerators.jl")
