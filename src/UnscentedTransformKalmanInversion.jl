@@ -349,13 +349,7 @@ function update_ensemble_analysis!(
     g_full::AM2,
     u_idx::Vector{Int},
     g_idx::Vector{Int},
-) where {
-    FT <: Real,
-    IT <: Int,
-    TU <: TransformUnscented,
-    AM1 <: AbstractMatrix,
-    AM2 <: AbstractMatrix,
-}
+) where {FT <: Real, IT <: Int, TU <: TransformUnscented, AM1 <: AbstractMatrix, AM2 <: AbstractMatrix}
 
     process = get_process(uki)
     # Σ_ν = process.Σ_ν_scale * get_obs_noise_cov(uki) # inefficient
@@ -400,7 +394,7 @@ function update_ensemble_analysis!(
 
     if process.impose_prior
         lmul_obs_noise_cov_inv!(view(tmp[1]', 1:size(g, 1), 1:ys2), uki, Y[1:size(g, 1), :], g_idx) # store in transpose, with view helping reduce allocations
-        view(tmp[1]', (size(g, 1) + 1):ys1, 1:ys2) .=  process.Σ_ν_scale * prior_cov_inv * Y[(size(g, 1) + 1):end, :] # 1/Σ_ν_scale is in inv_noise_scaling below, so this will cancel it for this term
+        view(tmp[1]', (size(g, 1) + 1):ys1, 1:ys2) .= process.Σ_ν_scale * prior_cov_inv * Y[(size(g, 1) + 1):end, :] # 1/Σ_ν_scale is in inv_noise_scaling below, so this will cancel it for this term
     else
         lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, g_idx) # store in transpose, with view helping reduce allocations
     end
@@ -450,7 +444,7 @@ function update_ensemble!(
     #catch works when g_in non-square 
     u_p_old = get_u_final(uki)
     process = get_process(uki)
-    
+
     fh = get_failure_handler(uki)
 
     if isnothing(failed_ens)
