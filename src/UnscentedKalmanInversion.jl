@@ -617,6 +617,8 @@ function update_ensemble_analysis!(
     uki::EnsembleKalmanProcess{FT, IT, U},
     u_p_full::AbstractMatrix{FT},
     g_full::AbstractMatrix{FT},
+    u_idx::Vector{Int},
+    g_idx::Vector{Int},
 ) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
 
     process = get_process(uki)
