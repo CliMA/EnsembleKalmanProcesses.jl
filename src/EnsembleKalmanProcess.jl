@@ -757,9 +757,9 @@ function lmul_obs_noise_cov!(
     out::AM,
     ekp::EnsembleKalmanProcess,
     X::AVorM,
-    idx_triple::AV,
+    idx_set::AV,
 ) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector, AM <: AbstractMatrix}
-    return lmul_obs_noise_cov!(out, get_observation_series(ekp), X, idx_triple)
+    return lmul_obs_noise_cov!(out, get_observation_series(ekp), X, idx_set)
 end
 
 """
@@ -775,9 +775,9 @@ function lmul_obs_noise_cov_inv!(
     out::AM,
     ekp::EnsembleKalmanProcess,
     X::AVorM,
-    idx_triple::AV,
+    idx_set::AV,
 ) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector, AM <: AbstractMatrix}
-    return lmul_obs_noise_cov_inv!(out, get_observation_series(ekp), X, idx_triple)
+    return lmul_obs_noise_cov_inv!(out, get_observation_series(ekp), X, idx_set)
 end
 
 """
