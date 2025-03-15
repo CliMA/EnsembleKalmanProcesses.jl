@@ -230,9 +230,9 @@ Returns the stored `buffer` from the TransformUnscented process
 get_buffer(p::TU) where {TU <: TransformUnscented} = p.buffer
 
 function FailureHandler(process::TransformUnscented, method::IgnoreFailures)
-    function failsafe_update(uki, u, g, u_idx, g_idx, obs_noise_cov_inv, onci_idx, failed_ens)
+    function failsafe_update(uki, u, g, u_idx, g_idx, failed_ens)
         #perform analysis on the model runs
-        update_ensemble_analysis!(uki, u, g, u_idx, g_idx, obs_noise_cov_inv, onci_idx)
+        update_ensemble_analysis!(uki, u, g, u_idx, g_idx)
         #perform new prediction output to model parameters u_p
         u_p = update_ensemble_prediction!(get_process(uki), get_Δt(uki)[end], u_idx)
         return u_p
@@ -255,8 +255,6 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         g_full,
         u_idx,
         g_idx,
-        obs_noise_cov_inv,
-        onci_idx,
         failed_ens,
     ) where {FT <: Real, IT <: Int, TU <: TransformUnscented}
 
@@ -268,6 +266,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
 
         # update group index of y,g,u
         prior_mean = process.prior_mean[u_idx]
+        prior_cov_inv = inv(process.prior_cov)[u_idx, u_idx] # take idx later
         u_p = u_p_full[u_idx, :]
         y = get_obs(uki)[g_idx]
         g = g_full[g_idx, :]
@@ -291,22 +290,6 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             g_ext = g
         end
 
-
-        #=
-        # TODO: Weirdly the covariance in the below is not the prior cov but the sum of (cov_u + prior_cov)!
-        if process.impose_prior
-            ug_cov_reg = [ug_cov uu_p_cov]
-            gg_cov_reg = [gg_cov ug_cov'; ug_cov uu_p_cov+process.prior_cov / get_Δt(uki)[end]]
-            tmp = ug_cov_reg / gg_cov_reg
-            u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean - u_p_mean]
-            uu_cov = uu_p_cov - tmp * ug_cov_reg'
-        else
-            tmp = ug_cov / gg_cov
-            u_mean = u_p_mean + tmp * (obs_mean - g_mean)
-            uu_cov = uu_p_cov - tmp * ug_cov'
-        end
-        =#
-
         # sqrt-increments
         X = FT.((u_p .- u_p_mean) / sqrt(m - 1))
         Y = FT.((g_ext .- g_mean_ext) / sqrt(m - 1)) # may cause issue as first row = 0? TBD
@@ -322,7 +305,12 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             tmp[2] = zeros(ys2, ys2)
         end
 
-        lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, onci_idx) # store in transpose, with view helping reduce allocations
+        if process.impose_prior
+            lmul_obs_noise_cov_inv!(view(tmp[1]', 1:size(g, 1), 1:ys2), uki, Y[1:size(g, 1), :], g_idx) # store in transpose, with view helping reduce allocations
+            view(tmp[1]', (size(g, 1) + 1):ys1, 1:ys2) .= process.Σ_ν_scale * prior_cov_inv * Y[(size(g, 1) + 1):end, :]
+        else
+            lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, g_idx) # store in transpose, with view helping reduce allocations
+        end
         view(tmp[1], 1:ys2, :) .*= inv_noise_scaling
 
         tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
@@ -340,9 +328,9 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         process.uu_cov[end][u_idx, u_idx] .= uu_cov
 
     end
-    function failsafe_update(uki, u, g, u_idx, g_idx, obs_noise_cov_inv, onci_idx, failed_ens)
+    function failsafe_update(uki, u, g, u_idx, g_idx, failed_ens)
         #perform analysis on the model runs
-        succ_gauss_analysis!(uki, u, g, u_idx, g_idx, obs_noise_cov_inv, onci_idx, failed_ens)
+        succ_gauss_analysis!(uki, u, g, u_idx, g_idx, failed_ens)
         #perform new prediction output to model parameters u_p
         u_p = update_ensemble_prediction!(process, get_Δt(uki)[end], u_idx)
         return u_p
@@ -361,16 +349,12 @@ function update_ensemble_analysis!(
     g_full::AM2,
     u_idx::Vector{Int},
     g_idx::Vector{Int},
-    obs_noise_cov_inv::AV,
-    onci_idx::AV2,
 ) where {
     FT <: Real,
     IT <: Int,
     TU <: TransformUnscented,
     AM1 <: AbstractMatrix,
     AM2 <: AbstractMatrix,
-    AV <: AbstractVector,
-    AV2 <: AbstractVector,
 }
 
     process = get_process(uki)
@@ -379,6 +363,7 @@ function update_ensemble_analysis!(
 
     # update group index of y,g,u
     prior_mean = process.prior_mean[u_idx]
+    prior_cov_inv = inv(process.prior_cov)[u_idx, u_idx] # take idx later
     u_p = u_p_full[u_idx, :]
     y = get_obs(uki)[g_idx]
     g = g_full[g_idx, :]
@@ -413,7 +398,12 @@ function update_ensemble_analysis!(
         tmp[2] = zeros(ys2, ys2)
     end
 
-    lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, onci_idx) # store in transpose, with view helping reduce allocations
+    if process.impose_prior
+        lmul_obs_noise_cov_inv!(view(tmp[1]', 1:size(g, 1), 1:ys2), uki, Y[1:size(g, 1), :], g_idx) # store in transpose, with view helping reduce allocations
+        view(tmp[1]', (size(g, 1) + 1):ys1, 1:ys2) .=  process.Σ_ν_scale * prior_cov_inv * Y[(size(g, 1) + 1):end, :] # 1/Σ_ν_scale is in inv_noise_scaling below, so this will cancel it for this term
+    else
+        lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, g_idx) # store in transpose, with view helping reduce allocations
+    end
     view(tmp[1], 1:ys2, :) .*= inv_noise_scaling
 
     tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
@@ -423,7 +413,7 @@ function update_ensemble_analysis!(
     end
     Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
     u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
-    uu_cov = (m - 1) * X * Ω * X' # cov update 
+    uu_cov = X * Ω * X' # cov update 
 
     ########### Save results
     process.obs_pred[end][g_idx] .= g_mean
@@ -459,51 +449,8 @@ function update_ensemble!(
 ) where {FT <: AbstractFloat, IT <: Int, TU <: TransformUnscented}
     #catch works when g_in non-square 
     u_p_old = get_u_final(uki)
-    obs_noise_cov_inv = get_obs_noise_cov_inv(uki, build = false)# NEVER build=true for this - ruins scaling.
     process = get_process(uki)
-    impose_prior = process.impose_prior
-    # extend obs_noise_cov_inv
-    if impose_prior
-        # extend noise_cov_inv must make copy due to typing
-        prior_cov_inv = inv(process.prior_cov)[u_idx, u_idx]
-        obs_noise_cov_inv_tmp = Vector{AbstractMatrix}(obs_noise_cov_inv)
-        push!(obs_noise_cov_inv_tmp, prior_cov_inv) # extend noise cov inv to include prior cov inv
-    else
-        obs_noise_cov_inv_tmp = obs_noise_cov_inv
-    end
-
-    # get indexing for local blocks of this matrix 
-    γ_sizes = zeros(Int, length(obs_noise_cov_inv))
-    for (i, γ_inv) in enumerate(obs_noise_cov_inv)
-        if isa(γ_inv, SVD)
-            if size(γ_inv.U, 1) == size(γ_inv.U, 2)
-                γ_sizes[i] = size(γ_inv.Vt, 2)
-            else
-                γ_sizes[i] = size(γ_inv.U, 1)
-            end
-        else
-            γ_sizes[i] = size(γ_inv, 1)
-        end
-    end
-    prior_flag = repeat([false], length(γ_sizes))
-    if impose_prior
-        prior_flag[end] = true # needed to swap g_idx to u_idx in loop
-    end
-
-    onci_idx = []
-    shift = 0
-    int_shift = 0
-    for (block_id, (γs, pf)) in enumerate(zip(γ_sizes, prior_flag))
-        # for use in multiplying A*X with blocks [A1,A2,...]
-        # A[block_id][:,local_idx] * X[global_idx, :]
-        loc_idx = !(pf) ? intersect(1:γs, g_idx .- shift) : intersect(1:γs, u_idx)
-        if !(length(loc_idx) == 0)
-            push!(onci_idx, (block_id, loc_idx, collect(1:length(loc_idx)) .+ int_shift))
-        end
-        shift += γs
-        int_shift += length(loc_idx)
-    end
-
+    
     fh = get_failure_handler(uki)
 
     if isnothing(failed_ens)
@@ -520,7 +467,7 @@ function update_ensemble!(
         push!(process.uu_cov, zeros(size(u_p_old, 1), size(u_p_old, 1)))
     end
 
-    u_p = fh.failsafe_update(uki, u_p_old, g_in, u_idx, g_idx, obs_noise_cov_inv_tmp, onci_idx, failed_ens)
+    u_p = fh.failsafe_update(uki, u_p_old, g_in, u_idx, g_idx, failed_ens)
 
     return u_p
 end
