@@ -92,8 +92,8 @@ Constructor for standard non-prior-enforcing `TransformInversion` process
 TransformInversion() = TransformInversion(nothing, nothing, false, 0.0, [])
 
 function FailureHandler(process::TransformInversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean) =
-        etki_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, prior_mean)
+    failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean, prior_cov_inv) =
+        etki_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, prior_mean, prior_cov_inv)
     return FailureHandler{TransformInversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -105,11 +105,11 @@ Provides a failsafe update that
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::TransformInversion, method::SampleSuccGauss)
-    function failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean, prior_cov_inv)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
         u[:, successful_ens] =
-            etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, obs_noise_cov_inv, onci_idx, prior_mean)
+            etki_update(ekp, u[:, successful_ens], g[:, successful_ens], y, obs_noise_cov_inv, onci_idx, prior_mean, prior_cov_inv)
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
@@ -138,6 +138,7 @@ function etki_update(
     obs_noise_cov_inv::AV2,
     onci_idx::AV3,
     prior_mean::NorAV,
+    prior_cov_inv::NorAM,
 ) where {
     FT <: Real,
     IT,
@@ -148,6 +149,7 @@ function etki_update(
     AV3 <: AbstractVector,
     TI <: TransformInversion,
     NorAV <: Union{Nothing, AbstractVector},
+    NorAM <: Union{Nothing, AbstractMatrix},
 }
     inv_noise_scaling = get_Δt(ekp)[end]
     m = size(u, 2)
@@ -182,9 +184,16 @@ function etki_update(
 
     ## construct I + Y' * Γ_inv * Y using only blocks γ_inv of Γ_inv
     # left multiply obs_noise_cov_inv in-place (see src/Observations.jl) with the additional index restrictions
-    lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), ekp, Y, onci_idx) # store in transpose, with view helping reduce allocations
+    if impose_prior
+        lmul_obs_noise_cov_inv!(view(tmp[1]', 1:size(g,1), 1:ys2), ekp, Y[1:size(g,1),:], onci_idx) # store in transpose, with view helping reduce allocations
+        view(tmp[1]', size(g,1)+1:ys1, 1:ys2) .= prior_cov_inv * Y[size(g,1)+1:end,:]
+    else
+        lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), ekp, Y, onci_idx) # store in transpose, with view helping reduce allocations
+    end
     view(tmp[1], 1:ys2, :) .*= inv_noise_scaling
 
+   
+        
     tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
 
     for i in 1:ys2
@@ -234,22 +243,13 @@ function update_ensemble!(
     obs_noise_cov_inv = get_obs_noise_cov_inv(ekp, build = false)# NEVER build=true for this - ruins scaling.
     impose_prior = get_impose_prior(get_process(ekp))
     if impose_prior # these quantitites are truncated to with onci_idx
-        prior_mean = get_prior_mean(get_process(ekp))
-        prior_cov_inv = inv(get_prior_cov(get_process(ekp)))
+        prior_mean = get_prior_mean(get_process(ekp))[u_idx]
+        prior_cov_inv = inv(get_prior_cov(get_process(ekp)))[u_idx,u_idx] # take idx later
     else
         prior_mean = nothing
-        prior_cov = nothing
+        prior_cov_inv = nothing
     end
 
-
-    # need to sweep over local blocks
-    if impose_prior
-        # extend noise_cov_inv must make copy due to typing
-        obs_noise_cov_inv_tmp = Vector{AbstractMatrix}(obs_noise_cov_inv)
-        push!(obs_noise_cov_inv_tmp, prior_cov_inv) # extend noise cov inv to include prior cov inv
-    else
-        obs_noise_cov_inv_tmp = obs_noise_cov_inv
-    end
 
     γ_sizes = zeros(Int, length(obs_noise_cov_inv))
     for (i, γ_inv) in enumerate(obs_noise_cov_inv)
@@ -263,23 +263,19 @@ function update_ensemble!(
             γ_sizes[i] = size(γ_inv, 1)
         end
     end
-    prior_flag = repeat([false], length(γ_sizes))
-    if impose_prior
-        prior_flag[end] = true # needed to swap g_idx to u_idx in loop
-    end
-
+    
     onci_idx = []
     shift = 0
     int_shift = 0
-    for (block_id, (γs, pf)) in enumerate(zip(γ_sizes, prior_flag))
-        loc_idx = !(pf) ? intersect(1:γs, g_idx .- shift) : intersect(1:γs, u_idx)
+    for (block_id, γs) in enumerate(γ_sizes) 
+        loc_idx = intersect(1:γs, g_idx .- shift)
         if !(length(loc_idx) == 0)
-            push!(onci_idx, (block_id, loc_idx, loc_idx .+ int_shift))
+            push!(onci_idx, (block_id, loc_idx, collect(1:length(loc_idx)) .+ int_shift))
         end
         shift += γs
         int_shift += length(loc_idx)
     end
-    #   obs_noise_cov_inv = [obs_noise_cov_inv[pair[1]][pair[2],pair[2]] for pair in local_intersect] # SLOW
+    
     N_obs = length(g_idx)
 
     fh = get_failure_handler(ekp)
@@ -293,7 +289,7 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(ekp, u, g, y, obs_noise_cov_inv_tmp, onci_idx, failed_ens, prior_mean)
+    u = fh.failsafe_update(ekp, u, g, y, obs_noise_cov_inv, onci_idx, failed_ens, prior_mean, prior_cov_inv)
 
     return u
 end
