@@ -1110,7 +1110,8 @@ function update_ensemble!(
 
         # update each u_block with every g_block
         for (group_idx, (u_idx, g_idx)) in enumerate(zip(u_groups, g_groups))
-            u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; group_idx=group_idx, ekp_kwargs...)
+            u[u_idx, :] +=
+                update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; group_idx = group_idx, ekp_kwargs...)
         end
 
         accelerate!(ekp, u)

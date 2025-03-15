@@ -210,7 +210,7 @@ function Unscented(
 end
 
 function Unscented(prior::ParameterDistribution; kwargs...)
-    
+
     u0_mean = isa(mean(prior), AbstractVector) ? Vector(mean(prior)) : [mean(prior)] # mean of unconstrained distribution
     uu0_cov = Matrix(cov(prior)) # cov of unconstrained distribution
 
@@ -223,7 +223,7 @@ function EnsembleKalmanProcess(
     observation_series::OS,
     process::UorTU;
     kwargs...,
-) where {UorTU <: Union{Unscented,TransformUnscented}, OS <: ObservationSeries}
+) where {UorTU <: Union{Unscented, TransformUnscented}, OS <: ObservationSeries}
     # use the distribution stored in process to generate initial ensemble
     init_params = update_ensemble_prediction!(process, 0.0)
 
@@ -234,7 +234,7 @@ function EnsembleKalmanProcess(
     observation::OB,
     process::UorTU;
     kwargs...,
-) where {UorTU <: Union{Unscented,TransformUnscented}, OB <: Observation}
+) where {UorTU <: Union{Unscented, TransformUnscented}, OB <: Observation}
 
     observation_series = ObservationSeries(observation)
     return EnsembleKalmanProcess(observation_series, process; kwargs...)
@@ -246,7 +246,7 @@ function EnsembleKalmanProcess(
     obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
     process::UorTU;
     kwargs...,
-) where {FT <: AbstractFloat, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, UorTU <: Union{Unscented, TransformUnscented}}
 
     observation = Observation(Dict("samples" => obs_mean, "covariances" => obs_noise_cov, "names" => "observation"))
     return EnsembleKalmanProcess(observation, process; kwargs...)
@@ -274,7 +274,7 @@ Provides a failsafe update that
 function FailureHandler(process::Unscented, method::SampleSuccGauss)
     function succ_gauss_analysis!(uki, u_p_full, g_full, u_idx, g_idx, failed_ens)
         process = get_process(uki)
-        Σ_ν = process.Σ_ν_scale * get_obs_noise_cov(uki)[g_idx,g_idx]
+        Σ_ν = process.Σ_ν_scale * get_obs_noise_cov(uki)[g_idx, g_idx]
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g_full, 2)))
 
         u_p = u_p_full[u_idx, :]
@@ -286,7 +286,7 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         g_mean = construct_successful_mean(uki, g, successful_ens)
         gg_cov = construct_successful_cov(uki, g, g_mean, successful_ens) + Σ_ν / get_Δt(uki)[end]
         ug_cov = construct_successful_cov(uki, u_p, u_p_mean, g, g_mean, successful_ens)
-        
+
         cov_est = [
             uu_p_cov ug_cov
             ug_cov' gg_cov
@@ -296,10 +296,10 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         FT = eltype(g_mean)
         cov_localized = get_localizer(uki).localize(cov_est, FT, size(u_p, 1), size(g, 1), size(u_p, 2))
         uu_p_cov, ug_cov, gg_cov = get_cov_blocks(cov_localized, size(u_p, 1))
-        
+
         if process.impose_prior
             ug_cov_reg = [ug_cov uu_p_cov]
-            gg_cov_reg = [gg_cov ug_cov'; ug_cov uu_p_cov+process.prior_cov[u_idx,u_idx] / get_Δt(uki)[end]]
+            gg_cov_reg = [gg_cov ug_cov'; ug_cov uu_p_cov+process.prior_cov[u_idx, u_idx] / get_Δt(uki)[end]]
             tmp = ug_cov_reg / gg_cov_reg
             u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean[u_idx] - u_p_mean]
             uu_cov = uu_p_cov - tmp * ug_cov_reg'
@@ -312,7 +312,7 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         ########### Save results
         process.obs_pred[end][g_idx] .= g_mean
         process.u_mean[end][u_idx] .= u_mean
-        process.uu_cov[end][u_idx,u_idx] .= uu_cov
+        process.uu_cov[end][u_idx, u_idx] .= uu_cov
 
     end
     function failsafe_update(uki, u, g, u_idx, g_idx, failed_ens)
@@ -338,7 +338,7 @@ function construct_sigma_ensemble(
     process::UorTU,
     x_mean::AbstractVector{FT},
     x_cov::AbstractMatrix{FT},
-) where {FT <: AbstractFloat, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, UorTU <: Union{Unscented, TransformUnscented}}
 
     N_x = size(x_mean, 1)
     N_ens = process.N_ens
@@ -386,7 +386,7 @@ function construct_mean(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
     x::AbstractVecOrMat{FT};
     mean_weights = get_process(uki).mean_weights,
-) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
 
     if isa(x, AbstractMatrix{FT})
         @assert size(x, 2) == length(mean_weights)
@@ -413,7 +413,7 @@ function construct_successful_mean(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
     x::AbstractVecOrMat{FT},
     successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
-) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
 
     mean_weights = deepcopy(get_process(uki).mean_weights)
     # Check if modified
@@ -441,7 +441,7 @@ function construct_cov(
     x::AbstractVecOrMat{FT},
     x_mean::Union{FT, AbstractVector{FT}, Nothing} = nothing;
     cov_weights = get_process(uki).cov_weights,
-) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
 
     x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
 
@@ -481,7 +481,7 @@ function construct_successful_cov(
     x::AbstractVecOrMat{FT},
     x_mean::Union{FT, AbstractVector{FT}, Nothing},
     successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
-) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
 
     cov_weights = deepcopy(get_process(uki).cov_weights)
 
@@ -514,7 +514,7 @@ function construct_cov(
     obs_mean::AbstractMatrix{FT},
     y_mean::AbstractVector{FT};
     cov_weights = get_process(uki).cov_weights,
-) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
 
     N_x, N_ens = size(x)
     N_y = length(y_mean)
@@ -547,7 +547,7 @@ function construct_successful_cov(
     obs_mean::AbstractMatrix{FT},
     y_mean::AbstractVector{FT},
     successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
-) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
     N_ens, N_x, N_y = get_N_ens(uki), length(x_mean), length(y_mean)
 
     cov_weights = deepcopy(get_process(uki).cov_weights)
@@ -572,7 +572,7 @@ function update_ensemble_prediction!(
     process::UorTU,
     Δt::FT,
     u_idx::Vector{Int},
-) where {FT <: AbstractFloat, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, UorTU <: Union{Unscented, TransformUnscented}}
 
     process.iter += 1
     # update evolution covariance matrix
@@ -598,7 +598,10 @@ function update_ensemble_prediction!(
     return u_p
 end
 
-update_ensemble_prediction!(process::UorTU, Δt::FT) where {FT <: AbstractFloat, UorTU <: Union{Unscented,TransformUnscented}} =
+update_ensemble_prediction!(
+    process::UorTU,
+    Δt::FT,
+) where {FT <: AbstractFloat, UorTU <: Union{Unscented, TransformUnscented}} =
     update_ensemble_prediction!(process, Δt, collect(1:length(process.u_mean[end])))
 
 """
@@ -617,12 +620,12 @@ function update_ensemble_analysis!(
 ) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
 
     process = get_process(uki)
-    Σ_ν = process.Σ_ν_scale * get_obs_noise_cov(uki)[g_idx,g_idx]
+    Σ_ν = process.Σ_ν_scale * get_obs_noise_cov(uki)[g_idx, g_idx]
 
     u_p = u_p_full[u_idx, :]
     obs_mean = get_obs(uki)[g_idx]
     g = g_full[g_idx, :]
-    
+
     u_p_mean = construct_mean(uki, u_p)
     uu_p_cov = construct_cov(uki, u_p, u_p_mean)
 
@@ -640,7 +643,7 @@ function update_ensemble_analysis!(
 
     if process.impose_prior
         ug_cov_reg = [ug_cov uu_p_cov]
-        gg_cov_reg = [gg_cov ug_cov'; ug_cov uu_p_cov+process.prior_cov[u_idx,u_idx] / get_Δt(uki)[end]]
+        gg_cov_reg = [gg_cov ug_cov'; ug_cov uu_p_cov+process.prior_cov[u_idx, u_idx] / get_Δt(uki)[end]]
         tmp = ug_cov_reg / gg_cov_reg
         u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean[u_idx] - u_p_mean]
         uu_cov = uu_p_cov - tmp * ug_cov_reg'
@@ -649,11 +652,11 @@ function update_ensemble_analysis!(
         u_mean = u_p_mean + tmp * (obs_mean - g_mean)
         uu_cov = uu_p_cov - tmp * ug_cov'
     end
-    
+
     ########### Save results
     process.obs_pred[end][g_idx] .= g_mean
     process.u_mean[end][u_idx] .= u_mean
-    process.uu_cov[end][u_idx,u_idx] .= uu_cov
+    process.uu_cov[end][u_idx, u_idx] .= uu_cov
 
 end
 
@@ -683,9 +686,9 @@ function update_ensemble!(
     process::U,
     u_idx::Vector{Int},
     g_idx::Vector{Int};
-    group_idx=0,
+    group_idx = 0,
     failed_ens = nothing,
-    ekp_kwargs...
+    ekp_kwargs...,
 ) where {FT <: AbstractFloat, IT <: Int, U <: Unscented}
     #catch works when g_in non-square 
     u_p_old = get_u_final(uki)
@@ -702,8 +705,8 @@ function update_ensemble!(
     # create on first group, then populate later
     if group_idx == 1
         push!(process.obs_pred, zeros(size(g_in, 1)))
-        push!(process.u_mean, zeros(size(u_p_old, 1))) 
-        push!(process.uu_cov, zeros(size(u_p_old, 1), size(u_p_old, 1))) 
+        push!(process.u_mean, zeros(size(u_p_old, 1)))
+        push!(process.uu_cov, zeros(size(u_p_old, 1), size(u_p_old, 1)))
     end
     u_p = fh.failsafe_update(uki, u_p_old, g_in, u_idx, g_idx, failed_ens)
 
@@ -718,7 +721,7 @@ Returns the mean unconstrained parameter at the requested iteration.
 function get_u_mean(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
     iteration::IT,
-) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
     return get_process(uki).u_mean[iteration]
 end
 
@@ -730,11 +733,13 @@ Returns the unconstrained parameter covariance at the requested iteration.
 function get_u_cov(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
     iteration::IT,
-) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented,TransformUnscented}}
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
     return get_process(uki).uu_cov[iteration]
 end
 
-function compute_error!(uki::EnsembleKalmanProcess{FT, IT, UorTU}) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented,TransformUnscented}}
+function compute_error!(
+    uki::EnsembleKalmanProcess{FT, IT, UorTU},
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
     mean_g = get_process(uki).obs_pred[end]
     diff = get_obs(uki) - mean_g
     X = lmul_obs_noise_cov_inv(uki, diff)
