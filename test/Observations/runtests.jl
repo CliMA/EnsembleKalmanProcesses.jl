@@ -426,6 +426,40 @@ end
     @test norm(test1 - lmul_obs_noise_cov_inv(observation_series, Xvec)) < 1e-12
     @test norm(test2 - lmul_obs_noise_cov_inv(observation_series, X)) < 1e-12
 
+    # test the pre-indexed versions:
+    # cov
+    g_idx = [2, 3, 4, 8, 9, 15, 16]
+    Γ = get_obs_noise_cov(observation_series)
+    test1 = Γ[g_idx, g_idx] * Xvec[g_idx]
+    test2 = Γ[g_idx, g_idx] * X[g_idx, :]
+    out1 = zeros(size(test1))
+    out2 = zeros(size(test2))
+    # The function is writte to be applied to pre-trimmed "X"s 
+    lmul_obs_noise_cov!(out1, observation_series, Xvec[g_idx], g_idx)
+    lmul_obs_noise_cov!(out2, observation_series, X[g_idx, :], g_idx)
+    @test norm(test1 - out1) < 1e-12
+    @test norm(test2 - out2) < 1e-12
+    lmul_obs_noise_cov!(out1, observation_series, Xvec, g_idx)
+    lmul_obs_noise_cov!(out2, observation_series, X, g_idx)
+    @test norm(test1 - out1) < 1e-12
+    @test norm(test2 - out2) < 1e-12
+
+    # cov_inv
+    test1 = Γinv[g_idx, g_idx] * Xvec[g_idx]
+    test2 = Γinv[g_idx, g_idx] * X[g_idx, :]
+    out1 = zeros(size(test1))
+    out2 = zeros(size(test2))
+    out1 = zeros(size(test1))
+    out2 = zeros(size(test2))
+    # In code this is applied to pre-trimmed "X"s or not
+    lmul_obs_noise_cov_inv!(out1, observation_series, Xvec[g_idx], g_idx)
+    lmul_obs_noise_cov_inv!(out2, observation_series, X[g_idx, :], g_idx)
+    @test norm(test1 - out1) < 1e-12
+    @test norm(test2 - out2) < 1e-12
+    lmul_obs_noise_cov_inv!(out1, observation_series, Xvec, g_idx)
+    lmul_obs_noise_cov_inv!(out2, observation_series, X, g_idx)
+    @test norm(test1 - out1) < 1e-12
+    @test norm(test2 - out2) < 1e-12
 
 
 end

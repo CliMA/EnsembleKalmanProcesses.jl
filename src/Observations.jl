@@ -1069,7 +1069,12 @@ function lmul_obs_noise_cov!(
 ) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
     A = get_obs_noise_cov(os, build = false)
     idx_triple = generate_block_product_subindices(A, idx_set)
-    return lmul_without_build!(out, A, X, idx_triple)
+    if isa(X, AbstractVector)
+        Xtrim = length(X) > length(idx_set) ? X[idx_set] : X
+    else
+        Xtrim = size(X, 1) > length(idx_set) ? X[idx_set, :] : X
+    end
+    return lmul_without_build!(out, A, Xtrim, idx_triple)
 end
 
 function lmul_obs_noise_cov_inv!(
@@ -1080,7 +1085,13 @@ function lmul_obs_noise_cov_inv!(
 ) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
     A = get_obs_noise_cov_inv(os, build = false)
     idx_triple = generate_block_product_subindices(A, idx_set)
-    return lmul_without_build!(out, A, X, idx_triple)
+    # trim X if not already, (idx-triple expects it trimmed)
+    if isa(X, AbstractVector)
+        Xtrim = length(X) > length(idx_set) ? X[idx_set] : X
+    else
+        Xtrim = size(X, 1) > length(idx_set) ? X[idx_set, :] : X
+    end
+    return lmul_without_build!(out, A, Xtrim, idx_triple)
 end
 
 function generate_block_product_subindices(Ablocks, idx_set)
