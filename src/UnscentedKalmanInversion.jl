@@ -286,7 +286,7 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         g_mean = construct_successful_mean(uki, g, successful_ens)
         gg_cov = construct_successful_cov(uki, g, g_mean, successful_ens) + Σ_ν / get_Δt(uki)[end]
         ug_cov = construct_successful_cov(uki, u_p, u_p_mean, g, g_mean, successful_ens)
-
+        
         cov_est = [
             uu_p_cov ug_cov
             ug_cov' gg_cov
@@ -304,11 +304,11 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
             u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean[u_idx] - u_p_mean]
             uu_cov = uu_p_cov - tmp * ug_cov_reg'
         else
-            tmp = ug_cov / gg_cov
+            tmp = ug_cov / gg_cov            
             u_mean = u_p_mean + tmp * (obs_mean - g_mean)
             uu_cov = uu_p_cov - tmp * ug_cov'
         end
-
+        
         ########### Save results
         process.obs_pred[end][g_idx] .= g_mean
         process.u_mean[end][u_idx] .= u_mean
@@ -359,12 +359,12 @@ function construct_sigma_ensemble(
     x = zeros(FT, N_x, N_ens)
     x[:, 1] = x_mean
 
-    if isa(c_weights, AbstractVector{FT})
+    if isa(c_weights, AbstractVector{FT}) 
         for i in 1:N_x
             x[:, i + 1] = x_mean + c_weights[i] * chol_xx_cov[:, i]
             x[:, i + 1 + N_x] = x_mean - c_weights[i] * chol_xx_cov[:, i]
         end
-    elseif isa(c_weights, AbstractMatrix{FT})
+    elseif isa(c_weights, AbstractMatrix{FT}) 
         for i in 2:(N_x + 2)
             x[:, i] = x_mean + chol_xx_cov * c_weights[:, i]
         end
@@ -684,7 +684,7 @@ Inputs:
 """
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, U},
-    g_in::AbstractMatrix{FT},
+    g::AbstractMatrix{FT},
     process::U,
     u_idx::Vector{Int},
     g_idx::Vector{Int};
@@ -698,7 +698,7 @@ function update_ensemble!(
     fh = get_failure_handler(uki)
 
     if isnothing(failed_ens)
-        _, failed_ens = split_indices_by_success(g_in)
+        _, failed_ens = split_indices_by_success(g)
     end
     if !isempty(failed_ens)
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
@@ -706,11 +706,11 @@ function update_ensemble!(
 
     # create on first group, then populate later
     if group_idx == 1
-        push!(process.obs_pred, zeros(size(g_in, 1)))
+        push!(process.obs_pred, zeros(size(g, 1)))
         push!(process.u_mean, zeros(size(u_p_old, 1)))
         push!(process.uu_cov, zeros(size(u_p_old, 1), size(u_p_old, 1)))
     end
-    u_p = fh.failsafe_update(uki, u_p_old, g_in, u_idx, g_idx, failed_ens)
+    u_p = fh.failsafe_update(uki, u_p_old, g, u_idx, g_idx, failed_ens)
 
     return u_p
 end
