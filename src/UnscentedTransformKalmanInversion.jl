@@ -149,8 +149,6 @@ function TransformUnscented(
         cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
         cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
 
-
-
     elseif sigma_points == "simplex"
         c_weights = zeros(FT, N_par, N_ens)
 
@@ -270,7 +268,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         u_p = u_p_full[u_idx, :]
         y = get_obs(uki)[g_idx]
         g = g_full[g_idx, :]
-
+        
         u_p_mean = construct_successful_mean(uki, u_p, successful_ens)
         m = length(successful_ens)
         g_mean = construct_successful_mean(uki, g, successful_ens)
@@ -290,10 +288,11 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             g_ext = g
         end
 
-        # sqrt-increments
+        # sqrt-increments -
+        # NB can index [:,2:end] for X,Y without changing result (if 1st particle success)
         X = FT.((u_p .- u_p_mean) / sqrt(m - 1))
-        Y = FT.((g_ext .- g_mean_ext) / sqrt(m - 1)) # may cause issue as first row = 0? TBD
-
+        Y = FT.((g_ext .- g_mean_ext) / sqrt(m - 1))
+               
         # Create/Enlarge buffers if needed
         tmp = get_buffer(get_process(uki)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
         ys1, ys2 = size(Y)
@@ -312,15 +311,32 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, g_idx) # store in transpose, with view helping reduce allocations
         end
         view(tmp[1], 1:ys2, :) .*= inv_noise_scaling
-
+        
+        ### Check internal multiplication
+        #=
+        Σ_ν_inv =  get_obs_noise_cov_inv(uki)[g_idx, g_idx] * get_Δt(uki)[end] / process.Σ_ν_scale
+                multmat = Y' * Σ_ν_inv
+                @info "diff" norm(multmat - tmp[1][1:ys2,1:ys1])
+        =#
+        ###
+        
         tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
-
         for i in 1:ys2
             tmp[2][i, i] += 1.0
         end
-        Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
+        
+        Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y      
+            
         u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
-        uu_cov = X * Ω * X' # cov update 
+        uu_cov = X * Ω * X' # cov update
+
+        ### Check agains true Kalman gain:
+        #=
+        Gain = X*Y'*(inv(Y*Y'+get_obs_noise_cov(uki) ./ inv_noise_scaling))
+        gain_mean = (u_p_mean + Gain * (y_ext .- g_mean_ext))
+        @info norm(gain_mean - u_mean)
+        =#
+        ###
 
         ########### Save results
         process.obs_pred[end][g_idx] .= g_mean
@@ -401,12 +417,11 @@ function update_ensemble_analysis!(
     view(tmp[1], 1:ys2, :) .*= inv_noise_scaling
 
     tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
-
     for i in 1:ys2
         tmp[2][i, i] += 1.0
     end
     Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
-    u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
+    u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) 
     uu_cov = X * Ω * X' # cov update 
 
     ########### Save results
@@ -433,7 +448,7 @@ Inputs:
 """
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, TU},
-    g_in::AbstractMatrix{FT},
+    g::AbstractMatrix{FT},
     process::TU,
     u_idx::Vector{Int},
     g_idx::Vector{Int};
@@ -448,7 +463,7 @@ function update_ensemble!(
     fh = get_failure_handler(uki)
 
     if isnothing(failed_ens)
-        _, failed_ens = split_indices_by_success(g_in)
+        _, failed_ens = split_indices_by_success(g)
     end
     if !isempty(failed_ens)
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
@@ -456,12 +471,12 @@ function update_ensemble!(
 
     # create on first group, then populate later
     if group_idx == 1
-        push!(process.obs_pred, zeros(size(g_in, 1)))
+        push!(process.obs_pred, zeros(size(g, 1)))
         push!(process.u_mean, zeros(size(u_p_old, 1)))
         push!(process.uu_cov, zeros(size(u_p_old, 1), size(u_p_old, 1)))
     end
 
-    u_p = fh.failsafe_update(uki, u_p_old, g_in, u_idx, g_idx, failed_ens)
+    u_p = fh.failsafe_update(uki, u_p_old, g, u_idx, g_idx, failed_ens)
 
     return u_p
 end
