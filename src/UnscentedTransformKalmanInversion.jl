@@ -49,8 +49,7 @@ Inputs:
      automatically.
   - `prior_mean`: Prior mean used for regularization.
   - `prior_cov`: Prior cov used for regularization.
-  - `sigma_points`: String of sigma point type, it can be `symmetric` with `2N_par+1` 
-     ensemble members or `simplex` with `N_par+2` ensemble members.
+  - `sigma_points`: String of sigma point type, it can be `symmetric` with `2N_par+1` (`simplex` is implemented by not stable)
   
 $(METHODLIST)
 """
@@ -125,9 +124,10 @@ function TransformUnscented(
     if sigma_points == "symmetric"
         N_ens = 2 * size(u0_mean, 1) + 1
     elseif sigma_points == "simplex"
+        @error("the `simplex` variant of UTKI displays numerical instability, results should not be trusted")
         N_ens = size(u0_mean, 1) + 2
     else
-        throw(ArgumentError("sigma_points type is not recognized. Select from \"symmetric\" or \"simplex\". "))
+        throw(ArgumentError("sigma_points type is not recognized. Select the option \"symmetric\"... "))
     end
 
     N_par = size(u0_mean, 1)
@@ -149,7 +149,7 @@ function TransformUnscented(
         cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
         cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
 
-    elseif sigma_points == "simplex"
+    elseif sigma_points == "simplex"        
         c_weights = zeros(FT, N_par, N_ens)
 
         # set parameters λ, α
