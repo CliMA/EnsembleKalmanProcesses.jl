@@ -1085,7 +1085,12 @@ function lmul_sqrt_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
     return Y
 end
 
-function lmul_sqrt_without_build!(out, A, X::AVorM, idx_triple::AV) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
+function lmul_sqrt_without_build!(
+    out,
+    A,
+    X::AVorM,
+    idx_triple::AV,
+) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
     Xmat = isa(X, AbstractVector) ? reshape(X, :, 1) : X
     for (block_idx, local_idx, global_idx) in idx_triple
         a = A[block_idx]
@@ -1104,7 +1109,7 @@ function lmul_sqrt_without_build!(out, A, X::AVorM, idx_triple::AV) where {AVorM
 end
 
 function lmul_obs_noise_cov(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
-    A = get_obs_noise_cov(os, build = false)    
+    A = get_obs_noise_cov(os, build = false)
     return lmul_without_build(A, X)
 end
 
