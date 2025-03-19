@@ -192,14 +192,20 @@ end
     # Specific cost values are printed to give an idea of acceleration.
     processes = [
         repeat(
-            [Inversion(), TransformInversion(), Unscented(prior; impose_prior = true), GaussNewtonInversion(prior)],
+            [
+                Inversion(),
+                TransformInversion(),
+                Unscented(prior; impose_prior = true),
+                TransformUnscented(prior; impose_prior = true),
+                GaussNewtonInversion(prior),
+            ],
             2,
         )...,
         Sampler(prior),
     ]
     schedulers = [
-        repeat([DefaultScheduler(0.1)], 4)..., # for constant timestep Nesterov
-        repeat([DataMisfitController(terminate_at = 100)], 4)..., # for general Nesterov
+        repeat([DefaultScheduler(0.1)], 5)..., # for constant timestep Nesterov
+        repeat([DataMisfitController(terminate_at = 100)], 5)..., # for general Nesterov
         EKSStableScheduler(), # for general Nesterov
     ]
 
@@ -221,7 +227,7 @@ end
             process_copy = deepcopy(process)
             scheduler_copy = deepcopy(scheduler)
             println("Accelerator: ", nameof(typeof(accelerator)), " Process: ", nameof(typeof(process_copy)))
-            if !isa(process, Unscented)
+            if !isa(process, Union{Unscented, TransformUnscented})
                 ekpobj = EKP.EnsembleKalmanProcess(
                     initial_ensemble,
                     y_obs,
@@ -355,6 +361,7 @@ end
         TransformInversion(),
         GaussNewtonInversion(prior),
         Unscented(prior; impose_prior = true),
+        TransformUnscented(prior; impose_prior = true),
         #Sparse inversion tests in test/SparseInversion/runtests.jl
     ]
     T_end = 1 # (this could fail a test if N_iters is not enough to reach T_end)
@@ -373,7 +380,7 @@ end
 
         for (scheduler, N_iter, verbose) in zip(schedulers, N_iters, verboses)
             println("Scheduler: ", nameof(typeof(scheduler)))
-            if !isa(process, Unscented)
+            if !isa(process, Union{Unscented, TransformUnscented})
                 ekpobj = EKP.EnsembleKalmanProcess(
                     initial_ensemble,
                     y_obs,
@@ -423,7 +430,7 @@ end
                       norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[i]))))
 
             end
-        elseif isa(process, Unscented)
+        elseif isa(process, Union{Unscented, TransformUnscented})
             for i in 1:length(final_means)
                 # we are regularizing by the prior, therefore we must account for this in the metric of success
                 u_star = transform_constrained_to_unconstrained(prior, ϕ_star)
@@ -787,7 +794,7 @@ end
 end
 
 
-@testset "UnscentedKalmanInversion" begin
+@testset "UnscentedKalmanInversion and Transform variant" begin
     # Seed for pseudo-random number generator
     rng = Random.MersenneTwister(rng_seed)
 
@@ -801,18 +808,22 @@ end
     iters_with_failure = [5, 8, 9, 15]
     failed_particle_index = [1, 2, 3, 1]
 
-    ukiobj = nothing
-    uki_final_result = nothing
-
     # checks for the initial vs prior stats 
-    proc_tmp = Unscented([1, 1], [1 0; 0 1]; impose_prior = true)
-    @test proc_tmp.uu_cov[1] == [1.0 0.0; 0.0 1.0]
-    @test proc_tmp.u_mean[1] == [1.0, 1.0]
-
-    # if different initial and prior mean/cov
-    proc_tmp = Unscented(prior; impose_prior = true)
-    @test proc_tmp.prior_cov == proc_tmp.uu_cov[1]
-    @test proc_tmp.prior_mean == proc_tmp.u_mean[1]
+    proc_tmp = [
+        Unscented([1, 1], [1 0; 0 1]; impose_prior = true),
+        TransformUnscented([1, 1], [1 0; 0 1]; impose_prior = true),
+        Unscented(prior; impose_prior = true),
+        TransformUnscented(prior; impose_prior = true),
+    ]
+    for (i, proc) in enumerate(proc_tmp)
+        if i <= 2
+            @test proc.uu_cov[1] == [1.0 0.0; 0.0 1.0]
+            @test proc.u_mean[1] == [1.0, 1.0]
+        else
+            @test proc.prior_cov == proc.uu_cov[1]
+            @test proc.prior_mean == proc.u_mean[1]
+        end
+    end
 
 
     for (i_prob, inv_problem, impose_prior, update_freq) in
@@ -820,13 +831,29 @@ end
 
         y_obs, G, Γy, A = inv_problem
         scheduler = DataMisfitController(on_terminate = "continue") #will need to be copied as stores run information inside
+        scheduler_simplex = DefaultScheduler(0.05) #will need to be copied as stores run information inside
 
         process = Unscented(prior; sigma_points = "symmetric", impose_prior = impose_prior, update_freq = update_freq)
+        process_t = TransformUnscented(
+            prior;
+            sigma_points = "symmetric",
+            impose_prior = impose_prior,
+            update_freq = update_freq,
+        )
+
         ukiobj = EKP.EnsembleKalmanProcess(
             y_obs,
             Γy,
             deepcopy(process);
-            rng = rng,
+            rng = copy(rng),
+            scheduler = deepcopy(scheduler),
+            failure_handler_method = SampleSuccGauss(),
+        )
+        ukiobj_t = EKP.EnsembleKalmanProcess(
+            y_obs,
+            Γy,
+            deepcopy(process_t);
+            rng = copy(rng),
             scheduler = deepcopy(scheduler),
             failure_handler_method = SampleSuccGauss(),
         )
@@ -834,114 +861,150 @@ end
             y_obs,
             Γy,
             deepcopy(process);
-            rng = rng,
+            rng = copy(rng),
+            scheduler = deepcopy(scheduler),
+            failure_handler_method = IgnoreFailures(),
+        )
+        ukiobj_t_unsafe = EKP.EnsembleKalmanProcess(
+            y_obs,
+            Γy,
+            deepcopy(process_t);
+            rng = copy(rng),
             scheduler = deepcopy(scheduler),
             failure_handler_method = IgnoreFailures(),
         )
         # test simplex sigma points
         process_simplex = Unscented(prior; sigma_points = "simplex", impose_prior = impose_prior)
+        @test_logs (:error,) TransformUnscented(prior; sigma_points = "simplex", impose_prior = impose_prior)
+        process_t_simplex = TransformUnscented(prior; sigma_points = "simplex", impose_prior = impose_prior) # run unstable code but dont compare
         ukiobj_simplex = EKP.EnsembleKalmanProcess(
             y_obs,
             Γy,
             deepcopy(process_simplex);
-            rng = rng,
-            scheduler = deepcopy(scheduler),
+            rng = copy(rng),
+            scheduler = deepcopy(scheduler_simplex),
             failure_handler_method = SampleSuccGauss(),
         )
-
+        ukiobj_t_simplex = EKP.EnsembleKalmanProcess(
+            y_obs,
+            Γy,
+            deepcopy(process_t_simplex);
+            rng = copy(rng),
+            scheduler = scheduler_simplex,
+            failure_handler_method = SampleSuccGauss(),
+        )
         # Test incorrect construction throws error
         @test_throws ArgumentError Unscented(prior; sigma_points = "unknowns", impose_prior = impose_prior)
+        @test_throws ArgumentError TransformUnscented(prior; sigma_points = "unknowns", impose_prior = impose_prior)
 
-        # UKI iterations
-        u_i_vec = Array{Float64, 2}[]
-        g_ens_vec = Array{Float64, 2}[]
-        failed_index = 1
-        for i in 1:N_iter
-            # Check SampleSuccGauss handler
-            params_i = get_ϕ_final(prior, ukiobj)
-            push!(u_i_vec, get_u_final(ukiobj))
-            g_ens = G(params_i)
-            # Add random failures
-            if i in iters_with_failure
-                g_ens[:, failed_particle_index[failed_index]] .= NaN
-                failed_index += 1
-            end
-
-            EKP.update_ensemble!(ukiobj, g_ens)
-            push!(g_ens_vec, g_ens)
-            if i == 1
-                if !(size(g_ens, 1) == size(g_ens, 2))
-                    g_ens_t = permutedims(g_ens, (2, 1))
-                    @test_throws DimensionMismatch EKP.update_ensemble!(ukiobj, g_ens_t)
+        compare_uki_utki = []
+        compare_uki_utki_simplex = []
+        for (ekpobj, ekpobj_unsafe, ekpobj_simplex) in
+            [(ukiobj, ukiobj_unsafe, ukiobj_simplex), (ukiobj_t, ukiobj_t_unsafe, ukiobj_t_simplex)]
+            println(" ")
+            @info "testing $(nameof(typeof(get_process(ekpobj)))) on problem $i_prob"
+            # UKI iterations
+            u_i_vec = Array{Float64, 2}[]
+            g_ens_vec = Array{Float64, 2}[]
+            failed_index = 1
+            for i in 1:N_iter
+                # Check SampleSuccGauss handler
+                params_i = get_ϕ_final(prior, ekpobj)
+                push!(u_i_vec, get_u_final(ekpobj))
+                g_ens = G(params_i)
+                # Add random failures
+                if i in iters_with_failure
+                    g_ens[:, failed_particle_index[failed_index]] .= NaN
+                    failed_index += 1
                 end
-            end
 
-            @test !any(isnan.(params_i))
-
-            # Check IgnoreFailures handler
-            if i <= iters_with_failure[1]
-                params_i_unsafe = get_ϕ_final(prior, ukiobj_unsafe)
-                g_ens_unsafe = G(params_i_unsafe)
-                if i < iters_with_failure[1]
-                    EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
-                elseif i == iters_with_failure[1]
-                    g_ens_unsafe[:, 1] .= NaN
-                    #inconsistent behaviour before/after v1.9 regarding NaNs in matrices
-                    if (VERSION.major >= 1) && (VERSION.minor >= 9)
-                        # new versions the NaNs break LinearAlgebra.jl
-                        @test_throws ArgumentError EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
-                    else
-                        # old versions the NaNs pass through LinearAlgebra.jl
-                        EKP.update_ensemble!(ukiobj_unsafe, g_ens_unsafe)
-                        u_unsafe = get_u_final(ukiobj_unsafe)
-                        # Propagation of unhandled failures
-                        @test any(isnan.(u_unsafe))
+                EKP.update_ensemble!(ekpobj, g_ens)
+                push!(g_ens_vec, g_ens)
+                if i == 1
+                    if !(size(g_ens, 1) == size(g_ens, 2))
+                        g_ens_t = permutedims(g_ens, (2, 1))
+                        @test_throws DimensionMismatch EKP.update_ensemble!(ekpobj, g_ens_t)
                     end
-
-
                 end
+
+                @test !any(isnan.(params_i))
+
+                # Check IgnoreFailures handler
+                if i <= iters_with_failure[1]
+                    params_i_unsafe = get_ϕ_final(prior, ekpobj_unsafe)
+                    g_ens_unsafe = G(params_i_unsafe)
+                    if i < iters_with_failure[1]
+                        EKP.update_ensemble!(ekpobj_unsafe, g_ens_unsafe)
+                    elseif i == iters_with_failure[1]
+                        g_ens_unsafe[:, 1] .= NaN
+                        #inconsistent behaviour before/after v1.9 regarding NaNs in matrices
+                        if (VERSION.major >= 1) && (VERSION.minor >= 9)
+                            # new versions the NaNs break LinearAlgebra.jl
+                            @test_throws ArgumentError EKP.update_ensemble!(ekpobj_unsafe, g_ens_unsafe)
+                        else
+                            # old versions the NaNs pass through LinearAlgebra.jl
+                            EKP.update_ensemble!(ekpobj_unsafe, g_ens_unsafe)
+                            u_unsafe = get_u_final(ekpobj_unsafe)
+                            # Propagation of unhandled failures
+                            @test any(isnan.(u_unsafe))
+                        end
+
+
+                    end
+                end
+
+                # Update simplex sigma points
+                EKP.update_ensemble!(ekpobj_simplex, G(get_ϕ_final(prior, ekpobj_simplex)))
             end
+            push!(compare_uki_utki, get_u(ekpobj))
+            push!(compare_uki_utki_simplex, get_u(ekpobj_simplex))
 
-            # Update simplex sigma points
-            EKP.update_ensemble!(ukiobj_simplex, G(get_ϕ_final(prior, ukiobj_simplex)))
+            push!(u_i_vec, get_u_final(ekpobj))
+
+            @test get_u_prior(ekpobj) == u_i_vec[1]
+            @test get_u(ekpobj) == u_i_vec
+            @test isequal(get_g(ekpobj), g_ens_vec)
+            @test isequal(get_g_final(ekpobj), g_ens_vec[end])
+            @test isequal(get_error(ekpobj), ekpobj.error)
+
+            @test isa(construct_mean(ekpobj, rand(rng, 2 * n_par + 1)), Float64)
+            @test isa(construct_mean(ekpobj, rand(rng, 5, 2 * n_par + 1)), Vector{Float64})
+            @test isa(construct_cov(ekpobj, rand(rng, 2 * n_par + 1)), Float64)
+            @test isa(construct_cov(ekpobj, rand(rng, 5, 2 * n_par + 1)), Matrix{Float64})
+            @test isposdef(
+                construct_cov(ekpobj, construct_sigma_ensemble(get_process(ekpobj), [0.0; 0.0], [1.0 0; 0 0])),
+            )
+
+            # UKI results: Test if ensemble has collapsed toward the true parameter 
+            # values
+            uki_init_result = vec(mean(get_u_prior(ekpobj), dims = 2))
+            uki_final_result = get_u_mean_final(ekpobj)
+            uki_simplex_final_result = get_u_mean_final(ekpobj_simplex)
+            ϕ_final_mean = get_ϕ_mean_final(prior, ekpobj)
+            ϕ_init_mean = get_ϕ_mean(prior, ekpobj, 1)
+            u_cov_final = get_u_cov_final(ekpobj)
+            u_cov_init = get_u_cov(ekpobj, 1)
+
+            @test ϕ_init_mean == transform_unconstrained_to_constrained(prior, uki_init_result)
+            @test ϕ_final_mean == transform_unconstrained_to_constrained(prior, uki_final_result)
+
+            @test tr(u_cov_final) < 2 * tr(u_cov_init)
+            @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
+            @test norm(ϕ_star - transform_unconstrained_to_constrained(prior, uki_simplex_final_result)) <
+                  norm(ϕ_star - ϕ_init_mean)
+            # end
+            if TEST_PLOT_OUTPUT
+                plot_inv_problem_ensemble(prior, ekpobj, joinpath(@__DIR__, "UKI_test_$(i_prob).png"))
+                plot_inv_problem_ensemble(prior, ekpobj_simplex, joinpath(@__DIR__, "UKI_test_simplex_$(i_prob).png"))
+
+            end
         end
-        push!(u_i_vec, get_u_final(ukiobj))
+        @info compare_uki_utki[1][end]
+        @info compare_uki_utki[2][end]
+        @info norm(compare_uki_utki[1][end][:, 1] - compare_uki_utki[2][end][:, 1])
 
-        @test get_u_prior(ukiobj) == u_i_vec[1]
-        @test get_u(ukiobj) == u_i_vec
-        @test isequal(get_g(ukiobj), g_ens_vec)
-        @test isequal(get_g_final(ukiobj), g_ens_vec[end])
-        @test isequal(get_error(ukiobj), ukiobj.error)
-
-        @test isa(construct_mean(ukiobj, rand(rng, 2 * n_par + 1)), Float64)
-        @test isa(construct_mean(ukiobj, rand(rng, 5, 2 * n_par + 1)), Vector{Float64})
-        @test isa(construct_cov(ukiobj, rand(rng, 2 * n_par + 1)), Float64)
-        @test isa(construct_cov(ukiobj, rand(rng, 5, 2 * n_par + 1)), Matrix{Float64})
-        @test isposdef(construct_cov(ukiobj, construct_sigma_ensemble(get_process(ukiobj), [0.0; 0.0], [1.0 0; 0 0])))
-
-        # UKI results: Test if ensemble has collapsed toward the true parameter 
-        # values
-        uki_init_result = vec(mean(get_u_prior(ukiobj), dims = 2))
-        uki_final_result = get_u_mean_final(ukiobj)
-        uki_simplex_final_result = get_u_mean_final(ukiobj_simplex)
-        ϕ_final_mean = get_ϕ_mean_final(prior, ukiobj)
-        ϕ_init_mean = get_ϕ_mean(prior, ukiobj, 1)
-        u_cov_final = get_u_cov_final(ukiobj)
-        u_cov_init = get_u_cov(ukiobj, 1)
-
-        @test ϕ_init_mean == transform_unconstrained_to_constrained(prior, uki_init_result)
-        @test ϕ_final_mean == transform_unconstrained_to_constrained(prior, uki_final_result)
-
-        @test tr(u_cov_final) < 2 * tr(u_cov_init)
-        @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
-        @test norm(ϕ_star - transform_unconstrained_to_constrained(prior, uki_simplex_final_result)) <
-              norm(ϕ_star - ϕ_init_mean)
-        # end
-        if TEST_PLOT_OUTPUT
-            plot_inv_problem_ensemble(prior, ukiobj, joinpath(@__DIR__, "UKI_test_$(i_prob).png"))
-            plot_inv_problem_ensemble(prior, ukiobj_simplex, joinpath(@__DIR__, "UKI_test_simplex_$(i_prob).png"))
-
-        end
+        @test norm(compare_uki_utki[1][end] - compare_uki_utki[2][end]) < 0.2
+        #        @test norm(compare_uki_utki_simplex[1] -compare_uki_utki_simplex[2]) # uncomment when stabilized 
 
     end
 end

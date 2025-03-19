@@ -457,8 +457,8 @@ end
     lmul_sqrt_obs_noise_cov!(out2, observation_series, X, g_idx)
     @test norm(test1 - out1) < 1e-12
     @test norm(test2 - out2) < 1e-12
-    
-    
+
+
     # cov_inv
     test1 = Γinv[g_idx, g_idx] * Xvec[g_idx]
     test2 = Γinv[g_idx, g_idx] * X[g_idx, :]
@@ -473,7 +473,7 @@ end
     lmul_obs_noise_cov_inv!(out2, observation_series, X, g_idx)
     @test norm(test1 - out1) < 1e-12
     @test norm(test2 - out2) < 1e-12
-    
+
     # sqrt_cov_inv
     test1 = sqrt(Γinv[g_idx, g_idx]) * Xvec[g_idx]
     test2 = sqrt(Γinv[g_idx, g_idx]) * X[g_idx, :]
