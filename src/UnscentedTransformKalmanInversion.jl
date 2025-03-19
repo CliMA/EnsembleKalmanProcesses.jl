@@ -149,7 +149,7 @@ function TransformUnscented(
         cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
         cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
 
-    elseif sigma_points == "simplex"        
+    elseif sigma_points == "simplex"
         c_weights = zeros(FT, N_par, N_ens)
 
         # set parameters λ, α
@@ -268,7 +268,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         u_p = u_p_full[u_idx, :]
         y = get_obs(uki)[g_idx]
         g = g_full[g_idx, :]
-        
+
         u_p_mean = construct_successful_mean(uki, u_p, successful_ens)
         m = length(successful_ens)
         g_mean = construct_successful_mean(uki, g, successful_ens)
@@ -292,7 +292,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         # NB can index [:,2:end] for X,Y without changing result (if 1st particle success)
         X = FT.((u_p .- u_p_mean) / sqrt(m - 1))
         Y = FT.((g_ext .- g_mean_ext) / sqrt(m - 1))
-               
+
         # Create/Enlarge buffers if needed
         tmp = get_buffer(get_process(uki)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
         ys1, ys2 = size(Y)
@@ -311,7 +311,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, g_idx) # store in transpose, with view helping reduce allocations
         end
         view(tmp[1], 1:ys2, :) .*= inv_noise_scaling
-        
+
         ### Check internal multiplication
         #=
         Σ_ν_inv =  get_obs_noise_cov_inv(uki)[g_idx, g_idx] * get_Δt(uki)[end] / process.Σ_ν_scale
@@ -319,14 +319,14 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
                 @info "diff" norm(multmat - tmp[1][1:ys2,1:ys1])
         =#
         ###
-        
+
         tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
         for i in 1:ys2
             tmp[2][i, i] += 1.0
         end
-        
+
         Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y      
-            
+
         u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
         uu_cov = X * Ω * X' # cov update
 
@@ -421,7 +421,7 @@ function update_ensemble_analysis!(
         tmp[2][i, i] += 1.0
     end
     Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
-    u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) 
+    u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext))
     uu_cov = X * Ω * X' # cov update 
 
     ########### Save results

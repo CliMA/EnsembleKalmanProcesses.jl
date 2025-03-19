@@ -286,7 +286,7 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         g_mean = construct_successful_mean(uki, g, successful_ens)
         gg_cov = construct_successful_cov(uki, g, g_mean, successful_ens) + Σ_ν / get_Δt(uki)[end]
         ug_cov = construct_successful_cov(uki, u_p, u_p_mean, g, g_mean, successful_ens)
-        
+
         cov_est = [
             uu_p_cov ug_cov
             ug_cov' gg_cov
@@ -304,11 +304,11 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
             u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean[u_idx] - u_p_mean]
             uu_cov = uu_p_cov - tmp * ug_cov_reg'
         else
-            tmp = ug_cov / gg_cov            
+            tmp = ug_cov / gg_cov
             u_mean = u_p_mean + tmp * (obs_mean - g_mean)
             uu_cov = uu_p_cov - tmp * ug_cov'
         end
-        
+
         ########### Save results
         process.obs_pred[end][g_idx] .= g_mean
         process.u_mean[end][u_idx] .= u_mean
@@ -359,12 +359,12 @@ function construct_sigma_ensemble(
     x = zeros(FT, N_x, N_ens)
     x[:, 1] = x_mean
 
-    if isa(c_weights, AbstractVector{FT}) 
+    if isa(c_weights, AbstractVector{FT})
         for i in 1:N_x
             x[:, i + 1] = x_mean + c_weights[i] * chol_xx_cov[:, i]
             x[:, i + 1 + N_x] = x_mean - c_weights[i] * chol_xx_cov[:, i]
         end
-    elseif isa(c_weights, AbstractMatrix{FT}) 
+    elseif isa(c_weights, AbstractMatrix{FT})
         for i in 2:(N_x + 2)
             x[:, i] = x_mean + chol_xx_cov * c_weights[:, i]
         end
