@@ -49,7 +49,7 @@ Inputs:
      automatically.
   - `prior_mean`: Prior mean used for regularization.
   - `prior_cov`: Prior cov used for regularization.
-  - `sigma_points`: String of sigma point type, it can be `symmetric` with `2N_par+1` (`simplex` is implemented by not stable)
+  - `sigma_points`: String of sigma point type, it can be `symmetric` with `2N_par+1` or `simplex` with `N_par+2` 
   
 $(METHODLIST)
 """
@@ -124,10 +124,9 @@ function TransformUnscented(
     if sigma_points == "symmetric"
         N_ens = 2 * size(u0_mean, 1) + 1
     elseif sigma_points == "simplex"
-        @error("the `simplex` variant of UTKI displays numerical instability, results should not be trusted")
         N_ens = size(u0_mean, 1) + 2
     else
-        throw(ArgumentError("sigma_points type is not recognized. Select the option \"symmetric\"... "))
+        throw(ArgumentError("sigma_points type is not recognized. Select the option \"symmetric\", \"simplex\"... "))
     end
 
     N_par = size(u0_mean, 1)
@@ -270,11 +269,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         g = g_full[g_idx, :]
 
         u_p_mean = construct_successful_mean(uki, u_p, successful_ens)
-        m = length(successful_ens)
         g_mean = construct_successful_mean(uki, g, successful_ens)
-
-        u_p = u_p[:, successful_ens]
-        g = g[:, successful_ens]
 
         ## extend the state (NB obs_noise_cov_inv already extended)
         if process.impose_prior
@@ -287,12 +282,9 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             g_mean_ext = g_mean
             g_ext = g
         end
-
-        # sqrt-increments -
-        # NB can index [:,2:end] for X,Y without changing result (if 1st particle success)
-        X = FT.((u_p .- u_p_mean) / sqrt(m - 1))
-        Y = FT.((g_ext .- g_mean_ext) / sqrt(m - 1))
-
+        # (weighted) ensemble square-root: NB assumes u_p_mean/g_mean_ext has be trimmed already
+        X = construct_successful_perturbation(uki, u_p, u_p_mean, successful_ens)
+        Y = construct_successful_perturbation(uki, g_ext, g_mean_ext, successful_ens)
         # Create/Enlarge buffers if needed
         tmp = get_buffer(get_process(uki)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
         ys1, ys2 = size(Y)
@@ -321,12 +313,12 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         ###
 
         tmp[2][1:ys2, 1:ys2] = tmp[1][1:ys2, 1:ys1] * Y
+
         for i in 1:ys2
             tmp[2][i, i] += 1.0
         end
 
         Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y      
-
         u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
         uu_cov = X * Ω * X' # cov update
 
@@ -379,7 +371,6 @@ function update_ensemble_analysis!(
     g = g_full[g_idx, :]
 
     u_p_mean = construct_mean(uki, u_p)
-    m = size(u_p, 2)
     g_mean = construct_mean(uki, g)
 
     if process.impose_prior
@@ -394,8 +385,9 @@ function update_ensemble_analysis!(
     end
 
     # sqrt-increments
-    X = FT.((u_p .- u_p_mean) / sqrt(m - 1))
-    Y = FT.((g_ext .- g_mean_ext) / sqrt(m - 1))
+    X = construct_perturbation(uki, u_p, u_p_mean)
+    Y = construct_perturbation(uki, g_ext, g_mean_ext)
+
 
     # Create/Enlarge buffers if needed
     tmp = get_buffer(get_process(uki)) # the buffer stores Y' * Γ_inv of [size(Y,2),size(Y,1)]
