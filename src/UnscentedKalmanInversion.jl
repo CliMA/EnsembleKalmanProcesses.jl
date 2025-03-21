@@ -303,10 +303,12 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
             tmp = ug_cov_reg / gg_cov_reg
             u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean[u_idx] - u_p_mean]
             uu_cov = uu_p_cov - tmp * ug_cov_reg'
+
         else
             tmp = ug_cov / gg_cov
             u_mean = u_p_mean + tmp * (obs_mean - g_mean)
             uu_cov = uu_p_cov - tmp * ug_cov'
+
         end
 
         ########### Save results
@@ -562,6 +564,65 @@ function construct_successful_cov(
     obs_mean_succ = isa(x, AbstractMatrix) ? obs_mean[:, successful_indices] : obs_mean[successful_indices]
     return construct_cov(uki, x_succ, x_mean, obs_mean_succ, y_mean; cov_weights = cov_weights[successful_indices])
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Constructs weighted perturbations of `x` (a.k.a ensemble-square-root of the covariance of `x`) 
+"""
+function construct_perturbation(
+    uki::EnsembleKalmanProcess{FT, IT, UorTU},
+    x::AbstractVecOrMat{FT},
+    x_mean::Union{FT, AbstractVector{FT}, Nothing} = nothing;
+    cov_weights = get_process(uki).cov_weights,
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
+
+    x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
+
+    if isa(x, AbstractMatrix{FT})
+        @assert isa(x_mean, AbstractVector{FT})
+        xx_pert = zeros(size(x))
+        for i in 1:size(xx_pert, 2)
+            xx_pert[:, i] = sqrt(cov_weights[i]) * (x[:, i] .- x_mean)
+        end
+    else
+        @assert isa(x_mean, FT)
+        N_ens = length(x)
+        xx_pert = zeros(N_ens)
+
+        for i in 1:N_ens
+            xx_pert[i] += sqrt(cov_weights[i]) * (x[i] .- x_mean)
+        end
+    end
+    return xx_pert
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Constructs weighted perturbations of `x` (a.k.a ensemble-square-root of the covariance of `x`) over successful particles by rescaling the off-center weights over the successful off-center particles.
+"""
+function construct_successful_perturbation(
+    uki::EnsembleKalmanProcess{FT, IT, UorTU},
+    x::AbstractVecOrMat{FT},
+    x_mean::Union{FT, AbstractVector{FT}, Nothing},
+    successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
+
+    cov_weights = deepcopy(get_process(uki).cov_weights)
+
+    # Rescale non-center sigma weights to sum to original value
+    orig_weight_sum = sum(cov_weights[2:end])
+    sum_indices = filter(x -> x > 1, successful_indices)
+    succ_weight_sum = sum(cov_weights[sum_indices])
+    cov_weights[2:end] = cov_weights[2:end] .* (orig_weight_sum / succ_weight_sum)
+
+    x_succ = isa(x, AbstractMatrix) ? x[:, successful_indices] : x[successful_indices]
+    return construct_perturbation(uki, x_succ, x_mean; cov_weights = cov_weights[successful_indices])
+end
+
+
+
 
 """
     update_ensemble_prediction!(process::Unscented, Δt::FT) where {FT <: AbstractFloat}

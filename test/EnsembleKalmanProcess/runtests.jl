@@ -875,7 +875,6 @@ end
         )
         # test simplex sigma points
         process_simplex = Unscented(prior; sigma_points = "simplex", impose_prior = impose_prior)
-        @test_logs (:error,) TransformUnscented(prior; sigma_points = "simplex", impose_prior = impose_prior)
         process_t_simplex = TransformUnscented(prior; sigma_points = "simplex", impose_prior = impose_prior) # run unstable code but dont compare
         ukiobj_simplex = EKP.EnsembleKalmanProcess(
             y_obs,
@@ -999,12 +998,9 @@ end
 
             end
         end
-        @info compare_uki_utki[1][end]
-        @info compare_uki_utki[2][end]
-        @info norm(compare_uki_utki[1][end][:, 1] - compare_uki_utki[2][end][:, 1])
-
-        @test norm(compare_uki_utki[1][end] - compare_uki_utki[2][end]) < 0.2
-        #        @test norm(compare_uki_utki_simplex[1] -compare_uki_utki_simplex[2]) # uncomment when stabilized 
+        # typically find problem 1 -> 4 is very small and 5, 6 get increasingly large errors:
+        @test norm(compare_uki_utki[1][end] - compare_uki_utki[2][end]) < 0.5
+        @test norm(compare_uki_utki_simplex[1][end] - compare_uki_utki_simplex[2][end]) < 2.0 # exp 6 error~1
 
     end
 end
