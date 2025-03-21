@@ -43,12 +43,20 @@ end
 nothing # hide
 
 # The functional is positive so to minimize it we may set the target to be 0,
-G_target = [0]
+G_target = [0.0]
 nothing # hide
 
 # In this example we run several cases. The EKI ("inversion"), ETKI ("transform") find the mode of the posterior, while the EKS ("sampler") samples an approximation of the Gaussian spread of the posterior too. The EKI/ETKI have two variants, a variant which finds the mode of the posterior at algorithm time 1 ("finite"), and a variante which finds the mode of the posterior at algorithm time ∞ ("infinite"). The latter has an additional flexibility in that the initial ensemble does not need to be sampled at the prior.
-cases = ["inversion-finite", "inversion-infinite", "transform-finite", "transform-infinite", "sampler"]
-case_list = cases[1:5]
+cases = [
+    "inversion-finite",
+    "inversion-infinite",
+    "transform-finite",
+    "transform-infinite",
+    "unscented-infinite",
+    "transform-unscented-infinite",
+    "sampler",
+]
+case_list = cases[1:7]
 
 # We can choose to add noise to every "G" call? (making the loss function of the problem noisy)
 stoch_G_flag = true
@@ -73,14 +81,18 @@ anim_skip = 1
 
 
 # The initial ensemble is constructed by sampling 20 particles. The "finite" cases must sample these from the prior, while the "infinite" cases do not. We choose an off-centered distribution to illustrate this property (centered at (-2,4)).
-N_ensemble = 20
 
+N_ensemble = 20
 
 u_trajs = []
 for case in case_list
     @info "Running case $case"
     if case ∈ ["inversion-finite", "transform-finite"]
         initial_ensemble = EKP.construct_initial_ensemble(copy(rng), prior, N_ensemble)
+    elseif case ∈ ["unscented-finite", "transform-unscented-finite"]
+        initial_u1 = constrained_gaussian("u1", -2, 1, -Inf, Inf)
+        initial_u2 = constrained_gaussian("u2", 4, sqrt(2.0), -Inf, Inf)
+        initial_dist = combine_distributions([initial_u1, initial_u2])
     else # doesn't need to sample the prior
         initial_u1 = constrained_gaussian("u1", -2, 1, -Inf, Inf)
         initial_u2 = constrained_gaussian("u2", 4, sqrt(2.0), -Inf, Inf)
@@ -104,6 +116,15 @@ for case in case_list
         process = TransformInversion(prior)
         scheduler = DataMisfitController(terminate_at = 100) # =1
         N_iterations = 200
+    elseif case == "unscented-infinite"
+        process = Unscented(prior; impose_prior = true)
+        scheduler = DataMisfitController(terminate_at = 100) # =1
+        N_iterations = 200
+    elseif case == "transform-unscented-infinite"
+        process = TransformUnscented(prior; impose_prior = true)
+        scheduler = DataMisfitController(terminate_at = 100) # =1
+        N_iterations = 200
+        #        N_iterations = 5
     elseif case == "sampler"
         process = Sampler(prior)
         #fixed_step = 1e-3 # 2e-6 unstable
@@ -116,16 +137,28 @@ for case in case_list
     # We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the
     # target, the stabilization and the process type (for EKI this is `Inversion`, initialized 
     # with `Inversion()`). We also remove the cutting-edge defaults and instead use the vanilla options.
-    ensemble_kalman_process = EKP.EnsembleKalmanProcess(
-        initial_ensemble,
-        G_target,
-        Γ_stabilization,
-        process,
-        scheduler = scheduler,
-        accelerator = DefaultAccelerator(),
-        localization_method = EnsembleKalmanProcesses.Localizers.NoLocalization(),
-        verbose = true,
-    )
+    if case ∈ ["unscented-infinite", "transform-unscented-infinite"]
+        ensemble_kalman_process = EKP.EnsembleKalmanProcess(
+            G_target,
+            Γ_stabilization,
+            process,
+            scheduler = scheduler,
+            accelerator = DefaultAccelerator(),
+            localization_method = EnsembleKalmanProcesses.Localizers.NoLocalization(),
+            verbose = true,
+        )
+    else
+        ensemble_kalman_process = EKP.EnsembleKalmanProcess(
+            initial_ensemble,
+            G_target,
+            Γ_stabilization,
+            process,
+            scheduler = scheduler,
+            accelerator = DefaultAccelerator(),
+            localization_method = EnsembleKalmanProcesses.Localizers.NoLocalization(),
+            verbose = true,
+        )
+    end
     nothing # hide
     # Then we calibrate by *(i)* obtaining the parameters, *(ii)* calculate the loss function on
     # the parameters (and concatenate), and last *(iii)* generate a new set of parameters using
@@ -133,8 +166,8 @@ for case in case_list
     N_iter = [N_iterations]
     for i in 1:N_iterations
         params_i = get_u_final(ensemble_kalman_process)
-
-        g_ens = hcat([G(params_i[:, i], stoch = stoch_G_flag) for i in 1:N_ensemble]...)
+        N_ens = get_N_ens(ensemble_kalman_process)
+        g_ens = hcat([G(params_i[:, i], stoch = stoch_G_flag) for i in 1:N_ens]...)
 
         terminate = EKP.update_ensemble!(ensemble_kalman_process, g_ens)
         if !isnothing(terminate)
@@ -290,7 +323,7 @@ for u_traj in u_trajs
 end
 pp = plot(legend = true)
 for (i, case) in enumerate(case_list)
-    colors = [:red, :blue, :black, :orange, :green]
+    colors = palette(:tab10)
     u_mean_diff = [norm(u_means[i][idx] - ustar) for idx in 1:length(u_means[i])]
     u_stds_size = [norm(u_stds[i][idx]) for idx in 1:length(u_stds[i])]
     plot!(pp, 1:length(u_means[i]), u_mean_diff, label = case, color = colors[i], lw = 3)
