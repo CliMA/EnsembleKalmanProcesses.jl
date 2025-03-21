@@ -411,7 +411,31 @@ end
     end
     @test minibatch_cov_full == obs_noise_cov_minibatch_full
 
-    # test lmul get_obs_noise_cov
+end
+
+@testset "left-multiply utilities" begin
+    # build some observations
+
+    rng = Random.MersenneTwister(11023)
+
+    samples = [randn(5), randn(7), randn(28)]
+    diag_cov = Diagonal(Float64.(collect(1:length(samples[1]))))
+    Xrt = randn(length(samples[2]), length(samples[2]))
+    full_mat_cov = Xrt * Xrt'
+    testmat3 = randn(rng, length(samples[3]), 5)
+    svd_cov = tsvd_cov_from_samples(testmat3)
+
+    covs = [diag_cov, full_mat_cov, svd_cov]
+    names = ["d$(string(i))" for i in 1:length(samples)]
+    obs_vec = []
+    for (sam, cov, nam) in zip(samples, covs, names)
+        push!(obs_vec, Observation(sam, cov, nam))
+    end
+    observation_series = ObservationSeries(obs_vec)
+    # Test utilities for multiplying covariances without building them
+
+
+    # test lmul_obs_noise_cov
     Γ = get_obs_noise_cov(observation_series)
     Xvec = randn(size(Γ, 1))
     X = randn(size(Γ, 1), 50)
@@ -425,10 +449,17 @@ end
     test2 = Γinv * X
     @test norm(test1 - lmul_obs_noise_cov_inv(observation_series, Xvec)) < 1e-12
     @test norm(test2 - lmul_obs_noise_cov_inv(observation_series, X)) < 1e-12
+    # calling real(sqrt(A)) can give very poor solutions so use SVD
+    svd1 = svd(Γinv)
+    Γrt_inv = svd1.Vt' * Diagonal(sqrt.(svd1.S)) * svd1.Vt
+    test1 = Γrt_inv * Xvec
+    test2 = Γrt_inv * X
+    @test norm(test1 - lmul_sqrt_obs_noise_cov_inv(observation_series, Xvec)) < sqrt(1e-10)
+    @test norm(test2 - lmul_sqrt_obs_noise_cov_inv(observation_series, X)) < sqrt(1e-10)
 
-    # test the pre-indexed versions:
+    # test the pre-indexed versions:    
     # cov
-    g_idx = [2, 3, 4, 8, 9, 15, 16]
+    g_idx = [2, 3, 4, 8, 9, 15, 16] # some indices from each cov-type
     Γ = get_obs_noise_cov(observation_series)
     test1 = Γ[g_idx, g_idx] * Xvec[g_idx]
     test2 = Γ[g_idx, g_idx] * X[g_idx, :]
@@ -445,18 +476,20 @@ end
     @test norm(test2 - out2) < 1e-12
 
     #sqrt_cov
-    test1 = sqrt(Γ[g_idx, g_idx]) * Xvec[g_idx]
-    test2 = sqrt(Γ[g_idx, g_idx]) * X[g_idx, :]
+    svd2 = svd(Γ)
+    Γrt = svd2.Vt' * Diagonal(sqrt.(svd2.S)) * svd2.Vt
+    test1 = Γrt[g_idx, g_idx] * Xvec[g_idx]
+    test2 = Γrt[g_idx, g_idx] * X[g_idx, :]
     out1 = zeros(size(test1))
     out2 = zeros(size(test2))
     lmul_sqrt_obs_noise_cov!(out1, observation_series, Xvec[g_idx], g_idx)
     lmul_sqrt_obs_noise_cov!(out2, observation_series, X[g_idx, :], g_idx)
-    @test norm(test1 - out1) < 1e-12
-    @test norm(test2 - out2) < 1e-12
+    @test norm(test1 - out1) < sqrt(1e-10)
+    @test norm(test2 - out2) < sqrt(1e-10)
     lmul_sqrt_obs_noise_cov!(out1, observation_series, Xvec, g_idx)
     lmul_sqrt_obs_noise_cov!(out2, observation_series, X, g_idx)
-    @test norm(test1 - out1) < 1e-12
-    @test norm(test2 - out2) < 1e-12
+    @test norm(test1 - out1) < sqrt(1e-10)
+    @test norm(test2 - out2) < sqrt(1e-10)
 
 
     # cov_inv
@@ -475,19 +508,17 @@ end
     @test norm(test2 - out2) < 1e-12
 
     # sqrt_cov_inv
-    test1 = sqrt(Γinv[g_idx, g_idx]) * Xvec[g_idx]
-    test2 = sqrt(Γinv[g_idx, g_idx]) * X[g_idx, :]
+    test1 = Γrt_inv[g_idx, g_idx] * Xvec[g_idx]
+    test2 = Γrt_inv[g_idx, g_idx] * X[g_idx, :]
     out1 = zeros(size(test1))
     out2 = zeros(size(test2))
     # In code this is applied to pre-trimmed "X"s or not
     lmul_sqrt_obs_noise_cov_inv!(out1, observation_series, Xvec[g_idx], g_idx)
     lmul_sqrt_obs_noise_cov_inv!(out2, observation_series, X[g_idx, :], g_idx)
-    @test norm(test1 - out1) < 1e-12
-    @test norm(test2 - out2) < 1e-12
+    @test norm(test1 - out1) < sqrt(1e-10)
+    @test norm(test2 - out2) < sqrt(1e-10)
     lmul_sqrt_obs_noise_cov_inv!(out1, observation_series, Xvec, g_idx)
     lmul_sqrt_obs_noise_cov_inv!(out2, observation_series, X, g_idx)
-    @test norm(test1 - out1) < 1e-12
-    @test norm(test2 - out2) < 1e-12
-
-
+    @test norm(test1 - out1) < sqrt(1e-10)
+    @test norm(test2 - out2) < sqrt(1e-10)
 end

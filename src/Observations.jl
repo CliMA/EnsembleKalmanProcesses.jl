@@ -319,9 +319,9 @@ end
 
 function Observation(
     sample::AV,
-    obs_noise_cov::AMorUS,
+    obs_noise_cov::AMorUSorSVD,
     name::AS,
-) where {AV <: AbstractVector, AMorUS <: Union{AbstractMatrix, UniformScaling}, AS <: AbstractString}
+) where {AV <: AbstractVector, AMorUSorSVD <: Union{AbstractMatrix, UniformScaling, SVD}, AS <: AbstractString}
     return Observation(Dict("samples" => sample, "covariances" => obs_noise_cov, "names" => name))
 end
 
@@ -1021,9 +1021,9 @@ function lmul_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
             Y[idx, :] = a.diag .* Xmat[idx, :]
         elseif isa(a, SVD)
             if size(a.U, 1) == size(a.U, 2) # then work with Vt
-                Y[idx, :] = a.Vt[:, idx]' * (a.S .* a.Vt[:, idx]) * Xmat[idx, :]
+                Y[idx, :] = a.Vt' * (a.S .* a.Vt) * Xmat[idx, :]
             else
-                Y[idx, :] = a.U[idx, :] * (a.S .* a.U[idx, :]') * Xmat[idx, :]
+                Y[idx, :] = a.U * (a.S .* a.U') * Xmat[idx, :]
             end
         else
             Y[idx, :] = a * Xmat[idx, :]
@@ -1073,11 +1073,17 @@ function lmul_sqrt_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
             Y[idx, :] = sqrt.(a.diag) .* Xmat[idx, :]
         elseif isa(a, SVD)
             if size(a.U, 1) == size(a.U, 2) # then work with Vt
-                Y[idx, :] = a.Vt[:, idx]' * (sqrt.(a.S) .* a.Vt[:, idx]) * Xmat[idx, :]
+                Y[idx, :] = a.Vt' * (sqrt.(a.S) .* a.Vt) * Xmat[idx, :]
             else
-                Y[idx, :] = a.U[idx, :] * (sqrt.(a.S) .* a.U[idx, :]') * Xmat[idx, :]
+                Y[idx, :] = a.U * (sqrt.(a.S) .* a.U') * Xmat[idx, :]
             end
         else # assume general matrix, much slower
+            svda = svd(a)
+            if size(svda.U, 1) == size(svda.U, 2) # then work with Vt
+                Y[idx, :] = svda.Vt' * (sqrt.(svda.S) .* svda.Vt) * Xmat[idx, :]
+            else
+                Y[idx, :] = svda.U * (sqrt.(svda.S) .* svda.U') * Xmat[idx, :]
+            end
             Y[idx, :] = sqrt(a) * Xmat[idx, :]
         end
         shift[1] = maximum(idx)
@@ -1102,8 +1108,15 @@ function lmul_sqrt_without_build!(
             else
                 out[global_idx, :] = a.U[local_idx, :] * (sqrt.(a.S) .* a.U[local_idx, :]') * Xmat[global_idx, :]
             end
-        else # assume general matrix, much slower
-            out[global_idx, :] = sqrt(a[local_idx, local_idx]) * Xmat[global_idx, :]
+        else # assume general matrix, real(sqrt(A)) often poor approximation so use SVD
+            svda = svd(a)
+            if size(svda.U, 1) == size(svda.U, 2) # then work with Vt
+                out[global_idx, :] =
+                    svda.Vt[:, local_idx]' * (sqrt.(svda.S) .* svda.Vt[:, local_idx]) * Xmat[global_idx, :]
+            else
+                out[global_idx, :] =
+                    svda.U[local_idx, :] * (sqrt.(svda.S) .* svda.U[local_idx, :]') * Xmat[global_idx, :]
+            end
         end
     end
 end
@@ -1116,6 +1129,16 @@ end
 function lmul_obs_noise_cov_inv(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
     A = get_obs_noise_cov_inv(os, build = false)
     return lmul_without_build(A, X)
+end
+
+function lmul_sqrt_obs_noise_cov(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
+    A = get_obs_noise_cov(os, build = false)
+    return lmul_sqrt_without_build(A, X)
+end
+
+function lmul_sqrt_obs_noise_cov_inv(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
+    A = get_obs_noise_cov_inv(os, build = false)
+    return lmul_sqrt_without_build(A, X)
 end
 
 function lmul_obs_noise_cov!(
