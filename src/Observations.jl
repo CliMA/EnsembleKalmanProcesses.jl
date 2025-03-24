@@ -1084,7 +1084,6 @@ function lmul_sqrt_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
             else
                 Y[idx, :] = svda.U * (sqrt.(svda.S) .* svda.U') * Xmat[idx, :]
             end
-            Y[idx, :] = sqrt(a) * Xmat[idx, :]
         end
         shift[1] = maximum(idx)
     end
