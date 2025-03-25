@@ -80,7 +80,7 @@ function SumOfCovariances(av::AV; cov_size::IorU = nothing) where {AV <: Abstrac
             "`cov_size` keyword (value: $(cov_size)) does not equal the size of covariances: $(a_sizes[1]), continuing with the latter"
         )
     end
-
+    
     return SumOfCovariances(av, a_sizes[1])
 end
 
@@ -1141,7 +1141,7 @@ function lmul_cov!(out, a::SVD, X, global_idx1, local_idx, global_idx2)
 end
 
 function lmul_cov!(out, a::SOC, X, global_idx1, local_idx, global_idx2) where {SOC <: SumOfCovariances}
-    tmp = zeros(global_idx1, size(out, 2))
+    tmp = zeros(length(global_idx1), size(out, 2))
     for sub_a in get_covs(a)
         lmul_cov!(tmp, sub_a, X, 1:size(tmp, 1), local_idx, global_idx2)
         view(out, global_idx1, :) .+= tmp
