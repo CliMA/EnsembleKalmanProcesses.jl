@@ -3,10 +3,11 @@ using LinearAlgebra
 using Statistics
 using Random
 using TSVD
-
-export Observation, Minibatcher, FixedMinibatcher, RandomFixedSizeMinibatcher, ObservationSeries
+import Base: size
+export Observation, Minibatcher, FixedMinibatcher, RandomFixedSizeMinibatcher, ObservationSeries, SumOfCovariances
 export get_samples,
     get_covs,
+    get_cov_size,
     get_inv_covs,
     get_names,
     get_indices,
@@ -28,6 +29,65 @@ export get_samples,
     tsvd_mat,
     tsvd_cov_from_samples,
     lmul_without_build
+
+## A new wrapper for a sum-of-covariances type
+struct SumOfCovariances{AV <: AbstractVector}
+    covs::AV
+    cov_size::Int
+    function SumOfCovariances(av::AV, cov_size::Int) where {AV <: AbstractVector}
+        covariances = []
+        # UniformScaling->Diagonals
+        for (i, a) in enumerate(av)
+            if isa(a, UniformScaling)
+                push!(covariances, Diagonal(a.λ * ones(cov_size)))
+            else
+                push!(covariances, a)
+            end
+        end
+        return new{typeof(covariances)}(covariances, cov_size)
+    end
+end
+
+function SumOfCovariances(av::AV; cov_size::IorU = nothing) where {AV <: AbstractVector, IorU <: Union{Int, Nothing}}
+    # check sizes
+    a_sizes = []
+    for (i, a) in enumerate(av)
+        if isa(a, UniformScaling)
+            nothing
+        else
+            push!(a_sizes, get_cov_size(a))
+        end
+    end
+    # check all sizing
+    if isnothing(cov_size) && (length(a_sizes) == 0)
+        throw(
+            ArgumentError(
+                "all covariances provided are UniformScalings, unable to infer dimension. \n Please construct `SumOfCovariances` with `cov_size`=k to provide desired dimension `k`",
+            ),
+        )
+    elseif !isnothing(cov_size) && (length(a_sizes) == 0)
+        push!(a_sizes, cov_size)
+    end
+    if !(all([a_sizes[i] == a_sizes[1] for i in 1:length(a_sizes)]))
+        throw(
+            ArgumentError(
+                "all covariances provided must have the same size (as they are to be summed), instead recieved different sizes: $(a_sizes)",
+            ),
+        )
+    end
+    if !(isnothing(cov_size)) && !(a_sizes[1] == cov_size)
+        @warn(
+            "`cov_size` keyword (value: $(cov_size)) does not equal the size of covariances: $(a_sizes[1]), continuing with the latter"
+        )
+    end
+
+    return SumOfCovariances(av, a_sizes[1])
+end
+
+get_covs(soc::SOC) where {SOC <: SumOfCovariances} = soc.covs
+get_cov_size(soc::SOC) where {SOC <: SumOfCovariances} = soc.cov_size
+Base.size(soc::SOC) where {SOC <: SumOfCovariances} = get_cov_size(soc)
+
 
 # wrapper for tsvd - putting solution in SVD object
 """
@@ -265,11 +325,7 @@ function Observation(obs_dict::Dict)
     if !("inv_covariances" ∈ collect(keys(obs_dict)))
         inv_covariances = []
         for c in cnew # ensures its a vector
-            if isa(c, SVD)
-                push!(inv_covariances, SVD(permutedims(c.Vt, (2, 1)), 1.0 ./ c.S, permutedims(c.U, (2, 1))))
-            else
-                push!(inv_covariances, inv(c))
-            end
+            push!(inv_covariances, inv_cov(c))
         end
     else
         inv_covariances = obs_dict["inv_covariances"]
@@ -279,7 +335,7 @@ function Observation(obs_dict::Dict)
     else
         ictmp = inv_covariances
     end
-    # additionally provide a dimension for UniformScalings
+    # additionally provide a dimension for UniformScalings (if users provided inverse as US)
     ictmp2 = []
     for (id, c) in enumerate(ictmp)
         if isa(c, UniformScaling)
@@ -321,7 +377,11 @@ function Observation(
     sample::AV,
     obs_noise_cov::AMorUSorSVD,
     name::AS,
-) where {AV <: AbstractVector, AMorUSorSVD <: Union{AbstractMatrix, UniformScaling, SVD}, AS <: AbstractString}
+) where {
+    AV <: AbstractVector,
+    AMorUSorSVD <: Union{AbstractMatrix, UniformScaling, SVD, SumOfCovariances},
+    AS <: AbstractString,
+}
     return Observation(Dict("samples" => sample, "covariances" => obs_noise_cov, "names" => name))
 end
 
@@ -395,6 +455,42 @@ function get_obs(o::Observation; build = true)
     end
 end
 
+
+function build_cov!(out, idx, c::AM) where {AM <: AbstractMatrix}
+    view(out, idx, idx) .= c
+end
+
+function build_cov!(out, idx, c::SVD)
+    if size(c.U, 1) == size(c.U, 2) # then work with Vt
+        view(out, idx, idx) .= c.Vt' * Diagonal(c.S) * c.Vt
+    else
+        view(out, idx, idx) .= c.U * Diagonal(c.S) * c.U'
+    end
+end
+
+function build_cov!(out, idx, c::SOC) where {SOC <: SumOfCovariances}
+    tmp = zeros(length(idx, idx))
+    for sub_c in get_covs(c)
+        build_cov!(tmp, idx, sub_c)
+        view(out, idx, idx) .+= tmp
+    end
+end
+
+function inv_cov(a::AM) where {AM <: AbstractMatrix}
+    return inv(a)
+end
+function inv_cov(a::SVD)
+    return SVD(permutedims(a.Vt, (2, 1)), 1.0 ./ a.S, permutedims(a.U, (2, 1)))
+end
+function inv_cov(a::SOC) where {SOC <: SumOfCovariances}
+    inv_soc = []
+    for sub_a in get_covs(a)
+        push!(inv_soc, inv_cov(sub_a))
+    end
+    return SumOfCovariances(inv_soc)
+end
+
+
 """
 $(TYPEDSIGNATURES)
 
@@ -409,15 +505,7 @@ function get_obs_noise_cov(o::Observation; build = true)
         covs = get_covs(o)
         cov_full = zeros(maximum(indices[end]), maximum(indices[end]))
         for (idx, c) in zip(indices, covs)
-            if isa(c, SVD)
-                if size(c.U, 1) == size(c.U, 2) # then work with Vt
-                    cov_full[idx, idx] .= c.Vt' * Diagonal(c.S) * c.Vt
-                else
-                    cov_full[idx, idx] .= c.U * Diagonal(c.S) * c.U'
-                end
-            else
-                cov_full[idx, idx] .= c
-            end
+            build_cov!(cov_full, idx, c)
         end
 
         return cov_full
@@ -438,15 +526,7 @@ function get_obs_noise_cov_inv(o::Observation; build = true)
         inv_covs = get_inv_covs(o)
         inv_cov_full = zeros(maximum(indices[end]), maximum(indices[end]))
         for (idx, c) in zip(indices, inv_covs)
-            if isa(c, SVD)
-                if size(c.U, 1) == size(c.U, 2) # then work with Vt
-                    inv_cov_full[idx, idx] .= c.Vt' * Diagonal(c.S) * c.Vt
-                else
-                    inv_cov_full[idx, idx] .= c.U * Diagonal(c.S) * c.U'
-                end
-            else
-                inv_cov_full[idx, idx] .= c
-            end
+            build_cov!(inv_cov_full, idx, c)
         end
         return inv_cov_full
     end
@@ -998,56 +1078,103 @@ function get_obs_noise_cov_inv(os::OS; build = true) where {OS <: ObservationSer
 
 end
 
+
+get_cov_size(am::AM) where {AM <: AbstractMatrix} = size(am, 1)
+function get_cov_size(am::SVD)
+    if size(am.U, 1) == size(am.U, 2)
+        return size(am.Vt, 2)
+    else
+        return size(am.U, 1)
+    end
+end
+
+function lmul_cov!(out, a::D, X, idx1, idx2) where {D <: Diagonal}
+    view(out, idx1, :) .= a.diag .* X[idx2, :]
+end
+function lmul_cov!(out, a::AM, X, idx1, idx2) where {AM <: AbstractMatrix}
+    view(out, idx1, :) .= a * X[idx2, :]
+end
+function lmul_cov!(out, a::SVD, X, idx1, idx2)
+    if size(a.U, 1) == size(a.U, 2) # then work with Vt
+        view(out, idx1, :) .= a.Vt' * (a.S .* a.Vt) * X[idx2, :]
+    else
+        view(out, idx1, :) .= a.U * (a.S .* a.U') * X[idx2, :]
+    end
+end
+function lmul_cov!(out, a::SOC, X, idx1, idx2) where {SOC <: SumOfCovariances}
+    tmp = zeros(length(idx1), size(out, 2))
+    for sub_a in get_covs(a)
+        lmul_cov!(tmp, sub_a, X, 1:size(tmp, 1), idx2)
+        view(out, idx1, :) .+= tmp
+    end
+end
+
 ## Most common operation
 function lmul_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
     a_sizes = zeros(Int, length(A))
     for (i, a) in enumerate(A)
-        if isa(a, SVD)
-            if size(a.U, 1) == size(a.U, 2)
-                a_sizes[i] = size(a.Vt, 2)
-            else
-                a_sizes[i] = size(a.U, 1)
-            end
-        else
-            a_sizes[i] = size(a, 1)
-        end
+        a_sizes[i] = get_cov_size(a)
     end
     Y = zeros(sum(a_sizes), size(X, 2)) # stores A * X
     Xmat = isa(X, AbstractVector) ? reshape(X, :, 1) : X
     shift = [0]
     for (γs, a) in zip(a_sizes, A)
         idx = (shift[1] + 1):(shift[1] + γs)
-        if isa(a, Diagonal)
-            Y[idx, :] = a.diag .* Xmat[idx, :]
-        elseif isa(a, SVD)
-            if size(a.U, 1) == size(a.U, 2) # then work with Vt
-                Y[idx, :] = a.Vt' * (a.S .* a.Vt) * Xmat[idx, :]
-            else
-                Y[idx, :] = a.U * (a.S .* a.U') * Xmat[idx, :]
-            end
-        else
-            Y[idx, :] = a * Xmat[idx, :]
-        end
+        lmul_cov!(Y, a, Xmat, idx, idx)
         shift[1] = maximum(idx)
     end
     return Y
+end
+
+function lmul_cov!(out, a::D, X, global_idx1, local_idx, global_idx2) where {D <: Diagonal}
+    view(out, global_idx1, :) .= a.diag[local_idx] .* X[global_idx2, :]
+end
+function lmul_cov!(out, a::AM, X, global_idx1, local_idx, global_idx2) where {AM <: AbstractMatrix}
+    view(out, global_idx1, :) .= a[local_idx, local_idx] * X[global_idx2, :]
+end
+function lmul_cov!(out, a::SVD, X, global_idx1, local_idx, global_idx2)
+    if size(a.U, 1) == size(a.U, 2) # then work with Vt
+        view(out, global_idx1, :) .= a.Vt[:, local_idx]' * (a.S .* a.Vt[:, local_idx]) * X[global_idx2, :]
+    else
+        view(out, global_idx1, :) .= a.U[local_idx, :] * (a.S .* a.U[local_idx, :]') * X[global_idx2, :]
+    end
+end
+
+function lmul_cov!(out, a::SOC, X, global_idx1, local_idx, global_idx2) where {SOC <: SumOfCovariances}
+    tmp = zeros(global_idx1, size(out, 2))
+    for sub_a in get_covs(a)
+        lmul_cov!(tmp, sub_a, X, 1:size(tmp, 1), local_idx, global_idx2)
+        view(out, global_idx1, :) .+= tmp
+    end
 end
 
 function lmul_without_build!(out, A, X::AVorM, idx_triple::AV) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
     Xmat = isa(X, AbstractVector) ? reshape(X, :, 1) : X
     for (block_idx, local_idx, global_idx) in idx_triple
         a = A[block_idx]
-        if isa(a, Diagonal)
-            out[global_idx, :] = a.diag[local_idx] .* Xmat[global_idx, :]
-        elseif isa(a, SVD)
-            if size(a.U, 1) == size(a.U, 2) # then work with Vt
-                out[global_idx, :] = a.Vt[:, local_idx]' * (a.S .* a.Vt[:, local_idx]) * Xmat[global_idx, :]
-            else
-                out[global_idx, :] = a.U[local_idx, :] * (a.S .* a.U[local_idx, :]') * Xmat[global_idx, :]
-            end
-        else # assume general matrix, much slower
-            out[global_idx, :] = a[local_idx, local_idx] * Xmat[global_idx, :]
-        end
+        lmul_cov!(out, a, Xmat, global_idx, local_idx, global_idx)
+    end
+end
+
+function lmul_sqrt_cov!(out, a::D, X, idx1, idx2) where {D <: Diagonal}
+    view(out, idx1, :) .= sqrt.(a.diag) .* X[idx2, :]
+end
+function lmul_sqrt_cov!(out, a::AM, X, idx1, idx2) where {AM <: AbstractMatrix}
+    svda = svd(a)
+    lmul_sqrt_cov!(out, svda, X, idx1, idx2)
+end
+function lmul_sqrt_cov!(out, a::SVD, X, idx1, idx2)
+    if size(a.U, 1) == size(a.U, 2) # then work with Vt
+        view(out, idx1, :) .= a.Vt' * (sqrt.(a.S) .* a.Vt) * X[idx2, :]
+    else
+        view(out, idx1, :) .= a.U * (sqrt.(a.S) .* a.U') * X[idx2, :]
+    end
+end
+function lmul_sqrt_cov!(out, a::SOC, X, idx1, idx2) where {SOC <: SumOfCovariances}
+    tmp = zeros(length(idx1), size(out, 2))
+    for sub_a in get_covs(a)
+        lmul_sqrt_cov!(tmp, sub_a, X, 1:size(tmp, 1), idx2)
+        view(out, idx1, :) .+= tmp
     end
 end
 
@@ -1098,15 +1225,7 @@ end
 function generate_block_product_subindices(Ablocks, idx_set)
     A_sizes = zeros(Int, length(Ablocks))
     for (i, Ai) in enumerate(Ablocks)
-        if isa(Ai, SVD)
-            if size(Ai.U, 1) == size(Ai.U, 2)
-                A_sizes[i] = size(Ai.Vt, 2)
-            else
-                A_sizes[i] = size(Ai.U, 1)
-            end
-        else
-            A_sizes[i] = size(Ai, 1)
-        end
+        A_sizes[i] = get_cov_size(Ai)
     end
 
     idx_triple = []
