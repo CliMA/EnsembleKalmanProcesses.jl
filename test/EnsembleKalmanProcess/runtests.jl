@@ -1230,10 +1230,24 @@ end
             "covariances" => ΓT_test_svd, # should calc the psuedoinverse with SVD properly
             "names" => "cov_as_svd_transpose",
         ))
+        # test with a sum of covariances:
+        Γ_sum = SumOfCovariances([ΓT_test_svd, Γ_test])
+        observation_sum = Observation(Dict(
+            "samples" => y_obs_test,
+            "covariances" => Γ_sum, # should calc the psuedoinverse with SVD properly
+            "names" => "cov_as_svd_plus_diag",
+        ))
 
         utkiobj = EKP.EnsembleKalmanProcess(
             y_obs_test,
             Γ_test,
+            TransformUnscented(prior);
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = DataMisfitController(terminate_at = 1e8), # (least scalable scheduler in output-space)
+        )
+        utkiobj_sum = EKP.EnsembleKalmanProcess(
+            observation_sum,
             TransformUnscented(prior);
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
@@ -1277,8 +1291,8 @@ end
             scheduler = DataMisfitController(terminate_at = 1e8),
         )
         n_final = n_iter
-        names = ["etki", "etki-inf", "etki-svd", "etki-svdT", "utki"]
-        for (ekp, name) in zip((ekiobj, ekiobj_inf, ekiobj_svd, ekiobj_svdT, utkiobj), names)
+        names = ["etki", "etki-inf", "etki-svd", "etki-svdT", "utki", "utki-svdplusdiag"]
+        for (ekp, name) in zip((ekiobj, ekiobj_inf, ekiobj_svd, ekiobj_svdT, utkiobj, utkiobj_sum), names)
             T = 0.0
             for i in 1:n_iter
                 params_i = get_ϕ_final(prior, ekp)

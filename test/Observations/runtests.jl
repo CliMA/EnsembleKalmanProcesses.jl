@@ -206,6 +206,17 @@ end
     mat_lr3 = tsvd_cov_from_samples(testmat3, rk)
     @test length(mat_lr3.S) == rk
 
+    ## Sizes
+    @test get_cov_size(full_cov) == 100
+    @test get_cov_size(mat_lr) == 100
+
+    ## Create SumOfCovariances
+    dim = get_cov_size(mat_lr)
+    cov_summand = [mat_lr, 6.0 * I, Diagonal(collect(1.0:dim))]
+    X = SumOfCovariances(cov_summand)
+    @test get_cov_size(X) == dim
+    @test X.covs == [mat_lr, Diagonal(6.0 * ones(dim)), Diagonal(collect(1.0:dim))]
+
 end
 
 
