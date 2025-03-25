@@ -1212,7 +1212,7 @@ end
 
         y_obs_test, G_test, Γ_test, A_test =
             linear_inv_problem(ϕ_star, noise_level, n_obs_test, rng; return_matrix = true)
-        Γ_test = Diagonal(0.01 * ones(size(y_obs_test)))
+        Γ_test = Diagonal(0.01 * ones(n_obs_test))
 
 
         # test the SVD option with low rank approx of a matrix
@@ -1231,10 +1231,10 @@ end
             "names" => "cov_as_svd_transpose",
         ))
         # test with a sum of covariances:
-        Γ_sum = SumOfCovariances([ΓT_test_svd, Γ_test])
+        Γ_sum = SVDplusD(ΓT_test_svd, Γ_test)
         observation_sum = Observation(Dict(
             "samples" => y_obs_test,
-            "covariances" => Γ_sum, # should calc the psuedoinverse with SVD properly
+            "covariances" => Γ_sum, # should calc the pseudoinverse with SVD properly
             "names" => "cov_as_svd_plus_diag",
         ))
 

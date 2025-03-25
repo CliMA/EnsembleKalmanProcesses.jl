@@ -4,10 +4,14 @@ using Statistics
 using Random
 using TSVD
 import Base: size
-export Observation, Minibatcher, FixedMinibatcher, RandomFixedSizeMinibatcher, ObservationSeries, SumOfCovariances
+export Observation, Minibatcher, FixedMinibatcher, RandomFixedSizeMinibatcher, ObservationSeries, SVDplusD, DminusTall
 export get_samples,
     get_covs,
     get_cov_size,
+    get_diag_cov,
+    get_svd_cov,
+    get_tall_cov,
+    inv_cov,
     get_inv_covs,
     get_names,
     get_indices,
@@ -31,62 +35,92 @@ export get_samples,
     lmul_without_build
 
 ## A new wrapper for a sum-of-covariances type
-struct SumOfCovariances{AV <: AbstractVector}
-    covs::AV
-    cov_size::Int
-    function SumOfCovariances(av::AV, cov_size::Int) where {AV <: AbstractVector}
-        covariances = []
-        # UniformScaling->Diagonals
-        for (i, a) in enumerate(av)
-            if isa(a, UniformScaling)
-                push!(covariances, Diagonal(a.λ * ones(cov_size)))
-            else
-                push!(covariances, a)
-            end
+abstract type SumOfCovariances end
+
+# svd plus diagonal
+"""
+    SVDplusD
+
+Storage for a covariance matrix of the form `D + USV'` for Diagonal D, and SVD decomposition USV'.
+Note the inverse of this type (as computed through `inv_cov(...)`) will be stored compactly as a `DminusTall` type.
+
+$(TYPEDFIELDS)
+"""
+struct SVDplusD <: SumOfCovariances
+    "summand of covariance matrix stored with SVD decomposition"
+    svd_cov::SVD
+    "summand of covariance matrix stored as a diagonal matrix"
+    diag_cov::Diagonal
+
+    function SVDplusD(s_in::SVD, d_in::Diagonal)
+        mat_sizes = (get_cov_size(s_in), get_cov_size(d_in))
+        if !(mat_sizes[2] == mat_sizes[1])
+            throw(
+                ArgumentError(
+                    "all covariances provided must have the same size (as they are to be summed), instead recieved different sizes: $(a_sizes)",
+                ),
+            )
         end
-        return new{typeof(covariances)}(covariances, cov_size)
+
+        return new(s_in, d_in)
+
     end
 end
 
-function SumOfCovariances(av::AV; cov_size::IorU = nothing) where {AV <: AbstractVector, IorU <: Union{Int, Nothing}}
-    # check sizes
-    a_sizes = []
-    for (i, a) in enumerate(av)
-        if isa(a, UniformScaling)
-            nothing
-        else
-            push!(a_sizes, get_cov_size(a))
-        end
-    end
-    # check all sizing
-    if isnothing(cov_size) && (length(a_sizes) == 0)
-        throw(
-            ArgumentError(
-                "all covariances provided are UniformScalings, unable to infer dimension. \n Please construct `SumOfCovariances` with `cov_size`=k to provide desired dimension `k`",
-            ),
-        )
-    elseif !isnothing(cov_size) && (length(a_sizes) == 0)
-        push!(a_sizes, cov_size)
-    end
-    if !(all([a_sizes[i] == a_sizes[1] for i in 1:length(a_sizes)]))
-        throw(
-            ArgumentError(
-                "all covariances provided must have the same size (as they are to be summed), instead recieved different sizes: $(a_sizes)",
-            ),
-        )
-    end
-    if !(isnothing(cov_size)) && !(a_sizes[1] == cov_size)
-        @warn(
-            "`cov_size` keyword (value: $(cov_size)) does not equal the size of covariances: $(a_sizes[1]), continuing with the latter"
-        )
-    end
+get_svd_cov(spd::SpD) where {SpD <: SVDplusD} = spd.svd_cov
+get_diag_cov(spd::SpD) where {SpD <: SVDplusD} = spd.diag_cov
+get_cov_size(spd::SpD) where {SpD <: SVDplusD} = size(get_diag_cov(spd), 1)
+Base.size(spd::SpD) where {SpD <: SVDplusD} = size(get_diag_cov(spd))
 
-    return SumOfCovariances(av, a_sizes[1])
+function Base.:(==)(spd1::SpD1, spd2::SpD2) where {SpD1 <: SVDplusD, SpD2 <: SVDplusD}
+    fn = unique([fieldnames(SpD1)...; fieldnames(SpD2)...])
+    x = [false for f in fn]
+    for (i, f) in enumerate(fn)
+        x[i] = (getfield(spd1, Symbol(f)) == getfield(spd2, Symbol(f)))
+    end
+    return all(x)
 end
 
-get_covs(soc::SOC) where {SOC <: SumOfCovariances} = soc.covs
-get_cov_size(soc::SOC) where {SOC <: SumOfCovariances} = soc.cov_size
-Base.size(soc::SOC) where {SOC <: SumOfCovariances} = get_cov_size(soc)
+
+# the inverse of SVD plus diagonal is stored like this:
+"""
+    DminusTall
+
+Storage for a covariance matrix of the form `D - RR'` for Diagonal D, and (tall) matrix R.
+Primary use case for this matrix is to compactly store the inverse of the `SVDplusD` type.
+
+$(TYPEDFIELDS)
+"""
+struct DminusTall{D <: Diagonal, AM <: AbstractMatrix} <: SumOfCovariances
+    "summand of covariance matrix stored as a diagonal matrix"
+    diag_cov::D
+    "summand of covariance matrix stored as an abstract matrix"
+    tall_cov::AM
+end
+
+get_tall_cov(dmt::DmT) where {DmT <: DminusTall} = dmt.tall_cov
+get_diag_cov(dmt::DmT) where {DmT <: DminusTall} = dmt.diag_cov
+get_cov_size(dmt::DmT) where {DmT <: DminusTall} = size(get_diag_cov(dmt), 1)
+Base.size(dmt::DmT) where {DmT <: DminusTall} = size(get_diag_cov(dmt))
+function Base.:(==)(dmt1::DmT1, dmt2::DmT2) where {DmT1 <: DminusTall, DmT2 <: DminusTall}
+    fn = unique([fieldnames(DmT1)...; fieldnames(DmT2)...])
+    x = [false for f in fn]
+    for (i, f) in enumerate(fn)
+        x[i] = (getfield(dmt1, Symbol(f)) == getfield(dmt2, Symbol(f)))
+    end
+    return all(x)
+end
+
+
+function SVDplusD(s_in::SVD, us_in::US) where {US <: UniformScaling}
+    return SVD(s_in.U, (s_in.S .+ us_in.λ), s_in.Vt) # just use SVD
+end
+
+function SVDplusD(s_in::SVD, am_in::AM) where {AM <: AbstractMatrix}
+    @warn("SVDplusD requires Diagonal matrix type, converting input X to Diagonal(X)")
+    return SVDplusD(s_in, Diagonal(am_in))
+end
+
 
 
 # wrapper for tsvd - putting solution in SVD object
@@ -468,12 +502,29 @@ function build_cov!(out, idx, c::SVD)
     end
 end
 
-function build_cov!(out, idx, c::SOC) where {SOC <: SumOfCovariances}
-    tmp = zeros(length(idx, idx))
-    for sub_c in get_covs(c)
-        build_cov!(tmp, idx, sub_c)
-        view(out, idx, idx) .+= tmp
-    end
+
+function build_cov!(out, idx, c::SpD) where {SpD <: SVDplusD}
+    tmp = zeros(length(idx), length(idx))
+
+    c_diag = get_diag_cov(c)
+    build_cov!(tmp, 1:length(idx), c_diag)
+    view(out, idx, idx) .+= tmp
+
+    c_svd = get_svd_cov(c)
+    build_cov!(tmp, 1:length(idx), c_svd)
+    view(out, idx, idx) .+= tmp
+
+end
+function build_cov!(out, idx, c::DmT) where {DmT <: DminusTall}
+    tmp = zeros(length(idx), length(idx))
+
+    c_diag = get_diag_cov(c)
+    build_cov!(tmp, 1:length(idx), c_diag)
+    view(out, idx, idx) .+= tmp
+
+    c_tall = get_tall_cov(c)
+    view(out, idx, idx) .-= c_tall * c_tall'
+
 end
 
 function inv_cov(a::AM) where {AM <: AbstractMatrix}
@@ -482,14 +533,39 @@ end
 function inv_cov(a::SVD)
     return SVD(permutedims(a.Vt, (2, 1)), 1.0 ./ a.S, permutedims(a.U, (2, 1)))
 end
-function inv_cov(a::SOC) where {SOC <: SumOfCovariances}
-    inv_soc = []
-    for sub_a in get_covs(a)
-        push!(inv_soc, inv_cov(sub_a))
+
+function inv_cov(a::SpD) where {SpD <: SVDplusD}
+
+    # Compute the cholesky quantity useful for evaluating woodbury formula for computing inverse product (s_in + Din)^-1 * mat
+    a_diag = get_diag_cov(a)
+    a_svd = get_svd_cov(a)
+    Dinv = inv(a_diag)
+    S = Diagonal(a_svd.S)
+    if size(a_svd.U, 1) == size(a_svd.U, 2)
+        U = a_svd.Vt'
+        Vt = a_svd.Vt
+    else
+        U = a_svd.U
+        Vt = a_svd.U'
     end
-    return SumOfCovariances(inv_soc)
+    T_nonsym = inv(S + S * Vt * Dinv * U * S) # often non-symmetric from rounding error
+    cholT = cholesky(0.5 * (T_nonsym + T_nonsym'))
+    inv_Lfactor = Dinv * U * S * cholT.L
+    # (s_in + Din)^-1 * Y = Dinv*Y - inv_Lfactor*inv_Lfactor'*Y
+
+    return DminusTall(Dinv, inv_Lfactor)
 end
 
+function inv_cov(a::DmT) where {DmT <: DminusTall}
+    @warn(
+        "DminusTall is a convenience structure to handle the inverse of type `SVDplusD`\n it is not designed to be used as a fast implementation by itself. For low-rank+diagonal representations of the Covariance matrix, please create an `SVDplusD`, with help from utilities such as `tsvd_cov_from_samples()` "
+    )
+
+    a_diag = get_diag_cov(a)
+    a_tall = get_tall_cov(a)
+    return inv(a + a_tall * a_tall')
+
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -1101,13 +1177,33 @@ function lmul_cov!(out, a::SVD, X, idx1, idx2)
         view(out, idx1, :) .= a.U * (a.S .* a.U') * X[idx2, :]
     end
 end
-function lmul_cov!(out, a::SOC, X, idx1, idx2) where {SOC <: SumOfCovariances}
+
+
+function lmul_cov!(out, a::SpD, X, idx1, idx2) where {SpD <: SVDplusD}
     tmp = zeros(length(idx1), size(out, 2))
-    for sub_a in get_covs(a)
-        lmul_cov!(tmp, sub_a, X, 1:size(tmp, 1), idx2)
-        view(out, idx1, :) .+= tmp
-    end
+
+    a_diag = get_diag_cov(a)
+    lmul_cov!(tmp, a_diag, X, 1:size(tmp, 1), idx2)
+    view(out, idx1, :) .+= tmp
+
+    a_svd = get_svd_cov(a)
+    lmul_cov!(tmp, a_svd, X, 1:size(tmp, 1), idx2)
+    view(out, idx1, :) .+= tmp
+
 end
+
+function lmul_cov!(out, a::DmT, X, idx1, idx2) where {DmT <: DminusTall}
+    tmp = zeros(length(idx1), size(out, 2))
+
+    a_diag = get_diag_cov(a)
+    lmul_cov!(tmp, a_diag, X, 1:size(tmp, 1), idx2)
+    view(out, idx1, :) .+= tmp
+
+    a_tall = get_tall_cov(a)
+    view(out, idx1, :) .-= a_tall * (a_tall' * X[idx2, :])
+
+end
+
 
 ## Most common operation
 function lmul_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
@@ -1140,12 +1236,29 @@ function lmul_cov!(out, a::SVD, X, global_idx1, local_idx, global_idx2)
     end
 end
 
-function lmul_cov!(out, a::SOC, X, global_idx1, local_idx, global_idx2) where {SOC <: SumOfCovariances}
-    tmp = zeros(global_idx1, size(out, 2))
-    for sub_a in get_covs(a)
-        lmul_cov!(tmp, sub_a, X, 1:size(tmp, 1), local_idx, global_idx2)
-        view(out, global_idx1, :) .+= tmp
-    end
+function lmul_cov!(out, a::SpD, X, global_idx1, local_idx, global_idx2) where {SpD <: SVDplusD}
+    tmp = zeros(length(global_idx1), size(out, 2))
+
+    a_diag = get_diag_cov(a)
+    lmul_cov!(tmp, a_diag, X, 1:size(tmp, 1), local_idx, global_idx2)
+    view(out, global_idx1, :) .= tmp
+
+    a_svd = get_svd_cov(a)
+    lmul_cov!(tmp, a_svd, X, 1:size(tmp, 1), local_idx, global_idx2)
+    view(out, global_idx1, :) .+= tmp
+
+end
+
+function lmul_cov!(out, a::DmT, X, global_idx1, local_idx, global_idx2) where {DmT <: DminusTall}
+    tmp = zeros(length(global_idx1), size(out, 2))
+
+    a_diag = get_diag_cov(a)
+    lmul_cov!(tmp, a_diag, X, 1:size(tmp, 1), local_idx, global_idx2)
+    view(out, global_idx1, :) .= tmp
+
+    a_tall = get_tall_cov(a)
+    view(out, global_idx1, :) .-= a_tall[local_idx, :] * (a_tall[local_idx, :]' * X[global_idx2, :])
+
 end
 
 function lmul_without_build!(out, A, X::AVorM, idx_triple::AV) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
@@ -1155,29 +1268,6 @@ function lmul_without_build!(out, A, X::AVorM, idx_triple::AV) where {AVorM <: A
         lmul_cov!(out, a, Xmat, global_idx, local_idx, global_idx)
     end
 end
-
-function lmul_sqrt_cov!(out, a::D, X, idx1, idx2) where {D <: Diagonal}
-    view(out, idx1, :) .= sqrt.(a.diag) .* X[idx2, :]
-end
-function lmul_sqrt_cov!(out, a::AM, X, idx1, idx2) where {AM <: AbstractMatrix}
-    svda = svd(a)
-    lmul_sqrt_cov!(out, svda, X, idx1, idx2)
-end
-function lmul_sqrt_cov!(out, a::SVD, X, idx1, idx2)
-    if size(a.U, 1) == size(a.U, 2) # then work with Vt
-        view(out, idx1, :) .= a.Vt' * (sqrt.(a.S) .* a.Vt) * X[idx2, :]
-    else
-        view(out, idx1, :) .= a.U * (sqrt.(a.S) .* a.U') * X[idx2, :]
-    end
-end
-function lmul_sqrt_cov!(out, a::SOC, X, idx1, idx2) where {SOC <: SumOfCovariances}
-    tmp = zeros(length(idx1), size(out, 2))
-    for sub_a in get_covs(a)
-        lmul_sqrt_cov!(tmp, sub_a, X, 1:size(tmp, 1), idx2)
-        view(out, idx1, :) .+= tmp
-    end
-end
-
 
 function lmul_obs_noise_cov(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
     A = get_obs_noise_cov(os, build = false)
