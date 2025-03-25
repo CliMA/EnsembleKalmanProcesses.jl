@@ -80,7 +80,7 @@ function SumOfCovariances(av::AV; cov_size::IorU = nothing) where {AV <: Abstrac
             "`cov_size` keyword (value: $(cov_size)) does not equal the size of covariances: $(a_sizes[1]), continuing with the latter"
         )
     end
-    
+
     return SumOfCovariances(av, a_sizes[1])
 end
 
