@@ -1231,7 +1231,7 @@ end
             "names" => "cov_as_svd_transpose",
         ))
         # test with a sum of covariances:
-        Γ_sum = SumOfCovariances([ΓT_test_svd, Γ_test])
+        Γ_sum = SVDplusD(ΓT_test_svd, Γ_test)
         observation_sum = Observation(Dict(
             "samples" => y_obs_test,
             "covariances" => Γ_sum, # should calc the psuedoinverse with SVD properly
