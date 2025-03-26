@@ -524,8 +524,13 @@ function inv_cov(a::SpD) where {SpD <: SVDplusD}
     a_svd = get_svd_cov(a)
     Dinv = inv(a_diag)
     S = Diagonal(a_svd.S)
-    U = a_svd.U
-    Vt = a_svd.Vt
+    if size(a_svd.U, 1) == size(a_svd.U, 2)
+        U = a_svd.Vt'
+        Vt = a_svd.Vt
+    else
+        U = a_svd.U
+        Vt = a_svd.U'
+    end
     T_nonsym = inv(S + S * Vt * Dinv * U * S) # often non-symmetric from rounding error
     cholT = cholesky(0.5 * (T_nonsym + T_nonsym'))
     inv_Lfactor = Dinv * U * S * cholT.L
