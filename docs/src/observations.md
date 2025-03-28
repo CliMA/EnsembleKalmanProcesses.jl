@@ -11,7 +11,7 @@ The Observations object facilitates convenient storing, grouping and minibatchin
     Users can indeed set up an experiment with just one data sample and covariance matrix for the noise. However internally these are still stored as an `ObservationSeries` with a special minibatcher that does nothing (created by `no_minibatcher(size)`).
 
 !!! note "How should I provide the noise covariance?"
-    We provide some utilities and API for providing other forms of covariance than `AbstractMatrix`. For example, in high-dimensional problems one may wish to provide compact low-rank representations. See the section (@ref building-covariances) below. for more details
+    We provide some utilities and API for providing other forms of covariance than `AbstractMatrix`. For example, in high-dimensional problems one may wish to provide compact low-rank representations. See the [section below](@ref building-covariances) for more details.
 
 ## Recommended constructor: A single (stacked) observation
 
