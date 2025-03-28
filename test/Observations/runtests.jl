@@ -219,6 +219,7 @@ end
     X_D = SVDplusD(mat_lr, a_diag)
     X_M = SVDplusD(mat_lr, Matrix(a_diag)) # converts it to a Diagonal type
     @test X_M == X_D
+    @test size(X_D) == (dim, dim)
     @test get_cov_size(X_D) == dim
     @test get_svd_cov(X_D) == mat_lr
     @test get_diag_cov(X_D) == a_diag
@@ -227,6 +228,7 @@ end
     DmT = inv_cov(X_D) # stored in form D^-1 - R R^T where R is a tall matrix
     DmT2 = inv_cov(X_D) # stored in form D^-1 - R R^T where R is a tall matrix
     @test DmT == DmT2 #just check == implementation
+    @test size(DmT) == (dim, dim)
     Dinv = inv(a_diag)
     S = Diagonal(mat_lr.S)
     U = mat_lr.U
