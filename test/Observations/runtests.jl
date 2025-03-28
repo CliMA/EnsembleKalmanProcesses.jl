@@ -213,16 +213,20 @@ end
     ## Create SVDplusD
     dim = get_cov_size(mat_lr)
     X_I = SVDplusD(mat_lr, 6.0 * I) # converts it to an SVD type
+
     @test X_I == SVD(mat_lr.U, mat_lr.S .+ 6.0, mat_lr.Vt)
     a_diag = Diagonal(collect(1.0:dim))
     X_D = SVDplusD(mat_lr, a_diag)
+    X_M = SVDplusD(mat_lr, Matrix(a_diag)) # converts it to a Diagonal type
+    @test X_M == X_D
     @test get_cov_size(X_D) == dim
     @test get_svd_cov(X_D) == mat_lr
     @test get_diag_cov(X_D) == a_diag
 
     # Create DminusTall (the format for SVDplusD inverse)
     DmT = inv_cov(X_D) # stored in form D^-1 - R R^T where R is a tall matrix
-
+    DmT2 = inv_cov(X_D) # stored in form D^-1 - R R^T where R is a tall matrix
+    @test DmT == DmT2 #just check == implementation
     Dinv = inv(a_diag)
     S = Diagonal(mat_lr.S)
     U = mat_lr.U

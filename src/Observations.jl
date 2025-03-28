@@ -72,6 +72,15 @@ get_diag_cov(spd::SpD) where {SpD <: SVDplusD} = spd.diag_cov
 get_cov_size(spd::SpD) where {SpD <: SVDplusD} = size(get_diag_cov(spd), 1)
 Base.size(spd::SpD) where {SpD <: SVDplusD} = size(get_diag_cov(spd))
 
+function Base.:(==)(spd1::SpD1, spd2::SpD2) where {SpD1 <: SVDplusD, SpD2 <: SVDplusD}
+    fn = unique([fieldnames(SpD1)...; fieldnames(SpD2)...])
+    x = [false for f in fn]
+    for (i, f) in enumerate(fn)
+        x[i] = (getfield(spd1, Symbol(f)) == getfield(spd2, Symbol(f)))
+    end
+    return all(x)
+end
+
 
 # the inverse of SVD plus diagonal is stored like this:
 """
@@ -93,6 +102,14 @@ get_tall_cov(dmt::DmT) where {DmT <: DminusTall} = dmt.tall_cov
 get_diag_cov(dmt::DmT) where {DmT <: DminusTall} = dmt.diag_cov
 get_cov_size(dmt::DmT) where {DmT <: DminusTall} = size(get_diag_cov(dmt), 1)
 Base.size(dmt::DmT) where {DmT <: DminusTall} = size(get_diag_cov(dmt))
+function Base.:(==)(dmt1::DmT1, dmt2::DmT2) where {DmT1 <: DminusTall, DmT2 <: DminusTall}
+    fn = unique([fieldnames(DmT1)...; fieldnames(DmT2)...])
+    x = [false for f in fn]
+    for (i, f) in enumerate(fn)
+        x[i] = (getfield(dmt1, Symbol(f)) == getfield(dmt2, Symbol(f)))
+    end
+    return all(x)
+end
 
 
 function SVDplusD(s_in::SVD, us_in::US) where {US <: UniformScaling}
