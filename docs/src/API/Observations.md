@@ -20,6 +20,8 @@ get_obs_noise_cov_inv(o::OB) where {OB <: Observation}
 ```@docs
 tsvd_mat
 tsvd_cov_from_samples
+SVDplusD
+DminusTall
 ```
 
 ## Minibatcher

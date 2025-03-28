@@ -8,7 +8,10 @@ The Observations object facilitates convenient storing, grouping and minibatchin
 3. The `ObservationSeries` contains the list of `Observation`s and `Minibatcher` and the utilities to get the current batch etc.
 
 !!! note "I usually just pass in a vector of data and a covariance to EKP"
-    Users can indeed set up an experiment with just one data sample and covariance matrix for the noise. However internally these are still stored as an `ObservationSeries` with a special minibatcher that does nothing (created by `no_minibatcher(size)`). 
+    Users can indeed set up an experiment with just one data sample and covariance matrix for the noise. However internally these are still stored as an `ObservationSeries` with a special minibatcher that does nothing (created by `no_minibatcher(size)`).
+
+!!! note "How should I provide the noise covariance?"
+    We provide some utilities and API for providing other forms of covariance than `AbstractMatrix`. For example, in high-dimensional problems one may wish to provide compact low-rank representations. See the [section below](@ref building-covariances) for more details.
 
 ## Recommended constructor: A single (stacked) observation
 
@@ -173,3 +176,75 @@ get_names(obs)
 > ["y_window_average", "z_window_average"]
 ```
 
+## [Building the noise covariances] (@id building-covariances)
+
+For most low-dimensional problems (e.g. dim < 5000), the user can simply provide a `UniformScaling`, or an `AbstractMatrix` as they are most familiar, in conjunction with any EKP process.
+
+For high-dimensional problems, the user must first select an output-scalable  `process`. For example, `TransformInversion(...)` (ETKI) or `TransformUnscented(...)` (UTKI)
+
+Next the user must select a scalable storage for the noise covariance matrix in observations as the operational cost of storing and updating very large (non-diagonal) `AbstractMatrix` objects is prohibitive.
+
+Therefore in high-dimensions we recommend the following scalable options:
+- For a diagonal covariance: `Diagonal` or `UniformScaling`
+- For a low-rank covariance: `SVD`
+- For a sum of low-rank and diagonal covariance: `SVDplusD` 
+
+The framework is extensible to new types as they arise (so long as one can define an efficient implementation of left multiplication and inverse of the struct)
+
+### Example of building scalable high-dimensional ObservationSeries
+
+The following example demonstrates our utilities `tsvd_cov_from_samples` to quickly build such forms from available samples.
+
+Imagine a problem where the observation dimension is size ``10^6``, and we have 30 noisy `samples` of such data from repeated runs of an experiment. We also believe that there may also be some additional 5% noise from model error when fitting our parameters to data, as our model is also not perfect. Let's build some observations!
+
+```julia
+using EnsembleKalmanProcesses 
+using LinearAlgebra
+using Statistics
+
+# "data"
+n_trials = 30
+output_dim = 1_000_000
+Y = randn(output_dim, n_trials);
+
+# the noise estimated from the samples (will have rank n_trials-1)
+internal_cov = tsvd_cov_from_samples(Y); # SVD object
+
+# the "5%" model error (diagonal)
+model_error_frac = 0.05
+data_mean = vec(mean(Y,dims=2));
+model_error_cov = Diagonal((model_error_frac*data_mean).^2);
+
+# Combine these
+covariance = SVDplusD(internal_cov, model_error_cov);
+
+Y_obs_vec = [];
+for k = 1:n_trials
+    push!(Y_obs_vec, Observation(
+            Dict(
+                "samples" => Y[:,k],
+                "covariances" => covariance,
+                "names" => "experiment_$k",
+            ),
+        ),  
+    )
+end 
+```
+Let's assume that we then wish to update this with specific batches of size 2, in order. Let's build an `ObservationSeries`!
+```
+b_size = 2;
+given_batches = [collect(((i - 1) * b_size + 1):(i * b_size)) for i in 1:n_trials];
+
+minibatcher = FixedMinibatcher(given_batches);
+observation_series = ObservationSeries(Y_obs_vec, minibatcher);
+```
+This can be passed into a scalable EKI (with some prior)
+```
+using EnsembleKalmanProcesses.ParameterDistributions
+prior = constrained_gaussian("example_params", 3, 2, 0, Inf, repeats=3) ;
+
+utki = EnsembleKalmanProcess(observation_series, TransformUnscented(prior));
+```
+
+!!! warning
+    Always extract the current observational noise from `ekp` with `get_obs_noise_cov(ekp, build=false)`. Using `build=true` (default) will cause memory issues in this case as it will try to build the compactly-stored matrix.
