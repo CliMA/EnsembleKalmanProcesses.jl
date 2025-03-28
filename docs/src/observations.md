@@ -176,7 +176,7 @@ get_names(obs)
 > ["y_window_average", "z_window_average"]
 ```
 
-## Building the noise covariances (@id building-covariances)
+## [Building the noise covariances] (@id building-covariances)
 
 For most low-dimensional problems (e.g. dim < 5000), the user can simply provide a `UniformScaling`, or an `AbstractMatrix` as they are most familiar, in conjunction with any EKP process.
 
@@ -186,8 +186,8 @@ Next the user must select a scalable storage for the noise covariance matrix in 
 
 Therefore in high-dimensions we recommend the following scalable options:
 - For a diagonal covariance: `Diagonal` or `UniformScaling`
-- For a low-rank covariance: `SVD` # from LinearAlgebra.jl
-- For a sum of low-rank and diagonal covariance: `SVDplusD` # from src/Observations.jl
+- For a low-rank covariance: `SVD`
+- For a sum of low-rank and diagonal covariance: `SVDplusD` 
 
 The framework is extensible to new types as they arise (so long as one can define an efficient implementation of left multiplication and inverse of the struct)
 
@@ -198,7 +198,7 @@ The following example demonstrates our utilities `tsvd_cov_from_samples` to quic
 Imagine a problem where the observation dimension is size ``10^6``, and we have 30 noisy `samples` of such data from repeated runs of an experiment. We also believe that there may also be some additional 5% noise from model error when fitting our parameters to data, as our model is also not perfect. Let's build some observations!
 
 ```julia
-using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses 
 using LinearAlgebra
 using Statistics
 
