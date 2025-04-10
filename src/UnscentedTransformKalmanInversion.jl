@@ -89,36 +89,7 @@ mutable struct TransformUnscented{FT <: AbstractFloat, IT <: Int} <: Process
     buffer::AbstractVector
 end
 
-function TransformUnscented(process::Unscented)
-    return TransformUnscented(
-        process.u_mean,
-        process.uu_cov,
-        process.obs_pred,
-        process.c_weights,
-        process.mean_weights,
-        process.cov_weights,
-        process.N_ens,
-        process.Σ_ω,
-        process.Σ_ν_scale,
-        process.α_reg,
-        process.r,
-        process.update_freq,
-        process.prior_mean,
-        process.prior_cov,
-        process.iter,
-        [], # buffer
-    )
-end
-
-function TransformUnscented(u0_mean::VV, uu0_cov::MM; kwargs...) where {VV <: AbstractVector, MM <: AbstractMatrix}
-    process = Unscented(u0_mean, uu0_cov, kwargs...) # use UKI constructor
-    return TransformUnscented(process)
-end
-
-function TransformUnscented(prior::ParameterDistribution; kwargs...)
-    process = Unscented(prior, kwargs...) # use UKI constructor
-    return TransformUnscented(process)
-end
+## Constructors are found in UnscentedKalmanInversion.jl as they use UKI constructors as a base
 
 
 """
