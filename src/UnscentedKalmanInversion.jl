@@ -242,12 +242,12 @@ function TransformUnscented(process::UU) where {UU <: Unscented}
 end
 
 function TransformUnscented(u0_mean::VV, uu0_cov::MM; kwargs...) where {VV <: AbstractVector, MM <: AbstractMatrix}
-    process = Unscented(u0_mean, uu0_cov, kwargs...) # use UKI constructor
+    process = Unscented(u0_mean, uu0_cov; kwargs...) # use UKI constructor
     return TransformUnscented(process)
 end
 
 function TransformUnscented(prior::ParameterDistribution; kwargs...)
-    process = Unscented(prior, kwargs...) # use UKI constructor
+    process = Unscented(prior; kwargs...) # use UKI constructor
     return TransformUnscented(process)
 end
 
