@@ -23,12 +23,8 @@ export get_observation_series,
     get_obs_noise_cov_inv,
     lmul_obs_noise_cov,
     lmul_obs_noise_cov_inv,
-    lmul_sqrt_obs_noise_cov,
-    lmul_sqrt_obs_noise_cov_inv,
     lmul_obs_noise_cov!,
-    lmul_obs_noise_cov_inv!,
-    lmul_sqrt_obs_noise_cov!,
-    lmul_sqrt_obs_noise_cov_inv!
+    lmul_obs_noise_cov_inv!
 export compute_error!
 export update_ensemble!
 export list_update_groups_over_minibatch
@@ -775,14 +771,6 @@ function lmul_obs_noise_cov!(
     return lmul_obs_noise_cov!(out, get_observation_series(ekp), X, idx_set)
 end
 
-function lmul_sqrt_obs_noise_cov!(
-    out::AM,
-    ekp::EnsembleKalmanProcess,
-    X::AVorM,
-    idx_set::AV,
-) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector, AM <: AbstractMatrix}
-    return lmul_sqrt_obs_noise_cov!(out, get_observation_series(ekp), X, idx_set)
-end
 """
 $(TYPEDSIGNATURES)
 
@@ -799,15 +787,6 @@ function lmul_obs_noise_cov_inv!(
     idx_set::AV,
 ) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector, AM <: AbstractMatrix}
     return lmul_obs_noise_cov_inv!(out, get_observation_series(ekp), X, idx_set)
-end
-
-function lmul_sqrt_obs_noise_cov_inv!(
-    out::AM,
-    ekp::EnsembleKalmanProcess,
-    X::AVorM,
-    idx_set::AV,
-) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector, AM <: AbstractMatrix}
-    return lmul_sqrt_obs_noise_cov_inv!(out, get_observation_series(ekp), X, idx_set)
 end
 
 """

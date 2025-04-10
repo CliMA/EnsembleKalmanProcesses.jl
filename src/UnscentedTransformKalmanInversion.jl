@@ -30,8 +30,7 @@ Inputs:
 
   - `u0_mean`: Mean at initialization.
   - `uu0_cov`: Covariance at initialization.
-  - `α_reg`: Hyperparameter controlling regularization toward the prior mean (0 < `α_reg` ≤ 1),
-  default should be 1, without regulariazion.
+  - `α_reg`: Hyperparameter controlling regularization toward the prior mean (0 < `α_reg` ≤ 1), default is 1 (no priorn regularization)
   - `update_freq`: Set to 0 when the inverse problem is not identifiable, 
   namely the inverse problem has multiple solutions, the covariance matrix
   will represent only the sensitivity of the parameters, instead of
@@ -90,132 +89,35 @@ mutable struct TransformUnscented{FT <: AbstractFloat, IT <: Int} <: Process
     buffer::AbstractVector
 end
 
-function TransformUnscented(
-    u0_mean::VV,
-    uu0_cov::MM;
-    α_reg::FT = 1.0,
-    update_freq::IT = 0,
-    modified_unscented_transform::Bool = true,
-    impose_prior::Bool = false,
-    prior_mean::Any = nothing,
-    prior_cov::Any = nothing,
-    sigma_points::String = "symmetric",
-) where {FT <: AbstractFloat, IT <: Int, VV <: AbstractVector, MM <: AbstractMatrix}
-
-    u0_mean = FT.(u0_mean)
-    uu0_cov = FT.(uu0_cov)
-    if impose_prior
-        if isnothing(prior_mean)
-            @info "`impose_prior=true` but `prior_mean=nothing`, taking initial mean as prior mean."
-            prior_mean = u0_mean
-        else
-            prior_mean = FT.(prior_mean)
-        end
-        if isnothing(prior_cov)
-            @info "`impose_prior=true` but `prior_cov=nothing`, taking initial covariance as prior covariance"
-            prior_cov = uu0_cov
-        else
-            prior_cov = FT.(prior_cov)
-        end
-        α_reg = 1.0
-        update_freq = 1
-    end
-
-    if sigma_points == "symmetric"
-        N_ens = 2 * size(u0_mean, 1) + 1
-    elseif sigma_points == "simplex"
-        N_ens = size(u0_mean, 1) + 2
-    else
-        throw(ArgumentError("sigma_points type is not recognized. Select the option \"symmetric\", \"simplex\"... "))
-    end
-
-    N_par = size(u0_mean, 1)
-    # ensemble size
-
-    mean_weights = zeros(FT, N_ens)
-    cov_weights = zeros(FT, N_ens)
-
-    if sigma_points == "symmetric"
-        c_weights = zeros(FT, N_par)
-
-        # set parameters λ, α
-        α = min(sqrt(4 / N_par), 1.0)
-        λ = α^2 * N_par - N_par
-
-        c_weights[1:N_par] .= sqrt(N_par + λ)
-        mean_weights[1] = λ / (N_par + λ)
-        mean_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
-        cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
-        cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
-
-    elseif sigma_points == "simplex"
-        c_weights = zeros(FT, N_par, N_ens)
-
-        # set parameters λ, α
-        α = N_par / (4 * (N_par + 1))
-
-        IM = zeros(FT, N_par, N_par + 1)
-        IM[1, 1], IM[1, 2] = -1 / sqrt(2α), 1 / sqrt(2α)
-        for i in 2:N_par
-            for j in 1:i
-                IM[i, j] = 1 / sqrt(α * i * (i + 1))
-            end
-            IM[i, i + 1] = -i / sqrt(α * i * (i + 1))
-        end
-        c_weights[:, 2:end] .= IM
-
-        mean_weights .= 1 / (N_par + 1)
-        mean_weights[1] = 0.0
-        cov_weights .= α
-        cov_weights[1] = 0.0
-
-    end
-
-    if modified_unscented_transform
-        mean_weights[1] = 1.0
-        mean_weights[2:N_ens] .= 0.0
-    end
-
-    u_mean = Vector{FT}[]  # array of Vector{FT}'s
-    push!(u_mean, u0_mean) # insert parameters at end of array (in this case just 1st entry)
-    uu_cov = Matrix{FT}[]  # array of Matrix{FT}'s
-    push!(uu_cov, uu0_cov) # insert parameters at end of array (in this case just 1st entry)
-
-    obs_pred = Vector{FT}[]  # array of Vector{FT}'s
-
-    Σ_ω = (2 - α_reg^2) * uu0_cov
-    Σ_ν_scale = 2.0
-
-    r = isnothing(prior_mean) ? u0_mean : prior_mean
-    iter = 0
-
-    TransformUnscented(
-        u_mean,
-        uu_cov,
-        obs_pred,
-        c_weights,
-        mean_weights,
-        cov_weights,
-        N_ens,
-        Σ_ω,
-        Σ_ν_scale,
-        α_reg,
-        r,
-        update_freq,
-        impose_prior,
-        prior_mean,
-        prior_cov,
-        iter,
-        [],
+function TransformUnscented(process::Unscented)
+    return TransformUnscented(
+        process.u_mean,
+        process.uu_cov,
+        process.obs_pred,
+        process.c_weights,
+        process.mean_weights,
+        process.cov_weights,
+        process.N_ens,
+        process.Σ_ω,
+        process.Σ_ν_scale,
+        process.α_reg,
+        process.r,
+        process.update_freq,
+        process.prior_mean,
+        process.prior_cov,
+        process.iter,
+        [], # buffer
     )
 end
 
+function TransformUnscented(u0_mean::VV, uu0_cov::MM; kwargs...) where {VV <: AbstractVector, MM <: AbstractMatrix}
+    process = Unscented(u0_mean, uu0_cov, kwargs...) # use UKI constructor
+    return TransformUnscented(process)
+end
+
 function TransformUnscented(prior::ParameterDistribution; kwargs...)
-    u0_mean = isa(mean(prior), AbstractVector) ? Vector(mean(prior)) : [mean(prior)] # mean of unconstrained distribution
-    uu0_cov = Matrix(cov(prior)) # cov of unconstrained distribution
-
-    return TransformUnscented(u0_mean, uu0_cov; prior_mean = u0_mean, prior_cov = uu0_cov, kwargs...)
-
+    process = Unscented(prior, kwargs...) # use UKI constructor
+    return TransformUnscented(process)
 end
 
 
