@@ -234,6 +234,7 @@ function TransformUnscented(process::UU) where {UU <: Unscented}
         process.α_reg,
         process.r,
         process.update_freq,
+        process.impose_prior,
         process.prior_mean,
         process.prior_cov,
         process.iter,
