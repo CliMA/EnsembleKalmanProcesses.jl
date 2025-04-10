@@ -449,13 +449,6 @@ end
     test2 = Γinv * X
     @test norm(test1 - lmul_obs_noise_cov_inv(observation_series, Xvec)) < 1e-12
     @test norm(test2 - lmul_obs_noise_cov_inv(observation_series, X)) < 1e-12
-    # calling real(sqrt(A)) can give very poor solutions so use SVD
-    svd1 = svd(Γinv)
-    Γrt_inv = svd1.Vt' * Diagonal(sqrt.(svd1.S)) * svd1.Vt
-    test1 = Γrt_inv * Xvec
-    test2 = Γrt_inv * X
-    @test norm(test1 - lmul_sqrt_obs_noise_cov_inv(observation_series, Xvec)) < sqrt(1e-10)
-    @test norm(test2 - lmul_sqrt_obs_noise_cov_inv(observation_series, X)) < sqrt(1e-10)
 
     # test the pre-indexed versions:    
     # cov
@@ -475,22 +468,6 @@ end
     @test norm(test1 - out1) < 1e-12
     @test norm(test2 - out2) < 1e-12
 
-    #sqrt_cov
-    svd2 = svd(Γ)
-    Γrt = svd2.Vt' * Diagonal(sqrt.(svd2.S)) * svd2.Vt
-    test1 = Γrt[g_idx, g_idx] * Xvec[g_idx]
-    test2 = Γrt[g_idx, g_idx] * X[g_idx, :]
-    out1 = zeros(size(test1))
-    out2 = zeros(size(test2))
-    lmul_sqrt_obs_noise_cov!(out1, observation_series, Xvec[g_idx], g_idx)
-    lmul_sqrt_obs_noise_cov!(out2, observation_series, X[g_idx, :], g_idx)
-    @test norm(test1 - out1) < sqrt(1e-10)
-    @test norm(test2 - out2) < sqrt(1e-10)
-    lmul_sqrt_obs_noise_cov!(out1, observation_series, Xvec, g_idx)
-    lmul_sqrt_obs_noise_cov!(out2, observation_series, X, g_idx)
-    @test norm(test1 - out1) < sqrt(1e-10)
-    @test norm(test2 - out2) < sqrt(1e-10)
-
 
     # cov_inv
     test1 = Γinv[g_idx, g_idx] * Xvec[g_idx]
@@ -507,18 +484,4 @@ end
     @test norm(test1 - out1) < 1e-12
     @test norm(test2 - out2) < 1e-12
 
-    # sqrt_cov_inv
-    test1 = Γrt_inv[g_idx, g_idx] * Xvec[g_idx]
-    test2 = Γrt_inv[g_idx, g_idx] * X[g_idx, :]
-    out1 = zeros(size(test1))
-    out2 = zeros(size(test2))
-    # In code this is applied to pre-trimmed "X"s or not
-    lmul_sqrt_obs_noise_cov_inv!(out1, observation_series, Xvec[g_idx], g_idx)
-    lmul_sqrt_obs_noise_cov_inv!(out2, observation_series, X[g_idx, :], g_idx)
-    @test norm(test1 - out1) < sqrt(1e-10)
-    @test norm(test2 - out2) < sqrt(1e-10)
-    lmul_sqrt_obs_noise_cov_inv!(out1, observation_series, Xvec, g_idx)
-    lmul_sqrt_obs_noise_cov_inv!(out2, observation_series, X, g_idx)
-    @test norm(test1 - out1) < sqrt(1e-10)
-    @test norm(test2 - out2) < sqrt(1e-10)
 end

@@ -1051,74 +1051,6 @@ function lmul_without_build!(out, A, X::AVorM, idx_triple::AV) where {AVorM <: A
     end
 end
 
-function lmul_sqrt_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
-    a_sizes = zeros(Int, length(A))
-    for (i, a) in enumerate(A)
-        if isa(a, SVD)
-            if size(a.U, 1) == size(a.U, 2)
-                a_sizes[i] = size(a.Vt, 2)
-            else
-                a_sizes[i] = size(a.U, 1)
-            end
-        else
-            a_sizes[i] = size(a, 1)
-        end
-    end
-    Y = zeros(sum(a_sizes), size(X, 2)) # stores A * X
-    Xmat = isa(X, AbstractVector) ? reshape(X, :, 1) : X
-    shift = [0]
-    for (γs, a) in zip(a_sizes, A)
-        idx = (shift[1] + 1):(shift[1] + γs)
-        if isa(a, Diagonal)
-            Y[idx, :] = sqrt.(a.diag) .* Xmat[idx, :]
-        elseif isa(a, SVD)
-            if size(a.U, 1) == size(a.U, 2) # then work with Vt
-                Y[idx, :] = a.Vt' * (sqrt.(a.S) .* a.Vt) * Xmat[idx, :]
-            else
-                Y[idx, :] = a.U * (sqrt.(a.S) .* a.U') * Xmat[idx, :]
-            end
-        else # assume general matrix, much slower
-            svda = svd(a)
-            if size(svda.U, 1) == size(svda.U, 2) # then work with Vt
-                Y[idx, :] = svda.Vt' * (sqrt.(svda.S) .* svda.Vt) * Xmat[idx, :]
-            else
-                Y[idx, :] = svda.U * (sqrt.(svda.S) .* svda.U') * Xmat[idx, :]
-            end
-        end
-        shift[1] = maximum(idx)
-    end
-    return Y
-end
-
-function lmul_sqrt_without_build!(
-    out,
-    A,
-    X::AVorM,
-    idx_triple::AV,
-) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
-    Xmat = isa(X, AbstractVector) ? reshape(X, :, 1) : X
-    for (block_idx, local_idx, global_idx) in idx_triple
-        a = A[block_idx]
-        if isa(a, Diagonal)
-            out[global_idx, :] = sqrt.(a.diag[local_idx]) .* Xmat[global_idx, :]
-        elseif isa(a, SVD)
-            if size(a.U, 1) == size(a.U, 2) # then work with Vt
-                out[global_idx, :] = a.Vt[:, local_idx]' * (sqrt.(a.S) .* a.Vt[:, local_idx]) * Xmat[global_idx, :]
-            else
-                out[global_idx, :] = a.U[local_idx, :] * (sqrt.(a.S) .* a.U[local_idx, :]') * Xmat[global_idx, :]
-            end
-        else # assume general matrix, real(sqrt(A)) often poor approximation so use SVD
-            svda = svd(a)
-            if size(svda.U, 1) == size(svda.U, 2) # then work with Vt
-                out[global_idx, :] =
-                    svda.Vt[:, local_idx]' * (sqrt.(svda.S) .* svda.Vt[:, local_idx]) * Xmat[global_idx, :]
-            else
-                out[global_idx, :] =
-                    svda.U[local_idx, :] * (sqrt.(svda.S) .* svda.U[local_idx, :]') * Xmat[global_idx, :]
-            end
-        end
-    end
-end
 
 function lmul_obs_noise_cov(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
     A = get_obs_noise_cov(os, build = false)
@@ -1128,16 +1060,6 @@ end
 function lmul_obs_noise_cov_inv(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
     A = get_obs_noise_cov_inv(os, build = false)
     return lmul_without_build(A, X)
-end
-
-function lmul_sqrt_obs_noise_cov(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
-    A = get_obs_noise_cov(os, build = false)
-    return lmul_sqrt_without_build(A, X)
-end
-
-function lmul_sqrt_obs_noise_cov_inv(os::ObservationSeries, X::AVorM) where {AVorM <: AbstractVecOrMat}
-    A = get_obs_noise_cov_inv(os, build = false)
-    return lmul_sqrt_without_build(A, X)
 end
 
 function lmul_obs_noise_cov!(
@@ -1172,42 +1094,6 @@ function lmul_obs_noise_cov_inv!(
     end
     return lmul_without_build!(out, A, Xtrim, idx_triple)
 end
-
-
-function lmul_sqrt_obs_noise_cov!(
-    out,
-    os::ObservationSeries,
-    X::AVorM,
-    idx_set::AV,
-) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
-    A = get_obs_noise_cov(os, build = false)
-    idx_triple = generate_block_product_subindices(A, idx_set)
-    if isa(X, AbstractVector)
-        Xtrim = length(X) > length(idx_set) ? X[idx_set] : X
-    else
-        Xtrim = size(X, 1) > length(idx_set) ? X[idx_set, :] : X
-    end
-    return lmul_sqrt_without_build!(out, A, Xtrim, idx_triple)
-end
-
-function lmul_sqrt_obs_noise_cov_inv!(
-    out,
-    os::ObservationSeries,
-    X::AVorM,
-    idx_set::AV,
-) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
-    A = get_obs_noise_cov_inv(os, build = false)
-    idx_triple = generate_block_product_subindices(A, idx_set)
-    # trim X if not already, (idx-triple expects it trimmed)
-    if isa(X, AbstractVector)
-        Xtrim = length(X) > length(idx_set) ? X[idx_set] : X
-    else
-        Xtrim = size(X, 1) > length(idx_set) ? X[idx_set, :] : X
-    end
-    return lmul_sqrt_without_build!(out, A, Xtrim, idx_triple)
-end
-
-
 
 function generate_block_product_subindices(Ablocks, idx_set)
     A_sizes = zeros(Int, length(Ablocks))
