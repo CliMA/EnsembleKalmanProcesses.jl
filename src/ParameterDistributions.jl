@@ -1168,7 +1168,7 @@ function _constrained_gaussian(
     optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
     optim_kwargs...,
 )
-    optim_opts_defaults = (; x_tol = 1e-5, f_tol = 1e-5)
+    optim_opts_defaults = (; x_reltol = 1e-5, f_abstol = 1e-5)
     optim_opts = merge(optim_opts_defaults, optim_kwargs)
     optim_opts = Optim.Options(; optim_opts...)
 
