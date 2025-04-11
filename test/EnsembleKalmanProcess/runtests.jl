@@ -1224,7 +1224,7 @@ end
             "names" => "cov_as_svd",
         ))
         # also do some kind of transposed form (nonsensical values) to go into other test branch
-        ΓT_test_svd = tsvd_mat(Z_test) # just take rank to be dim for a UniformScaling     
+        ΓT_test_svd = tsvd_mat(Z_test') # just take rank to be dim for a UniformScaling     
         observation_svdT = Observation(Dict(
             "samples" => y_obs_test,
             "covariances" => ΓT_test_svd, # should calc the psuedoinverse with SVD properly

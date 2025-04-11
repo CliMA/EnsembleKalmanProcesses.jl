@@ -211,6 +211,8 @@ end
     @test get_cov_size(mat_lr) == 100
 
     ## Create SVDplusD
+    @test_throws ArgumentError SVDplusD(mat_lr, 6.0 * Diagonal(ones(rk+1))) # converts it to an SVD type
+
     dim = get_cov_size(mat_lr)
     X_I = SVDplusD(mat_lr, 6.0 * I) # converts it to an SVD type
 
