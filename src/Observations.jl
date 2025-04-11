@@ -57,7 +57,7 @@ struct SVDplusD <: SumOfCovariances
         if !(mat_sizes[2] == mat_sizes[1])
             throw(
                 ArgumentError(
-                    "all covariances provided must have the same size (as they are to be summed), instead recieved different sizes: $(a_sizes)",
+                    "all covariances provided must have the same size (as they are to be summed), instead recieved different sizes: $(mat_sizes)",
                 ),
             )
         end
