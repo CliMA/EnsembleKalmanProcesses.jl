@@ -115,6 +115,7 @@ function update_ensemble!(
     u_idx::Vector{Int},
     g_idx::Vector{Int};
     failed_ens = nothing,
+    kwargs...,
 ) where {FT, IT}
 
     # u: N_ens × N_par

@@ -105,6 +105,13 @@ function default_options_dict(process::P) where {P <: Process}
             "failure_handler_method" => SampleSuccGauss(),
             "accelerator" => DefaultAccelerator(),
         )
+    elseif isa(process, TransformUnscented)
+        return Dict(
+            "scheduler" => DataMisfitController(terminate_at = 1),
+            "localization_method" => NoLocalization(),
+            "failure_handler_method" => SampleSuccGauss(),
+            "accelerator" => DefaultAccelerator(),
+        )
     elseif isa(process, SparseInversion)
         return Dict(
             "scheduler" => DefaultScheduler(),
@@ -202,11 +209,11 @@ struct EnsembleKalmanProcess{
     Δt::Vector{FT}
     "vector of update groups, defining which parameters should be updated by which data"
     update_groups::VV
-    "the particular EK process (`Inversion` or `Sampler` or `Unscented` or `TransformInversion` or `SparseInversion`)"
+    "the particular EK process (`Inversion` etc.)"
     process::P
     "Random number generator object (algorithm + seed) used for sampling and noise, for reproducibility. Defaults to `Random.GLOBAL_RNG`."
     rng::AbstractRNG
-    "struct storing failsafe update directives, implemented for (`Inversion`, `SparseInversion`, `Unscented`, `TransformInversion`)"
+    "struct storing failsafe update directives"
     failure_handler::FailureHandler
     "Localization kernel, implemented for (`Inversion`, `SparseInversion`, `Unscented`)"
     localizer::Localizer
@@ -237,13 +244,15 @@ function EnsembleKalmanProcess(
     # dimensionality
     N_par, N_ens = size(init_params) #stored with data as columns
 
-    if N_ens < 10
-        @warn "Recommended minimum ensemble size (`N_ens`) is 10. Got `N_ens` = $(N_ens)."
-    elseif (N_par < 10) && (N_ens < 10 * N_par)
-        @warn "For $(N_par) parameters, the recommended minimum ensemble size (`N_ens`) is $(10*(N_par)). Got `N_ens` = $(N_ens)`."
-    end
-    if (N_par >= 10) && (N_ens < 100)
-        @warn "For $(N_par) parameters, the recommended minimum ensemble size (`N_ens`) is 100. Got `N_ens` = $(N_ens)`."
+    if !isa(process, Union{Unscented, TransformUnscented}) # define their own fixed N_ens size
+        if N_ens < 10
+            @warn "Recommended minimum ensemble size (`N_ens`) is 10. Got `N_ens` = $(N_ens)."
+        elseif (N_par < 10) && (N_ens < 10 * N_par)
+            @warn "For $(N_par) parameters, the recommended minimum ensemble size (`N_ens`) is $(10*(N_par)). Got `N_ens` = $(N_ens)`."
+        end
+        if (N_par >= 10) && (N_ens < 100)
+            @warn "For $(N_par) parameters, the recommended minimum ensemble size (`N_ens`) is 100. Got `N_ens` = $(N_ens)`."
+        end
     end
 
     obs_for_minibatch = get_obs(observation_series) # get stacked observation over minibatch
@@ -1100,8 +1109,9 @@ function update_ensemble!(
         u = zeros(size(get_u_prior(ekp)))
 
         # update each u_block with every g_block
-        for (u_idx, g_idx) in zip(u_groups, g_groups)
-            u[u_idx, :] += update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; ekp_kwargs...)
+        for (group_idx, (u_idx, g_idx)) in enumerate(zip(u_groups, g_groups))
+            u[u_idx, :] +=
+                update_ensemble!(ekp, g, get_process(ekp), u_idx, g_idx; group_idx = group_idx, ekp_kwargs...)
         end
 
         accelerate!(ekp, u)
@@ -1164,12 +1174,16 @@ include("SparseEnsembleKalmanInversion.jl")
 export Sampler
 include("EnsembleKalmanSampler.jl")
 
+# struct TransformUnscented
+export TransformUnscented
+include("UnscentedTransformKalmanInversion.jl")
 
 # struct Unscented
 export Unscented
 export Gaussian_2d
 export construct_initial_ensemble, construct_mean, construct_cov
 include("UnscentedKalmanInversion.jl")
+
 
 # struct Accelerator
 include("Accelerators.jl")

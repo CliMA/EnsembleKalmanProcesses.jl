@@ -3,10 +3,15 @@ using LinearAlgebra
 using Statistics
 using Random
 using TSVD
-
-export Observation, Minibatcher, FixedMinibatcher, RandomFixedSizeMinibatcher, ObservationSeries
+import Base: size
+export Observation, Minibatcher, FixedMinibatcher, RandomFixedSizeMinibatcher, ObservationSeries, SVDplusD, DminusTall
 export get_samples,
     get_covs,
+    get_cov_size,
+    get_diag_cov,
+    get_svd_cov,
+    get_tall_cov,
+    inv_cov,
     get_inv_covs,
     get_names,
     get_indices,
@@ -28,6 +33,95 @@ export get_samples,
     tsvd_mat,
     tsvd_cov_from_samples,
     lmul_without_build
+
+## A new wrapper for a sum-of-covariances type
+abstract type SumOfCovariances end
+
+# svd plus diagonal
+"""
+    SVDplusD
+
+Storage for a covariance matrix of the form `D + USV'` for Diagonal D, and SVD decomposition USV'.
+Note the inverse of this type (as computed through `inv_cov(...)`) will be stored compactly as a `DminusTall` type.
+
+$(TYPEDFIELDS)
+"""
+struct SVDplusD <: SumOfCovariances
+    "summand of covariance matrix stored with SVD decomposition"
+    svd_cov::SVD
+    "summand of covariance matrix stored as a diagonal matrix"
+    diag_cov::Diagonal
+
+    function SVDplusD(s_in::SVD, d_in::Diagonal)
+        mat_sizes = (get_cov_size(s_in), get_cov_size(d_in))
+        if !(mat_sizes[2] == mat_sizes[1])
+            throw(
+                ArgumentError(
+                    "all covariances provided must have the same size (as they are to be summed), instead recieved different sizes: $(mat_sizes)",
+                ),
+            )
+        end
+
+        return new(s_in, d_in)
+
+    end
+end
+
+get_svd_cov(spd::SpD) where {SpD <: SVDplusD} = spd.svd_cov
+get_diag_cov(spd::SpD) where {SpD <: SVDplusD} = spd.diag_cov
+get_cov_size(spd::SpD) where {SpD <: SVDplusD} = size(get_diag_cov(spd), 1)
+Base.size(spd::SpD) where {SpD <: SVDplusD} = size(get_diag_cov(spd))
+
+function Base.:(==)(spd1::SpD1, spd2::SpD2) where {SpD1 <: SVDplusD, SpD2 <: SVDplusD}
+    fn = unique([fieldnames(SpD1)...; fieldnames(SpD2)...])
+    x = [false for f in fn]
+    for (i, f) in enumerate(fn)
+        x[i] = (getfield(spd1, Symbol(f)) == getfield(spd2, Symbol(f)))
+    end
+    return all(x)
+end
+
+
+# the inverse of SVD plus diagonal is stored like this:
+"""
+    DminusTall
+
+Storage for a covariance matrix of the form `D - RR'` for Diagonal D, and (tall) matrix R.
+Primary use case for this matrix is to compactly store the inverse of the `SVDplusD` type.
+
+$(TYPEDFIELDS)
+"""
+struct DminusTall{D <: Diagonal, AM <: AbstractMatrix} <: SumOfCovariances
+    "summand of covariance matrix stored as a diagonal matrix"
+    diag_cov::D
+    "summand of covariance matrix stored as an abstract matrix"
+    tall_cov::AM
+end
+
+get_tall_cov(dmt::DmT) where {DmT <: DminusTall} = dmt.tall_cov
+get_diag_cov(dmt::DmT) where {DmT <: DminusTall} = dmt.diag_cov
+get_cov_size(dmt::DmT) where {DmT <: DminusTall} = size(get_diag_cov(dmt), 1)
+Base.size(dmt::DmT) where {DmT <: DminusTall} = size(get_diag_cov(dmt))
+function Base.:(==)(dmt1::DmT1, dmt2::DmT2) where {DmT1 <: DminusTall, DmT2 <: DminusTall}
+    fn = unique([fieldnames(DmT1)...; fieldnames(DmT2)...])
+    x = [false for f in fn]
+    for (i, f) in enumerate(fn)
+        x[i] = (getfield(dmt1, Symbol(f)) == getfield(dmt2, Symbol(f)))
+    end
+    return all(x)
+end
+
+
+function SVDplusD(s_in::SVD, us_in::US) where {US <: UniformScaling}
+    return SVD(s_in.U, (s_in.S .+ us_in.λ), s_in.Vt) # just use SVD
+end
+
+function SVDplusD(s_in::SVD, am_in::AM) where {AM <: AbstractMatrix}
+    @warn("SVDplusD requires Diagonal matrix type, converting input X to Diagonal(X)")
+    return SVDplusD(s_in, Diagonal(am_in))
+end
+
+
 
 # wrapper for tsvd - putting solution in SVD object
 """
@@ -265,11 +359,7 @@ function Observation(obs_dict::Dict)
     if !("inv_covariances" ∈ collect(keys(obs_dict)))
         inv_covariances = []
         for c in cnew # ensures its a vector
-            if isa(c, SVD)
-                push!(inv_covariances, SVD(permutedims(c.Vt, (2, 1)), 1.0 ./ c.S, permutedims(c.U, (2, 1))))
-            else
-                push!(inv_covariances, inv(c))
-            end
+            push!(inv_covariances, inv_cov(c))
         end
     else
         inv_covariances = obs_dict["inv_covariances"]
@@ -279,7 +369,7 @@ function Observation(obs_dict::Dict)
     else
         ictmp = inv_covariances
     end
-    # additionally provide a dimension for UniformScalings
+    # additionally provide a dimension for UniformScalings (if users provided inverse as US)
     ictmp2 = []
     for (id, c) in enumerate(ictmp)
         if isa(c, UniformScaling)
@@ -319,9 +409,13 @@ end
 
 function Observation(
     sample::AV,
-    obs_noise_cov::AMorUS,
+    obs_noise_cov::AMorUSorSVD,
     name::AS,
-) where {AV <: AbstractVector, AMorUS <: Union{AbstractMatrix, UniformScaling}, AS <: AbstractString}
+) where {
+    AV <: AbstractVector,
+    AMorUSorSVD <: Union{AbstractMatrix, UniformScaling, SVD, SumOfCovariances},
+    AS <: AbstractString,
+}
     return Observation(Dict("samples" => sample, "covariances" => obs_noise_cov, "names" => name))
 end
 
@@ -395,6 +489,84 @@ function get_obs(o::Observation; build = true)
     end
 end
 
+
+function build_cov!(out, idx, c::AM) where {AM <: AbstractMatrix}
+    view(out, idx, idx) .= c
+end
+
+function build_cov!(out, idx, c::SVD)
+    if size(c.U, 1) == size(c.U, 2) # then work with Vt
+        view(out, idx, idx) .= c.Vt' * Diagonal(c.S) * c.Vt
+    else
+        view(out, idx, idx) .= c.U * Diagonal(c.S) * c.U'
+    end
+end
+
+
+function build_cov!(out, idx, c::SpD) where {SpD <: SVDplusD}
+    tmp = zeros(length(idx), length(idx))
+
+    c_diag = get_diag_cov(c)
+    build_cov!(tmp, 1:length(idx), c_diag)
+    view(out, idx, idx) .+= tmp
+
+    c_svd = get_svd_cov(c)
+    build_cov!(tmp, 1:length(idx), c_svd)
+    view(out, idx, idx) .+= tmp
+
+end
+function build_cov!(out, idx, c::DmT) where {DmT <: DminusTall}
+    tmp = zeros(length(idx), length(idx))
+
+    c_diag = get_diag_cov(c)
+    build_cov!(tmp, 1:length(idx), c_diag)
+    view(out, idx, idx) .+= tmp
+
+    c_tall = get_tall_cov(c)
+    view(out, idx, idx) .-= c_tall * c_tall'
+
+end
+
+function inv_cov(a::AM) where {AM <: AbstractMatrix}
+    return inv(a)
+end
+function inv_cov(a::SVD)
+    return SVD(permutedims(a.Vt, (2, 1)), 1.0 ./ a.S, permutedims(a.U, (2, 1)))
+end
+
+function inv_cov(a::SpD) where {SpD <: SVDplusD}
+
+    # Compute the cholesky quantity useful for evaluating woodbury formula for computing inverse product (s_in + Din)^-1 * mat
+    a_diag = get_diag_cov(a)
+    a_svd = get_svd_cov(a)
+    Dinv = inv(a_diag)
+    S = Diagonal(a_svd.S)
+    if size(a_svd.U, 1) == size(a_svd.U, 2)
+        U = a_svd.Vt'
+        Vt = a_svd.Vt
+    else
+        U = a_svd.U
+        Vt = a_svd.U'
+    end
+    T_nonsym = inv(S + S * Vt * Dinv * U * S) # often non-symmetric from rounding error
+    cholT = cholesky(0.5 * (T_nonsym + T_nonsym'))
+    inv_Lfactor = Dinv * U * S * cholT.L
+    # (s_in + Din)^-1 * Y = Dinv*Y - inv_Lfactor*inv_Lfactor'*Y
+
+    return DminusTall(Dinv, inv_Lfactor)
+end
+
+function inv_cov(a::DmT) where {DmT <: DminusTall}
+    @warn(
+        "DminusTall is a convenience structure to handle the inverse of type `SVDplusD`\n it is not designed to be used as a fast implementation by itself. For low-rank+diagonal representations of the Covariance matrix, please create an `SVDplusD`, with help from utilities such as `tsvd_cov_from_samples()` "
+    )
+
+    a_diag = get_diag_cov(a)
+    a_tall = get_tall_cov(a)
+    return inv(a + a_tall * a_tall')
+
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -409,15 +581,7 @@ function get_obs_noise_cov(o::Observation; build = true)
         covs = get_covs(o)
         cov_full = zeros(maximum(indices[end]), maximum(indices[end]))
         for (idx, c) in zip(indices, covs)
-            if isa(c, SVD)
-                if size(c.U, 1) == size(c.U, 2) # then work with Vt
-                    cov_full[idx, idx] .= c.Vt' * Diagonal(c.S) * c.Vt
-                else
-                    cov_full[idx, idx] .= c.U * Diagonal(c.S) * c.U'
-                end
-            else
-                cov_full[idx, idx] .= c
-            end
+            build_cov!(cov_full, idx, c)
         end
 
         return cov_full
@@ -438,15 +602,7 @@ function get_obs_noise_cov_inv(o::Observation; build = true)
         inv_covs = get_inv_covs(o)
         inv_cov_full = zeros(maximum(indices[end]), maximum(indices[end]))
         for (idx, c) in zip(indices, inv_covs)
-            if isa(c, SVD)
-                if size(c.U, 1) == size(c.U, 2) # then work with Vt
-                    inv_cov_full[idx, idx] .= c.Vt' * Diagonal(c.S) * c.Vt
-                else
-                    inv_cov_full[idx, idx] .= c.U * Diagonal(c.S) * c.U'
-                end
-            else
-                inv_cov_full[idx, idx] .= c
-            end
+            build_cov!(inv_cov_full, idx, c)
         end
         return inv_cov_full
     end
@@ -998,56 +1154,118 @@ function get_obs_noise_cov_inv(os::OS; build = true) where {OS <: ObservationSer
 
 end
 
+
+get_cov_size(am::AM) where {AM <: AbstractMatrix} = size(am, 1)
+function get_cov_size(am::SVD)
+    if size(am.U, 1) == size(am.U, 2)
+        return size(am.Vt, 2)
+    else
+        return size(am.U, 1)
+    end
+end
+
+function lmul_cov!(out, a::D, X, idx1, idx2) where {D <: Diagonal}
+    view(out, idx1, :) .= a.diag .* X[idx2, :]
+end
+function lmul_cov!(out, a::AM, X, idx1, idx2) where {AM <: AbstractMatrix}
+    view(out, idx1, :) .= a * X[idx2, :]
+end
+function lmul_cov!(out, a::SVD, X, idx1, idx2)
+    if size(a.U, 1) == size(a.U, 2) # then work with Vt
+        view(out, idx1, :) .= a.Vt' * (a.S .* a.Vt) * X[idx2, :]
+    else
+        view(out, idx1, :) .= a.U * (a.S .* a.U') * X[idx2, :]
+    end
+end
+
+
+function lmul_cov!(out, a::SpD, X, idx1, idx2) where {SpD <: SVDplusD}
+    tmp = zeros(length(idx1), size(out, 2))
+
+    a_diag = get_diag_cov(a)
+    lmul_cov!(tmp, a_diag, X, 1:size(tmp, 1), idx2)
+    view(out, idx1, :) .+= tmp
+
+    a_svd = get_svd_cov(a)
+    lmul_cov!(tmp, a_svd, X, 1:size(tmp, 1), idx2)
+    view(out, idx1, :) .+= tmp
+
+end
+
+function lmul_cov!(out, a::DmT, X, idx1, idx2) where {DmT <: DminusTall}
+    tmp = zeros(length(idx1), size(out, 2))
+
+    a_diag = get_diag_cov(a)
+    lmul_cov!(tmp, a_diag, X, 1:size(tmp, 1), idx2)
+    view(out, idx1, :) .+= tmp
+
+    a_tall = get_tall_cov(a)
+    view(out, idx1, :) .-= a_tall * (a_tall' * X[idx2, :])
+
+end
+
+
 ## Most common operation
 function lmul_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
     a_sizes = zeros(Int, length(A))
     for (i, a) in enumerate(A)
-        if isa(a, SVD)
-            if size(a.U, 1) == size(a.U, 2)
-                a_sizes[i] = size(a.Vt, 2)
-            else
-                a_sizes[i] = size(a.U, 1)
-            end
-        else
-            a_sizes[i] = size(a, 1)
-        end
+        a_sizes[i] = get_cov_size(a)
     end
     Y = zeros(sum(a_sizes), size(X, 2)) # stores A * X
     Xmat = isa(X, AbstractVector) ? reshape(X, :, 1) : X
     shift = [0]
     for (γs, a) in zip(a_sizes, A)
         idx = (shift[1] + 1):(shift[1] + γs)
-        if isa(a, Diagonal)
-            Y[idx, :] = a.diag .* Xmat[idx, :]
-        elseif isa(a, SVD)
-            if size(a.U, 1) == size(a.U, 2) # then work with Vt
-                Y[idx, :] = a.Vt[:, idx]' * (a.S .* a.Vt[:, idx]) * Xmat[idx, :]
-            else
-                Y[idx, :] = a.U[idx, :] * (a.S .* a.U[idx, :]') * Xmat[idx, :]
-            end
-        else
-            Y[idx, :] = a * Xmat[idx, :]
-        end
+        lmul_cov!(Y, a, Xmat, idx, idx)
         shift[1] = maximum(idx)
     end
     return Y
+end
+
+function lmul_cov!(out, a::D, X, global_idx1, local_idx, global_idx2) where {D <: Diagonal}
+    view(out, global_idx1, :) .= a.diag[local_idx] .* X[global_idx2, :]
+end
+function lmul_cov!(out, a::AM, X, global_idx1, local_idx, global_idx2) where {AM <: AbstractMatrix}
+    view(out, global_idx1, :) .= a[local_idx, local_idx] * X[global_idx2, :]
+end
+function lmul_cov!(out, a::SVD, X, global_idx1, local_idx, global_idx2)
+    if size(a.U, 1) == size(a.U, 2) # then work with Vt
+        view(out, global_idx1, :) .= a.Vt[:, local_idx]' * (a.S .* a.Vt[:, local_idx]) * X[global_idx2, :]
+    else
+        view(out, global_idx1, :) .= a.U[local_idx, :] * (a.S .* a.U[local_idx, :]') * X[global_idx2, :]
+    end
+end
+
+function lmul_cov!(out, a::SpD, X, global_idx1, local_idx, global_idx2) where {SpD <: SVDplusD}
+    tmp = zeros(length(global_idx1), size(out, 2))
+
+    a_diag = get_diag_cov(a)
+    lmul_cov!(tmp, a_diag, X, 1:size(tmp, 1), local_idx, global_idx2)
+    view(out, global_idx1, :) .= tmp
+
+    a_svd = get_svd_cov(a)
+    lmul_cov!(tmp, a_svd, X, 1:size(tmp, 1), local_idx, global_idx2)
+    view(out, global_idx1, :) .+= tmp
+
+end
+
+function lmul_cov!(out, a::DmT, X, global_idx1, local_idx, global_idx2) where {DmT <: DminusTall}
+    tmp = zeros(length(global_idx1), size(out, 2))
+
+    a_diag = get_diag_cov(a)
+    lmul_cov!(tmp, a_diag, X, 1:size(tmp, 1), local_idx, global_idx2)
+    view(out, global_idx1, :) .= tmp
+
+    a_tall = get_tall_cov(a)
+    view(out, global_idx1, :) .-= a_tall[local_idx, :] * (a_tall[local_idx, :]' * X[global_idx2, :])
+
 end
 
 function lmul_without_build!(out, A, X::AVorM, idx_triple::AV) where {AVorM <: AbstractVecOrMat, AV <: AbstractVector}
     Xmat = isa(X, AbstractVector) ? reshape(X, :, 1) : X
     for (block_idx, local_idx, global_idx) in idx_triple
         a = A[block_idx]
-        if isa(a, Diagonal)
-            out[global_idx, :] = a.diag[local_idx] .* Xmat[global_idx, :]
-        elseif isa(a, SVD)
-            if size(a.U, 1) == size(a.U, 2) # then work with Vt
-                out[global_idx, :] = a.Vt[:, local_idx]' * (a.S .* a.Vt[:, local_idx]) * Xmat[global_idx, :]
-            else
-                out[global_idx, :] = a.U[local_idx, :] * (a.S .* a.U[local_idx, :]') * Xmat[global_idx, :]
-            end
-        else # assume general matrix, much slower
-            out[global_idx, :] = a[local_idx, local_idx] * Xmat[global_idx, :]
-        end
+        lmul_cov!(out, a, Xmat, global_idx, local_idx, global_idx)
     end
 end
 
@@ -1097,15 +1315,7 @@ end
 function generate_block_product_subindices(Ablocks, idx_set)
     A_sizes = zeros(Int, length(Ablocks))
     for (i, Ai) in enumerate(Ablocks)
-        if isa(Ai, SVD)
-            if size(Ai.U, 1) == size(Ai.U, 2)
-                A_sizes[i] = size(Ai.Vt, 2)
-            else
-                A_sizes[i] = size(Ai.U, 1)
-            end
-        else
-            A_sizes[i] = size(Ai, 1)
-        end
+        A_sizes[i] = get_cov_size(Ai)
     end
 
     idx_triple = []

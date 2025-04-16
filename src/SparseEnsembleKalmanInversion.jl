@@ -198,6 +198,7 @@ function update_ensemble!(
     g_idx::Vector{Int};
     deterministic_forward_map = true,
     failed_ens = nothing,
+    kwargs...,
 ) where {FT, IT}
 
     # u: N_par × N_ens 
