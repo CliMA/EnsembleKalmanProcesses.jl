@@ -1,4 +1,5 @@
 [deps]
+ChunkSplitters = "ae650224-84b6-46f8-82ea-d812ca08434e"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 EnsembleKalmanProcesses = "aa8a2aa5-91d8-4396-bcef-d4f2ec43552d"
 GaussianRandomFields = "e4b2fa32-6e09-5554-b718-106ed5adafe9"

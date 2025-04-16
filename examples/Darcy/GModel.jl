@@ -76,20 +76,28 @@ function compute_f_2d(yy::AbstractVector{FT}) where {FT <: AbstractFloat}
     return f_2d
 end
 
+
+using ChunkSplitters
 """
     run_G_ensemble(darcy,κs::AbstractMatrix)
 
-Computes the forward map `G` (`solve_Darcy_2D` followed by `compute_obs`) over an ensemble of `κ`'s, stored flat as columns of `κs`
+Computes the forward map `G` (`solve_Darcy_2D` followed by `compute_obs`) over an ensemble of `κ`'s, stored flat as columns of `κs`. Use multithreading with `julia --project -t n_threads`
 """
 function run_G_ensemble(darcy, κs::AbstractMatrix)
     N_ens = size(κs, 2) # ens size
     nd = darcy.N_y #num obs
+
+    nthreads = Threads.nthreads()
+    chunked_ensemble = chunks(1:N_ens, n=nthreads)
+    
     g_ens = zeros(nd, N_ens)
-    for i in 1:N_ens
-        # run the model with the current parameters, i.e., map θ to G(θ)
-        κ_i = reshape(κs[:, i], darcy.N, darcy.N) # unflatten
-        h_i = solve_Darcy_2D(darcy, κ_i) # run model
-        g_ens[:, i] = compute_obs(darcy, h_i) # observe solution
+    Threads.@threads for chunk in chunked_ensemble
+        for i in chunk
+            # run the model with the current parameters, i.e., map θ to G(θ)
+            κ_i = reshape(κs[:, i], darcy.N, darcy.N) # unflatten
+            h_i = solve_Darcy_2D(darcy, κ_i) # run model
+            g_ens[:, i] = compute_obs(darcy, h_i) # observe solution
+        end
     end
     return g_ens
 end
