@@ -1010,7 +1010,7 @@ function ObservationSeries(obs_series_dict::Dict)
     end
 
     # First remove kwarg values   
-    if ["metadata"] ∈ keys(obs_series_dict)
+    if "metadata" ∈ collect(keys(obs_series_dict))
         metadata = obs_series_dict["metadata"]
         keys_osd = filter(x -> x != "metadata", collect(keys(obs_series_dict)))
     else
