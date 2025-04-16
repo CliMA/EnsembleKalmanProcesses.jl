@@ -889,7 +889,7 @@ struct ObservationSeries{AV1 <: AbstractVector, MM <: Minibatcher, AV2 <: Abstra
     current_minibatch_index::Dict
     "The batch history (grouped by minibatch and epoch)"
     minibatches::AV3
-    "Meta-data of any type that the user can group with the ObservationSeries"
+    "Metadata of any type that the user can group with the ObservationSeries"
     metadata::MD
 end
 
@@ -941,7 +941,7 @@ function ObservationSeries(
     minibatcher::MM,
     names_in::AV2,
     epoch::AV3;
-    metadata=nothing,
+    metadata = nothing,
 ) where {AV <: AbstractVector, MM <: Minibatcher, AV2 <: AbstractVector, AV3 <: AbstractVector}
     T = promote_type((typeof(o) for o in obs_vec_in)...)
     obs_vec = [convert(T, o) for o in obs_vec_in]
@@ -958,7 +958,7 @@ function ObservationSeries(
     obs_vec::AV,
     minibatcher::MM,
     epoch_or_names::AV2;
-    kwargs...
+    kwargs...,
 ) where {AV <: AbstractVector, MM <: Minibatcher, AV2 <: AbstractVector}
     T = promote_type((typeof(en) for en in epoch_or_names)...)
     epoch_or_names = [convert(T, en) for en in epoch_or_names]
@@ -977,7 +977,7 @@ function ObservationSeries(
         )
     end
 
-    return ObservationSeries(obs_vec, minibatcher, names, epoch, kwargs...)
+    return ObservationSeries(obs_vec, minibatcher, names, epoch; kwargs...)
 
 end
 
@@ -987,7 +987,7 @@ function ObservationSeries(obs_vec::AV, minibatcher::MM; kwargs...) where {AV <:
     return ObservationSeries(obs_vec, minibatcher, names, epoch; kwargs...)
 end
 
-function ObservationSeries(obs_vec::AV, kwargs...) where {AV <: AbstractVector}
+function ObservationSeries(obs_vec::AV; kwargs...) where {AV <: AbstractVector}
     len_epoch = length(obs_vec)
     minibatcher = no_minibatcher(len_epoch)
     names = ["series_$(string(i))" for i in 1:len_epoch]
@@ -1003,34 +1003,34 @@ function ObservationSeries(obs_series_dict::Dict)
 
     metadata = nothing
     keys_osd = collect(keys(obs_series_dict))
-    if !("observations" ∈ keys_osd
+    if !("observations" ∈ keys_osd)
         throw(ArgumentError("input dictionaries must contain the key: \"observations\". Got $(keys_osd)"))
     end
 
     # First remove kwarg values   
     if ["metadata"] ∈ keys_osd
         metadata = obs_series_dict["metadata"]
-        keys_osd = filter(x -> x != "metadata", collect(keys(obs_series_dict)) )
+        keys_osd = filter(x -> x != "metadata", collect(keys(obs_series_dict)))
     end
-        
+
     # call different constructors
     if issetequal(["observations"], keys_osd)
-        return ObservationSeries(obs_series_dict["observations"], metadata=metadata)
+        return ObservationSeries(obs_series_dict["observations"], metadata = metadata)
     elseif issetequal(["observations", "minibatcher"], keys_osd)
-        return ObservationSeries(obs_series_dict["observations"], obs_series_dict["minibatcher"],  metadata=metadata)
+        return ObservationSeries(obs_series_dict["observations"], obs_series_dict["minibatcher"], metadata = metadata)
     elseif issetequal(["observations", "minibatcher", "epoch"], keys_osd)
         return ObservationSeries(
             obs_series_dict["observations"],
             obs_series_dict["minibatcher"],
             obs_series_dict["epoch"],
-            metadata=metadata,
+            metadata = metadata,
         )
     elseif issetequal(["observations", "minibatcher", "names"], keys_osd)
         return ObservationSeries(
             obs_series_dict["observations"],
             obs_series_dict["minibatcher"],
             obs_series_dict["names"],
-            metadata=metadata,
+            metadata = metadata,
         )
     elseif issetequal(["observations", "minibatcher", "epoch", "names"], keys_osd)
         return ObservationSeries(
@@ -1038,7 +1038,7 @@ function ObservationSeries(obs_series_dict::Dict)
             obs_series_dict["minibatcher"],
             obs_series_dict["names"],
             obs_series_dict["epoch"],
-            metadata=metadata,
+            metadata = metadata,
         )
     else
         throw(

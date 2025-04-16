@@ -363,12 +363,13 @@ end
     given_batches =
         [collect(((i - 1) * batch_size + 1):(i * batch_size)) for i in 1:Int(floor(maximum(sample_ids) / batch_size))]
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
-    observation_series = ObservationSeries(obs_vec, minibatcher, series_names, metadata=metadata)
+    observation_series = ObservationSeries(obs_vec, minibatcher, series_names, metadata = metadata)
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
-    os_dict = Dict("observations" => obs_vec, "minibatcher" => minibatcher, "names" => series_names, "metadata" => metadata)
+    os_dict =
+        Dict("observations" => obs_vec, "minibatcher" => minibatcher, "names" => series_names, "metadata" => metadata)
     observation_series_from_dict = ObservationSeries(os_dict)
     @test observation_series == observation_series_from_dict
-    
+
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng)) #cant copy minibatcher yet
     new_epoch = create_new_epoch!(minibatcher, given_batches)
     @test get_observations(observation_series) == obs_vec
@@ -377,7 +378,7 @@ end
     @test get_minibatcher(observation_series) == minibatcher
     @test get_names(observation_series) == series_names
     @test get_metadata(observation_series) == metadata
-    
+
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
     observation_series = ObservationSeries(obs_vec, minibatcher)
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
