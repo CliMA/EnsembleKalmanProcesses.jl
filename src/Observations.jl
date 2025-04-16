@@ -870,7 +870,7 @@ ObservationSeries(
     Dict(
         "observations" => vec_of_observations,
         "names" => names_of_observations,
-        "minibatcher" => minibatcher
+        "minibatcher" => minibatcher,
     ),
 )
 ```
@@ -1001,16 +1001,20 @@ end
 
 function ObservationSeries(obs_series_dict::Dict)
 
-    metadata = nothing
     if !("observations" ∈ collect(keys(obs_series_dict)))
-        throw(ArgumentError("input dictionaries must contain the key: \"observations\". Got $(collect(keys(obs_series_dict)))"))
+        throw(
+            ArgumentError(
+                "input dictionaries must contain the key: \"observations\". Got $(collect(keys(obs_series_dict)))",
+            ),
+        )
     end
 
     # First remove kwarg values   
-    if ["metadata"] ∈ keys_osd
+    if ["metadata"] ∈ keys(obs_series_dict)
         metadata = obs_series_dict["metadata"]
         keys_osd = filter(x -> x != "metadata", collect(keys(obs_series_dict)))
     else
+        metadata = nothing
         keys_osd = collect(keys(obs_series_dict))
     end
 
