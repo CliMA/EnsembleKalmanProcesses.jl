@@ -48,6 +48,7 @@ get_observations(os::OS) where {OS <: ObservationSeries}
 get_minibatches(os::OS) where {OS <: ObservationSeries}
 get_current_minibatch_index(os::OS) where {OS <: ObservationSeries}
 get_minibatcher(os::OS) where {OS <: ObservationSeries}
+get_metadata
 update_minibatch!(os::OS) where {OS <: ObservationSeries}
 get_current_minibatch(os::OS) where {OS <: ObservationSeries}
 get_obs(os::OS) where {OS <: ObservationSeries}
