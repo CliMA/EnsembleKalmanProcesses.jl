@@ -391,6 +391,7 @@ end
     @test get_current_minibatch_index(observation_series) == Dict("epoch" => 1, "minibatch" => 1)
     @test get_minibatcher(observation_series) == minibatcher
     @test get_names(observation_series) == ["series_$(string(i))" for i in 1:length(obs_vec)]
+    @test isnothing(get_metadata(observation_series))
 
     # test the minibatch updating with epochs
     @test get_current_minibatch(observation_series) == new_epoch[1]
