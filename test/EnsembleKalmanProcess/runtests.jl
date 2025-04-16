@@ -1212,7 +1212,7 @@ end
 
         y_obs_test, G_test, Γ_test, A_test =
             linear_inv_problem(ϕ_star, noise_level, n_obs_test, rng; return_matrix = true)
-        Γ_test = Diagonal(0.01 * ones(size(y_obs_test)))
+        Γ_test = Diagonal(0.01 * ones(n_obs_test))
 
 
         # test the SVD option with low rank approx of a matrix
@@ -1224,16 +1224,30 @@ end
             "names" => "cov_as_svd",
         ))
         # also do some kind of transposed form (nonsensical values) to go into other test branch
-        ΓT_test_svd = tsvd_mat(Z_test) # just take rank to be dim for a UniformScaling     
+        ΓT_test_svd = tsvd_mat(Z_test') # just take rank to be dim for a UniformScaling     
         observation_svdT = Observation(Dict(
             "samples" => y_obs_test,
             "covariances" => ΓT_test_svd, # should calc the psuedoinverse with SVD properly
             "names" => "cov_as_svd_transpose",
         ))
+        # test with a sum of covariances:
+        Γ_sum = SVDplusD(ΓT_test_svd, Γ_test)
+        observation_sum = Observation(Dict(
+            "samples" => y_obs_test,
+            "covariances" => Γ_sum, # should calc the pseudoinverse with SVD properly
+            "names" => "cov_as_svd_plus_diag",
+        ))
 
         utkiobj = EKP.EnsembleKalmanProcess(
             y_obs_test,
             Γ_test,
+            TransformUnscented(prior);
+            rng = rng,
+            failure_handler_method = SampleSuccGauss(),
+            scheduler = DataMisfitController(terminate_at = 1e8), # (least scalable scheduler in output-space)
+        )
+        utkiobj_sum = EKP.EnsembleKalmanProcess(
+            observation_sum,
             TransformUnscented(prior);
             rng = rng,
             failure_handler_method = SampleSuccGauss(),
@@ -1277,8 +1291,8 @@ end
             scheduler = DataMisfitController(terminate_at = 1e8),
         )
         n_final = n_iter
-        names = ["etki", "etki-inf", "etki-svd", "etki-svdT", "utki"]
-        for (ekp, name) in zip((ekiobj, ekiobj_inf, ekiobj_svd, ekiobj_svdT, utkiobj), names)
+        names = ["etki", "etki-inf", "etki-svd", "etki-svdT", "utki", "utki-svdplusdiag"]
+        for (ekp, name) in zip((ekiobj, ekiobj_inf, ekiobj_svd, ekiobj_svdT, utkiobj, utkiobj_sum), names)
             T = 0.0
             for i in 1:n_iter
                 params_i = get_ϕ_final(prior, ekp)

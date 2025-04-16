@@ -206,6 +206,41 @@ end
     mat_lr3 = tsvd_cov_from_samples(testmat3, rk)
     @test length(mat_lr3.S) == rk
 
+    ## Sizes
+    @test get_cov_size(full_cov) == 100
+    @test get_cov_size(mat_lr) == 100
+
+    ## Create SVDplusD
+    @test_throws ArgumentError SVDplusD(mat_lr, 6.0 * Diagonal(ones(rk + 1))) # converts it to an SVD type
+
+    dim = get_cov_size(mat_lr)
+    X_I = SVDplusD(mat_lr, 6.0 * I) # converts it to an SVD type
+
+    @test X_I == SVD(mat_lr.U, mat_lr.S .+ 6.0, mat_lr.Vt)
+    a_diag = Diagonal(collect(1.0:dim))
+    X_D = SVDplusD(mat_lr, a_diag)
+    X_M = SVDplusD(mat_lr, Matrix(a_diag)) # converts it to a Diagonal type
+    @test X_M == X_D
+    @test size(X_D) == (dim, dim)
+    @test get_cov_size(X_D) == dim
+    @test get_svd_cov(X_D) == mat_lr
+    @test get_diag_cov(X_D) == a_diag
+
+    # Create DminusTall (the format for SVDplusD inverse)
+    DmT = inv_cov(X_D) # stored in form D^-1 - R R^T where R is a tall matrix
+    DmT2 = inv_cov(X_D) # stored in form D^-1 - R R^T where R is a tall matrix
+    @test DmT == DmT2 #just check == implementation
+    @test size(DmT) == (dim, dim)
+    Dinv = inv(a_diag)
+    S = Diagonal(mat_lr.S)
+    U = mat_lr.U
+    Vt = mat_lr.Vt
+    T_nonsym = inv(S + S * Vt * Dinv * U * S) # often non-symmetric from rounding error
+    cholT = cholesky(0.5 * (T_nonsym + T_nonsym'))
+    tall = Dinv * U * S * cholT.L
+    @test norm(get_diag_cov(DmT) - Dinv) < 1e-12
+    @test norm(get_tall_cov(DmT) - tall) < 1e-12
+
 end
 
 
@@ -418,25 +453,46 @@ end
 
     rng = Random.MersenneTwister(11023)
 
-    samples = [randn(5), randn(7), randn(28)]
+    samples = [randn(5), randn(7), randn(9), randn(12)]
     diag_cov = Diagonal(Float64.(collect(1:length(samples[1]))))
     Xrt = randn(length(samples[2]), length(samples[2]))
     full_mat_cov = Xrt * Xrt'
+
     testmat3 = randn(rng, length(samples[3]), 5)
     svd_cov = tsvd_cov_from_samples(testmat3)
 
-    covs = [diag_cov, full_mat_cov, svd_cov]
+    testmat4 = randn(rng, length(samples[4]), 6)
+    svd_cov2 = tsvd_cov_from_samples(testmat4)
+    dim = get_cov_size(svd_cov2)
+    sum_cov = SVDplusD(svd_cov2, Diagonal(collect(1.0:dim)))
+
+    covs = [diag_cov, full_mat_cov, svd_cov, sum_cov]
     names = ["d$(string(i))" for i in 1:length(samples)]
     obs_vec = []
     for (sam, cov, nam) in zip(samples, covs, names)
         push!(obs_vec, Observation(sam, cov, nam))
     end
     observation_series = ObservationSeries(obs_vec)
-    # Test utilities for multiplying covariances without building them
-
-
-    # test lmul_obs_noise_cov
+    observation_series_nosum = ObservationSeries(obs_vec[1:3])
+    Γfull = zeros(33, 33)
+    Γfull[1:5, 1:5] = diag_cov
+    Γfull[6:12, 6:12] = full_mat_cov
+    Γfull[13:21, 13:21] = svd_cov.Vt' * Diagonal(svd_cov.S) * svd_cov.Vt
+    Γfull[22:33, 22:33] += svd_cov2.Vt' * Diagonal(svd_cov2.S) * svd_cov2.Vt
+    Γfull[22:33, 22:33] += Diagonal(collect(1.0:12.0))
     Γ = get_obs_noise_cov(observation_series)
+    @test norm(Γfull - Γ) < 1e-12
+
+    Γfullinv = zeros(33, 33)
+    Γfullinv[1:5, 1:5] = inv(diag_cov)
+    Γfullinv[6:12, 6:12] = inv(full_mat_cov)
+    Γfullinv[13:21, 13:21] = svd_cov.U * Diagonal(1.0 ./ svd_cov.S) * svd_cov.U'
+    Γfullinv[22:33, 22:33] = inv(Γfull[22:33, 22:33]) #small enough to compute directly
+    Γinv = get_obs_noise_cov_inv(observation_series)
+    @test norm(Γfullinv - Γinv) < 1e-12
+    # Test utilities for multiplying covariances without building them
+    # test lmul_obs_noise_cov
+
     Xvec = randn(size(Γ, 1))
     X = randn(size(Γ, 1), 50)
     test1 = Γ * Xvec
@@ -444,7 +500,6 @@ end
     @test norm(test1 - lmul_obs_noise_cov(observation_series, Xvec)) < 1e-12
     @test norm(test2 - lmul_obs_noise_cov(observation_series, X)) < 1e-12
 
-    Γinv = get_obs_noise_cov_inv(observation_series)
     test1 = Γinv * Xvec
     test2 = Γinv * X
     @test norm(test1 - lmul_obs_noise_cov_inv(observation_series, Xvec)) < 1e-12
@@ -452,8 +507,7 @@ end
 
     # test the pre-indexed versions:    
     # cov
-    g_idx = [2, 3, 4, 8, 9, 15, 16] # some indices from each cov-type
-    Γ = get_obs_noise_cov(observation_series)
+    g_idx = [2, 3, 4, 8, 9, 15, 16, 24, 26, 27] # some indices from each cov-type
     test1 = Γ[g_idx, g_idx] * Xvec[g_idx]
     test2 = Γ[g_idx, g_idx] * X[g_idx, :]
     out1 = zeros(size(test1))
