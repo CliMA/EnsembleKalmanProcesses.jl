@@ -34,7 +34,6 @@ using EnsembleKalmanProcesses
     end
     names = ["d$(string(i))" for i in 1:n_samples]
 
-
     n_blocks = length(sample_sizes)
     indices = [1:sample_sizes[1]]
     if n_blocks > 1
@@ -355,18 +354,21 @@ end
     end
     series_names = ["obs_$(string(i))" for i in 1:n_samples]
 
+    metadata = Dict("example1" => 4)
+
+
     # minibatcher 
     batch_size = 2
     rng = Random.MersenneTwister(11023)
     given_batches =
         [collect(((i - 1) * batch_size + 1):(i * batch_size)) for i in 1:Int(floor(maximum(sample_ids) / batch_size))]
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
-    observation_series = ObservationSeries(obs_vec, minibatcher, series_names)
+    observation_series = ObservationSeries(obs_vec, minibatcher, series_names, metadata=metadata)
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
-    os_dict = Dict("observations" => obs_vec, "minibatcher" => minibatcher, "names" => series_names)
+    os_dict = Dict("observations" => obs_vec, "minibatcher" => minibatcher, "names" => series_names, "metadata" => metadata)
     observation_series_from_dict = ObservationSeries(os_dict)
     @test observation_series == observation_series_from_dict
-
+    
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng)) #cant copy minibatcher yet
     new_epoch = create_new_epoch!(minibatcher, given_batches)
     @test get_observations(observation_series) == obs_vec
@@ -374,7 +376,8 @@ end
     @test get_current_minibatch_index(observation_series) == Dict("epoch" => 1, "minibatch" => 1)
     @test get_minibatcher(observation_series) == minibatcher
     @test get_names(observation_series) == series_names
-
+    @test get_metadata(observation_series) == metadata
+    
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
     observation_series = ObservationSeries(obs_vec, minibatcher)
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))

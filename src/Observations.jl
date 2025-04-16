@@ -15,6 +15,7 @@ export get_samples,
     get_inv_covs,
     get_names,
     get_indices,
+    get_metadata,
     combine_observations,
     get_obs_noise_cov,
     get_obs_noise_cov_inv,
@@ -877,7 +878,7 @@ ObservationSeries(
 
 $(TYPEDFIELDS)
 """
-struct ObservationSeries{AV1 <: AbstractVector, MM <: Minibatcher, AV2 <: AbstractVector, AV3 <: AbstractVector}
+struct ObservationSeries{AV1 <: AbstractVector, MM <: Minibatcher, AV2 <: AbstractVector, AV3 <: AbstractVector, MD}
     "A vector of `Observation`s to be used in the experiment"
     observations::AV1
     "A `Minibatcher` object used to define the minibatching"
@@ -888,6 +889,8 @@ struct ObservationSeries{AV1 <: AbstractVector, MM <: Minibatcher, AV2 <: Abstra
     current_minibatch_index::Dict
     "The batch history (grouped by minibatch and epoch)"
     minibatches::AV3
+    "Meta-data of any type that the user can group with the ObservationSeries"
+    metadata::MD
 end
 
 """
@@ -925,11 +928,20 @@ gets the `minibatcher` field from the `ObservationSeries` object
 """
 get_minibatcher(os::OS) where {OS <: ObservationSeries} = os.minibatcher
 
+"""
+$(TYPEDSIGNATURES)
+
+gets the `metadata` field from the `ObservationSeries` object
+"""
+get_metadata(os::OS) where {OS <: ObservationSeries} = os.metadata
+
+
 function ObservationSeries(
     obs_vec_in::AV,
     minibatcher::MM,
     names_in::AV2,
-    epoch::AV3,
+    epoch::AV3;
+    metadata=nothing,
 ) where {AV <: AbstractVector, MM <: Minibatcher, AV2 <: AbstractVector, AV3 <: AbstractVector}
     T = promote_type((typeof(o) for o in obs_vec_in)...)
     obs_vec = [convert(T, o) for o in obs_vec_in]
@@ -939,13 +951,14 @@ function ObservationSeries(
 
     minibatches = [create_new_epoch!(minibatcher, epoch)]
     current_minibatch_index = Dict("epoch" => 1, "minibatch" => 1)
-    return ObservationSeries(obs_vec, minibatcher, names, current_minibatch_index, minibatches)
+    return ObservationSeries(obs_vec, minibatcher, names, current_minibatch_index, minibatches, metadata)
 end
 
 function ObservationSeries(
     obs_vec::AV,
     minibatcher::MM,
-    epoch_or_names::AV2,
+    epoch_or_names::AV2;
+    kwargs...
 ) where {AV <: AbstractVector, MM <: Minibatcher, AV2 <: AbstractVector}
     T = promote_type((typeof(en) for en in epoch_or_names)...)
     epoch_or_names = [convert(T, en) for en in epoch_or_names]
@@ -964,22 +977,22 @@ function ObservationSeries(
         )
     end
 
-    return ObservationSeries(obs_vec, minibatcher, names, epoch)
+    return ObservationSeries(obs_vec, minibatcher, names, epoch, kwargs...)
 
 end
 
-function ObservationSeries(obs_vec::AV, minibatcher::MM) where {AV <: AbstractVector, MM <: Minibatcher}
+function ObservationSeries(obs_vec::AV, minibatcher::MM; kwargs...) where {AV <: AbstractVector, MM <: Minibatcher}
     names = ["series_$(string(i))" for i in 1:length(obs_vec)]
     epoch = collect(1:length(obs_vec))
-    return ObservationSeries(obs_vec, minibatcher, names, epoch)
+    return ObservationSeries(obs_vec, minibatcher, names, epoch; kwargs...)
 end
 
-function ObservationSeries(obs_vec::AV) where {AV <: AbstractVector}
+function ObservationSeries(obs_vec::AV, kwargs...) where {AV <: AbstractVector}
     len_epoch = length(obs_vec)
     minibatcher = no_minibatcher(len_epoch)
     names = ["series_$(string(i))" for i in 1:len_epoch]
     epoch = collect(1:len_epoch)
-    return ObservationSeries(obs_vec, minibatcher, names, epoch)
+    return ObservationSeries(obs_vec, minibatcher, names, epoch; kwargs...)
 end
 
 function ObservationSeries(obs::O, args...; kwargs...) where {O <: Observation}
@@ -987,37 +1000,50 @@ function ObservationSeries(obs::O, args...; kwargs...) where {O <: Observation}
 end
 
 function ObservationSeries(obs_series_dict::Dict)
-    if !("observations" ∈ collect(keys(obs_series_dict)))
-        throw(ArgumentError("input dictionaries must contain the key: \"observations\". Got $(keys(obs_series_dict))"))
+
+    metadata = nothing
+    keys_osd = collect(keys(obs_series_dict))
+    if !("observations" ∈ keys_osd
+        throw(ArgumentError("input dictionaries must contain the key: \"observations\". Got $(keys_osd)"))
     end
+
+    # First remove kwarg values   
+    if ["metadata"] ∈ keys_osd
+        metadata = obs_series_dict["metadata"]
+        keys_osd = filter(x -> x != "metadata", collect(keys(obs_series_dict)) )
+    end
+        
     # call different constructors
-    if issetequal(["observations"], collect(keys(obs_series_dict)))
-        return ObservationSeries(obs_series_dict["observations"])
-    elseif issetequal(["observations", "minibatcher"], collect(keys(obs_series_dict)))
-        return ObservationSeries(obs_series_dict["observations"], obs_series_dict["minibatcher"])
-    elseif issetequal(["observations", "minibatcher", "epoch"], collect(keys(obs_series_dict)))
+    if issetequal(["observations"], keys_osd)
+        return ObservationSeries(obs_series_dict["observations"], metadata=metadata)
+    elseif issetequal(["observations", "minibatcher"], keys_osd)
+        return ObservationSeries(obs_series_dict["observations"], obs_series_dict["minibatcher"],  metadata=metadata)
+    elseif issetequal(["observations", "minibatcher", "epoch"], keys_osd)
         return ObservationSeries(
             obs_series_dict["observations"],
             obs_series_dict["minibatcher"],
             obs_series_dict["epoch"],
+            metadata=metadata,
         )
-    elseif issetequal(["observations", "minibatcher", "names"], collect(keys(obs_series_dict)))
+    elseif issetequal(["observations", "minibatcher", "names"], keys_osd)
         return ObservationSeries(
             obs_series_dict["observations"],
             obs_series_dict["minibatcher"],
             obs_series_dict["names"],
+            metadata=metadata,
         )
-    elseif issetequal(["observations", "minibatcher", "epoch", "names"], collect(keys(obs_series_dict)))
+    elseif issetequal(["observations", "minibatcher", "epoch", "names"], keys_osd)
         return ObservationSeries(
             obs_series_dict["observations"],
             obs_series_dict["minibatcher"],
             obs_series_dict["names"],
             obs_series_dict["epoch"],
+            metadata=metadata,
         )
     else
         throw(
             ArgumentError(
-                "input dictionaries must contain a subset of keys: [\"observations\", \"minibatcher\", \"names\", \"epoch\"]. Got $(keys(obs_series_dict))",
+                "input dictionaries must contain a subset of keys: [\"observations\", \"minibatcher\", \"names\", \"epoch\", \"metadata\"]. Got $(keys(obs_series_dict))",
             ),
         )
     end
