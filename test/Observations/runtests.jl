@@ -367,6 +367,8 @@ end
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
     os_dict =
         Dict("observations" => obs_vec, "minibatcher" => minibatcher, "names" => series_names, "metadata" => metadata)
+    bad_os_dict = Dict("minibatcher" => minibatcher, "names" => series_names, "metadata" => metadata)
+    @test_throws ArgumentError ObservationSeries(bad_os_dict)
     observation_series_from_dict = ObservationSeries(os_dict)
     @test observation_series == observation_series_from_dict
 
