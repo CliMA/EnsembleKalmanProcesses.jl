@@ -118,8 +118,13 @@ observation_series = ObservationSeries(
     Dict(
         "observations" => hundred_full_obs,
         "minibatcher" => minibatcher,
+        "metadata" => "optional metadata information in any format",
     ),
 )
+```
+
+```@example ex2
+get_metadata(observation_series) # returns metadata
 ```
 
 ```@example ex2
