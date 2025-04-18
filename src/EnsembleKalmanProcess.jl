@@ -829,20 +829,99 @@ end
 construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <: Int} =
     construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens)
 
+# errors of interest
+"""
+    compute_ens_rmse(ekp::EnsembleKalmanProcess)
+
+Computes the covariance-weighted error of the mean forward model output, normalized by the dimension `(g - y)' * (g - y)`.
+The error is stored within the `EnsembleKalmanProcess`.
+"""
+function compute_average_rmse(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    diff = get_obs(ekp) .- g[:, succ_ens] # column diff
+    ens_rmse = sqrt.(sum(diff .^ 2 / size(g, 1), dims = 1)) # rmse for each ens member
+    avg_rmse = mean(ens_rmse) # average
+    return avg_rmse
+end
+
+"""
+    compute_average_weighted_rmse(ekp::EnsembleKalmanProcess)
+
+Computes the average unweighted error over the forward ensemble, normalized by the dimension `1/dim(y) (g_i - y)' * (g_i - y)`.
+"""
+function compute_average_rmse(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    diff = get_obs(ekp) .- g[:, succ_ens] # column diff
+    X = lmul_obs_noise_cov_inv(ekp, diff)
+    weight_diff = 1.0 / size(g, 1) * dot(diff, X)
+    ens_rmse = sqrt.(sum(weight_diff, dims = 1)) # rmse for each ens member
+    avg_rmse = mean(ens_rmse) # average
+    return avg_rmse
+end
+
+"""
+    compute_average_weighted_rmse(ekp::EnsembleKalmanProcess)
+
+Computes the average covariance-weighted error over the forward model ensemble, normalized by the dimension `1/dim(y) (g_i - y)' * Γ_inv *  (g_i - y)`.
+"""
+function compute_average_weighted_rmse(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    diff = get_obs(ekp) .- g[:, succ_ens] # column diff
+    X = lmul_obs_noise_cov_inv(ekp, diff)
+    weight_diff = 1.0 / size(g, 1) * dot(diff, X)
+    ens_rmse = sqrt.(sum(weight_diff, dims = 1)) # rmse for each ens member
+    avg_rmse = mean(ens_rmse) # average
+    return avg_rmse
+end
+
+
+"""
+    compute_loss_at_mean(ekp::EnsembleKalmanProcess)
+
+Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * Γ_inv * (ḡ - y)`.
+The error is stored within the `EnsembleKalmanProcess`.
+"""
+function compute_loss_at_mean(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    mean_g = dropdims(mean(g[:, succ_ens], dims = 2), dims = 2)
+    diff = get_obs(ekp) - mean_g
+    X = lmul_obs_noise_cov_inv(ekp, diff)
+    newerr = 1.0 / size(g, 1) * dot(diff, X)
+    return newerr
+end
+
+"""
+    compute_unweighted_loss_at_mean(ekp::EnsembleKalmanProcess)
+
+Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * (ḡ - y)`.
+The error is stored within the `EnsembleKalmanProcess`.
+"""
+function compute_unweighted_loss_at_mean(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    mean_g = dropdims(mean(g[:, succ_ens], dims = 2), dims = 2)
+    diff = get_obs(ekp) - mean_g
+    newerr = 1.0 / size(g, 1) * dot(diff, diff)
+    return newerr
+end
+
+
 """
     compute_error!(ekp::EnsembleKalmanProcess)
 
-Computes the covariance-weighted error of the mean forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)'Γ_inv(ḡ - y)`.
-The error is stored within the `EnsembleKalmanProcess`.
+Computes a variety of error metrics (rmse, weighted rmse, loss etc.) and stores this in `EnsembleKalmanProcess`. (retrievable with get_error(ekp))
 """
 function compute_error!(ekp::EnsembleKalmanProcess)
-    g = get_g_final(ekp)
-    succ_ens,_ = split_indices_by_success(g)
-    mean_g = dropdims(mean(g[:,succ_ens], dims = 2), dims = 2)
-    diff = get_obs(ekp) - mean_g
-    X = lmul_obs_noise_cov_inv(ekp, diff)
-    newerr = 1.0 / size(g,1) * dot(diff, X)
-    push!(get_error(ekp), newerr)
+    avg_rmse = compute_average_rmse(ekp)
+    avg_cov_rmse = compute_average_weighted_rmse(ekp)
+    loss = compute_loss_of_mean(ekp)
+    un_loss = compute_unweighted_loss_at_mean(ekp)
+
+    push!(get_error(ekp), loss) # currently only store loss 
 end
 
 """
