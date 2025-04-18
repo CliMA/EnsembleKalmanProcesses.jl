@@ -901,7 +901,7 @@ Computes a variety of error metrics (rmse, weighted rmse, loss etc.) and stores 
 """
 function compute_error!(ekp::EnsembleKalmanProcess)
     rmse = compute_average_rmse(ekp)
-    loss = compute_loss_of_mean(ekp)
+    loss = compute_loss_at_mean(ekp)
     un_rmse = compute_average_unweighted_rmse(ekp)
     un_loss = compute_unweighted_loss_at_mean(ekp)
 
