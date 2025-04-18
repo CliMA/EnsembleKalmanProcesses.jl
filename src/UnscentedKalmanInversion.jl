@@ -842,7 +842,8 @@ function compute_error!(
     mean_g = get_process(uki).obs_pred[end]
     diff = get_obs(uki) - mean_g
     X = lmul_obs_noise_cov_inv(uki, diff)
-    newerr = dot(diff, X)
+    g = get_g_final(uki)
+    newerr = 1.0 / length(mean_g) * dot(diff, X)
     push!(get_error(uki), newerr)
 end
 
