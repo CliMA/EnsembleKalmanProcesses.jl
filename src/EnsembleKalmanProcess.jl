@@ -836,10 +836,13 @@ Computes the covariance-weighted error of the mean forward model output, `(ḡ -
 The error is stored within the `EnsembleKalmanProcess`.
 """
 function compute_error!(ekp::EnsembleKalmanProcess)
-    mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
+    g = get_g_final(ekp)
+    succ_ens,_ = split_indices_by_success(g)
+    mean_g = dropdims(mean(g[:,succ_ens], dims = 2), dims = 2)
     diff = get_obs(ekp) - mean_g
     X = lmul_obs_noise_cov_inv(ekp, diff)
-    newerr = dot(diff, X)
+    N_ens = get_N_ens(ekp)
+    newerr = 1.0 / N_ens * dot(diff, X)
     push!(get_error(ekp), newerr)
 end
 
