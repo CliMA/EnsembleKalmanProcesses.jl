@@ -832,7 +832,7 @@ construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <:
 """
     compute_error!(ekp::EnsembleKalmanProcess)
 
-Computes the covariance-weighted error of the mean forward model output, `(ḡ - y)'Γ_inv(ḡ - y)`.
+Computes the covariance-weighted error of the mean forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)'Γ_inv(ḡ - y)`.
 The error is stored within the `EnsembleKalmanProcess`.
 """
 function compute_error!(ekp::EnsembleKalmanProcess)
@@ -841,8 +841,7 @@ function compute_error!(ekp::EnsembleKalmanProcess)
     mean_g = dropdims(mean(g[:,succ_ens], dims = 2), dims = 2)
     diff = get_obs(ekp) - mean_g
     X = lmul_obs_noise_cov_inv(ekp, diff)
-    N_ens = get_N_ens(ekp)
-    newerr = 1.0 / N_ens * dot(diff, X)
+    newerr = 1.0 / size(g,1) * dot(diff, X)
     push!(get_error(ekp), newerr)
 end
 
