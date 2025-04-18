@@ -855,7 +855,7 @@ function compute_average_rmse(ekp::EnsembleKalmanProcess)
     succ_ens, _ = split_indices_by_success(g)
     diff = get_obs(ekp) .- g[:, succ_ens] # column diff
     X = lmul_obs_noise_cov_inv(ekp, diff)
-    weight_diff = 1.0 / size(g, 1) * dot(diff, X)
+    weight_diff = 1.0 / size(g, 1) * diff'* X
     ens_rmse = sqrt.(sum(weight_diff, dims = 1)) # rmse for each ens member
     avg_rmse = mean(ens_rmse) # average
     return avg_rmse
