@@ -924,10 +924,10 @@ function compute_error!(ekp::EnsembleKalmanProcess)
 
     em = get_error_metrics(ekp)
     if length(keys(em)) == 0
-        em["avg_rmse"] = rmse
-        em["loss"] = loss
-        em["unweighted_avg_rmse"] = un_rmse
-        em["unweighted_loss"] = un_loss
+        em["avg_rmse"] = [rmse]
+        em["loss"] = [loss]
+        em["unweighted_avg_rmse"] = [un_rmse]
+        em["unweighted_loss"] = [un_loss]
     else
         push!(em["avg_rmse"], rmse)
         push!(em["loss"], loss)
