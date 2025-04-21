@@ -11,7 +11,7 @@ using DocStringExtensions
 export EnsembleKalmanProcess
 export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
-export get_N_iterations, get_error, get_cov_blocks
+export get_N_iterations, get_error_metrics, get_error, get_cov_blocks
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
 export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
 export get_scheduler,
