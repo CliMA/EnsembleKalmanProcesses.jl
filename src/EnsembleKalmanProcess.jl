@@ -840,7 +840,7 @@ function compute_average_unweighted_rmse(ekp::EnsembleKalmanProcess)
     succ_ens, _ = split_indices_by_success(g)
     diff = get_obs(ekp) .- g[:, succ_ens] # column diff
     dot_diff = 1.0 / size(g, 1) * [dot(d,d) for d in eachcol(diff)] # trace(diff'*diff)
-    if any(dot_diff < 0)
+    if any(dot_diff .< 0)
         throw(ArgumentError("Found x'*Γ⁻¹*x < 0. This implies Γ⁻¹ not positive semi-definite, \n please modify Γ (a.k.a noise covariance of the observation) to ensure p.s.d. holds."))
     end
 
@@ -860,7 +860,7 @@ function compute_average_rmse(ekp::EnsembleKalmanProcess)
     diff = get_obs(ekp) .- g[:, succ_ens] # column diff
     X = lmul_obs_noise_cov_inv(ekp, diff)
     weight_diff = 1.0 / size(g, 1) *  [dot(x,d) for (x,d) in zip(eachcol(diff),eachcol(X))] # trace(diff'*X)
-    if any(weight_diff < 0)
+    if any(weight_diff .< 0)
         throw(ArgumentError("Found x'*Γ⁻¹*x < 0. This implies Γ⁻¹ not positive semi-definite, \n please modify Γ (a.k.a noise covariance of the observation) to ensure p.s.d. holds."))
     end
     ens_rmse = sqrt.(sum(weight_diff)) # rmse for each ens member
