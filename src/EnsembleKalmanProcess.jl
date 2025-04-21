@@ -833,14 +833,18 @@ construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <:
 """
 $(TYPEDSIGNATURES)
 
-Computes the covariance-weighted error of the mean forward model output, normalized by the dimension `(g - y)' * (g - y)`.
-The error is stored within the `EnsembleKalmanProcess`.
+Computes the average unweighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' * (g_i - y))`.
 """
 function compute_average_unweighted_rmse(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
     succ_ens, _ = split_indices_by_success(g)
     diff = get_obs(ekp) .- g[:, succ_ens] # column diff
-    ens_rmse = sqrt.(sum(diff .^ 2 / size(g, 1), dims = 1)) # rmse for each ens member
+    dot_diff = 1.0 / size(g, 1) * [dot(d,d) for d in eachcol(diff)] # trace(diff'*diff)
+    if any(dot_diff < 0)
+        throw(ArgumentError("Found x'*Γ⁻¹*x < 0. This implies Γ⁻¹ not positive semi-definite, \n please modify Γ (a.k.a noise covariance of the observation) to ensure p.s.d. holds."))
+    end
+
+    ens_rmse = sqrt.(dot_diff) # rmse for each ens member
     avg_rmse = mean(ens_rmse) # average
     return avg_rmse
 end
@@ -848,22 +852,25 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Computes the average covariance-weighted error over the forward model ensemble, normalized by the dimension `1/dim(y) (g_i - y)' * Γ_inv *  (g_i - y)`.
+Computes the average covariance-weighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' * Γ_inv *  (g_i - y))`.
 """
 function compute_average_rmse(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
     succ_ens, _ = split_indices_by_success(g)
     diff = get_obs(ekp) .- g[:, succ_ens] # column diff
     X = lmul_obs_noise_cov_inv(ekp, diff)
-    weight_diff = 1.0 / size(g, 1) * diff'* X
-    ens_rmse = sqrt.(sum(weight_diff, dims = 1)) # rmse for each ens member
+    weight_diff = 1.0 / size(g, 1) *  [dot(x,d) for (x,d) in zip(eachcol(diff),eachcol(X))] # trace(diff'*X)
+    if any(weight_diff < 0)
+        throw(ArgumentError("Found x'*Γ⁻¹*x < 0. This implies Γ⁻¹ not positive semi-definite, \n please modify Γ (a.k.a noise covariance of the observation) to ensure p.s.d. holds."))
+    end
+    ens_rmse = sqrt.(sum(weight_diff)) # rmse for each ens member
     avg_rmse = mean(ens_rmse) # average
     return avg_rmse
 end
 
 
 """
-    compute_loss_at_mean(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
 Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * Γ_inv * (ḡ - y)`.
 The error is stored within the `EnsembleKalmanProcess`.
@@ -879,9 +886,9 @@ function compute_loss_at_mean(ekp::EnsembleKalmanProcess)
 end
 
 """
-    compute_unweighted_loss_at_mean(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
-Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * (ḡ - y)`.
+Computes the unweighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * (ḡ - y)`.
 The error is stored within the `EnsembleKalmanProcess`.
 """
 function compute_unweighted_loss_at_mean(ekp::EnsembleKalmanProcess)
