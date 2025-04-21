@@ -836,6 +836,7 @@ function get_u_cov(
     return get_process(uki).uu_cov[iteration]
 end
 
+
 function compute_loss_at_mean(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
 ) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
@@ -854,6 +855,26 @@ function compute_unweighted_loss_at_mean(
     newerr = 1.0 / length(mean_g) * dot(diff, diff)
     return newerr
 end
+
+"""
+For Unscented processes it doesn't make sense to average RMSE at sigma points, so it is evaluated at the mean only, where it is exactly equal to `sqrt(compute_loss_at_mean(uki))`
+"""
+function compute_average_rmse(
+    uki::EnsembleKalmanProcess{FT, IT, UorTU},
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
+    return sqrt(compute_loss_at_mean)
+end
+
+"""
+For Unscented processes it doesn't make sense to average unweighted RMSE at sigma points, so it is evaluated at the mean only, where it is exactly equal to `sqrt(compute_unweighted_loss_at_mean(uki))`
+"""
+function compute_average_unweighted_rmse(
+    uki::EnsembleKalmanProcess{FT, IT, UorTU},
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
+    return sqrt(compute_unweighted_loss_at_mean)
+end
+
+
 
 
 function Gaussian_2d(
