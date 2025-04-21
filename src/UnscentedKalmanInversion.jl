@@ -836,15 +836,23 @@ function get_u_cov(
     return get_process(uki).uu_cov[iteration]
 end
 
-function compute_error!(
+function compute_loss_at_mean(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
 ) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
     mean_g = get_process(uki).obs_pred[end]
     diff = get_obs(uki) - mean_g
     X = lmul_obs_noise_cov_inv(uki, diff)
-    g = get_g_final(uki)
     newerr = 1.0 / length(mean_g) * dot(diff, X)
-    push!(get_error(uki), newerr)
+    return newerr
+end
+
+function compute_unweighted_loss_at_mean(
+    uki::EnsembleKalmanProcess{FT, IT, UorTU},
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
+    mean_g = get_process(uki).obs_pred[end]
+    diff = get_obs(uki) - mean_g
+    newerr = 1.0 / length(mean_g) * dot(diff, diff)
+    return newerr
 end
 
 
