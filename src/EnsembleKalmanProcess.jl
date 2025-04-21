@@ -199,8 +199,8 @@ struct EnsembleKalmanProcess{
     N_ens::IT
     "Array of stores for forward model outputs, each of size  [`N_obs × N_ens`]"
     g::Array{DataContainer{FT}}
-    "vector of errors"
-    error::Vector{FT}
+    "Dict of error metric"
+    error_metrics::Dict
     "Scheduler to calculate the timestep size in each EK iteration"
     scheduler::LRS
     "accelerator object that informs EK update steps, stores additional state variables as needed"
@@ -261,7 +261,7 @@ function EnsembleKalmanProcess(
     #store for model evaluations
     g = []
     # error store
-    err = FT[]
+    err = Dict{String, Vector{FT}}()
     # timestep store
     Δt = FT[]
 
@@ -834,6 +834,7 @@ construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <:
 $(TYPEDSIGNATURES)
 
 Computes the average unweighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' * (g_i - y))`.
+The error is retrievable as `get_error_metrics(ekp)["unweighted_avg_rmse"]`
 """
 function compute_average_unweighted_rmse(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
@@ -857,6 +858,7 @@ end
 $(TYPEDSIGNATURES)
 
 Computes the average covariance-weighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' * Γ_inv *  (g_i - y))`.
+The error is retrievable as `get_error_metrics(ekp)["avg_rmse"]`
 """
 function compute_average_rmse(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
@@ -876,12 +878,11 @@ function compute_average_rmse(ekp::EnsembleKalmanProcess)
     return avg_rmse
 end
 
-
 """
 $(TYPEDSIGNATURES)
 
 Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * Γ_inv * (ḡ - y)`.
-The error is stored within the `EnsembleKalmanProcess`.
+The error is retrievable as `get_error_metrics(ekp)["loss"]`, or `get_error(ekp)`
 """
 function compute_loss_at_mean(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
@@ -897,7 +898,7 @@ end
 $(TYPEDSIGNATURES)
 
 Computes the unweighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * (ḡ - y)`.
-The error is stored within the `EnsembleKalmanProcess`.
+The error is retrievable as `get_error_metrics(ekp)["unweighted_loss"]`
 """
 function compute_unweighted_loss_at_mean(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
@@ -912,23 +913,36 @@ end
 """
     compute_error!(ekp::EnsembleKalmanProcess)
 
-Computes a variety of error metrics (rmse, weighted rmse, loss etc.) and stores this in `EnsembleKalmanProcess`. (retrievable with get_error(ekp))
+Computes a variety of error metrics (rmse, weighted rmse, loss etc.) and stores this in `EnsembleKalmanProcess`. (retrievable with get_error_metrics(ekp))
 """
 function compute_error!(ekp::EnsembleKalmanProcess)
+
     rmse = compute_average_rmse(ekp)
     loss = compute_loss_at_mean(ekp)
     un_rmse = compute_average_unweighted_rmse(ekp)
     un_loss = compute_unweighted_loss_at_mean(ekp)
 
-    push!(get_error(ekp), loss) # currently only store loss 
+    em = get_error_metrics(ekp)
+    if length(keys(em)) == 0
+        em["avg_rmse"] = rmse
+        em["loss"] = loss
+        em["unweighted_avg_rmse"] = un_rmse
+        em["unweighted_loss"] = un_loss
+    else
+        push!(em["avg_rmse"], rmse)
+        push!(em["loss"], loss)
+        push!(em["unweighted_avg_rmse"], un_rmse)
+        push!(em["unweighted_loss"], un_loss)
+    end
 end
 
 """
-    get_error(ekp::EnsembleKalmanProcess)
+    get_error_metrics(ekp::EnsembleKalmanProcess)
 
-Returns the mean forward model output error as a function of algorithmic time.
+Returns the loss as a function of algorithmic time.
 """
-get_error(ekp::EnsembleKalmanProcess) = ekp.error
+get_error_metrics(ekp::EnsembleKalmanProcess) = ekp.error_metrics
+get_error(ekp::EnsembleKalmanProcess) = get_error_metrics(ekp)["loss"] # for back compatability
 
 
 """
