@@ -862,7 +862,7 @@ For Unscented processes it doesn't make sense to average RMSE at sigma points, s
 function compute_average_rmse(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
 ) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
-    return sqrt(compute_loss_at_mean)
+    return sqrt(compute_loss_at_mean(uki))
 end
 
 """
@@ -871,7 +871,7 @@ For Unscented processes it doesn't make sense to average unweighted RMSE at sigm
 function compute_average_unweighted_rmse(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
 ) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
-    return sqrt(compute_unweighted_loss_at_mean)
+    return sqrt(compute_unweighted_loss_at_mean(uki))
 end
 
 
