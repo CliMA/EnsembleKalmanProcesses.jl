@@ -857,7 +857,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Computes the average covariance-weighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' * Γ_inv *  (g_i - y))`.
+Computes the average covariance-weighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' *  Γ⁻¹ *  (g_i - y))`.
 The error is retrievable as `get_error_metrics(ekp)["avg_rmse"]`
 """
 function compute_average_rmse(ekp::EnsembleKalmanProcess)
@@ -881,7 +881,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * Γ_inv * (ḡ - y)`.
+Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * Γ⁻¹ * (ḡ - y)`.
 The error is retrievable as `get_error_metrics(ekp)["loss"]`, or `get_error(ekp)`
 """
 function compute_loss_at_mean(ekp::EnsembleKalmanProcess)
@@ -909,9 +909,44 @@ function compute_unweighted_loss_at_mean(ekp::EnsembleKalmanProcess)
     return newerr
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Computes the bayes loss of the mean of the forward model output, normalized by dimensions `(1/dim(y)*dim(u)) * [(ḡ - y)' * Γ⁻¹ * (ḡ - y) + (̄u - m)' * C⁻¹ * (̄u - m)]`.
+The error is retrievable as `get_error_metrics(ekp)["loss"]`, or `get_error(ekp)`
+"""
+function compute_bayes_loss_at_mean(ekp::EnsembleKalmanProcess)
+    process = get_process(ekp)
+    prior_mean = get_prior_mean(process)
+    prior_cov = get_prior_cov(process)
+    g = get_g_final(ekp)
+    misfit_at_mean = compute_loss_at_mean(ekp)
+
+    # estimate from initial ensemble if we do not have access to them
+    # note initial ensemble = prior, for ekp algorithms where prior is not provided
+    if isnothing(prior_mean)
+        u_prior = get_u(ekp,1)
+        prior_mean = mean(u_prior, dims=2)
+    end
+    if isnothing(prior_cov)
+        u_prior = get_u(ekp,1)
+        prior_cov = cov(u_prior, dims=2)
+        if !isposdef(prior_cov)
+            prior_cov = posdef_correct(prior_cov)            
+        end
+    end
+    u = get_u_mean_final(ekp)
+    udiff = reshape(u - prior_mean, : , 1)
+    prior_misfit_at_mean = 1.0 / length(u) * dot(udiff, inv(prior_cov) * udiff)
+    # indep of input and output size
+    return (1.0 / length(u)) * misfit_at_mean +  (1.0 / size(g,1)) * prior_misfit_at_mean
+    
+end
+
+
 
 """
-$(TYPEDSIGNATURES)    compute_error!(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)   
 
 Computes a variety of error metrics and stores this in `EnsembleKalmanProcess`. (retrievable with `get_error_metrics(ekp)`)
 currently available:
@@ -919,6 +954,7 @@ currently available:
 - `loss`               computed with `compute_loss_at_mean(ekp)`
 - `unweighed_avg_rmse` computed with `compute_average_unweighted_rmse(ekp)`
 - `unweighted_loss`    computed with `compute_unweighted_loss_at_mean(ekp)`
+- `bayes_loss`         computed with `compute_bayes_loss_at_mean(ekp)`
 
 """
 function compute_error!(ekp::EnsembleKalmanProcess)
@@ -927,16 +963,19 @@ function compute_error!(ekp::EnsembleKalmanProcess)
     loss = compute_loss_at_mean(ekp)
     un_rmse = compute_average_unweighted_rmse(ekp)
     un_loss = compute_unweighted_loss_at_mean(ekp)
+    bayes_loss = compute_bayes_loss_at_mean(ekp)
 
     em = get_error_metrics(ekp)
     if length(keys(em)) == 0
         em["avg_rmse"] = [rmse]
         em["loss"] = [loss]
+        em["bayes_loss"] = [bayes_loss]
         em["unweighted_avg_rmse"] = [un_rmse]
         em["unweighted_loss"] = [un_loss]
     else
         push!(em["avg_rmse"], rmse)
         push!(em["loss"], loss)
+        push!(em["bayes_loss"], bayes_loss)
         push!(em["unweighted_avg_rmse"], un_rmse)
         push!(em["unweighted_loss"], un_loss)
     end
@@ -952,9 +991,9 @@ get_error_metrics(ekp::EnsembleKalmanProcess) = ekp.error_metrics
 """
     get_error(ekp::EnsembleKalmanProcess)
 
-[For back compatability only!] Returns `get_error_metrics(ekp)["loss"]`, the loss computed with `compute_loss_at_mean(ekp)`
+[For back compatability] Returns `get_error_metrics(ekp)["bayes_loss"]`, the loss computed with `compute_loss_at_mean(ekp)`
 """
-get_error(ekp::EnsembleKalmanProcess) = get_error_metrics(ekp)["loss"] 
+get_error(ekp::EnsembleKalmanProcess) = get_error_metrics(ekp)["bayes_loss"] 
 
 
 """

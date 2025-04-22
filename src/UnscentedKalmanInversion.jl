@@ -288,6 +288,9 @@ function EnsembleKalmanProcess(
     return EnsembleKalmanProcess(observation, process; kwargs...)
 end
 
+get_prior_mean(process::UorTU) where {UorTU <: Union{Unscented, TransformUnscented}} = process.prior_mean
+get_prior_cov(process::UorTU) where {UorTU <: Union{Unscented, TransformUnscented}} = process.prior_cov
+
 function FailureHandler(process::Unscented, method::IgnoreFailures)
     function failsafe_update(uki, u, g, u_idx, g_idx, failed_ens)
         #perform analysis on the model runs
