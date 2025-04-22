@@ -24,6 +24,7 @@ get_u_cov_final
 get_g_mean_final
 get_ϕ_mean_final
 compute_error!
+get_error_metrics
 get_error
 get_N_iterations
 get_N_ens

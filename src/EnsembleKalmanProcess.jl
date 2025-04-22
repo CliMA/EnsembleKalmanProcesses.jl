@@ -911,9 +911,15 @@ end
 
 
 """
-    compute_error!(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)    compute_error!(ekp::EnsembleKalmanProcess)
 
-Computes a variety of error metrics (rmse, weighted rmse, loss etc.) and stores this in `EnsembleKalmanProcess`. (retrievable with get_error_metrics(ekp))
+Computes a variety of error metrics and stores this in `EnsembleKalmanProcess`. (retrievable with `get_error_metrics(ekp)`)
+currently available:
+- `avg_rmse`           computed with `compute_average_rmse(ekp)`
+- `loss`               computed with `compute_loss_at_mean(ekp)`
+- `unweighed_avg_rmse` computed with `compute_average_unweighted_rmse(ekp)`
+- `unweighted_loss`    computed with `compute_unweighted_loss_at_mean(ekp)`
+
 """
 function compute_error!(ekp::EnsembleKalmanProcess)
 
@@ -939,10 +945,16 @@ end
 """
     get_error_metrics(ekp::EnsembleKalmanProcess)
 
-Returns the loss as a function of algorithmic time.
+Returns the stored `error_metrics`, created with `compute_error!`
 """
 get_error_metrics(ekp::EnsembleKalmanProcess) = ekp.error_metrics
-get_error(ekp::EnsembleKalmanProcess) = get_error_metrics(ekp)["loss"] # for back compatability
+
+"""
+    get_error(ekp::EnsembleKalmanProcess)
+
+[For back compatability only!] Returns `get_error_metrics(ekp)["loss"]`, the loss computed with `compute_loss_at_mean(ekp)`
+"""
+get_error(ekp::EnsembleKalmanProcess) = get_error_metrics(ekp)["loss"] 
 
 
 """
