@@ -1007,6 +1007,7 @@ function get_error(ekp::EnsembleKalmanProcess)
     else
         return get_error_metrics(ekp)["bayes_loss"]
     end
+end
 
 """
     sample_empirical_gaussian(
