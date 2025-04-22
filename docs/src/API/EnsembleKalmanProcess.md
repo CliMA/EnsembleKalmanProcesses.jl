@@ -23,9 +23,6 @@ get_u_mean_final
 get_u_cov_final
 get_g_mean_final
 get_ϕ_mean_final
-compute_error!
-get_error_metrics
-get_error
 get_N_iterations
 get_N_ens
 get_accelerator
@@ -46,6 +43,19 @@ impute_over_nans
 list_update_groups_over_minibatch
 ```
 
+## [Error metrics](@id errors_api)
+
+```@docs
+compute_average_rmse
+compute_loss_at_mean
+compute_average_unweighted_rmse
+compute_unweighted_loss_at_mean
+compute_bayes_loss_at_mean
+compute_error!
+get_error_metrics
+get_error
+
+```
 ## [Learning Rate Schedulers](@id scheduler_api)
 
 ```@docs
