@@ -882,7 +882,7 @@ end
 $(TYPEDSIGNATURES)
 
 Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * Γ⁻¹ * (ḡ - y)`.
-The error is retrievable as `get_error_metrics(ekp)["loss"]`, or `get_error(ekp)`
+The error is retrievable as `get_error_metrics(ekp)["loss"]`
 """
 function compute_loss_at_mean(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
@@ -913,7 +913,9 @@ end
 $(TYPEDSIGNATURES)
 
 Computes the bayes loss of the mean of the forward model output, normalized by dimensions `(1/dim(y)*dim(u)) * [(ḡ - y)' * Γ⁻¹ * (ḡ - y) + (̄u - m)' * C⁻¹ * (̄u - m)]`.
-The error is retrievable as `get_error_metrics(ekp)["loss"]`, or `get_error(ekp)`
+If the prior is not provided to the process on creation of EKP, then `m` and `C` are estimated from the initial ensemble.
+
+The error is retrievable as `get_error_metrics(ekp)["bayes_loss"]`, or `get_error(ekp)`
 """
 function compute_bayes_loss_at_mean(ekp::EnsembleKalmanProcess)
     process = get_process(ekp)
@@ -991,10 +993,20 @@ get_error_metrics(ekp::EnsembleKalmanProcess) = ekp.error_metrics
 """
     get_error(ekp::EnsembleKalmanProcess)
 
-[For back compatability] Returns `get_error_metrics(ekp)["bayes_loss"]`, the loss computed with `compute_loss_at_mean(ekp)`
+[For back compatability] Returns the relevant loss function that is minimized over EKP iterations.
+- If prior provided to the process:     `get_error_metrics(ekp)["bayes_loss"]`, the loss computed with `compute_bayes_loss_at_mean(ekp)`
+- If prior not provided to the process: `get_error_metrics(ekp)["loss"]`, the loss computed with `compute_loss_at_mean(ekp)`
 """
-get_error(ekp::EnsembleKalmanProcess) = get_error_metrics(ekp)["bayes_loss"] 
-
+function get_error(ekp::EnsembleKalmanProcess)
+    process = get_process(ekp)
+    prior_mean = get_prior_mean(process)
+    prior_cov = get_prior_cov(process)
+    # if prior provided, then return the bayesian loss. Else return the loss
+    if isnothing(prior_mean) || isnothing(prior_cov)
+        return get_error_metrics(ekp)["loss"]
+    else
+        return get_error_metrics(ekp)["bayes_loss"]
+    end
 
 """
     sample_empirical_gaussian(
