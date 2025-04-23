@@ -13,10 +13,7 @@ export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error_metrics, get_error, get_cov_blocks
 export compute_average_rmse,
-    compute_loss_at_mean,
-    compute_average_unweighted_rmse,
-    compute_unweighted_loss_at_mean,
-    compute_bayes_loss_at_mean
+    compute_loss_at_mean, compute_average_unweighted_rmse, compute_unweighted_loss_at_mean, compute_bayes_loss_at_mean
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
 export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
 
@@ -933,22 +930,22 @@ function compute_bayes_loss_at_mean(ekp::EnsembleKalmanProcess)
     # estimate from initial ensemble if we do not have access to them
     # note initial ensemble = prior, for ekp algorithms where prior is not provided
     if isnothing(prior_mean)
-        u_prior = get_u(ekp,1)
-        prior_mean = mean(u_prior, dims=2)
+        u_prior = get_u(ekp, 1)
+        prior_mean = mean(u_prior, dims = 2)
     end
     if isnothing(prior_cov)
-        u_prior = get_u(ekp,1)
-        prior_cov = cov(u_prior, dims=2)
+        u_prior = get_u(ekp, 1)
+        prior_cov = cov(u_prior, dims = 2)
         if !isposdef(prior_cov)
-            prior_cov = posdef_correct(prior_cov)            
+            prior_cov = posdef_correct(prior_cov)
         end
     end
     u = get_u_mean_final(ekp)
-    udiff = reshape(u - prior_mean, : , 1)
+    udiff = reshape(u - prior_mean, :, 1)
     prior_misfit_at_mean = 1.0 / length(u) * dot(udiff, inv(prior_cov) * udiff)
     # indep of input and output size
-    return (1.0 / length(u)) * misfit_at_mean +  (1.0 / size(g,1)) * prior_misfit_at_mean
-    
+    return (1.0 / length(u)) * misfit_at_mean + (1.0 / size(g, 1)) * prior_misfit_at_mean
+
 end
 
 
