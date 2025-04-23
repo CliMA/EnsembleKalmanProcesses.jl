@@ -888,7 +888,7 @@ end
 $(TYPEDSIGNATURES)
 
 Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * Γ⁻¹ * (ḡ - y)`.
-The error is retrievable as `get_error_metrics(ekp)["loss"]`
+The error is retrievable as `get_error_metrics(ekp)["loss"]` or returned from `get_error(ekp)` if a prior is not provided to the process
 """
 function compute_loss_at_mean(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
@@ -921,7 +921,7 @@ $(TYPEDSIGNATURES)
 Computes the bayes loss of the mean of the forward model output, normalized by dimensions `(1/dim(y)*dim(u)) * [(ḡ - y)' * Γ⁻¹ * (ḡ - y) + (̄u - m)' * C⁻¹ * (̄u - m)]`.
 If the prior is not provided to the process on creation of EKP, then `m` and `C` are estimated from the initial ensemble.
 
-The error is retrievable as `get_error_metrics(ekp)["bayes_loss"]`, or `get_error(ekp)`
+The error is retrievable as `get_error_metrics(ekp)["bayes_loss"]` or returned from `get_error(ekp)` if a prior is provided to the process
 """
 function compute_bayes_loss_at_mean(ekp::EnsembleKalmanProcess)
     process = get_process(ekp)
