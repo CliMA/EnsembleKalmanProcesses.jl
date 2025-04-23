@@ -726,8 +726,12 @@ end
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
-        @test isequal(get_error(ekiobj), ekiobj.error)
+        @test isequal(get_error_metrics(ekiobj), ekiobj.error_metrics)
 
+        # get_error should give the appropriate loss
+        @test isequal(get_error(ekiobj), get_error_metrics(ekiobj)["loss"])
+        @test isequal(get_error(ekiobj_inf), get_error_metrics(ekiobj_inf)["bayes_loss"])
+        
         # EKI results: Test if ensemble has collapsed toward the true parameter 
         # values
         eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
@@ -964,7 +968,7 @@ end
             @test get_u(ekpobj) == u_i_vec
             @test isequal(get_g(ekpobj), g_ens_vec)
             @test isequal(get_g_final(ekpobj), g_ens_vec[end])
-            @test isequal(get_error(ekpobj), ekpobj.error)
+            @test isequal(get_error_metrics(ekpobj), ekpobj.error_metrics)
 
             @test isa(construct_mean(ekpobj, rand(rng, 2 * n_par + 1)), Float64)
             @test isa(construct_mean(ekpobj, rand(rng, 5, 2 * n_par + 1)), Vector{Float64})
@@ -1139,8 +1143,13 @@ end
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
-        @test isequal(get_error(ekiobj), ekiobj.error)
+        @test isequal(get_error_metrics(ekiobj), ekiobj.error_metrics)
 
+        # get_error should give the appropriate loss
+        @test isequal(get_error(ekiobj), get_error_metrics(ekiobj)["loss"])
+        @test isequal(get_error(ekiobj_inf), get_error_metrics(ekiobj_inf)["bayes_loss"])
+
+        
         # ETKI results: Test if ensemble has collapsed toward the true parameter 
         # values
         eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
@@ -1490,7 +1499,7 @@ end
         @test get_u(gnkiobj) == u_i_vec
         @test isequal(get_g(gnkiobj), g_ens_vec) # can deal with NaNs
         @test isequal(get_g_final(gnkiobj), g_ens_vec[end])
-        @test isequal(get_error(gnkiobj), gnkiobj.error)
+        @test isequal(get_error_metrics(gnkiobj), gnkiobj.error_metrics)
 
         # GNKI results: Test if ensemble has collapsed toward the true parameter 
         # values
