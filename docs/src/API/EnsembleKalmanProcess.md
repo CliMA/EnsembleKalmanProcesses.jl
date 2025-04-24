@@ -51,6 +51,7 @@ compute_loss_at_mean
 compute_average_unweighted_rmse
 compute_unweighted_loss_at_mean
 compute_bayes_loss_at_mean
+compute_crps
 compute_error!
 get_error_metrics
 get_error

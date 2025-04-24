@@ -130,7 +130,7 @@ $(TYPEDSIGNATURES)
 
 For a given matrix `X` and rank `r`, return the truncated SVD for X as a LinearAlgebra.jl `SVD` object. Setting `return_inverse=true` also return it's psuedoinverse X⁺.
 """
-function tsvd_mat(X, r::Int; return_inverse = false, tsvd_kwargs...)
+function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, tsvd_kwargs...)
     # Note, must only use tsvd approximation when rank < minimum dimension of X or you get very poor approximation.
     if isa(X, UniformScaling)
         if return_inverse
@@ -142,7 +142,7 @@ function tsvd_mat(X, r::Int; return_inverse = false, tsvd_kwargs...)
         rx = rank(X)
         mindim = minimum(size(X))
         if rx <= r
-            if rx < r
+            if rx < r && !quiet
                 @warn(
                     "Requested truncation to rank $(r) for an input matrix of rank $(rx). Performing (truncated) SVD for rank $(rx) matrix."
                 )
@@ -169,7 +169,7 @@ function tsvd_mat(X, r::Int; return_inverse = false, tsvd_kwargs...)
     end
 end
 
-function tsvd_mat(X; return_inverse = false, tsvd_kwargs...)
+function tsvd_mat(X; return_inverse = false, quiet = false, tsvd_kwargs...)
     if isa(X, UniformScaling)
         throw(
             ArgumentError(
@@ -177,7 +177,7 @@ function tsvd_mat(X; return_inverse = false, tsvd_kwargs...)
             ),
         )
     end
-    return tsvd_mat(X, rank(X); return_inverse = return_inverse, tsvd_kwargs...)
+    return tsvd_mat(X, rank(X); return_inverse = return_inverse, quiet=quiet, tsvd_kwargs...)
 end
 
 """
@@ -190,12 +190,13 @@ function tsvd_cov_from_samples(
     r::Int;
     data_are_columns::Bool = true,
     return_inverse = false,
+    quiet = false,
     tsvd_kwargs...,
 ) where {AM <: AbstractMatrix}
 
     mat = data_are_columns ? sample_mat : permutedims(sample_mat, (2, 1))
     N = size(mat, 2)
-    if N > size(mat, 1)
+    if N > size(mat, 1) && !quiet
         @warn(
             "SVD representation is efficient when estimating high-dimensional covariance with few samples. \n here # samples is $(N), while the space dimension is $(size(mat,1)), and representation will be inefficient."
         )
@@ -220,6 +221,7 @@ function tsvd_cov_from_samples(
     sample_mat::AM;
     data_are_columns::Bool = true,
     return_inverse = false,
+    quiet = false,
     tsvd_kwargs...,
 ) where {AM <: AbstractMatrix}
     # (need to compute this to get the rank as debiasing can change it)
@@ -231,6 +233,7 @@ function tsvd_cov_from_samples(
         rk;
         data_are_columns = data_are_columns,
         return_inverse = return_inverse,
+        quiet = quiet,
         tsvd_kwargs...,
     )
 end
