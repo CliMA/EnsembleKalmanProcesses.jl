@@ -874,7 +874,6 @@ function compute_crps(
         # get svd directly from the perturbations (not samples) 
         g_perturb = construct_successful_perturbation(uki, g, g_mean, successful_ens)[:, 2:end] # first column zeros
         g_svd = svd(g_perturb) # Note this svd gives, .S are sqrt-evals of cov-g
-        @info g_svd.S
         if size(g_svd.U, 1) == size(g_svd.U, 2) # then work with Vt
             white_diff = 1 ./ g_svd.S .* g_svd.Vt * diff # ~N(0,I)
         else
@@ -888,7 +887,6 @@ function compute_crps(
     else
         g_cov = construct_successful_cov(uki, g, g_mean, successful_ens)
         g_svd = svd(g_cov) # Note this svd gives, .S are evals
-        @info g_svd.S
 
         white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.Vt * diff # ~N(0,I)
 
