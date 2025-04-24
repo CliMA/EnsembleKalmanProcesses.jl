@@ -177,7 +177,7 @@ function tsvd_mat(X; return_inverse = false, quiet = false, tsvd_kwargs...)
             ),
         )
     end
-    return tsvd_mat(X, rank(X); return_inverse = return_inverse, quiet=quiet, tsvd_kwargs...)
+    return tsvd_mat(X, rank(X); return_inverse = return_inverse, quiet = quiet, tsvd_kwargs...)
 end
 
 """

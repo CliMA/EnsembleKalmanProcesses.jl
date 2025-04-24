@@ -13,7 +13,11 @@ export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
 export get_N_iterations, get_error_metrics, get_error, get_cov_blocks
 export compute_average_rmse,
-    compute_loss_at_mean, compute_average_unweighted_rmse, compute_unweighted_loss_at_mean, compute_bayes_loss_at_mean, compute_crps
+    compute_loss_at_mean,
+    compute_average_unweighted_rmse,
+    compute_unweighted_loss_at_mean,
+    compute_bayes_loss_at_mean,
+    compute_crps
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
 export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
 
@@ -951,23 +955,23 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Computes a CRPS (continuous rank probability score) of the ensemble with the observation (performing through a whitening by C^GG, see e.g., Zheng, Sun, 2025).
+Computes a Gaussian approximation of CRPS (continuous rank probability score) of the ensemble with the observation (performing through a whitening by C^GG, see e.g., Zheng, Sun, 2025, https://arxiv.org/abs/2410.09133).
 """
 function compute_crps(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
     succ_ens, _ = split_indices_by_success(g)
     g_ens = g[:, succ_ens]
-    mean_g = mean(g_ens, dims = 2)
-    diff = get_obs(ekp) - mean_g
+    g_mean = mean(g_ens, dims = 2)
+    diff = get_obs(ekp) - g_mean
 
     # get svd of the perturbations from samples
-    g_svd = tsvd_cov_from_samples(g_ens, quiet=true) # Note from this function, .S are evals of cov-g
-    if size(g_svd.U,1) == size(g_svd.U,2) # then work with Vt
-        white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.Vt * diff # N(0,I)
+    g_svd = tsvd_cov_from_samples(g_ens, quiet = true) # Note from this function, .S are evals of cov-g
+    if size(g_svd.U, 1) == size(g_svd.U, 2) # then work with Vt
+        white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.Vt * diff # ~N(0,I)
     else
-        white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.U' * diff # N(0,I)
+        white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.U' * diff # ~N(0,I)
     end
-    dist = Normal(0,1)
+    dist = Normal(0, 1)
     indep_crps = white_diff .* (2 .* cdf.(dist, white_diff) .- 1) .+ 2 * pdf.(dist, white_diff) .- 1 ./ sqrt(π)
     avg_crps = 1 ./ length(g_svd.S) * sum(sqrt.(g_svd.S) .* indep_crps)
     return avg_crps

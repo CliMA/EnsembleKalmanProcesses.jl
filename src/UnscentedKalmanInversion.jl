@@ -146,8 +146,6 @@ function Unscented(
         cov_weights[1] = λ / (N_par + λ) + 1 - α^2 + 2.0
         cov_weights[2:N_ens] .= 1 / (2 * (N_par + λ))
 
-
-
     elseif sigma_points == "simplex"
         c_weights = zeros(FT, N_par, N_ens)
 
@@ -621,7 +619,7 @@ function construct_perturbation(
     if isa(x, AbstractMatrix{FT})
         @assert isa(x_mean, AbstractVector{FT})
         xx_pert = zeros(size(x))
-        for i in 1:size(xx_pert, 2)
+        for i in 2:size(xx_pert, 2) # first column always zero (as it is the mean)
             xx_pert[:, i] = sqrt(cov_weights[i]) * (x[:, i] .- x_mean)
         end
     else
@@ -629,7 +627,7 @@ function construct_perturbation(
         N_ens = length(x)
         xx_pert = zeros(N_ens)
 
-        for i in 1:N_ens
+        for i in 2:N_ens # first entry always zero (as it is the mean)
             xx_pert[i] += sqrt(cov_weights[i]) * (x[i] .- x_mean)
         end
     end
@@ -857,6 +855,49 @@ function compute_unweighted_loss_at_mean(
     diff = get_obs(uki) - mean_g
     newerr = 1.0 / length(mean_g) * dot(diff, diff)
     return newerr
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Computes a Gaussian approximation of CRPS (continuous rank probability score) of the ensemble with the observation (performing through a whitening by C^GG, see e.g., Zheng, Sun, 2025, https://arxiv.org/abs/2410.09133).
+"""
+function compute_crps(
+    uki::EnsembleKalmanProcess{FT, IT, UorTU},
+) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
+    g = get_g_final(uki)
+    successful_ens, _ = split_indices_by_success(g)
+    g_mean = construct_successful_mean(uki, g, successful_ens)
+    diff = get_obs(uki) - g_mean
+
+    if length(g_mean) > length(successful_ens) # dim > ens
+        # get svd directly from the perturbations (not samples) 
+        g_perturb = construct_successful_perturbation(uki, g, g_mean, successful_ens)[:, 2:end] # first column zeros
+        g_svd = svd(g_perturb) # Note this svd gives, .S are sqrt-evals of cov-g
+        @info g_svd.S
+        if size(g_svd.U, 1) == size(g_svd.U, 2) # then work with Vt
+            white_diff = 1 ./ g_svd.S .* g_svd.Vt * diff # ~N(0,I)
+        else
+            white_diff = 1 ./ g_svd.S .* g_svd.U' * diff # ~N(0,I)
+        end
+        dist = Normal(0, 1)
+        indep_crps = white_diff .* (2 .* cdf.(dist, white_diff) .- 1) .+ 2 * pdf.(dist, white_diff) .- 1 ./ sqrt(π)
+        avg_crps = 1 ./ length(g_svd.S) * sum(g_svd.S .* indep_crps)
+        return avg_crps
+
+    else
+        g_cov = construct_successful_cov(uki, g, g_mean, successful_ens)
+        g_svd = svd(g_cov) # Note this svd gives, .S are evals
+        @info g_svd.S
+
+        white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.Vt * diff # ~N(0,I)
+
+        dist = Normal(0, 1)
+        indep_crps = white_diff .* (2 .* cdf.(dist, white_diff) .- 1) .+ 2 * pdf.(dist, white_diff) .- 1 ./ sqrt(π)
+        avg_crps = 1 ./ length(g_svd.S) * sum(sqrt.(g_svd.S) .* indep_crps)
+        return avg_crps
+    end
+
 end
 
 """
