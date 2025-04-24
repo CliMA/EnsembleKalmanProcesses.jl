@@ -857,11 +857,6 @@ function compute_unweighted_loss_at_mean(
     return newerr
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Computes a Gaussian approximation of CRPS (continuous rank probability score) of the ensemble with the observation (performing through a whitening by C^GG, see e.g., Zheng, Sun, 2025, https://arxiv.org/abs/2410.09133).
-"""
 function compute_crps(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
 ) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
@@ -874,11 +869,8 @@ function compute_crps(
         # get svd directly from the perturbations (not samples) 
         g_perturb = construct_successful_perturbation(uki, g, g_mean, successful_ens)[:, 2:end] # first column zeros
         g_svd = svd(g_perturb) # Note this svd gives, .S are sqrt-evals of cov-g
-        if size(g_svd.U, 1) == size(g_svd.U, 2) # then work with Vt
-            white_diff = 1 ./ g_svd.S .* g_svd.Vt * diff # ~N(0,I)
-        else
-            white_diff = 1 ./ g_svd.S .* g_svd.U' * diff # ~N(0,I)
-        end
+        white_diff = 1 ./ g_svd.S .* g_svd.U' * diff # as g_perturb was tall
+
         dist = Normal(0, 1)
         indep_crps = white_diff .* (2 .* cdf.(dist, white_diff) .- 1) .+ 2 * pdf.(dist, white_diff) .- 1 ./ sqrt(π)
         avg_crps = 1 ./ length(g_svd.S) * sum(g_svd.S .* indep_crps)
