@@ -27,6 +27,9 @@ function Sampler(prior::ParameterDistribution)
     return Sampler{FT}(mean_prior, cov_prior)
 end
 
+get_prior_mean(process::Sampler) = process.prior_mean
+get_prior_cov(process::Sampler) = process.prior_cov
+
 
 function FailureHandler(process::Sampler, method::IgnoreFailures)
     function failsafe_update(ekp, u, g, failed_ens)

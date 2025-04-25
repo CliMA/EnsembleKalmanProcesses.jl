@@ -11,9 +11,16 @@ using DocStringExtensions
 export EnsembleKalmanProcess
 export get_u, get_g, get_ϕ
 export get_u_prior, get_u_final, get_g_final, get_ϕ_final
-export get_N_iterations, get_error, get_cov_blocks
+export get_N_iterations, get_error_metrics, get_error, get_cov_blocks
+export compute_average_rmse,
+    compute_loss_at_mean,
+    compute_average_unweighted_rmse,
+    compute_unweighted_loss_at_mean,
+    compute_bayes_loss_at_mean,
+    compute_crps
 export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
 export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
+
 export get_scheduler,
     get_localizer, get_localizer_type, get_accelerator, get_rng, get_Δt, get_failure_handler, get_N_ens, get_process
 export get_nan_tolerance, get_nan_row_values
@@ -199,8 +206,8 @@ struct EnsembleKalmanProcess{
     N_ens::IT
     "Array of stores for forward model outputs, each of size  [`N_obs × N_ens`]"
     g::Array{DataContainer{FT}}
-    "vector of errors"
-    error::Vector{FT}
+    "Dict of error metric"
+    error_metrics::Dict
     "Scheduler to calculate the timestep size in each EK iteration"
     scheduler::LRS
     "accelerator object that informs EK update steps, stores additional state variables as needed"
@@ -261,7 +268,7 @@ function EnsembleKalmanProcess(
     #store for model evaluations
     g = []
     # error store
-    err = FT[]
+    err = Dict{String, Vector{FT}}()
     # timestep store
     Δt = FT[]
 
@@ -829,27 +836,214 @@ end
 construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <: Int} =
     construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens)
 
+# metrics of interest
 """
-    compute_error!(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
-Computes the covariance-weighted error of the mean forward model output, `(ḡ - y)'Γ_inv(ḡ - y)`.
-The error is stored within the `EnsembleKalmanProcess`.
+Computes the average unweighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' * (g_i - y))`.
+The error is retrievable as `get_error_metrics(ekp)["unweighted_avg_rmse"]`
 """
-function compute_error!(ekp::EnsembleKalmanProcess)
-    mean_g = dropdims(mean(get_g_final(ekp), dims = 2), dims = 2)
+function compute_average_unweighted_rmse(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    diff = get_obs(ekp) .- g[:, succ_ens] # column diff
+    dot_diff = 1.0 / size(g, 1) * [dot(d, d) for d in eachcol(diff)] # trace(diff'*diff)
+    if any(dot_diff .< 0)
+        throw(
+            ArgumentError(
+                "Found x'*Γ⁻¹*x < 0. This implies Γ⁻¹ not positive semi-definite, \n please modify Γ (a.k.a noise covariance of the observation) to ensure p.s.d. holds.",
+            ),
+        )
+    end
+
+    ens_rmse = sqrt.(dot_diff) # rmse for each ens member
+    avg_rmse = mean(ens_rmse) # average
+    return avg_rmse
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Computes the average covariance-weighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' *  Γ⁻¹ *  (g_i - y))`.
+The error is retrievable as `get_error_metrics(ekp)["avg_rmse"]`
+"""
+function compute_average_rmse(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    diff = get_obs(ekp) .- g[:, succ_ens] # column diff
+    X = lmul_obs_noise_cov_inv(ekp, diff)
+    weight_diff = 1.0 / size(g, 1) * [dot(x, d) for (x, d) in zip(eachcol(diff), eachcol(X))] # trace(diff'*X)
+    if any(weight_diff .< 0)
+        throw(
+            ArgumentError(
+                "Found x'*Γ⁻¹*x < 0. This implies Γ⁻¹ not positive semi-definite, \n please modify Γ (a.k.a noise covariance of the observation) to ensure p.s.d. holds.",
+            ),
+        )
+    end
+    ens_rmse = sqrt.(sum(weight_diff)) # rmse for each ens member
+    avg_rmse = mean(ens_rmse) # average
+    return avg_rmse
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Computes the covariance-weighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * Γ⁻¹ * (ḡ - y)`.
+The error is retrievable as `get_error_metrics(ekp)["loss"]` or returned from `get_error(ekp)` if a prior is not provided to the process
+"""
+function compute_loss_at_mean(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    mean_g = dropdims(mean(g[:, succ_ens], dims = 2), dims = 2)
     diff = get_obs(ekp) - mean_g
     X = lmul_obs_noise_cov_inv(ekp, diff)
-    newerr = dot(diff, X)
-    push!(get_error(ekp), newerr)
+    newerr = 1.0 / size(g, 1) * dot(diff, X)
+    return newerr
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Computes the unweighted error of the mean of the forward model output, normalized by the dimension `1/dim(y) * (ḡ - y)' * (ḡ - y)`.
+The error is retrievable as `get_error_metrics(ekp)["unweighted_loss"]`
+"""
+function compute_unweighted_loss_at_mean(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    mean_g = dropdims(mean(g[:, succ_ens], dims = 2), dims = 2)
+    diff = get_obs(ekp) - mean_g
+    newerr = 1.0 / size(g, 1) * dot(diff, diff)
+    return newerr
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Computes the bayes loss of the mean of the forward model output, normalized by dimensions `(1/dim(y)*dim(u)) * [(ḡ - y)' * Γ⁻¹ * (ḡ - y) + (̄u - m)' * C⁻¹ * (̄u - m)]`.
+If the prior is not provided to the process on creation of EKP, then `m` and `C` are estimated from the initial ensemble.
+
+The error is retrievable as `get_error_metrics(ekp)["bayes_loss"]` or returned from `get_error(ekp)` if a prior is provided to the process
+"""
+function compute_bayes_loss_at_mean(ekp::EnsembleKalmanProcess)
+    process = get_process(ekp)
+    prior_mean = get_prior_mean(process)
+    prior_cov = get_prior_cov(process)
+    g = get_g_final(ekp)
+    misfit_at_mean = compute_loss_at_mean(ekp)
+
+    # estimate from initial ensemble if we do not have access to them
+    # note initial ensemble = prior, for ekp algorithms where prior is not provided
+    if isnothing(prior_mean)
+        u_prior = get_u(ekp, 1)
+        prior_mean = mean(u_prior, dims = 2)
+    end
+    if isnothing(prior_cov)
+        u_prior = get_u(ekp, 1)
+        prior_cov = cov(u_prior, dims = 2)
+        if !isposdef(prior_cov)
+            prior_cov = posdef_correct(prior_cov)
+        end
+    end
+    u = get_u_mean_final(ekp)
+    udiff = reshape(u - prior_mean, :, 1)
+    prior_misfit_at_mean = 1.0 / length(u) * dot(udiff, inv(prior_cov) * udiff)
+    # indep of input and output size
+    return (1.0 / length(u)) * misfit_at_mean + (1.0 / size(g, 1)) * prior_misfit_at_mean
+
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Computes a Gaussian approximation of CRPS (continuous rank probability score) of the ensemble with the observation (performing through a whitening by C^GG, see e.g., Zheng, Sun, 2025, https://arxiv.org/abs/2410.09133).
+"""
+function compute_crps(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    succ_ens, _ = split_indices_by_success(g)
+    g_ens = g[:, succ_ens]
+    g_mean = mean(g_ens, dims = 2)
+    diff = get_obs(ekp) - g_mean
+
+    # get svd of the perturbations from samples
+    g_svd = tsvd_cov_from_samples(g_ens, quiet = true) # Note from this function, .S are evals of cov-g
+    if size(g_svd.U, 1) == size(g_svd.U, 2) # then work with Vt
+        white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.Vt * diff # ~N(0,I)
+    else
+        white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.U' * diff # ~N(0,I)
+    end
+    dist = Normal(0, 1)
+    indep_crps = white_diff .* (2 .* cdf.(dist, white_diff) .- 1) .+ 2 * pdf.(dist, white_diff) .- 1 ./ sqrt(π)
+    avg_crps = 1 ./ length(g_svd.S) * sum(sqrt.(g_svd.S) .* indep_crps)
+    return avg_crps
+end
+
+
+
+"""
+$(TYPEDSIGNATURES)   
+
+Computes a variety of error metrics and stores this in `EnsembleKalmanProcess`. (retrievable with `get_error_metrics(ekp)`)
+currently available:
+- `avg_rmse`           computed with `compute_average_rmse(ekp)`
+- `loss`               computed with `compute_loss_at_mean(ekp)`
+- `unweighed_avg_rmse` computed with `compute_average_unweighted_rmse(ekp)`
+- `unweighted_loss`    computed with `compute_unweighted_loss_at_mean(ekp)`
+- `bayes_loss`         computed with `compute_bayes_loss_at_mean(ekp)`
+- `crps`               computed with `compute_crps(ekp)`
+
+"""
+function compute_error!(ekp::EnsembleKalmanProcess)
+
+    rmse = compute_average_rmse(ekp)
+    loss = compute_loss_at_mean(ekp)
+    un_rmse = compute_average_unweighted_rmse(ekp)
+    un_loss = compute_unweighted_loss_at_mean(ekp)
+    bayes_loss = compute_bayes_loss_at_mean(ekp)
+    crps = compute_crps(ekp)
+
+    em = get_error_metrics(ekp)
+    if length(keys(em)) == 0
+        em["avg_rmse"] = [rmse]
+        em["loss"] = [loss]
+        em["bayes_loss"] = [bayes_loss]
+        em["unweighted_avg_rmse"] = [un_rmse]
+        em["unweighted_loss"] = [un_loss]
+        em["crps"] = [crps]
+    else
+        push!(em["avg_rmse"], rmse)
+        push!(em["loss"], loss)
+        push!(em["bayes_loss"], bayes_loss)
+        push!(em["unweighted_avg_rmse"], un_rmse)
+        push!(em["unweighted_loss"], un_loss)
+        push!(em["crps"], crps)
+    end
+end
+
+"""
+    get_error_metrics(ekp::EnsembleKalmanProcess)
+
+Returns the stored `error_metrics`, created with `compute_error!`
+"""
+get_error_metrics(ekp::EnsembleKalmanProcess) = ekp.error_metrics
 
 """
     get_error(ekp::EnsembleKalmanProcess)
 
-Returns the mean forward model output error as a function of algorithmic time.
+[For back compatability] Returns the relevant loss function that is minimized over EKP iterations.
+- If prior provided to the process:     `get_error_metrics(ekp)["bayes_loss"]`, the loss computed with `compute_bayes_loss_at_mean(ekp)`
+- If prior not provided to the process: `get_error_metrics(ekp)["loss"]`, the loss computed with `compute_loss_at_mean(ekp)`
 """
-get_error(ekp::EnsembleKalmanProcess) = ekp.error
-
+function get_error(ekp::EnsembleKalmanProcess)
+    process = get_process(ekp)
+    prior_mean = get_prior_mean(process)
+    prior_cov = get_prior_cov(process)
+    # if prior provided, then return the bayesian loss. Else return the loss
+    if isnothing(prior_mean) || isnothing(prior_cov)
+        return get_error_metrics(ekp)["loss"]
+    else
+        return get_error_metrics(ekp)["bayes_loss"]
+    end
+end
 
 """
     sample_empirical_gaussian(

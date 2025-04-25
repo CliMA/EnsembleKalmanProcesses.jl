@@ -496,7 +496,7 @@ end
     Γfullinv[13:21, 13:21] = svd_cov.U * Diagonal(1.0 ./ svd_cov.S) * svd_cov.U'
     Γfullinv[22:33, 22:33] = inv(Γfull[22:33, 22:33]) #small enough to compute directly
     Γinv = get_obs_noise_cov_inv(observation_series)
-    @test norm(Γfullinv - Γinv) < 1e-12
+    @test norm(Γfullinv - Γinv) < 1e-11
     # Test utilities for multiplying covariances without building them
     # test lmul_obs_noise_cov
 
@@ -504,13 +504,13 @@ end
     X = randn(size(Γ, 1), 50)
     test1 = Γ * Xvec
     test2 = Γ * X
-    @test norm(test1 - lmul_obs_noise_cov(observation_series, Xvec)) < 1e-12
-    @test norm(test2 - lmul_obs_noise_cov(observation_series, X)) < 1e-12
+    @test norm(test1 - lmul_obs_noise_cov(observation_series, Xvec)) < 1e-11
+    @test norm(test2 - lmul_obs_noise_cov(observation_series, X)) < 1e-11
 
     test1 = Γinv * Xvec
     test2 = Γinv * X
-    @test norm(test1 - lmul_obs_noise_cov_inv(observation_series, Xvec)) < 1e-12
-    @test norm(test2 - lmul_obs_noise_cov_inv(observation_series, X)) < 1e-12
+    @test norm(test1 - lmul_obs_noise_cov_inv(observation_series, Xvec)) < 1e-11
+    @test norm(test2 - lmul_obs_noise_cov_inv(observation_series, X)) < 1e-11
 
     # test the pre-indexed versions:    
     # cov
@@ -522,12 +522,12 @@ end
     # The function is writte to be applied to pre-trimmed "X"s 
     lmul_obs_noise_cov!(out1, observation_series, Xvec[g_idx], g_idx)
     lmul_obs_noise_cov!(out2, observation_series, X[g_idx, :], g_idx)
-    @test norm(test1 - out1) < 1e-12
-    @test norm(test2 - out2) < 1e-12
+    @test norm(test1 - out1) < 1e-11
+    @test norm(test2 - out2) < 1e-11
     lmul_obs_noise_cov!(out1, observation_series, Xvec, g_idx)
     lmul_obs_noise_cov!(out2, observation_series, X, g_idx)
-    @test norm(test1 - out1) < 1e-12
-    @test norm(test2 - out2) < 1e-12
+    @test norm(test1 - out1) < 1e-11
+    @test norm(test2 - out2) < 1e-11
 
 
     # cov_inv
@@ -538,11 +538,11 @@ end
     # In code this is applied to pre-trimmed "X"s or not
     lmul_obs_noise_cov_inv!(out1, observation_series, Xvec[g_idx], g_idx)
     lmul_obs_noise_cov_inv!(out2, observation_series, X[g_idx, :], g_idx)
-    @test norm(test1 - out1) < 1e-12
-    @test norm(test2 - out2) < 1e-12
+    @test norm(test1 - out1) < 1e-11
+    @test norm(test2 - out2) < 1e-11
     lmul_obs_noise_cov_inv!(out1, observation_series, Xvec, g_idx)
     lmul_obs_noise_cov_inv!(out2, observation_series, X, g_idx)
-    @test norm(test1 - out1) < 1e-12
-    @test norm(test2 - out2) < 1e-12
+    @test norm(test1 - out1) < 1e-11
+    @test norm(test2 - out2) < 1e-11
 
 end

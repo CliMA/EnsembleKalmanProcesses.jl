@@ -124,7 +124,8 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
-        @test isequal(get_error(ekiobj), ekiobj.error)
+        @test isequal(get_error_metrics(ekiobj), ekiobj.error_metrics)
+        @test isequal(get_error(ekiobj), get_error_metrics(ekiobj)["loss"])
 
         # EKI results: Test if ensemble has collapsed toward the true constrained parameter
         # values

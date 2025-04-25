@@ -726,7 +726,11 @@ end
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
-        @test isequal(get_error(ekiobj), ekiobj.error)
+        @test isequal(get_error_metrics(ekiobj), ekiobj.error_metrics)
+
+        # get_error should give the appropriate loss
+        @test isequal(get_error(ekiobj), get_error_metrics(ekiobj)["loss"])
+        @test isequal(get_error(ekiobj_inf), get_error_metrics(ekiobj_inf)["bayes_loss"])
 
         # EKI results: Test if ensemble has collapsed toward the true parameter 
         # values
@@ -829,7 +833,16 @@ end
     for (i_prob, inv_problem, impose_prior, update_freq) in
         zip(1:length(inv_problems), inv_problems, impose_priors, update_freqs)
 
-        y_obs, G, Γy, A = inv_problem
+        if i_prob == 1 # we do one of the problems with n_obs < n_ens (for code coverage)
+            y_obs, Gold, Γy, A = inv_problem
+            # input_dim = 2 -> n_ens = 4 or 7
+            y_obs = y_obs[1:3]
+            Γy = Γy[1:3, 1:3]
+            A = A[1:3, :]
+            G(x) = Gold(x)[1:3, :]
+        else
+            y_obs, G, Γy, A = inv_problem
+        end
         scheduler = DataMisfitController(on_terminate = "continue") #will need to be copied as stores run information inside
         scheduler_simplex = DefaultScheduler(0.05) #will need to be copied as stores run information inside
 
@@ -964,7 +977,7 @@ end
             @test get_u(ekpobj) == u_i_vec
             @test isequal(get_g(ekpobj), g_ens_vec)
             @test isequal(get_g_final(ekpobj), g_ens_vec[end])
-            @test isequal(get_error(ekpobj), ekpobj.error)
+            @test isequal(get_error_metrics(ekpobj), ekpobj.error_metrics)
 
             @test isa(construct_mean(ekpobj, rand(rng, 2 * n_par + 1)), Float64)
             @test isa(construct_mean(ekpobj, rand(rng, 5, 2 * n_par + 1)), Vector{Float64})
@@ -1139,7 +1152,12 @@ end
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
         @test isequal(get_g_final(ekiobj), g_ens_vec[end])
-        @test isequal(get_error(ekiobj), ekiobj.error)
+        @test isequal(get_error_metrics(ekiobj), ekiobj.error_metrics)
+
+        # get_error should give the appropriate loss
+        @test isequal(get_error(ekiobj), get_error_metrics(ekiobj)["loss"])
+        @test isequal(get_error(ekiobj_inf), get_error_metrics(ekiobj_inf)["bayes_loss"])
+
 
         # ETKI results: Test if ensemble has collapsed toward the true parameter 
         # values
@@ -1490,7 +1508,7 @@ end
         @test get_u(gnkiobj) == u_i_vec
         @test isequal(get_g(gnkiobj), g_ens_vec) # can deal with NaNs
         @test isequal(get_g_final(gnkiobj), g_ens_vec[end])
-        @test isequal(get_error(gnkiobj), gnkiobj.error)
+        @test isequal(get_error_metrics(gnkiobj), gnkiobj.error_metrics)
 
         # GNKI results: Test if ensemble has collapsed toward the true parameter 
         # values

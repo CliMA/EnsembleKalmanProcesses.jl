@@ -20,6 +20,10 @@ function GaussNewtonInversion(prior::ParameterDistribution)
     return GaussNewtonInversion(mean_prior, cov_prior)
 end
 
+get_prior_mean(process::GaussNewtonInversion) = process.prior_mean
+get_prior_cov(process::GaussNewtonInversion) = process.prior_cov
+
+
 # failure handling
 function FailureHandler(process::GaussNewtonInversion, method::IgnoreFailures)
     failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens) = gnki_update(ekp, u, g, y, obs_noise_cov)

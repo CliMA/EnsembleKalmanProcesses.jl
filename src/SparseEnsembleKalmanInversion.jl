@@ -37,6 +37,10 @@ function SparseInversion(
     return SparseInversion{FT}(γ, threshold_value, uc_idx, reg)
 end
 
+get_prior_mean(process::SparseInversion) = nothing
+get_prior_cov(process::SparseInversion) = nothing
+
+
 function FailureHandler(process::SparseInversion, method::IgnoreFailures)
     failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens) = sparse_eki_update(ekp, u, g, y, obs_noise_cov)
     return FailureHandler{SparseInversion, IgnoreFailures}(failsafe_update)
