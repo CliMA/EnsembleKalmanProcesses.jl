@@ -864,7 +864,6 @@ function compute_crps(
     successful_ens, _ = split_indices_by_success(g)
     g_mean = construct_successful_mean(uki, g, successful_ens)
     diff = get_obs(uki) - g_mean
-
     if length(g_mean) > length(successful_ens) # dim > ens
         # get svd directly from the perturbations (not samples) 
         g_perturb = construct_successful_perturbation(uki, g, g_mean, successful_ens)[:, 2:end] # first column zeros
@@ -876,7 +875,7 @@ function compute_crps(
         avg_crps = 1 ./ length(g_svd.S) * sum(g_svd.S .* indep_crps)
         return avg_crps
 
-    else
+    else  # dim < ens
         g_cov = construct_successful_cov(uki, g, g_mean, successful_ens)
         g_svd = svd(g_cov) # Note this svd gives, .S are evals
 

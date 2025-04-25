@@ -837,9 +837,9 @@ end
             y_obs, Gold, Γy, A = inv_problem
             # input_dim = 2 -> n_ens = 4 or 7
             y_obs = y_obs[1:3]
-            Γy = Γy[1:3,1:3]
-            A = A[1:3,:]
-            G(x) = Gold(x)[1:3,:]
+            Γy = Γy[1:3, 1:3]
+            A = A[1:3, :]
+            G(x) = Gold(x)[1:3, :]
         else
             y_obs, G, Γy, A = inv_problem
         end
