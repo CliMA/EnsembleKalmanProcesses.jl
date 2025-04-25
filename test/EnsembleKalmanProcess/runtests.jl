@@ -833,7 +833,16 @@ end
     for (i_prob, inv_problem, impose_prior, update_freq) in
         zip(1:length(inv_problems), inv_problems, impose_priors, update_freqs)
 
-        y_obs, G, Γy, A = inv_problem
+        if i_prob == 1 # we do one of the problems with n_obs < n_ens (for code coverage)
+            y_obs, Gold, Γy, A = inv_problem
+            # input_dim = 2 -> n_ens = 4 or 7
+            y_obs = y_obs[1:3]
+            Γy = Γy[1:3,1:3]
+            A = A[1:3,:]
+            G(x) = Gold(x)[1:3,:]
+        else
+            y_obs, G, Γy, A = inv_problem
+        end
         scheduler = DataMisfitController(on_terminate = "continue") #will need to be copied as stores run information inside
         scheduler_simplex = DefaultScheduler(0.05) #will need to be copied as stores run information inside
 
