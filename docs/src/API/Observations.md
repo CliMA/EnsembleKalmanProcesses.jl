@@ -47,17 +47,17 @@ ObservationSeries
 get_observations(os::OS) where {OS <: ObservationSeries}
 get_length_epoch(os::OS) where {OS <: ObservationSeries}
 get_minibatches(os::OS) where {OS <: ObservationSeries}
-get_minibatch_index(os::OS, iteration) where {OS <: ObservationSeries}
+get_minibatch_index
 get_current_minibatch_index(os::OS) where {OS <: ObservationSeries}
 get_minibatcher(os::OS) where {OS <: ObservationSeries}
 get_metadata
 update_minibatch!(os::OS) where {OS <: ObservationSeries}
-get_minibatch(os::OS, iteration) where {OS <: ObservationSeries}
+get_minibatch
 get_current_minibatch(os::OS) where {OS <: ObservationSeries}
 get_obs(os::OS) where {OS <: ObservationSeries}
-get_obs(os::OS, iteration) where {OS <: ObservationSeries}
+get_obs(os::OS, iteration::IorN; build = true) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
 get_obs_noise_cov(os::OS) where {OS <: ObservationSeries}
-get_obs_noise_cov(os::OS, iteration) where {OS <: ObservationSeries}
+get_obs_noise_cov(os::OS, iteration::IorN) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
 get_obs_noise_cov_inv(os::OS) where {OS <: ObservationSeries}
-get_obs_noise_cov_inv(os::OS, iteration) where {OS <: ObservationSeries}
+get_obs_noise_cov_inv(os::OS, iteration::IorN) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
 ```

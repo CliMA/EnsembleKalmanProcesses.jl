@@ -59,9 +59,9 @@ compute_crps
 compute_error!
 get_error_metrics
 get_error
-lmul_obs_noise_cov,
-lmul_obs_noise_cov_inv,
-lmul_obs_noise_cov!,
+lmul_obs_noise_cov
+lmul_obs_noise_cov_inv
+lmul_obs_noise_cov!
 lmul_obs_noise_cov_inv!
 ```
 ## [Learning Rate Schedulers](@id scheduler_api)
