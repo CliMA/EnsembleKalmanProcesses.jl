@@ -157,10 +157,17 @@ Visualize.plot_error_over_iters!(ax, ekp; kwargs...) = _plot_error_over_iters(er
 Helper function to plot the errors against the number of iterations.
 """
 function _plot_error_over_iters(plot_fn, fig_or_ax, ekp; kwargs...)
-    iters = 1:get_N_iterations(ekp) # off by one error here?, need to check with example and calibration being ran
-    plot = plot_fn(fig_or_ax, ekp, iters; kwargs...)
+    iters = 1:get_N_iterations(ekp)
+    error_metric = _find_appropriate_error(ekp, get(kwargs, :error_metric, nothing))
+    plot = plot_fn(fig_or_ax, ekp, iters; error_metric = error_metric, kwargs...)
     ax = typeof(fig_or_ax) <: Makie.AbstractAxis ? fig_or_ax : Makie.current_axis()
-    _modify_axis!(ax; xlabel = "Iterations", title = "Error over iterations", ylabel = "Error")
+    _modify_axis!(
+        ax;
+        xlabel = "Iterations",
+        title = "Error over iterations",
+        ylabel = "$error_metric",
+        xticks = 1:get_N_iterations(ekp),
+    )
     return plot
 end
 
@@ -192,10 +199,11 @@ Visualize.plot_error_over_time!(ax, ekp; kwargs...) = _plot_error_over_time(erro
 Helper function to plot errors over time.
 """
 function _plot_error_over_time(plot_fn, fig_or_ax, ekp; kwargs...)
-    times = accumulate(+, get_Δt(ekp))
-    plot = plot_fn(fig_or_ax, ekp, times; kwargs...)
+    times = get_algorithm_time(ekp)
+    error_metric = _find_appropriate_error(ekp, get(kwargs, :error_metric, nothing))
+    plot = plot_fn(fig_or_ax, ekp, times; error_metric = error_metric, kwargs...)
     ax = typeof(fig_or_ax) <: Makie.AbstractAxis ? fig_or_ax : Makie.current_axis()
-    _modify_axis!(ax; xlabel = "Time", title = "Error over time", ylabel = "Error")
+    _modify_axis!(ax; xlabel = "Time", title = "Error over time", ylabel = "$error_metric")
     return plot
 end
 
@@ -206,7 +214,7 @@ Plot the errors against iteration or time.
 """
 function Makie.plot!(plot::ErrorAndItersOrTime)
     xvals = plot.xvals[]
-    errors = get_error(plot.ekp[])
+    errors = get_error_metrics(plot.ekp[])[plot.error_metric[]]
     valid_attributes = Makie.shared_attributes(plot, Makie.Lines)
     Makie.lines!(plot, xvals, errors; valid_attributes...)
     return plot
@@ -504,10 +512,11 @@ Modify an axis in place.
 
 This currently supports only `:title`, `:xlabel`, `:ylabel`, and `:xticks`.
 
-This function is hacky as Makie does not currently have support for axis hints.
+This function is hacky as Makie does not currently have support for axis hints,
+so this is a workaround which will work in most cases.
 
-Note that it is not possible to tell if the user want an empty title or not
-since this function assumes that if the default is used, then it is fine to
+For example, it is not possible to tell if the user want an empty title or not
+since this function assumes that if the default is used, then it is okay to
 overwrite.
 """
 function _modify_axis!(ax; kwargs...)
@@ -546,6 +555,21 @@ function _get_prior_name(prior, dim_idx)
         end
     end
     error("Could not find name corresponding to parameter $dim_idx")
+end
+"""
+    _find_appropriate_error(ekp, error_name)
+
+Find the appropriate name of the error to return if `error_name` is `nothing`.
+Otherwise, return `error_name`.
+"""
+function _find_appropriate_error(ekp, error_name)
+    if isnothing(error_name)
+        process = get_process(ekp)
+        prior_mean = get_prior_mean(process)
+        prior_cov = get_prior_cov(process)
+        error_name = (isnothing(prior_mean) || isnothing(prior_cov)) ? "loss" : "bayes_loss"
+    end
+    return error_name
 end
 
 end
