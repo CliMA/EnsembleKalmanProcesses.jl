@@ -1076,7 +1076,7 @@ returns the minibatch_index `Dict("epoch"=> x, "minibatch" => y)`, for a given `
 """
 function get_minibatch_index(os::OS, iteration::Int) where {OS <: ObservationSeries}
     len_epoch = get_length_epoch(os)
-    return Dict("epoch" => iteration ÷ len_epoch, "minibatch" => iteration % len_epoch)
+    return Dict("epoch" => ((iteration - 1) ÷ len_epoch) + 1, "minibatch" => ((iteration - 1) % len_epoch) + 1)
 end
 
 """
@@ -1107,11 +1107,11 @@ $(TYPEDSIGNATURES)
 
 get the minibatch for a given minibatch index (`Dict("epoch"=> x, "minibatch" => y)`), or iteration `Int`. If `nothing` is provided as an iteration then the current minibatch is returned
 """
-function get_minibatch(os::IS, it_or_mbi::IorDorN) where {OS <: ObservationSeries, IorD <: Union{Int, Dict, Nothing}}
+function get_minibatch(os::OS, it_or_mbi::IorDorN) where {OS <: ObservationSeries, IorDorN <: Union{Int, Dict, Nothing}}
     if isnothing(it_or_mbi)
         return get_current_minibatch(os)
     else
-        index = isa(int_or_dict, Dict) ? it_or_mbi : get_minibatch_index(os, it_or_mbi)
+        index = isa(it_or_mbi, Dict) ? it_or_mbi : get_minibatch_index(os, it_or_mbi)
         minibatches = get_minibatches(os)
         epoch = index["epoch"]
         mini = index["minibatch"]
@@ -1136,7 +1136,7 @@ $(TYPEDSIGNATURES)
 
 if `build=true` then gets the observed sample, stacked over the minibatch at `iteration`. `build=false` lists the `samples` for all observations. If `isnothing(iteration)` or not defined then the current iteration is used.
 """
-function get_obs(os::OS, iteration; build = true) where {OS <: ObservationSeries}
+function get_obs(os::OS, iteration::IorN; build = true) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
     minibatch = get_minibatch(os, iteration)
     minibatch_length = length(minibatch)
     observations_vec = get_observations(os)[minibatch] # gives observation objects
@@ -1163,7 +1163,7 @@ $(TYPEDSIGNATURES)
 
 if `build=true` then gets the observed sample, stacked over the current minibatch. `build=false` lists the `samples` for all observations. 
 """
-get_obs(os::OS; kwargs...) = get_obs(os, nothing; kwargs...)
+get_obs(os::OS; kwargs...) where {OS <: ObservationSeries} = get_obs(os, nothing; kwargs...)
 
 
 """
@@ -1171,7 +1171,11 @@ $(TYPEDSIGNATURES)
 
 if `build=true` then gets the observation covariance matrix, blocked over the minibatch at `iteration`. `build=false` lists the `covs` for all observations. If `isnothing(iteration)` or not defined then the current iteration is used.
 """
-function get_obs_noise_cov(os::OS, iteration; build = true) where {OS <: ObservationSeries}
+function get_obs_noise_cov(
+    os::OS,
+    iteration::IorN;
+    build = true,
+) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
     minibatch = get_minibatch(os, iteration)
     minibatch_length = length(minibatch)
     observations_vec = get_observations(os)[minibatch] # gives observation objects
@@ -1205,7 +1209,7 @@ $(TYPEDSIGNATURES)
 
 if `build=true` then gets the observation covariance matrix, blocked over the current minibatch. `build=false` lists the `covs` for all observations 
 """
-get_obs_noise_cov(os::OS; kwargs...) = get_obs_noise_cov(os, nothing; kwargs...)
+get_obs_noise_cov(os::OS; kwargs...) where {OS <: ObservationSeries} = get_obs_noise_cov(os, nothing; kwargs...)
 
 
 """
@@ -1213,7 +1217,11 @@ $(TYPEDSIGNATURES)
 
 if `build=true` then gets the inverse of the observation covariance matrix, blocked over minibatch at `iteration`. `build=false` lists the `inv_covs` for all observations. If `isnothing(iteration)` or not defined then the current iteration is used.
 """
-function get_obs_noise_cov_inv(os::OS; build = true) where {OS <: ObservationSeries}
+function get_obs_noise_cov_inv(
+    os::OS,
+    iteration::IorN;
+    build = true,
+) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
     minibatch = get_minibatch(os, iteration)
     minibatch_length = length(minibatch)
     observations_vec = get_observations(os)[minibatch] # gives observation objects
@@ -1247,7 +1255,7 @@ $(TYPEDSIGNATURES)
 
 if `build=true` then gets the inverse of the observation covariance matrix, blocked over the current minibatch. `build=false` lists the `inv_covs` for all observations. 
 """
-get_obs_noise_cov_inv(os::OS; kwargs...) = get_obs_noise_cov_inv(os, nothing; kwargs...)
+get_obs_noise_cov_inv(os::OS; kwargs...) where {OS <: ObservationSeries} = get_obs_noise_cov_inv(os, nothing; kwargs...)
 
 
 get_cov_size(am::AM) where {AM <: AbstractMatrix} = size(am, 1)

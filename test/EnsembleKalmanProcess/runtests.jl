@@ -626,6 +626,9 @@ end
         ## some getters in EKP
         @test get_obs(ekiobj) == y_obs
         @test get_obs_noise_cov(ekiobj) == Γy
+        @test get_obs(ekiobj, 1) == y_obs
+        @test get_obs_noise_cov(ekiobj, 1) == Γy
+        @test get_obs_noise_cov_inv(ekiobj) == get_obs_noise_cov_inv(ekiobj, 1)
 
         g_ens = G(get_ϕ_final(prior, ekiobj))
         g_ens_t = permutedims(g_ens, (2, 1))
