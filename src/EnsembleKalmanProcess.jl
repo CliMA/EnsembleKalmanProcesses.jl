@@ -770,7 +770,7 @@ build=false:, returns a vector of blocks,
 build=true: returns a block matrix,
 """
 function get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess; build = true)
-    return get_obs_noise_cov_inv(get_observation_series(ekp), build = build)
+    return get_obs_noise_cov_inv(get_observation_series(ekp); build = build)
 end
 
 """
@@ -856,7 +856,7 @@ build=false: returns a vector of vectors,
 build=true: returns a concatenated vector,
 """
 function get_obs(ekp::EnsembleKalmanProcess, iteration; build = true)
-    return get_obs(get_observation_series(ekp, iteration), build = build)
+    return get_obs(get_observation_series(ekp), iteration; build = build)
 end
 
 
