@@ -91,6 +91,7 @@ pages = [
     "Inflation" => "inflation.md",
     "Parallelism and HPC" => "parallel_hpc.md",
     "Internal data representation" => "internal_data_representation.md",
+    "Visualization" => "visualization.md",
     "Troubleshooting" => "troubleshooting.md",
     "API" => api,
     "Contributing" => "contributing.md",
