@@ -628,7 +628,7 @@ $(TYPEDSIGNATURES)
 Get the accumulated Δt over iterations, also known as algorithm- or pseudo-time.
 """
 function get_algorithm_time(ekp::EnsembleKalmanProcess)
-    return [sum(get_Δt(ekp)[1:i]) for i in 1:length(get_Δt(ekp))]
+    return accumulate(+, get_Δt(ekp))
 end
 
 """
