@@ -55,7 +55,7 @@ update_minibatch!(os::OS) where {OS <: ObservationSeries}
 get_minibatch
 get_current_minibatch(os::OS) where {OS <: ObservationSeries}
 get_obs(os::OS) where {OS <: ObservationSeries}
-get_obs(os::OS, iteration::IorN; build = true) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
+get_obs(os::OS, iteration::IorN) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
 get_obs_noise_cov(os::OS) where {OS <: ObservationSeries}
 get_obs_noise_cov(os::OS, iteration::IorN) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
 get_obs_noise_cov_inv(os::OS) where {OS <: ObservationSeries}
