@@ -725,8 +725,8 @@ end
         end
         push!(u_i_vec, get_u_final(ekiobj))
 
-        dt = get_Δt(ekp)
-        algtime = get_algorithm_time(ekp)
+        dt = get_Δt(ekiobj)
+        algtime = get_algorithm_time(ekiobj)
         @test algtime == [sum(dt[1:i]) for i in 1:length(dt)]
 
         @test get_u_prior(ekiobj) == u_i_vec[1]
