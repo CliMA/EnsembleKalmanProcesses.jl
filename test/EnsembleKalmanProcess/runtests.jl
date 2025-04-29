@@ -725,6 +725,10 @@ end
         end
         push!(u_i_vec, get_u_final(ekiobj))
 
+        dt = get_Δt(ekp)
+        algtime = get_algorithm_time(ekp)
+        @test algtime == [sum(dt[1:i]) for i = 1:length(dt)]
+        
         @test get_u_prior(ekiobj) == u_i_vec[1]
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
@@ -735,6 +739,8 @@ end
         @test isequal(get_error(ekiobj), get_error_metrics(ekiobj)["loss"])
         @test isequal(get_error(ekiobj_inf), get_error_metrics(ekiobj_inf)["bayes_loss"])
 
+        
+        
         # EKI results: Test if ensemble has collapsed toward the true parameter 
         # values
         eki_init_result = vec(mean(get_u_prior(ekiobj), dims = 2))
