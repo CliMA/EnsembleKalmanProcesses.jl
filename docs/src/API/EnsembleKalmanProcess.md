@@ -4,14 +4,24 @@
 CurrentModule = EnsembleKalmanProcesses
 ```
 
+## Primary objects and functions
 ```@docs
 EnsembleKalmanProcess
-FailureHandler
-SampleSuccGauss
-IgnoreFailures
+construct_initial_ensemble
+update_ensemble!
+```
+## Getter functions
+
+```@docs
 get_u
 get_g
 get_ϕ
+get_obs(ekp::EnsembleKalmanProcess)
+get_obs(ekp::EnsembleKalmanProcess, iteration)
+get_obs_noise_cov(ekp::EnsembleKalmanProcess)
+get_obs_noise_cov(ekp::EnsembleKalmanProcess, iteration)
+get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess)
+get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess, iteration)
 get_u_final
 get_g_final
 get_ϕ_final
@@ -35,14 +45,8 @@ get_localizer
 get_localizer_type
 get_nan_tolerance
 get_nan_row_values
-construct_initial_ensemble
-update_ensemble!
-sample_empirical_gaussian
-split_indices_by_success
-impute_over_nans
 list_update_groups_over_minibatch
 ```
-
 ## [Error metrics](@id errors_api)
 
 ```@docs
@@ -55,7 +59,10 @@ compute_crps
 compute_error!
 get_error_metrics
 get_error
-
+lmul_obs_noise_cov
+lmul_obs_noise_cov_inv
+lmul_obs_noise_cov!
+lmul_obs_noise_cov_inv!
 ```
 ## [Learning Rate Schedulers](@id scheduler_api)
 
@@ -66,7 +73,16 @@ EKSStableScheduler
 DataMisfitController
 calculate_timestep!
 ```
+## Failure and NaN handling 
 
+```@docs
+FailureHandler
+SampleSuccGauss
+IgnoreFailures
+sample_empirical_gaussian
+split_indices_by_success
+impute_over_nans
+```
 
 ## [Process-specific](@id process_api)
 ```@docs

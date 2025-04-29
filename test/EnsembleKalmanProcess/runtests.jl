@@ -626,6 +626,9 @@ end
         ## some getters in EKP
         @test get_obs(ekiobj) == y_obs
         @test get_obs_noise_cov(ekiobj) == Γy
+        @test get_obs(ekiobj, 1) == y_obs
+        @test get_obs_noise_cov(ekiobj, 1) == Γy
+        @test get_obs_noise_cov_inv(ekiobj) == get_obs_noise_cov_inv(ekiobj, 1)
 
         g_ens = G(get_ϕ_final(prior, ekiobj))
         g_ens_t = permutedims(g_ens, (2, 1))
@@ -722,6 +725,9 @@ end
         end
         push!(u_i_vec, get_u_final(ekiobj))
 
+        algtime = get_algorithm_time(ekiobj)
+        @test algtime == accumulate(+, get_Δt(ekiobj))
+
         @test get_u_prior(ekiobj) == u_i_vec[1]
         @test get_u(ekiobj) == u_i_vec
         @test isequal(get_g(ekiobj), g_ens_vec)
@@ -731,6 +737,8 @@ end
         # get_error should give the appropriate loss
         @test isequal(get_error(ekiobj), get_error_metrics(ekiobj)["loss"])
         @test isequal(get_error(ekiobj_inf), get_error_metrics(ekiobj_inf)["bayes_loss"])
+
+
 
         # EKI results: Test if ensemble has collapsed toward the true parameter 
         # values

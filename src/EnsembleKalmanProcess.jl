@@ -22,7 +22,15 @@ export get_u_mean, get_u_cov, get_g_mean, get_ϕ_mean
 export get_u_mean_final, get_u_cov_prior, get_u_cov_final, get_g_mean_final, get_ϕ_mean_final
 
 export get_scheduler,
-    get_localizer, get_localizer_type, get_accelerator, get_rng, get_Δt, get_failure_handler, get_N_ens, get_process
+    get_localizer,
+    get_localizer_type,
+    get_accelerator,
+    get_rng,
+    get_Δt,
+    get_algorithm_time,
+    get_failure_handler,
+    get_N_ens,
+    get_process
 export get_nan_tolerance, get_nan_row_values
 export get_observation_series,
     get_obs,
@@ -608,10 +616,19 @@ end
 
 """
     get_Δt(ekp::EnsembleKalmanProcess)
-Return `Δt` field of EnsembleKalmanProcess.
+Return `Δt` field of EnsembleKalmanProcess. 
 """
 function get_Δt(ekp::EnsembleKalmanProcess)
     return ekp.Δt
+end
+
+"""
+$(TYPEDSIGNATURES) 
+
+Get the accumulated Δt over iterations, also known as algorithm- or pseudo-time.
+"""
+function get_algorithm_time(ekp::EnsembleKalmanProcess)
+    return accumulate(+, get_Δt(ekp))
 end
 
 """
@@ -724,23 +741,47 @@ function get_observation_series(ekp::EnsembleKalmanProcess)
 end
 
 """
-    get_obs_noise_cov(ekp::EnsembleKalmanProcess; build=true)
-convenience function to get the obs_noise_cov from the current batch in ObservationSeries
+$(TYPEDSIGNATURES)
+
+Get the `obs_noise_cov` from the current batch in `ObservationSeries`
 build=false:, returns a vector of blocks,
 build=true: returns a block matrix,
 """
 function get_obs_noise_cov(ekp::EnsembleKalmanProcess; build = true)
-    return get_obs_noise_cov(get_observation_series(ekp), build = build)
+    return get_obs_noise_cov(get_observation_series(ekp); build = build)
 end
 
 """
-    get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess; build=true)
-convenience function to get the obs_noise_cov (inverse) from the current batch in ObservationSeries
+$(TYPEDSIGNATURES)
+
+Get the `obs_noise_cov` for `iteration` from the `ObservationSeries`
+build=false:, returns a vector of blocks,
+build=true: returns a block matrix,
+"""
+function get_obs_noise_cov(ekp::EnsembleKalmanProcess, iteration; build = true)
+    return get_obs_noise_cov(get_observation_series(ekp), iteration; build = build)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Get the `obs_noise_cov` inverse from the current batch in `ObservationSeries`
 build=false:, returns a vector of blocks,
 build=true: returns a block matrix,
 """
 function get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess; build = true)
-    return get_obs_noise_cov_inv(get_observation_series(ekp), build = build)
+    return get_obs_noise_cov_inv(get_observation_series(ekp); build = build)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Get the obs_noise_cov inverse for `iteration` from the `ObservationSeries`
+build=false:, returns a vector of blocks,
+build=true: returns a block matrix,
+"""
+function get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess, iteration; build = true)
+    return get_obs_noise_cov_inv(get_observation_series(ekp), iteration; build = build)
 end
 
 """
@@ -797,14 +838,27 @@ function lmul_obs_noise_cov_inv!(
 end
 
 """
-    get_obs(ekp::EnsembleKalmanProcess; build=true)
-Get the observation from the current batch in ObservationSeries
+$(TYPEDSIGNATURES)
+
+Get the observation from the current batch in `ObservationSeries`
 build=false: returns a vector of vectors,
 build=true: returns a concatenated vector,
 """
 function get_obs(ekp::EnsembleKalmanProcess; build = true)
-    return get_obs(get_observation_series(ekp), build = build)
+    return get_obs(get_observation_series(ekp); build = build)
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Get the observation for `iteration` from the `ObservationSeries`
+build=false: returns a vector of vectors,
+build=true: returns a concatenated vector,
+"""
+function get_obs(ekp::EnsembleKalmanProcess, iteration; build = true)
+    return get_obs(get_observation_series(ekp), iteration; build = build)
+end
+
 
 """
     update_minibatch!(ekp::EnsembleKalmanProcess)

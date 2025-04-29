@@ -130,7 +130,6 @@ using EnsembleKalmanProcesses
     end
     @test onci_full == full
 
-
 end
 
 @testset "covariance utilities" begin
@@ -362,6 +361,8 @@ end
     rng = Random.MersenneTwister(11023)
     given_batches =
         [collect(((i - 1) * batch_size + 1):(i * batch_size)) for i in 1:Int(floor(maximum(sample_ids) / batch_size))]
+    n_batches_per_epoch = maximum(sample_ids) / batch_size
+
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
     observation_series = ObservationSeries(obs_vec, minibatcher, series_names, metadata = metadata)
     minibatcher = FixedMinibatcher(given_batches, "random", copy(rng))
@@ -377,6 +378,10 @@ end
     @test get_observations(observation_series) == obs_vec
     @test get_minibatches(observation_series) == [new_epoch]
     @test get_current_minibatch_index(observation_series) == Dict("epoch" => 1, "minibatch" => 1)
+    @test get_length_epoch(observation_series) == n_batches_per_epoch
+    @test get_minibatch_index(observation_series, 1) == Dict("epoch" => 1, "minibatch" => 1)
+    @test get_minibatch_index(observation_series, 8) ==
+          Dict("epoch" => ((8 - 1) ÷ n_batches_per_epoch) + 1, "minibatch" => ((8 - 1) % n_batches_per_epoch) + 1)
     @test get_minibatcher(observation_series) == minibatcher
     @test get_names(observation_series) == series_names
     @test get_metadata(observation_series) == metadata
@@ -398,14 +403,17 @@ end
 
     # test the minibatch updating with epochs
     @test get_current_minibatch(observation_series) == new_epoch[1]
+    @test get_minibatch(observation_series, 1) == new_epoch[1]
     for i in 2:5 # we have 5 batches
         update_minibatch!(observation_series)
         @test get_current_minibatch(observation_series) == new_epoch[i]
+        @test get_minibatch(observation_series, i) == new_epoch[i]
     end
     update_minibatch!(observation_series)
     new_epoch2 = create_new_epoch!(minibatcher, given_batches)
     @test get_current_minibatch_index(observation_series) == Dict("epoch" => 2, "minibatch" => 1)
     @test get_current_minibatch(observation_series) == new_epoch2[1]
+    @test get_minibatch(observation_series, 6) == new_epoch2[1]
     @test get_minibatches(observation_series) == [new_epoch, new_epoch2]
 
     # test the no minibatch option
@@ -424,10 +432,13 @@ end
 
     # get_obs (def: build = true)
     mb = new_epoch2[1]
+    mb_idx = 6
     obs_minibatch = get_obs(observation_series, build = false)
     @test get_obs.(obs_vec[mb], build = false) == obs_minibatch
     obs_minibatch_stack = get_obs(observation_series)
     @test reduce(vcat, get_obs.(obs_vec[mb])) == obs_minibatch_stack
+    @test get_obs(observation_series, mb_idx, build = false) == obs_minibatch
+    @test get_obs(observation_series) == obs_minibatch_stack
 
     # get_obs_noise_cov
     obs_noise_cov_minibatch_blocks = get_obs_noise_cov(observation_series, build = false)
@@ -437,6 +448,7 @@ end
     end
     minibatch_covs = reduce(vcat, minibatch_covs)
     @test minibatch_covs == obs_noise_cov_minibatch_blocks
+    @test minibatch_covs == get_obs_noise_cov(observation_series, mb_idx, build = false)
 
     obs_noise_cov_minibatch_full = get_obs_noise_cov(observation_series)
     minibatch_covs = []
@@ -452,6 +464,11 @@ end
         idx_min[1] += block_sizes[i]
     end
     @test minibatch_cov_full == obs_noise_cov_minibatch_full
+    @test minibatch_cov_full == get_obs_noise_cov(observation_series, mb_idx)
+
+    # just test the indexing a last time
+    @test get_obs_noise_cov_inv(observation_series) == get_obs_noise_cov_inv(observation_series, mb_idx)
+
 
 end
 
