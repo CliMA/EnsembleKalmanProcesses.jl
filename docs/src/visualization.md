@@ -167,3 +167,29 @@ viz.plot_ϕ_mean_over_iters(
         )
 fig_ϕ
 ```
+
+#### Plot by distribution name
+
+It is also possible to plot the constrained (possibly-multidimensional)
+parameters by name. Note that a gridposition per parameter-dimension must be
+provided for plotting. See the example below.
+
+```@example makie_plots
+using CairoMakie # load a Makie backend
+import EnsembleKalmanProcesses.Visualize as viz
+
+fig_ϕ = CairoMakie.Figure(size = (300 * 2, 300 * 2))
+viz.plot_ϕ_over_time(
+    [fig_ϕ[1, 1], fig_ϕ[1, 2]],
+    ekp,
+    prior,
+    "two_with_spread_2",
+    linewidth = 1.5)
+viz.plot_ϕ_mean_over_time(
+    [fig_ϕ[2, 1], fig_ϕ[2, 2]],
+    ekp,
+    prior,
+    "two_with_spread_2",
+    linewidth = 3.0)
+fig_ϕ
+```

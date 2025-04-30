@@ -551,6 +551,90 @@ function Makie.plot!(plot::ConstrainedMeanParamsAndItersOrTime)
 end
 
 """
+    Visualize.plot_ϕ_over_iters(gridpositions, ekp, prior, name; kwargs...)
+
+Plot the constrained parameter belonging to distribution `name` against the
+number of iterations on the iterable `gridpositions`.
+
+Any keyword arguments are passed to all plots.
+"""
+Visualize.plot_ϕ_over_iters(
+    gridpositions,
+    ekp::EnsembleKalmanProcess,
+    prior::ParameterDistribution,
+    name::AbstractString;
+    kwargs...,
+) = _plot_ϕ(Visualize.plot_ϕ_over_iters, gridpositions, ekp, prior, name; kwargs...)
+
+"""
+    Visualize.plot_ϕ_over_time(gridpositions, ekp, prior, name; kwargs...)
+
+Plot the constrained parameter belonging to distribution `name` against time on
+the iterable `gridpositions`.
+
+Any keyword arguments are passed to all plots.
+"""
+Visualize.plot_ϕ_over_time(
+    gridpositions,
+    ekp::EnsembleKalmanProcess,
+    prior::ParameterDistribution,
+    name::AbstractString;
+    kwargs...,
+) = _plot_ϕ(Visualize.plot_ϕ_over_time, gridpositions, ekp, prior, name; kwargs...)
+
+"""
+    Visualize.plot_ϕ_mean_over_iters(gridpositions, ekp::EnsembleKalmanProcess, prior, name; kwargs...)
+
+Plot the mean constrained parameter belonging to distribution `name` against the
+number of iterations on the iterable `gridpositions`.
+
+Any keyword arguments are passed to all plots.
+"""
+Visualize.plot_ϕ_mean_over_iters(
+    gridpositions,
+    ekp::EnsembleKalmanProcess,
+    prior::ParameterDistribution,
+    name::AbstractString;
+    kwargs...,
+) = _plot_ϕ(Visualize.plot_ϕ_mean_over_iters, gridpositions, ekp, prior, name; kwargs...)
+
+"""
+    Visualize.plot_ϕ_mean_over_time(gridpositions, ekp, prior, name; kwargs...)
+
+Plot the mean constrained parameter belonging to distribution `name` against
+time on the iterable `gridpositions`.
+
+Any keyword arguments are passed to all plots.
+"""
+Visualize.plot_ϕ_mean_over_time(
+    gridpositions,
+    ekp::EnsembleKalmanProcess,
+    prior::ParameterDistribution,
+    name::AbstractString;
+    kwargs...,
+) = _plot_ϕ(Visualize.plot_ϕ_mean_over_time, gridpositions, ekp, prior, name; kwargs...)
+
+"""
+    _plot_ϕ(plot_fn, gridpositions, ekp, prior, name; kwargs...)
+
+Helper function to plot `ϕ`-related quantities by the name of the distribution.
+"""
+function _plot_ϕ(plot_fn, gridpositions, ekp, prior, name::AbstractString; kwargs...)
+    batch_idx = findfirst(x -> x == name, prior.name)
+    isnothing(batch_idx) &&
+        error("Cannot find a distribution with the name $name; the available distributions are $(prior.name)")
+    dim_indices = batch(prior)[batch_idx]
+    length(dim_indices) == length(gridpositions) || error(
+        "The $name distribution has $(length(dim_indices)) dimensions, but $(length(gridpositions)) gridpositions are passed in",
+    )
+    local plot
+    for (gridposition, dim_idx) in zip(gridpositions, dim_indices)
+        plot = plot_fn(gridposition, ekp, prior, dim_idx; kwargs...)
+    end
+    return plot
+end
+
+"""
     _modify_axis!(ax; kwargs...)
 
 Modify an axis in place.

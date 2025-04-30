@@ -159,6 +159,40 @@ if TEST_PLOT_OUTPUT
 
         save(joinpath(tmp_dir, "mean_and_std_phi.png"), fig4)
 
+        # Test plotting functions for plotting ϕ by name
+        fig5 = CairoMakie.Figure(size = (400 * 2, 400 * 4))
+        EnsembleKalmanProcesses.Visualize.plot_ϕ_over_iters((fig5[1, 1], fig5[1, 2]), ekp, prior, "two_with_spread_2")
+        EnsembleKalmanProcesses.Visualize.plot_ϕ_over_time((fig5[2, 1], fig5[2, 2]), ekp, prior, "two_with_spread_2")
+        EnsembleKalmanProcesses.Visualize.plot_ϕ_mean_over_iters(
+            (fig5[3, 1], fig5[3, 2]),
+            ekp,
+            prior,
+            "two_with_spread_2",
+            linewidth = 1.5,
+        )
+        EnsembleKalmanProcesses.Visualize.plot_ϕ_mean_over_time(
+            (fig5[4, 1], fig5[4, 2]),
+            ekp,
+            prior,
+            "two_with_spread_2",
+            linewidth = 3,
+        )
+        save(joinpath(tmp_dir, "plot_by_name.png"), fig5)
+
+        # Error handling
+        @test_throws ErrorException EnsembleKalmanProcesses.Visualize.plot_ϕ_mean_over_time(
+            (fig5[5, 1], fig5[5, 2]),
+            ekp,
+            prior,
+            "name not present",
+        )
+        @test_throws ErrorException EnsembleKalmanProcesses.Visualize.plot_ϕ_mean_over_time(
+            (fig5[6, 1],),
+            ekp,
+            prior,
+            "two_with_spread_2",
+        )
+
         # Test different plotting signatures
         # We do not test all possible combinations because there are too many to
         # test, so we only test plot_fn(args...; kwargs...)
