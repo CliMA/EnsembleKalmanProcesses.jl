@@ -1,9 +1,4 @@
 if TEST_PLOT_OUTPUT
-    # Fix seed, so the plots do not differ from run to run
-    import Random
-    rng_seed = 1234
-    rng = Random.MersenneTwister(rng_seed)
-
     using Test
     using CairoMakie
 
@@ -39,6 +34,11 @@ if TEST_PLOT_OUTPUT
         # Access plots at tmp_dir
         tmp_dir = mktempdir(cleanup = false)
         @info "Tempdir", tmp_dir
+
+        # Fix seed, so the plots do not differ from run to run
+        import Random
+        rng_seed = 1234
+        rng = Random.MersenneTwister(rng_seed)
 
         G(u) = [1.0 / abs(u[1]), sum(u[2:3]), u[3], u[1]^2 - u[2] - u[3], u[1], 5.0] .+ 0.1 * randn(6)
         true_u = [3, 1, 2]
@@ -159,8 +159,33 @@ if TEST_PLOT_OUTPUT
 
         save(joinpath(tmp_dir, "mean_and_std_phi.png"), fig4)
 
+        # Test different plotting signatures
+        # We do not test all possible combinations because there are too many to
+        # test, so we only test plot_fn(args...; kwargs...)
+        mkdir(joinpath(tmp_dir, "diff_plot_signatures"))
+        error_fns = [
+            EnsembleKalmanProcesses.Visualize.plot_error_over_iters,
+            EnsembleKalmanProcesses.Visualize.plot_error_over_time,
+        ]
+        for error_fn in error_fns
+            fig_diff_signs, _, _ = error_fn(ekp)
+            save(joinpath(tmp_dir, "diff_plot_signatures", "$error_fn.png"), fig_diff_signs)
+        end
+
+        ϕ_fns = [
+            EnsembleKalmanProcesses.Visualize.plot_ϕ_over_iters,
+            EnsembleKalmanProcesses.Visualize.plot_ϕ_over_time,
+            EnsembleKalmanProcesses.Visualize.plot_ϕ_mean_over_iters,
+            EnsembleKalmanProcesses.Visualize.plot_ϕ_mean_over_time,
+        ]
+        for ϕ_fn in ϕ_fns
+            fig_diff_signs, _, _ = ϕ_fn(ekp, prior, 1)
+            save(joinpath(tmp_dir, "diff_plot_signatures", "$ϕ_fn.png"), fig_diff_signs)
+        end
+
         # Access plots at tmp_dir
-        # Print info again since it is a little tedious to find it if you miss it
+        # Print info again since it is a little tedious to find it if you miss
+        # it the first time
         @info "Tempdir", tmp_dir
     end
 end

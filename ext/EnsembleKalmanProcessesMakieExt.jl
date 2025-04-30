@@ -125,20 +125,20 @@ end
 # Define the function erroranditersortime whose functionality is
 # implemented by specializing
 # Makie.plot!(plot::ConstrainedParamsAndItersOrTime)
-@recipe(ErrorAndItersOrTime, ekp, xvals) do scene
-    Theme()
+@recipe(ErrorAndItersOrTime, ekp) do scene
+    Attributes(linewidth = 4.5)
 end
 
 """
-    Visualize.plot_error_over_iters(figure, ekp; plot_kwargs...)
+    Visualize.plot_error_over_iters(gridposition, ekp; kwargs...)
 
-Plot the errors from `ekp` against the number of iterations on `figure`.
+Plot the errors from `ekp` against the number of iterations on `gridposition`.
 
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 [`Makie.Lines`](https://docs.makie.org/dev/reference/plots/lines).
 """
-Visualize.plot_error_over_iters(fig, ekp; kwargs...) = _plot_error_over_iters(erroranditersortime, fig, ekp; kwargs...)
+Visualize.plot_error_over_iters(args...; kwargs...) = _plot_error_over_iters(erroranditersortime, args...; kwargs...)
 
 """
     Visualize.plot_error_over_iters!(axis, ekp; kwargs...)
@@ -149,18 +149,25 @@ Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 [`Makie.Lines`](https://docs.makie.org/dev/reference/plots/lines).
 """
-Visualize.plot_error_over_iters!(ax, ekp; kwargs...) = _plot_error_over_iters(erroranditersortime!, ax, ekp; kwargs...)
+Visualize.plot_error_over_iters!(args...; kwargs...) = _plot_error_over_iters(erroranditersortime!, args...; kwargs...)
 
 """
-    _plot_errors_over_iters(plot_fn, fig_or_ax, ekp; kwargs...)
+    _plot_errors_over_iters(plot_fn, args...; kwargs...)
 
 Helper function to plot the errors against the number of iterations.
+
+The arguments one can expect is `fig_or_ax` and `ekp` or the last argument.
 """
-function _plot_error_over_iters(plot_fn, fig_or_ax, ekp; kwargs...)
+function _plot_error_over_iters(plot_fn, args...; kwargs...)
+    ekp = last(args)
     iters = 1:get_N_iterations(ekp)
     error_metric = _find_appropriate_error(ekp, get(kwargs, :error_metric, nothing))
-    plot = plot_fn(fig_or_ax, ekp, iters; error_metric = error_metric, kwargs...)
-    ax = typeof(fig_or_ax) <: Makie.AbstractAxis ? fig_or_ax : Makie.current_axis()
+    plot = plot_fn(args...; xvals = iters, error_metric = error_metric, kwargs...)
+
+    # If an axis is passed in, it must be the first argument. Otherwise, get the
+    # current axis as determined by Makie. Note that current_axis() does not work
+    # if an axis is passed in.
+    ax = typeof(first(args)) <: Makie.AbstractAxis ? first(args) : Makie.current_axis()
     _modify_axis!(
         ax;
         xlabel = "Iterations",
@@ -172,15 +179,15 @@ function _plot_error_over_iters(plot_fn, fig_or_ax, ekp; kwargs...)
 end
 
 """
-    Visualize.plot_error_over_time(figure, ekp; kwargs...)
+    Visualize.plot_error_over_time(gridposition, ekp; kwargs...)
 
-Plot the errors from `ekp` against time on `figure`.
+Plot the errors from `ekp` against time on `gridposition`.
 
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 [`Makie.Lines`](https://docs.makie.org/dev/reference/plots/lines).
 """
-Visualize.plot_error_over_time(fig, ekp; kwargs...) = _plot_error_over_time(erroranditersortime, fig, ekp; kwargs...)
+Visualize.plot_error_over_time(args...; kwargs...) = _plot_error_over_time(erroranditersortime, args...; kwargs...)
 
 """
     Visualize.plot_error_over_time!(axis, ekp; kwargs...)
@@ -191,18 +198,25 @@ Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 [`Makie.Lines`](https://docs.makie.org/dev/reference/plots/lines).
 """
-Visualize.plot_error_over_time!(ax, ekp; kwargs...) = _plot_error_over_time(erroranditersortime!, ax, ekp; kwargs...)
+Visualize.plot_error_over_time!(args...; kwargs...) = _plot_error_over_time(erroranditersortime!, args...; kwargs...)
 
 """
     _plot_error_over_time(plot_fn, fig_or_ax, ekp; kwargs...)
 
 Helper function to plot errors over time.
+
+The arguments one can expect is `fig_or_ax` and `ekp` or the last argument.
 """
-function _plot_error_over_time(plot_fn, fig_or_ax, ekp; kwargs...)
+function _plot_error_over_time(plot_fn, args...; kwargs...)
+    ekp = last(args)
     times = get_algorithm_time(ekp)
     error_metric = _find_appropriate_error(ekp, get(kwargs, :error_metric, nothing))
-    plot = plot_fn(fig_or_ax, ekp, times; error_metric = error_metric, kwargs...)
-    ax = typeof(fig_or_ax) <: Makie.AbstractAxis ? fig_or_ax : Makie.current_axis()
+    plot = plot_fn(args...; xvals = times, error_metric = error_metric, kwargs...)
+
+    # If an axis is passed in, it must be the first argument. Otherwise, get the
+    # current axis as determined by Makie. Note that current_axis() does not work
+    # if an axis is passed in.
+    ax = typeof(first(args)) <: Makie.AbstractAxis ? first(args) : Makie.current_axis()
     _modify_axis!(ax; xlabel = "Time", title = "Error over time", ylabel = "$error_metric")
     return plot
 end
@@ -223,21 +237,21 @@ end
 # Define plot recipe for iteration or time vs constrained parameters scatter plots
 # Define the function constrainedparamsanditersortime whose functionality is
 # implemented by specializing Makie.plot!(plot::ConstrainedParamsAndItersOrTime)
-@recipe(ConstrainedParamsAndItersOrTime, ekp, prior, dim_idx, xvals) do scene
+@recipe(ConstrainedParamsAndItersOrTime, ekp, prior, dim_idx) do scene
     Theme()
 end
 
 """
-    Visualize.plot_ϕ_over_iters(figure, ekp, prior, dim_idx; plot_kwargs...)
+    Visualize.plot_ϕ_over_iters(gridposition, ekp, prior, dim_idx; kwargs...)
 
-Plot the constrained parameter of index `dim_idx` against time on `figure`.
+Plot the constrained parameter of index `dim_idx` against time on `gridposition`.
 
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 (`Makie.Scatter`)[https://docs.makie.org/dev/reference/plots/scatter].
 """
-Visualize.plot_ϕ_over_iters(fig, ekp, prior, dim_idx; kwargs...) =
-    _plot_ϕ_over_iters(constrainedparamsanditersortime, fig, ekp, prior, dim_idx; kwargs...)
+Visualize.plot_ϕ_over_iters(args...; kwargs...) =
+    _plot_ϕ_over_iters(constrainedparamsanditersortime, args...; kwargs...)
 
 """
     Visualize.plot_ϕ_over_iters!(axis, ekp, prior, dim_idx; kwargs...)
@@ -248,18 +262,26 @@ Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 (`Makie.Scatter`)[https://docs.makie.org/dev/reference/plots/scatter].
 """
-Visualize.plot_ϕ_over_iters!(ax, ekp, prior, dim_idx; kwargs...) =
-    _plot_ϕ_over_iters(constrainedparamsanditersortime!, ax, ekp, prior, dim_idx; kwargs...)
+Visualize.plot_ϕ_over_iters!(args...; kwargs...) =
+    _plot_ϕ_over_iters(constrainedparamsanditersortime!, args...; kwargs...)
 
 """
-    _plot_ϕ_over_iters(plot_fn, fig_or_ax, ekp, prior, dim_idx; kwargs...)
+    _plot_ϕ_over_iters(plot_fn, args...; kwargs...)
 
 Helper function to plot constrained parameters against the number of iterations.
+
+The arguments one can expect is `fig_or_ax`, `ekp`, `prior`, and `dim_idx` or
+the last three arguments.
 """
-function _plot_ϕ_over_iters(plot_fn, fig_or_ax, ekp, prior, dim_idx; kwargs...)
+function _plot_ϕ_over_iters(plot_fn, args...; kwargs...)
+    ekp, prior, dim_idx = last(args, 3)
     iters = collect(0:get_N_iterations(ekp))
-    plot = plot_fn(fig_or_ax, ekp, prior, dim_idx, iters; kwargs...)
-    ax = typeof(fig_or_ax) <: Makie.AbstractAxis ? fig_or_ax : Makie.current_axis()
+    plot = plot_fn(args...; xvals = iters, kwargs...)
+
+    # If an axis is passed in, it must be the first argument. Otherwise, get the
+    # current axis as determined by Makie. Note that current_axis() does not work
+    # if an axis is passed in.
+    ax = typeof(first(args)) <: Makie.AbstractAxis ? first(args) : Makie.current_axis()
     _modify_axis!(
         ax;
         xlabel = "Iterations",
@@ -271,16 +293,15 @@ function _plot_ϕ_over_iters(plot_fn, fig_or_ax, ekp, prior, dim_idx; kwargs...)
 end
 
 """
-    Visualize.plot_ϕ_over_time(figure, ekp, prior, dim_idx; plot_kwargs...)
+    Visualize.plot_ϕ_over_time(gridposition, ekp, prior, dim_idx; kwargs...)
 
-Plot the constrained parameter of index `dim_idx` against time on `figure`.
+Plot the constrained parameter of index `dim_idx` against time on `gridposition`.
 
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 (`Makie.Scatter`)[https://docs.makie.org/dev/reference/plots/scatter].
 """
-Visualize.plot_ϕ_over_time(fig, ekp, prior, dim_idx; kwargs...) =
-    _plot_ϕ_over_time(constrainedparamsanditersortime, fig, ekp, prior, dim_idx; kwargs...)
+Visualize.plot_ϕ_over_time(args...; kwargs...) = _plot_ϕ_over_time(constrainedparamsanditersortime, args...; kwargs...)
 
 """
     Visualize.plot_ϕ_over_time!(axis, ekp, prior, dim_idx; kwargs...)
@@ -291,19 +312,27 @@ Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 (`Makie.Scatter`)[https://docs.makie.org/dev/reference/plots/scatter].
 """
-Visualize.plot_ϕ_over_time!(ax, ekp, prior, dim_idx; kwargs...) =
-    _plot_ϕ_over_time(constrainedparamsanditersortime!, ax, ekp, prior, dim_idx; kwargs...)
+Visualize.plot_ϕ_over_time!(args...; kwargs...) =
+    _plot_ϕ_over_time(constrainedparamsanditersortime!, args...; kwargs...)
 
 """
-    _plot_ϕ_over_time(plot_fn, fig_or_ax, ekp, prior, dim_idx; kwargs...)
+    _plot_ϕ_over_time(plot_fn, args...; kwargs...)
 
 Helper function to plot constrained parameter over iterations.
+
+The arguments one can expect is `fig_or_ax`, `ekp`, `prior`, and `dim_idx` or
+the last three arguments.
 """
-function _plot_ϕ_over_time(plot_fn, fig_or_ax, ekp, prior, dim_idx; kwargs...)
+function _plot_ϕ_over_time(plot_fn, args...; kwargs...)
+    ekp, prior, dim_idx = last(args, 3)
     times = get_algorithm_time(ekp)
     pushfirst!(times, zero(eltype(times)))
-    plot = plot_fn(fig_or_ax, ekp, prior, dim_idx, times; kwargs...)
-    ax = typeof(fig_or_ax) <: Makie.AbstractAxis ? fig_or_ax : Makie.current_axis()
+    plot = plot_fn(args...; xvals = times, kwargs...)
+
+    # If an axis is passed in, it must be the first argument. Otherwise, get the
+    # current axis as determined by Makie. Note that current_axis() does not work
+    # if an axis is passed in.
+    ax = typeof(first(args)) <: Makie.AbstractAxis ? first(args) : Makie.current_axis()
     _modify_axis!(
         ax;
         xlabel = "Time",
@@ -334,8 +363,8 @@ end
 # Define the function constrainedmeanparamsanditersortime whose functionality is
 # implemented by specializing
 # Makie.plot!(plot::ConstrainedMeanParamsAndItersOrTime)
-@recipe(ConstrainedMeanParamsAndItersOrTime, ekp, prior, dim_idx, xvals) do scene
-    Theme()
+@recipe(ConstrainedMeanParamsAndItersOrTime, ekp, prior, dim_idx) do scene
+    Attributes(linewidth = 4.5)
 end
 
 """
@@ -354,17 +383,17 @@ keyword arguments supported by
 `plot_std = true`.
 
 Keyword arguments passed to `line_kwargs` and `band_kwargs` are merged with
-`plot_kwargs` when possible. The keyword arguments in `line_kwargs` and
-`band_kwargs` take priority over the keyword arguments in `plot_kwargs`.
+`kwargs` when possible. The keyword arguments in `line_kwargs` and
+`band_kwargs` take priority over the keyword arguments in `kwargs`.
 """
-Visualize.plot_ϕ_mean_over_iters!(ax, ekp, prior, dim_idx; plot_std = false, kwargs...) =
-    _plot_ϕ_mean_over_iters(constrainedmeanparamsanditersortime!, ax, ekp, prior, dim_idx; plot_std, kwargs...)
+Visualize.plot_ϕ_mean_over_iters!(args...; plot_std = false, kwargs...) =
+    _plot_ϕ_mean_over_iters(constrainedmeanparamsanditersortime!, args...; plot_std, kwargs...)
 
 """
-    Visualize.plot_ϕ_mean_over_iters(figure, ekp, prior, dim_idx; plot_std = false, plot_kwargs...)
+    Visualize.plot_ϕ_mean_over_iters(gridposition, ekp, prior, dim_idx; plot_std = false, kwargs...)
 
 Plot the mean constrained parameter of index `dim_idx` of `prior` against the
-number of iterations on `figure`.
+number of iterations on `gridposition`.
 
 If `plot_std = true`, then the standard deviation of the constrained parameters
 of the ensemble is also plotted.
@@ -376,22 +405,30 @@ keyword arguments supported by
 `plot_std = true`.
 
 Keyword arguments passed to `line_kwargs` and `band_kwargs` are merged with
-`plot_kwargs` when possible. The keyword arguments in `line_kwargs` and
-`band_kwargs` take priority over the keyword arguments in `plot_kwargs`.
+`kwargs` when possible. The keyword arguments in `line_kwargs` and
+`band_kwargs` take priority over the keyword arguments in `kwargs`.
 """
-Visualize.plot_ϕ_mean_over_iters(fig, ekp, prior, dim_idx; plot_std = false, kwargs...) =
-    _plot_ϕ_mean_over_iters(constrainedmeanparamsanditersortime, fig, ekp, prior, dim_idx; plot_std, kwargs...)
+Visualize.plot_ϕ_mean_over_iters(args...; plot_std = false, kwargs...) =
+    _plot_ϕ_mean_over_iters(constrainedmeanparamsanditersortime, args...; plot_std, kwargs...)
 
 """
-    _plot_ϕ_mean_over_iters(plot_fn, fig_or_ax, ekp, prior, dim_idx; plot_std = false, kwargs...)
+    _plot_ϕ_mean_over_iters(plot_fn, args...; plot_std = false, kwargs...)
 
 Helper function to plot mean constrained parameter against the number of
 iterations.
+
+The arguments one can expect is `fig_or_ax`, `ekp`, `prior`, and `dim_idx` or
+the last three arguments.
 """
-function _plot_ϕ_mean_over_iters(plot_fn, fig_or_ax, ekp, prior, dim_idx; plot_std, kwargs...)
+function _plot_ϕ_mean_over_iters(plot_fn, args...; plot_std, kwargs...)
+    ekp, prior, dim_idx = last(args, 3)
     iters = collect(0:get_N_iterations(ekp))
-    plot = plot_fn(fig_or_ax, ekp, prior, dim_idx, iters; plot_std, kwargs...)
-    ax = typeof(fig_or_ax) <: Makie.AbstractAxis ? fig_or_ax : Makie.current_axis()
+    plot = plot_fn(args...; plot_std, xvals = iters, kwargs...)
+
+    # If an axis is passed in, it must be the first argument. Otherwise, get the
+    # current axis as determined by Makie. Note that current_axis() does not work
+    # if an axis is passed in.
+    ax = typeof(first(args)) <: Makie.AbstractAxis ? first(args) : Makie.current_axis()
     if plot_std
         axis_attribs = (
             xlabel = "Iterations",
@@ -412,7 +449,7 @@ function _plot_ϕ_mean_over_iters(plot_fn, fig_or_ax, ekp, prior, dim_idx; plot_
 end
 
 """
-    Visualize.plot_ϕ_mean_over_time!(axis, ekp, prior, dim_idx; plot_std = false, plot_kwargs...)
+    Visualize.plot_ϕ_mean_over_time!(axis, ekp, prior, dim_idx; plot_std = false, kwargs...)
 
 Plot the mean constrained parameter of index `dim_idx` of `prior` against time
 on `axis`.
@@ -427,17 +464,17 @@ keyword arguments supported by
 `plot_std = true`.
 
 Keyword arguments passed to `line_kwargs` and `band_kwargs` are merged with
-`plot_kwargs` when possible. The keyword arguments in `line_kwargs` and
-`band_kwargs` take priority over the keyword arguments in `plot_kwargs`.
+`kwargs` when possible. The keyword arguments in `line_kwargs` and
+`band_kwargs` take priority over the keyword arguments in `kwargs`.
 """
-Visualize.plot_ϕ_mean_over_time!(ax, ekp, prior, dim_idx; plot_std = false, kwargs...) =
-    _plot_ϕ_mean_over_time(constrainedmeanparamsanditersortime!, ax, ekp, prior, dim_idx; plot_std, kwargs...)
+Visualize.plot_ϕ_mean_over_time!(args...; plot_std = false, kwargs...) =
+    _plot_ϕ_mean_over_time(constrainedmeanparamsanditersortime!, args...; plot_std, kwargs...)
 
 """
-    Visualize.plot_ϕ_mean_over_time(figure, ekp, prior, dim_idx; plot_std = false, plot_kwargs...)
+    Visualize.plot_ϕ_mean_over_time(gridposition, ekp, prior, dim_idx; plot_std = false, kwargs...)
 
 Plot the mean constrained parameter of index `dim_idx` of `prior` against time
-on `figure`.
+on `gridposition`.
 
 If `plot_std = true`, then the standard deviation of the constrained parameter
 of the ensemble is also plotted.
@@ -449,22 +486,30 @@ keyword arguments supported by
 `plot_std = true`.
 
 Keyword arguments passed to `line_kwargs` and `band_kwargs` are merged with
-`plot_kwargs` when possible. The keyword arguments in `line_kwargs` and
-`band_kwargs` take priority over the keyword arguments in `plot_kwargs`.
+`kwargs` when possible. The keyword arguments in `line_kwargs` and
+`band_kwargs` take priority over the keyword arguments in `kwargs`.
 """
-Visualize.plot_ϕ_mean_over_time(fig, ekp, prior, dim_idx; plot_std = false, kwargs...) =
-    _plot_ϕ_mean_over_time(constrainedmeanparamsanditersortime, fig, ekp, prior, dim_idx; plot_std, kwargs...)
+Visualize.plot_ϕ_mean_over_time(args...; plot_std = false, kwargs...) =
+    _plot_ϕ_mean_over_time(constrainedmeanparamsanditersortime, args...; plot_std, kwargs...)
 
 """
     _plot_ϕ_mean_over_time(plot_fn, fig_or_ax, ekp, prior, dim_idx; kwargs...)
 
 Helper function to plot mean constrained parameters against time.
+
+The arguments one can expect is `fig_or_ax`, `ekp`, `prior`, and `dim_idx` or
+the last three arguments.
 """
-function _plot_ϕ_mean_over_time(plot_fn, fig_or_ax, ekp, prior, dim_idx; plot_std, kwargs...)
+function _plot_ϕ_mean_over_time(plot_fn, args...; plot_std, kwargs...)
+    ekp, prior, dim_idx = last(args, 3)
     times = accumulate(+, get_Δt(ekp))
     pushfirst!(times, zero(eltype(times)))
-    plot = plot_fn(fig_or_ax, ekp, prior, dim_idx, times; plot_std, kwargs...)
-    ax = typeof(fig_or_ax) <: Makie.AbstractAxis ? fig_or_ax : Makie.current_axis()
+    plot = plot_fn(args...; plot_std, xvals = times, kwargs...)
+
+    # If an axis is passed in, it must be the first argument. Otherwise, get the
+    # current axis as determined by Makie. Note that current_axis() does not work
+    # if an axis is passed in.
+    ax = typeof(first(args)) <: Makie.AbstractAxis ? first(args) : Makie.current_axis()
     if plot_std
         axis_attribs = (
             xlabel = "Time",

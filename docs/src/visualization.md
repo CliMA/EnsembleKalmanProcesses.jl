@@ -35,7 +35,10 @@ p = plot(prior)
 
 Plotting functionality is provided by Makie.jl through a package extension. See
 the [documentation](@ref Visualize) for a list of all the available plotting
-functions.
+functions. The plotting functions have the same signature that one would expect
+from Makie plotting functions. See the
+[plot methods section](https://docs.makie.org/dev/explanations/plot_method_signatures)
+in Makie documentation for more information.
 
 ```@setup makie_plots
 # Fix random seed, so plots don't change
