@@ -3,6 +3,7 @@
 using EnsembleKalmanProcesses,
     Documenter,
     Plots,  # so that Literate.jl does not capture precompilation output
+    CairoMakie,
     Literate
 
 prepend!(LOAD_PATH, [joinpath(@__DIR__, "..")])
@@ -56,6 +57,7 @@ api = [
     "SparseInversion" => "API/SparseInversion.md",
     "TOML Interface" => "API/TOMLInterface.md",
     "Localizers" => "API/Localizers.md",
+    "Visualize" => "API/Visualize.md",
 ]
 
 examples = [
@@ -89,6 +91,7 @@ pages = [
     "Inflation" => "inflation.md",
     "Parallelism and HPC" => "parallel_hpc.md",
     "Internal data representation" => "internal_data_representation.md",
+    "Visualization" => "visualization.md",
     "Troubleshooting" => "troubleshooting.md",
     "API" => api,
     "Contributing" => "contributing.md",
@@ -104,7 +107,7 @@ makedocs(
     authors = "CliMA Contributors",
     format = format,
     pages = pages,
-    modules = [EnsembleKalmanProcesses],
+    modules = [EnsembleKalmanProcesses, Base.get_extension(EnsembleKalmanProcesses, :EnsembleKalmanProcessesMakieExt)],
     doctest = true,
     clean = true,
     checkdocs = :none,

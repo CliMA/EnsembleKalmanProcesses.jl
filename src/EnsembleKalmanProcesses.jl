@@ -14,4 +14,5 @@ include("EnsembleKalmanProcess.jl")
 
 # Plot recipes
 include("PlotRecipes.jl")
+include("Visualize.jl")
 end # module
