@@ -55,11 +55,12 @@ cases = [
     "unscented-infinite",
     "transform-unscented-infinite",
     "sampler",
+    "gauss-newton",
 ]
-case_list = cases[1:7]
+case_list = cases[1:8] # i:j even if i=j
 
 # We can choose to add noise to every "G" call? (making the loss function of the problem noisy)
-stoch_G_flag = true
+stoch_G_flag = false
 
 # and whether we produce animations
 anim_flag = true
@@ -130,7 +131,12 @@ for case in case_list
         #fixed_step = 1e-3 # 2e-6 unstable
         scheduler = EKSStableScheduler()
         N_iterations = 200
+    elseif case == "gauss-newton"
+        process = GaussNewtonInversion(prior)
+        scheduler = DataMisfitController(terminate_at = 100) # =1
+        N_iterations = 200
     else
+        println(case)
         throw(ArgumentError("Case not implemented yet"))
     end
 
@@ -290,7 +296,7 @@ for case in case_list
                 markeralpha = 0.6,
                 markercolor = :blue,
                 label = "particles",
-                title = "EKI iteration = " * string(i),
+                title = "iteration = " * string(i),
             )
 
             contour!(plotrange, plotrange, VV', levels = exp.(collect(-5:1:5)), cbar = false, color = :blue)

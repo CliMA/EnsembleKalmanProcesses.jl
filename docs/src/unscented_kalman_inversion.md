@@ -11,7 +11,7 @@ where ``\mathcal{G}`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vec
 
 ## Algorithm
  
-The UKI applies the unscented Kalman filter to the following stochastic dynamical system 
+The UKI applies the unscented Kalman filter to the following stochastic dynamical system
 
 ```math
 \begin{aligned}
@@ -167,62 +167,25 @@ sigma_optim = get_u_cov_final(ukiobj)
 
 There are two examples: [Lorenz96](@ref Lorenz-example) and [Cloudy](@ref Cloudy-example).
 
-## [Handling forward model failures](@id failure-uki)
+# [Output-scalable variant: Unscented Transform Kalman Inversion](@id utki)
 
-In situations where the forward model ``\mathcal{G}`` represents a diagnostic of a complex computational model, there might be cases where for some parameter combinations ``\theta``, attempting to evaluate ``\mathcal{G}(\theta)`` may result in model failure (defined as returning a `NaN` from the point of view of this package). In such cases, the UKI update equations must be modified to handle model failures.
+Unscented transform Kalman inversion (UTKI) is a variant of UKI based on the unscented transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)). It is a form of square-root inversion for UKI is that it has better scalability as the observation dimension grows: while the naive implementation of UKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, UTKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. UTKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
 
-`EnsembleKalmanProcesses.jl` implements such modifications through the `FailureHandler` structure, an input to the `EnsembleKalmanProcess` constructor. Currently, the only failsafe modification available is `SampleSuccGauss()`, described in [Lopez-Gomez et al (2022)](https://doi.org/10.1029/2022MS003105).
+UTKI requires the inverse observation noise covariance, ``\Gamma^{-1}``. In typical applications, when ``\Gamma`` is diagonal, this will be cheap to compute; however, if ``p`` is very large and ``\Gamma`` has non-trivial cross-covariance structure, computing the inverse may be prohibitively expensive.
 
-To employ this modification, construct the EKI object as
+!!! note "Creating scalable observational covariances"
+    UTKI requires storing and inverting the observation noise covariance, ``\Gamma^{-1}``. Without care, this can be prohibitively expensive. To this end, we have tools and an API for creating and using scalable or compact representations of covariances that are necessary for scalability. See [here](@ref building-covariances) for details and examples. 
+
+## Using UTKI
+
+An UTKI struct can be created using the `EnsembleKalmanProcess` constructor by specifying the `TransformUnscented` process. Configurables, such as keywords are identical to that of the `Unscented` process.
 
 ```julia
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.ParameterDistributions
+# given the prior distribution `prior`, data `y` and covariance `obs_noise_cov`,
 
-
-# need to choose regularization factor α ∈ (0,1],  
-# when you have enough observation data α=1: no regularization
-α_reg =  1.0
-# update_freq 1 : approximate posterior covariance matrix with an uninformative prior
-#             0 : weighted average between posterior covariance matrix with an uninformative prior and prior
-update_freq = 0
-
-process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
-ukiobj = EnsembleKalmanProcess(
-    truth_sample,
-    truth.obs_noise_cov,
-    process,
-    failure_handler_method = SampleSuccGauss())
-
+utkiobj = EnsembleKalmanProcess(y, obs_noise_cov, TransformUnscented(prior))
 ```
 
-!!! info "Forward model requirements when using FailureHandlers"
-    The user must determine if a model run has "failed", and replace the output ``\mathcal{G}(\theta)`` with `NaN`. The `FailureHandler` takes care of the rest.
+The rest of the inversion process is the same as for regular UKI.
 
-A description of the algorithmic modification is included below.
-
-### SampleSuccGauss modification
-
-The `SampleSuccGauss()` modification is based on performing the UKI quadratures over the successful sigma points.
-Consider the set of off-center sigma points ``\{\hat{\theta}\} = \{\hat{\theta}_s\} \cup \{\hat{\theta}_f\}`` where ``\hat{\theta}_{s}^{(j)}``,  ``j=1, \dots, J_s`` are successful members and ``\hat{\theta}_{f}^{(k)}`` are not. For ease of notation, consider an ordering of ``\{\hat{\theta}\}`` such that ``\{\hat{\theta}_s\}`` are its first ``J_s`` elements, and note that we deal with the central point ``\hat{\theta}^{(0)}`` separately. We estimate the covariances ``\mathrm{Cov}_q(\mathcal{G}_n, \mathcal{G}_n)`` and ``\mathrm{Cov}_q(\theta_{n}, \mathcal{G}_n)`` from the successful ensemble,
-
-```math
-   \tag{1} \mathrm{Cov}_q(\theta_n, \mathcal{G}_n) \approx \sum_{j=1}^{J_s}w_{s,j} (\hat{\theta}_{s, n}^{(j)} - \bar{\theta}_{s,n})(\mathcal{G}(\hat{\theta}_{s, n}^{(j)}) - \bar{\mathcal{G}}_{s,n})^T,
-```
-
-```math
-   \tag{2} \mathrm{Cov}_q(\mathcal{G}_n, \mathcal{G}_n) \approx \sum_{j=1}^{J_s}w_{s,j} (\mathcal{G}(\hat{\theta}_{s, n}^{(j)}) - \bar{\mathcal{G}}_{s,n})(\mathcal{G}(\hat{\theta}_{s, n}^{(j)}) - \bar{\mathcal{G}}_{s,n})^T,
-```
-
-where the weights at each successful sigma point are scaled up, to preserve the sum of weights,
-```math
-    w_{s,j} = \left(\dfrac{\sum_{i=1}^{2p} w_i}{\sum_{k=1}^{J_s} w_k}\right)w_j.
-```
-
-In equations (1) and (2), the means ``\bar{\theta}_{s,n}`` and ``\bar{\mathcal{G}}_{s,n}`` must be modified from the original formulation if the central point ``\hat{\theta}^{(0)}=m_n`` results in model failure. If this is the case, then an average is taken across the other (successful) ensemble members
-
-```math
-   \bar{\theta}_{s,n} =
-\dfrac{1}{J_s}\sum_{j=1}^{J_s}\hat{\theta}_{s, n}^{(j)}, \qquad   \bar{\mathcal{G}}_{s,n} =
-\dfrac{1}{J_s}\sum_{j=1}^{J_s}\mathcal{G}(\hat{\theta}_{s, n}^{(j)}).
-```

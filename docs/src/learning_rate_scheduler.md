@@ -1,6 +1,6 @@
 # [Learning Rate Schedulers (a.k.a) Timestepping](@id learning-rate-schedulers)
 
-## Overview
+## Overview 
 
 We demonstrate the behaviour of different learning rate schedulers through solution of a nonlinear inverse problem.
 
@@ -10,8 +10,8 @@ We shall compare the following configurations of implemented schedulers.
 1. Fixed, "long" step `DefaultScheduler(0.5)` - orange
 2. Fixed, "short" step `DefaultScheduler(0.02)` - green
 3. Adaptive timestep (designed originally to ensure EKS remains stable) `EKSStableScheduler()` [Kovachki & Stuart 2018](https://doi.org/10.1088/1361-6420/ab1c3a) - red
-4. Adaptive Misfit controlling step (Terminating at `T=1`) `DataMisfitController(terminate_at=1)` [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) - purple
-5. Adaptive Misfit controlling step (Continuing beyond Terminate condition) `DataMisfitController(on_terminate="continue")` - brown
+4. Adaptive misfit-controlling step (for finite-time algorithms, terminating at `T=1`) `DataMisfitController(terminate_at=1)` [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) - purple
+5. Adaptive misfit-controlling step (continuation beyond terminate condition) `DataMisfitController(on_terminate="continue")` - brown
 
 !!! info "Recommended Scheduler"
     For typical problems [we provide a default scheduler](@ref defaults) depending on the process. For example, when constructing an `Inversion()`-type `EnsembleKalmanProcess`, by default this effectively adds the scheduler
