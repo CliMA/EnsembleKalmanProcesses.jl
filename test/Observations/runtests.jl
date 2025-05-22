@@ -32,7 +32,7 @@ using EnsembleKalmanProcesses
         end
         push!(inv_covariances, ic)
 
-        if (i==1)
+        if (i == 1)
             push!(metadatas, nothing)
         else
             push!(metadatas, Dict("example$i" => i))
@@ -51,14 +51,14 @@ using EnsembleKalmanProcesses
 
     # 1) via a dict [singleton] 
     obs_dict = Dict("samples" => samples[1], "covariances" => covariances[1], "names" => names[1])
-    observation_1 = Observation(obs_dict, metadata="test")
+    observation_1 = Observation(obs_dict, metadata = "test")
     @test get_samples(observation_1) == [samples[1]] # all stored as a vec
     @test get_covs(observation_1) == [covariances[1]]
     @test all(isapprox.(get_inv_covs(observation_1)[1], inv_covariances[1], atol = 1e-10)) # inversion approximate
     @test get_names(observation_1) == [names[1]]
     @test get_indices(observation_1) == [indices[1]]
     @test get_metadata(observation_1) == "test"
-    
+
     # 2) via args [singleton] 
     observation_1 = Observation(samples[1], covariances[1], names[1])
     @test get_samples(observation_1) == [samples[1]] # all stored as a vec
@@ -67,7 +67,7 @@ using EnsembleKalmanProcesses
     @test get_names(observation_1) == [names[1]]
     @test get_indices(observation_1) == [indices[1]]
     @test isnothing(get_metadata(observation_1))
-    
+
     # 2) via a dict [vec], pass in inv_covs
     obs_dict = Dict(
         "samples" => samples[2:4],
@@ -85,7 +85,7 @@ using EnsembleKalmanProcesses
     @test get_metadata(observation_2_4) == metadatas[2:4]
 
     # 3) via a list of args  (not pass inv_covs)
-    observation_2_4_new = Observation(samples[2:4], covariances[2:4], names[2:4], metadata=metadatas[2:4])
+    observation_2_4_new = Observation(samples[2:4], covariances[2:4], names[2:4], metadata = metadatas[2:4])
     @test get_samples(observation_2_4_new) == samples[2:4]
     @test get_covs(observation_2_4_new) == covariances[2:4]
     @test all(isapprox.(get_inv_covs(observation_2_4_new), inv.(covariances[2:4]), atol = 1e-10)) # inversion approximate
@@ -101,7 +101,7 @@ using EnsembleKalmanProcesses
     @test get_names(observation) == names
     @test get_indices(observation) == indices # correctly shifted back
     @test get_metadata(observation) == metadatas # content the same
-    
+
     # get_obs 
     obs_sample = get_obs(observation, build = false)
     obs_stacked = get_obs(observation) # default build=true

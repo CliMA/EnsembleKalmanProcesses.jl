@@ -427,7 +427,7 @@ function Observation(obs_dict::Dict; metadata = nothing)
     else
         mnew = metadata
     end
-    
+
     return Observation(snew, cnew, icnew, nnew, indices, mnew)
 
 end
@@ -436,7 +436,7 @@ function Observation(
     sample::AV,
     obs_noise_cov::AMorUSorSVD,
     name::AS;
-    kwargs...
+    kwargs...,
 ) where {
     AV <: AbstractVector,
     AMorUSorSVD <: Union{AbstractMatrix, UniformScaling, SVD, SumOfCovariances},
@@ -449,7 +449,7 @@ function Observation(
     samples::AV1,
     obs_noise_covs::AV2,
     names::AV3;
-    kwargs...
+    kwargs...,
 ) where {AV1 <: AbstractVector, AV2 <: AbstractVector, AV3 <: AbstractVector}
     return Observation(Dict("samples" => samples, "covariances" => obs_noise_covs, "names" => names); kwargs...)
 end
@@ -482,12 +482,12 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
         append!(inew, shifted_indices)
         shift[1] = maximum(shifted_indices[end]) # increase the shift for the next "append"           
         md = get_metadata(obs)
-        if hasmethod(length, (typeof(md), ) ) # some types aren't appendable
-            append!(mnew, md) 
+        if hasmethod(length, (typeof(md),)) # some types aren't appendable
+            append!(mnew, md)
         else
-            push!(mnew, md) 
+            push!(mnew, md)
         end
-            
+
     end
 
     #re-infer eltypes
