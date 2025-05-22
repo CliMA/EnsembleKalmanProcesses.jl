@@ -11,6 +11,7 @@ get_covs
 get_inv_covs
 get_names
 get_indices
+get_metadata(o::OB) where {OB <: Observation}
 combine_observations
 get_obs(o::OB) where {OB <: Observation}
 get_obs_noise_cov(o::OB) where {OB <: Observation}
@@ -50,7 +51,7 @@ get_minibatches(os::OS) where {OS <: ObservationSeries}
 get_minibatch_index
 get_current_minibatch_index(os::OS) where {OS <: ObservationSeries}
 get_minibatcher(os::OS) where {OS <: ObservationSeries}
-get_metadata
+get_metadata(os::OS) where {OS <: ObservationSeries}
 update_minibatch!(os::OS) where {OS <: ObservationSeries}
 get_minibatch
 get_current_minibatch(os::OS) where {OS <: ObservationSeries}

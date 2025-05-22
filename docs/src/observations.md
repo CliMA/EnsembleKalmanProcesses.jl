@@ -94,6 +94,7 @@ for k = 1:100
             "samples" => rand(MvNormal(y,cov_y)),
             "covariances" => cov_y,
             "names" => "y_$k",
+            "metadata" => "optional metadata information in any format",
         ),
     )
 
@@ -102,6 +103,7 @@ for k = 1:100
             "samples" => rand(MvNormal(z,cov_z)),
             "covariances" => cov_z,
             "names" => "z_$k",
+            "metadata" => "optional metadata information in any format",
         ),
     )
     push!(hundred_full_obs, combine_observations([y_obs,z_obs]))
