@@ -483,7 +483,7 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
         shift[1] = maximum(shifted_indices[end]) # increase the shift for the next "append"           
         md = get_metadata(obs)
         if isa(md, AbstractString) # strings are appendable but easier if pushed
-            push!(mnew, md)            
+            push!(mnew, md)
         elseif hasmethod(length, (typeof(md),)) # some types aren't appendable
             append!(mnew, md)
         else
