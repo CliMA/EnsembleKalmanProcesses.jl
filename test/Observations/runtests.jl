@@ -40,12 +40,6 @@ using EnsembleKalmanProcesses
             push!(metadatas, Dict("example$i" => i))
         end
 
-        if (i == 1)
-            push!(metadatas, nothing)
-        else
-            push!(metadatas, Dict("example$i" => i))
-        end
-
     end
     names = ["d$(string(i))" for i in 1:n_samples]
 
