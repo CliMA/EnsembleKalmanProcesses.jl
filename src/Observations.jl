@@ -501,10 +501,8 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
     nnew2 = [convert(T, n) for n in nnew]
     T = promote_type((typeof(i) for i in inew)...)
     inew2 = [convert(T, i) for i in inew]
-    T = promote_type((typeof(i) for i in mnew)...)
-    mnew2 = [convert(T, i) for i in mnew]
 
-    return Observation(snew2, cnew2, icnew2, nnew2, inew2, mnew2)
+    return Observation(snew2, cnew2, icnew2, nnew2, inew2, mnew)
 end
 
 """
