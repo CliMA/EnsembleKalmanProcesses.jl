@@ -31,10 +31,13 @@ using EnsembleKalmanProcesses
             ic = I
         end
         push!(inv_covariances, ic)
-        if (i==1)
-            metadata=nothing
+
+        if (i == 1)
+            push!(metadatas, nothing)
+        elseif (i == 2)
+            push!(metadatas, "checks strings pushed not appended")
         else
-            metadata = Dict("example$i" => i)
+            push!(metadatas, Dict("example$i" => i))
         end
 
         if (i == 1)
