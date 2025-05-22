@@ -34,6 +34,8 @@ using EnsembleKalmanProcesses
 
         if (i == 1)
             push!(metadatas, nothing)
+        elseif (i == 2)
+            push!(metadatas, "checks strings pushed not appended")
         else
             push!(metadatas, Dict("example$i" => i))
         end
