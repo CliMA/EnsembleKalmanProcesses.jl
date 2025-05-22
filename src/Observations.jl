@@ -273,6 +273,7 @@ struct Observation{
     AV3 <: AbstractVector,
     AV4 <: AbstractVector,
     AV5 <: AbstractVector,
+    MD,
 }
     "A (vector of) observation vectors"
     samples::AV1
@@ -450,7 +451,7 @@ function Observation(
     names::AV3;
     kwargs...
 ) where {AV1 <: AbstractVector, AV2 <: AbstractVector, AV3 <: AbstractVector}
-    return Observation(Dict("samples" => samples, "covariances" => obs_noise_covs, "names" => names), kwargs...)
+    return Observation(Dict("samples" => samples, "covariances" => obs_noise_covs, "names" => names); kwargs...)
 end
 
 
@@ -480,7 +481,13 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
         shifted_indices = [ind .+ shift[1] for ind in get_indices(obs)]
         append!(inew, shifted_indices)
         shift[1] = maximum(shifted_indices[end]) # increase the shift for the next "append"           
-        append!(mnew, get_metadata(obs))
+        md = get_metadata(obs)
+        if hasmethod(length, (typeof(md), ) ) # some types aren't appendable
+            append!(mnew, md) 
+        else
+            push!(mnew, md) 
+        end
+            
     end
 
     #re-infer eltypes

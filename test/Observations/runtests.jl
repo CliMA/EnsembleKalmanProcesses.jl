@@ -31,10 +31,11 @@ using EnsembleKalmanProcesses
             ic = I
         end
         push!(inv_covariances, ic)
+
         if (i==1)
-            metadata=nothing
+            push!(metadatas, nothing)
         else
-            metadata = Dict("example$i" => i)
+            push!(metadatas, Dict("example$i" => i))
         end
 
     end
@@ -55,7 +56,7 @@ using EnsembleKalmanProcesses
     @test get_covs(observation_1) == [covariances[1]]
     @test all(isapprox.(get_inv_covs(observation_1)[1], inv_covariances[1], atol = 1e-10)) # inversion approximate
     @test get_names(observation_1) == [names[1]]
-    @test get_indices(observation_1) == [indices[1]])
+    @test get_indices(observation_1) == [indices[1]]
     @test get_metadata(observation_1) == "test"
     
     # 2) via args [singleton] 
