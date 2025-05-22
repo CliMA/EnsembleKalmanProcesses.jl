@@ -100,7 +100,7 @@ using EnsembleKalmanProcesses
     @test all(isapprox.(get_inv_covs(observation), inv_covariances, atol = 1e-10))
     @test get_names(observation) == names
     @test get_indices(observation) == indices # correctly shifted back
-    @test get_metadata(observation) == metadata
+    @test get_metadata(observation) == metadatas # content the same
     
     # get_obs 
     obs_sample = get_obs(observation, build = false)
