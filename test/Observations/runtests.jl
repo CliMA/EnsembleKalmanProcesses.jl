@@ -31,6 +31,11 @@ using EnsembleKalmanProcesses
             ic = I
         end
         push!(inv_covariances, ic)
+        if (i==1)
+            metadata=nothing
+        else
+            metadata = Dict("example$i" => i)
+        end
 
         if (i == 1)
             push!(metadatas, nothing)
