@@ -38,6 +38,7 @@ y_obs = Observation(
         "samples" => y,
         "covariances" => cov_y,
         "names" => "y",
+        "metadata" => "optional metadata information in any format",
     ),
 )
 
@@ -46,6 +47,7 @@ z_obs = Observation(
         "samples" => z,
         "covariances" => cov_z,
         "names" => "z",
+        "metadata" => "optional metadata information in any format",
     ),
 )
 
@@ -67,6 +69,10 @@ There are some other fields stored such as indices of the `y` and `z` components
 ```@example ex1
 get_indices(full_obs) # returns [1:ydim, ydim+1:ydim+zdim]
 ```
+```@example ex1
+get_metadata(full_obs) # combined metadata
+```
+
 
 ## Recommended constructor: Many stacked observations
 
