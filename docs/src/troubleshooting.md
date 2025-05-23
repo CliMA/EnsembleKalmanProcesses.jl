@@ -1,5 +1,29 @@
 # [Troubleshooting and Workflow Tips](@id troubleshooting)
 
+## Getting the results
+
+Data is stored within the `EnsembleKalmanProcess`. Accessing results is done via our API of `getter` functions, and transformations.
+
+The most common of these is
+```julia
+# given an
+# EnsembleKalmanProcess `ekp`
+# prior                 `prior`
+
+ϕ = get_ϕ_final(prior, ekp) 
+g = get_g_final(ekp)
+y = get_obs(ekp)
+Γ = get_obs_noise_cov(ekp) 
+
+# u = get_u_final(ekp)  
+# NB: ϕ = transform_unconstrained_to_unconstrained.(prior, get_u_final(ekp)) 
+```
+
+## Convergence diagnosis and plotting
+
+Information about convenient plotting tools, or error metrics computed during updates, please see [here.](@ref visualization)
+
+
 ## High failure rate
 
 While some EKI variants include failure handlers, excessively high failure rates (i.e., > 80%) can lead to inversions finding local minima or failing to converge. To address this:
