@@ -10,22 +10,33 @@ The most common of these is
 # EnsembleKalmanProcess `ekp`
 # prior                 `prior`
 
+# getting the "latest" parameter ensemble, or at a chosen iteration
 ϕ = get_ϕ_final(prior, ekp)
 ϕ = get_ϕ(prior, ekp, iteration)
 
+# getting the "latest" output ensemble, or at a chosen iteration
 g = get_g_final(ekp)
 g = get_g(ekp, iteration)
 
+# getting the "latest" data vector, or at a chosen iteration [if e.g. minibatching]
 y = get_obs(ekp)
 y = get_obs(ekp, iteration)
 
+# getting the "latest" observational noise covariance, or at a chosen iteration [if e.g. minibatching]
 Γ = get_obs_noise_cov(ekp) 
+Γ = get_obs_noise_cov(ekp, build=false) # do not build the matrix, keep it blocked 
 Γ = get_obs_noise_cov(ekp, iteration) 
-metrics = get_error_metrics(ekp) # get metrics from `compute_error!`
+
+# get the computed error metrics over iterations from `compute_error!`
+metrics = get_error_metrics(ekp)
+
+# get the corresponding algorithm time for the iterations performed
 Δt = get_algorithm_time(ekp) 
 
-# u = get_u_final(ekp)  
-# NB: ϕ = transform_unconstrained_to_unconstrained.(prior, get_u_final(ekp))
+
+# get the latest computational parameters
+u = get_u_final(ekp)  
+# where ϕ = transform_unconstrained_to_unconstrained.(prior, get_u_final(ekp))
 ```
 
 
