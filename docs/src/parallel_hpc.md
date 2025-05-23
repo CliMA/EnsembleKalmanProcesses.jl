@@ -109,7 +109,7 @@ Some applications involve interfacing with non-Julia code or using HPC workload 
   - Step `n`(b). Run the ensemble update, by loading both `ekpobject.jld2` and reading in the parameter files `data_{n-1}_i` for `i = 1:N_ens`. Perform the EKP update step. Write new parameter files `parameters_n_i` for `i = 1:N_ens`. Save the ensemble object in `ekpobject.jld2`
   - iterate `n -> n+1`.
 
-For a simple implementation of this, please see the example in [`examples/SinusoidInterface`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/ClimateMachine/), which is a runnable reimplementation of our [sinusoid example](@ref sinusoid-example) in such a formulation.
+For a simple implementation of this, please see the example in [`examples/SinusoidInterface`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/SinusoidInterface/), which is a runnable reimplementation of our [sinusoid example](@ref sinusoid-example) in such a formulation.
 
 In [HPC interfacing example: ClimateMachine](@ref) we implement a similar loop to interface with a SLURM workload manager for HPC. Here, `sbatch` scripts are used to run each component of the calibration procedure. The outer loop over the EKP iterations lives in the overarching `sbatch` script, and for each iteration, the inner loop are realised as "arrays" of slurm jobs (`1, ..., N_ens`), launched for each ensemble member. The code excerpt below, taken from [`ekp_calibration.sbatch`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/ClimateMachine/ekp_calibration.sbatch) for details), illustrates this procedure:
 ```csh
