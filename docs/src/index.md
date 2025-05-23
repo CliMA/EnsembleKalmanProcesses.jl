@@ -17,7 +17,7 @@ Currently, the following processes are implemented in the library:
  - `Sampler(prior)` Ensemble Kalman Sampler (EKS) - also obtains a Gaussian Approximation of the posterior distribution, through a Monte Carlo integration ([Garbuno-Inigo, Hoffmann, Li, Stuart, 2020](https://doi.org/10.1137/19M1251655)),
   ![eks](assets/animations/animated_sampler.gif)![eks-stoch](assets/animations/animated_sampler_stochG.gif)
  - `Unscented(prior)` Unscented Kalman Inversion (UKI) - also obtains a Gaussian Approximation of the posterior distribution, through a quadrature based integration approach ([Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)),
-  ![uki-inf](assets/animations/animated_unscented.gif)![uki-stoch](assets/animations/animated_unscented_stochG.gif)
+  ![uki-inf](assets/animations/animated_unscented-infinite.gif)![uki-stoch](assets/animations/animated_unscented-infinite_stochG.gif)
  - `TransformUnscented(prior)` Unscented Kalman Inversion (UKI) - An implementation of the UKI algorithm based on the linear-algebra tricks of the square-root filter (see ETKI).
   ![utki](assets/animations/animated_transform-unscented-infinite.gif)![utki-stoch](assets/animations/animated_transform-unscented-infinite_stochG.gif)
 - `SparseInversion(prior)` Sparsity-inducing Ensemble Kalman Inversion (SEKI) - Additionally adds approximate ``L^0`` and ``L^1`` penalization to the EKI ([Schneider, Stuart, Wu, 2020](https://doi.org/10.48550/arXiv.2007.06175)).
