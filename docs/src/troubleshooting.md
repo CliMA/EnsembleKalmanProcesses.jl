@@ -10,14 +10,24 @@ The most common of these is
 # EnsembleKalmanProcess `ekp`
 # prior                 `prior`
 
-ϕ = get_ϕ_final(prior, ekp) 
+ϕ = get_ϕ_final(prior, ekp)
+ϕ = get_ϕ(prior, ekp, iteration)
+
 g = get_g_final(ekp)
+g = get_g(ekp, iteration)
+
 y = get_obs(ekp)
+y = get_obs(ekp, iteration)
+
 Γ = get_obs_noise_cov(ekp) 
+Γ = get_obs_noise_cov(ekp, iteration) 
+metrics = get_error_metrics(ekp) # get metrics from `compute_error!`
+Δt = get_algorithm_time(ekp) 
 
 # u = get_u_final(ekp)  
-# NB: ϕ = transform_unconstrained_to_unconstrained.(prior, get_u_final(ekp)) 
+# NB: ϕ = transform_unconstrained_to_unconstrained.(prior, get_u_final(ekp))
 ```
+
 
 ## Convergence diagnosis and plotting
 
