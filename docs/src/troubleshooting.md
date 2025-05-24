@@ -87,3 +87,8 @@ This is found when providing something other than `accelerator = DefaultAccelera
   Info: 1 particle failure(s) detected. Handler used: SampleSuccGauss.
   ```
 Both these messages arise when the EKP `update_ensemble!` has detected `NaN`s in the forward map evaluation array. One can choose how to handle failed ensemble members with the EKP keyword `failure_handler_method` for more information on the failure handling methods see [here](@ref failures). Note that EKS does not yet have a consistent failure handler method.
+
+- ```julia
+Warning: Detected 2 clashes where forward map evaluations are exactly equal (and not NaN), this is likely to cause `LinearAlgebra` difficulty. Please check forward evaluations for bugs."
+```
+This message arises when forward map evaluations from different paramters produce identical outputs, this can cause errors during updates, and is usually due to (1) output-clipping practices, or (2) user-error in producing the output matrix for the ensemble and should be checked, as it may cause errors. (If not, the implication is that the model output is completely independent of the parameters) 
