@@ -6,8 +6,8 @@ command prompt and
 
 ```julia
 julia> ]
-(v1.7) pkg> add EnsembleKalmanProcesses
-(v1.7) pkg> instantiate
+pkg> add EnsembleKalmanProcesses
+pkg> instantiate
 ```
 
 This will install the latest tagged release of the package.
@@ -17,15 +17,15 @@ This will install the latest tagged release of the package.
     
     ```julia
     julia> ]
-    (v1.7) pkg> add EnsembleKalmanProcesses#main
-    (v1.7) pkg> instantiate
+    pkg> add EnsembleKalmanProcesses#main
+    pkg> instantiate
     ```
     
 You can run the tests via the package manager by:
 
 ```julia
 julia> ]
-(v1.7) pkg> test EnsembleKalmanProcesses
+pkg> test EnsembleKalmanProcesses
 ```
 
 ### Cloning the repository

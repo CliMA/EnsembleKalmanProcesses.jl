@@ -125,53 +125,6 @@ To obtain the optimal value in the constrained space, we use the getter with the
 ϕ_optim = get_ϕ_mean_final(prior, ekiobj) # the optimal physical parameter value
 ```
 
-## [Handling forward model failures](@id failure-eki)
-
-In situations where the forward model ``\mathcal{G}`` represents a diagnostic of a complex computational model, there might be cases where for some parameter combinations ``\theta``, attempting to evaluate ``\mathcal{G}(\theta)`` may result in model failure (defined as returning a `NaN` from the point of view of this package). In such cases, the EKI update equation (2) must be modified to handle model failures.
-
-`EnsembleKalmanProcesses.jl` implements such modifications through the `FailureHandler` structure, an input to the `EnsembleKalmanProcess` constructor. Currently, the only failsafe modification available is `SampleSuccGauss()`, described in [Lopez-Gomez et al (2022)](https://doi.org/10.1029/2022MS003105).
-
-To employ this modification, construct the EKI object as
-
-```julia
-using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.ParameterDistributions
-
-J = 50  # number of ensemble members
-initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble from prior
-
-ekiobj = EnsembleKalmanProcess(
-    initial_ensemble,
-    y,
-    obs_noise_cov,
-    Inversion(),
-    failure_handler_method = SampleSuccGauss())
-```
-
-!!! info "Forward model requirements when using FailureHandlers"
-    The user must determine if a model run has "failed", and replace the output ``\mathcal{G}(\theta)`` with `NaN`. The `FailureHandler` takes care of the rest.
-
-A description of the algorithmic modification is included below.
-
-### `SampleSuccGauss()`
-
-The `SampleSuccGauss()` modification is based on updating all ensemble members with a distribution given by only the successful parameter ensemble. Let ``\Theta_{s,n}=[ \theta^{(1)}_{s,n},\dots,\theta^{(J_s)}_{s,n}]`` be the successful ensemble, for which each evaluation ``\mathcal{G}(\theta^{(j)}_{s,n})`` does not fail, and let ``\theta_{f,n}^{(k)}`` be the ensemble members for which the evaluation ``\mathcal{G}(\theta^{(k)}_{f,n})`` fails. The successful ensemble ``\Theta_{s,n}`` is updated to ``\Theta_{s,n+1}`` using expression (2), and each failed ensemble member as
-
-```math
-    \theta_{f,n+1}^{(k)} \sim \mathcal{N} \left({m}_{s, {n+1}}, \Sigma_{s, n+1} \right),
-```
-
-where
-
-```math
-    {m}_{s, {n+1}} = \dfrac{1}{J_s}\sum_{j=1}^{J_s} \theta_{s,n+1}^{(j)}, \qquad \Sigma_{s, n+1} = \mathrm{Cov}(\theta_{s, n+1}, \theta_{s, n+1}) + \kappa_*^{-1}\mu_{s,1}I_p.
-```
-
-Here, ``\kappa_*`` is a limiting condition number, ``\mu_{s,1}`` is the largest eigenvalue of the sample covariance ``\mathrm{Cov}(\theta_{s, n+1}, \theta_{s, n+1})`` and ``I_p`` is the identity matrix of size ``p\times p``.
-
-!!! warning
-    This modification is not a magic bullet. If large fractions of ensemble members fail during an iteration, this will degenerate the span of the ensemble.
-
 # [Ensemble Transform Kalman Inversion](@id etki)
 
 Ensemble transform Kalman inversion (ETKI) is a variant of EKI based on the ensemble transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)). It is a form of ensemble square-root inversion, and was previously implemented in [Huang et al., 2022](http://doi.org/10.1088/1361-6420/ac99fa). The main advantage of ETKI over EKI is that it has better scalability as the observation dimension grows: while the naive implementation of EKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, ETKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. ETKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
