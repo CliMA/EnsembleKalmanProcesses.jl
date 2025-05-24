@@ -35,6 +35,7 @@ Currently, the following processes are implemented in the library:
  - `TransformUnscented(prior)` Unscented Kalman Inversion (UKI) - An implementation of the UKI algorithm based on the linear-algebra tricks of the square-root filter (see ETKI).
 ```@raw html
 <img src="assets/animations/animated_transform-unscented-infinite.gif" width="300"> <img src="assets/animations/animated_transform-unscented-infinite_stochG.gif" width="300">
+```
 - `SparseInversion(prior)` Sparsity-inducing Ensemble Kalman Inversion (SEKI) - Additionally adds approximate ``L^0`` and ``L^1`` penalization to the EKI ([Schneider, Stuart, Wu, 2020](https://doi.org/10.48550/arXiv.2007.06175)).
 
 
