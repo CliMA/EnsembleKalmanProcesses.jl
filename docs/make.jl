@@ -89,6 +89,7 @@ pages = [
     "Localization and SEC" => "localization.md",
     "Accelerators" => "accelerators.md",
     "Inflation" => "inflation.md",
+    "Failure handling" => "failure_handling.md",
     "Parallelism and HPC" => "parallel_hpc.md",
     "Internal data representation" => "internal_data_representation.md",
     "Visualization" => "visualization.md",

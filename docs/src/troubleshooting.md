@@ -44,7 +44,6 @@ u = get_u_final(ekp)
 
 Information about convenient plotting tools, or error metrics computed during updates, please see [here.](@ref visualization)
 
-
 ## High failure rate
 
 While some EKI variants include failure handlers, excessively high failure rates (i.e., > 80%) can lead to inversions finding local minima or failing to converge. To address this:
@@ -87,4 +86,4 @@ This is found when providing something other than `accelerator = DefaultAccelera
   Info: 1 particle failure(s) detected. Handler used: IgnoreFailures.
   Info: 1 particle failure(s) detected. Handler used: SampleSuccGauss.
   ```
-Both these messages arise when the EKP `update_ensemble!` has detected `NaN`s in the forward map evaluation array. One can choose how to handle failed ensemble members with the EKP keyword `failure_handler_method` for more information on the failure handling methods see [here for EKI/ETKI/SEKI](@ref failure-eki) or [here for UKI](@ref failure-uki). Note that EKS does not yet have a consistent failure handler method.
+Both these messages arise when the EKP `update_ensemble!` has detected `NaN`s in the forward map evaluation array. One can choose how to handle failed ensemble members with the EKP keyword `failure_handler_method` for more information on the failure handling methods see [here](@ref failures). Note that EKS does not yet have a consistent failure handler method.
