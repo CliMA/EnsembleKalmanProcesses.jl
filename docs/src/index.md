@@ -40,8 +40,7 @@ Currently, the following processes are implemented in the library. More details 
 ```@raw html
 <img src="assets/animations/animated_transform-finite.gif" width="300"> <img src="assets/animations/animated_transform-finite_stochG.gif" width="300">
 ```
-- `TransformInversion(prior)` Ensemble Transform Kalman Inversion (ETKI) "infinite time
-" - ETKI with an augmented state that enforces the prior. (see EKI "infinite time")
+- `TransformInversion(prior)` Ensemble Transform Kalman Inversion (ETKI) "infinite time" - ETKI with an augmented state that enforces the prior. (see EKI "infinite time")
 ```@raw html
 <img src="assets/animations/animated_transform-infinite.gif" width="300"> <img src="assets/animations/animated_transform-infinite_stochG.gif" width="300">
 ```
