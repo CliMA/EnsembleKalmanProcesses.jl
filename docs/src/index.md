@@ -6,8 +6,8 @@
 
 Here are loose recommendations and rough scalability in the current implementations
 - **Playground option: [`Inversion`](@ref eki)** (``10^3`` inputs, ``10^3`` outputs) - simple, and  handles large input spaces, and very modifiable with all the bells-and-whistles of the package. 
-- **Efficient option: [`TransformUnscented`](@ref utki)** (Can handle``10^1`` inputs, ``10^7`` outputs) - Very efficient, and quick converging for large outputs. However, strongly couples ensemble-size to input dimension, and can not as robust to model failures and noise.
-- **Scalable and Robust option. [`TransformInversion`](@ref etki)** (Can handle``10^2`` inputs, ``10^7`` outputs) - Less efficient convergence than `TransformUnscented`, but only weakly couples ensemble size with input dimension, and more robust to model failures and noise. 
+- **Efficient option: [`TransformUnscented`](@ref utki)** (``10^1`` inputs, ``10^7`` outputs) - Very efficient, and quick converging for large outputs. However, strongly couples ensemble-size to input dimension, and can not as robust to model failures and noise.
+- **Scalable and Robust option. [`TransformInversion`](@ref etki)** (``10^2`` inputs, ``10^7`` outputs) - Less efficient convergence than `TransformUnscented`, but only weakly couples ensemble size with input dimension, and more robust to model failures and noise. 
 - **With uncertainty [`Sampler`](@ref eks)** (``10^2`` inputs, ``10^3`` outputs) - generally slower to converge than inversion tools, but the final ensemble spread quantifies uncertainty.
 
 # Quick links!
