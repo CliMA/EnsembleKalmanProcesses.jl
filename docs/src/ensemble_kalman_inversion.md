@@ -149,7 +149,7 @@ One can see this in-action with the finite- vs infinite-time comparison example 
 
 **Left: `Inversion` (finite-time), Right: `Inversion(prior)` (infinite-time, initialized off-prior)**
 ```@raw html
-<img src="assets/animations/animated_inversion-finite.gif" width="300"> <img src="assets/animations/animated_inversion-infinite.gif" width="300"> 
+<img src="../assets/animations/animated_inversion-finite.gif" width="300"> <img src="../assets/animations/animated_inversion-infinite.gif" width="300"> 
 ```
 Comparative behaviour. 
 1. **Initialization:** `Inversion()` must be initialized from the prior, `Inversion(prior)` can still find the posterior when initialized off-prior. This might be useful when the prior is very broad and can enter, for example, regions of instability of the users forward model
@@ -162,7 +162,7 @@ One can learn more about the early termination for finite-time algorithms [here]
 
 # [Output-scalable variant: Ensemble Transform Kalman Inversion](@id etki)
 
-Ensemble transform Kalman inversion (ETKI) is a variant of EKI based on the ensemble transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)). It is a form of ensemble square-root inversion, and was previously implemented in [Huang et al., 2022](http://doi.org/10.1088/1361-6420/ac99fa). The main advantage of ETKI over EKI is that it has better scalability as the observation dimension grows: while the naive implementation of EKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, ETKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. ETKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
+Ensemble transform Kalman inversion (ETKI) is a variant of EKI based on the ensemble transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)). It is a form of ensemble square-root inversion, and an implementation can be found in [Huang et al., 2022](http://doi.org/10.1088/1361-6420/ac99fa). The main advantage of ETKI over EKI is that it has better scalability as the observation dimension grows: while the naive implementation of EKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, ETKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. ETKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
 
 The major disadvantage of ETKI is that it cannot be used with localization or sampling error correction. 
 

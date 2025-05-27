@@ -1,6 +1,8 @@
 # [Unscented Kalman Inversion](@id uki)
 
-One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the unscented Kalman inversion ([Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)). The unscented Kalman inversion (UKI) is a derivative-free method for approximate Bayesian inference. We seek to find the posterior parameter distribution ``\theta \in \mathbb{R}^p`` from the inverse problem
+One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the unscented Kalman inversion ([Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)). The unscented Kalman inversion (UKI) is a derivative-free method for approximate Bayesian inference. This page additionally documents an output-scalable variant, the [unscented transform Kalman inversion](@ref utki) (UTKI).
+
+We seek to find the posterior parameter distribution ``\theta \in \mathbb{R}^p`` from the inverse problem
 ```math
  y = \mathcal{G}(\theta) + \eta
 ```
@@ -169,7 +171,7 @@ There are two examples: [Lorenz96](@ref Lorenz-example) and [Cloudy](@ref Cloudy
 
 # [Output-scalable variant: Unscented Transform Kalman Inversion](@id utki)
 
-Unscented transform Kalman inversion (UTKI) is a variant of UKI based on the unscented transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)). It is a form of square-root inversion for UKI is that it has better scalability as the observation dimension grows: while the naive implementation of UKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, UTKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. UTKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
+Unscented transform Kalman inversion (UTKI) is a variant of UKI based on applying the woodbury formula used in the ensemble transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)) to UKI update. It is a form of square-root inversion for UKI is that it has better scalability as the observation dimension grows: while the naive implementation of UKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, UTKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. UTKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
 
 UTKI requires the inverse observation noise covariance, ``\Gamma^{-1}``. In typical applications, when ``\Gamma`` is diagonal, this will be cheap to compute; however, if ``p`` is very large and ``\Gamma`` has non-trivial cross-covariance structure, computing the inverse may be prohibitively expensive.
 
