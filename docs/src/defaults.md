@@ -12,13 +12,13 @@ Parameter dimension        | Ensemble size
 ``100\leq \mathrm{dim}(\theta)``| ``N_{\mathrm{ens}} = 100`` and [SEC](@ref localization)
 
 !!! note "for the `Unscented` process"
-    The [UKI method](@ref uki) always creates an ensemble size proportional to `` \mathrm{dim}(\theta)``. It is not configurable by the user.
+    [UKI](@ref uki) and [UTKI](@ref utki) always create an ensemble size proportional to `` \mathrm{dim}(\theta)``. It is not configurable by the user, and is retrievable from an `EnsembleKalmanProcess` object `ekp` using `get_N_ens(ekp)`.
 
 ### Quick links!
 - What does `scheduler = ...` do? See [here.](@ref learning-rate-schedulers)
-- What does `localization_method = ...` do? See [here.](@ref localization)
-- What does `failure_handler_method = ...` do? See [here](@ref failure-eki) for EKI variants and [here](@ref failure-uki) for UKI specifically.
-- What does `accelerator = ...` do? [Docs coming soon...] See our [accelerator examples](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Accelerators) to play with the acceleration methods.
+- What does `localization_method = ...` do? See [here.](@ref localization) and our and our [example](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Localization)
+- What does `failure_handler_method = ...` do? See [here](@ref failures)
+- What does `accelerator = ...` do? See [here](@ref accelerators), and our [examples](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Accelerators)
 
 ## Prebuilt defaults
 
@@ -87,8 +87,18 @@ failure_handler_method = IgnoreFailures()
 accelerator = DefaultAccelerator()
 ```
 
-## `process <: Unscented`
+## `process <: Unscented` 
 Process documentation [here](@ref uki)
+
+```julia
+scheduler = DataMisfitController(terminate_at = 1)
+localization_method = Localizers.NoLocalization()
+failure_handler_method = SampleSuccGauss()
+accelerator = DefaultAccelerator()
+```
+
+## `process <: TransformUnscented` 
+Process documentation [here](@ref utki)
 
 ```julia
 scheduler = DataMisfitController(terminate_at = 1)

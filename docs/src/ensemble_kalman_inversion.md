@@ -124,72 +124,62 @@ To obtain the optimal value in the constrained space, we use the getter with the
 ```julia
 ϕ_optim = get_ϕ_mean_final(prior, ekiobj) # the optimal physical parameter value
 ```
+# [`Inversion()` vs `Inversion(prior)`](@id finite-vs-infinite-time)
 
-## [Handling forward model failures](@id failure-eki)
+!!! note "Finite-time vs infinite-time"
+    Deeper description of these algorithms is discussed in detail in, for example, Section 4.5 of [Calvello, Reich, Stuart](https://arxiv.org/pdf/2209.11371)). Finite-time algorithms have also been called "transport" algorithms, and infinite-time algorithms are also known as prior-enforcing, or Tikhonov EKI [Chada, Stuart, Tong](https://doi.org/10.1137/19M1242331).
 
-In situations where the forward model ``\mathcal{G}`` represents a diagnostic of a complex computational model, there might be cases where for some parameter combinations ``\theta``, attempting to evaluate ``\mathcal{G}(\theta)`` may result in model failure (defined as returning a `NaN` from the point of view of this package). In such cases, the EKI update equation (2) must be modified to handle model failures.
-
-`EnsembleKalmanProcesses.jl` implements such modifications through the `FailureHandler` structure, an input to the `EnsembleKalmanProcess` constructor. Currently, the only failsafe modification available is `SampleSuccGauss()`, described in [Lopez-Gomez et al (2022)](https://doi.org/10.1029/2022MS003105).
-
-To employ this modification, construct the EKI object as
-
+Thus far, we have presented the finite-time algorithm `Inversion()`. The infinite-time variant `Inversion(prior)` algorithm has two key distinctions.
+1. The initial distribution does not need to come from the prior. 
+2. The particle distribution mean converges to the maximum a-posteriori estimator as ``T\to \infty`` (not via an [early-termination condition](@ref early-terminate))
+It is implemented as follows (here, for three parameters)
 ```julia
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
+# given `y` `obs_noise_cov` and `prior`
 
 J = 50  # number of ensemble members
-initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble from prior
+initial_dist = constrained_gaussian("not-the-prior", 0, 1, -Inf, Inf, repeats=3)
+initial_ensemble = construct_initial_ensemble(inital_dist, J) # Initialize ensemble from prior
 
-ekiobj = EnsembleKalmanProcess(
-    initial_ensemble,
-    y,
-    obs_noise_cov,
-    Inversion(),
-    failure_handler_method = SampleSuccGauss())
+ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion(prior))
 ```
 
-!!! info "Forward model requirements when using FailureHandlers"
-    The user must determine if a model run has "failed", and replace the output ``\mathcal{G}(\theta)`` with `NaN`. The `FailureHandler` takes care of the rest.
+One can see this in-action with the finite- vs infinite-time comparison example [here](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/LossMinimization/), which was used to produce the plots below:
 
-A description of the algorithmic modification is included below.
-
-### `SampleSuccGauss()`
-
-The `SampleSuccGauss()` modification is based on updating all ensemble members with a distribution given by only the successful parameter ensemble. Let ``\Theta_{s,n}=[ \theta^{(1)}_{s,n},\dots,\theta^{(J_s)}_{s,n}]`` be the successful ensemble, for which each evaluation ``\mathcal{G}(\theta^{(j)}_{s,n})`` does not fail, and let ``\theta_{f,n}^{(k)}`` be the ensemble members for which the evaluation ``\mathcal{G}(\theta^{(k)}_{f,n})`` fails. The successful ensemble ``\Theta_{s,n}`` is updated to ``\Theta_{s,n+1}`` using expression (2), and each failed ensemble member as
-
-```math
-    \theta_{f,n+1}^{(k)} \sim \mathcal{N} \left({m}_{s, {n+1}}, \Sigma_{s, n+1} \right),
+**Left: `Inversion` (finite-time), Right: `Inversion(prior)` (infinite-time, initialized off-prior)**
+```@raw html
+<img src="../assets/animations/animated_inversion-finite.gif" width="300"> <img src="../assets/animations/animated_inversion-infinite.gif" width="300"> 
 ```
+Comparative behaviour. 
+1. **Initialization:** `Inversion()` must be initialized from the prior, `Inversion(prior)` can still find the posterior when initialized off-prior. This might be useful when the prior is very broad and can enter, for example, regions of instability of the users forward model
+2. **Prior information:** `Inversion()` only contains prior information due to its initialization, `Inversion(prior)` enforces the prior at every iteration.
+3. **Solution**: `Inversion()` terminated at ``T=1`` (implemented by default) obtains an accurate MAP estimate, the ensemble spread at exactly ``T=1`` can represent a snapshot of the true (Gaussian-approximated) uncertainty. `Inversion(prior)` obtains this in the limit ``T\to\infty``, and undergoes collapse providing no uncertainty information.
+4. **Trust in prior** `Inversion()`, when iterated beyond ``T=1`` will lose prior information and thus move to find the MLE (minimize the data-misfit only) at ``T\to\infty``, this behaviour might be useful if the prior information is missprecified.  
+5. **Efficiency**: `Inversion()` is more efficient that `Inversion(prior)` as enforcing the prior in the infinite-time algorithm is performed via extending the linear systems to be solved. Performance is also impacted (positively or negatively) by the choice of initial distribution in the `Inversion(prior)`
 
-where
+One can learn more about the early termination for finite-time algorithms [here](@ref early-terminate).
 
-```math
-    {m}_{s, {n+1}} = \dfrac{1}{J_s}\sum_{j=1}^{J_s} \theta_{s,n+1}^{(j)}, \qquad \Sigma_{s, n+1} = \mathrm{Cov}(\theta_{s, n+1}, \theta_{s, n+1}) + \kappa_*^{-1}\mu_{s,1}I_p.
-```
+# [Output-scalable variant: Ensemble Transform Kalman Inversion](@id etki)
 
-Here, ``\kappa_*`` is a limiting condition number, ``\mu_{s,1}`` is the largest eigenvalue of the sample covariance ``\mathrm{Cov}(\theta_{s, n+1}, \theta_{s, n+1})`` and ``I_p`` is the identity matrix of size ``p\times p``.
+Ensemble transform Kalman inversion (ETKI) is a variant of EKI based on the ensemble transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)). It is a form of ensemble square-root inversion, and an implementation can be found in [Huang et al., 2022](http://doi.org/10.1088/1361-6420/ac99fa). The main advantage of ETKI over EKI is that it has better scalability as the observation dimension grows: while the naive implementation of EKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, ETKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. ETKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
 
-!!! warning
-    This modification is not a magic bullet. If large fractions of ensemble members fail during an iteration, this will degenerate the span of the ensemble.
+The major disadvantage of ETKI is that it cannot be used with localization or sampling error correction. 
 
-# [Ensemble Transform Kalman Inversion](@id etki)
-
-Ensemble transform Kalman inversion (ETKI) is a variant of EKI based on the ensemble transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)). It is a form of ensemble square-root inversion, and was previously implemented in [Huang et al., 2022](http://doi.org/10.1088/1361-6420/ac99fa). The main advantage of ETKI over EKI is that it has better scalability as the observation dimension grows: while the naive implementation of EKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, ETKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. ETKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
-
-The major disadvantage of ETKI is that it cannot be used with localization or sampling error correction. ETKI also requires the inverse observation noise covariance, ``\Gamma^{-1}``. In typical applications, when ``\Gamma`` is diagonal, this will be cheap to compute; however, if ``p`` is very large and ``\Gamma`` has non-trivial cross-covariance structure, computing the inverse may be prohibitively expensive.
-
+!!! note "Creating scalable observational covariances"
+    ETKI requires storing and inverting the observation noise covariance, ``\Gamma^{-1}``. Without care, this can be prohibitively expensive. To this end, we have tools and an API for creating and using scalable or compact representations of covariances that are necessary for scalability. See [here](@ref building-covariances) for details and examples. 
 ## Using ETKI
 
 An ETKI struct can be created using the `EnsembleKalmanProcess` constructor by specifying the `TransformInversion` process type: 
 
 ```julia
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.ParameterDistributions
+# given the prior distribution `prior`, data `y` and covariance `obs_noise_cov`,
 
 J = 50  # number of ensemble members
 initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble from prior
 
-ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov,
+etkiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov,
                                TransformInversion())
 ```
 

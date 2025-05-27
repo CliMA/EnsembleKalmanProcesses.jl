@@ -99,6 +99,7 @@ If `@distributed for` is used within another module, that module will also need 
 You can read more about `@distributed` [here](https://docs.julialang.org/en/v1/manual/distributed-computing/#Parallel-Map-and-Loops)
 
 ### Case 2: HPC interface
+
 Some applications involve interfacing with non-Julia code or using HPC workload managers. In these cases we suggest using an alternative workflow where one interleaves scripts that launch EKP updates and scripts that runs the model. One possible implementation is the following loop
 - Step `0`(a). Write an ensemble of parameter files `parameters_0_i` for `i = 1:N_ens`, with each parameter file containing a sample from the prior distribution.
 - Step `0`(b). Construct EKP EKP object and save in `jld2` format e.g. `ekpobject.jld2`.
@@ -108,6 +109,7 @@ Some applications involve interfacing with non-Julia code or using HPC workload 
   - Step `n`(b). Run the ensemble update, by loading both `ekpobject.jld2` and reading in the parameter files `data_{n-1}_i` for `i = 1:N_ens`. Perform the EKP update step. Write new parameter files `parameters_n_i` for `i = 1:N_ens`. Save the ensemble object in `ekpobject.jld2`
   - iterate `n -> n+1`.
 
+For a simple implementation of this, please see the example in [`examples/SinusoidInterface`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/SinusoidInterface/), which is a runnable reimplementation of our [sinusoid example](@ref sinusoid-example) in such a formulation.
 
 In [HPC interfacing example: ClimateMachine](@ref) we implement a similar loop to interface with a SLURM workload manager for HPC. Here, `sbatch` scripts are used to run each component of the calibration procedure. The outer loop over the EKP iterations lives in the overarching `sbatch` script, and for each iteration, the inner loop are realised as "arrays" of slurm jobs (`1, ..., N_ens`), launched for each ensemble member. The code excerpt below, taken from [`ekp_calibration.sbatch`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/ClimateMachine/ekp_calibration.sbatch) for details), illustrates this procedure:
 ```csh
@@ -128,4 +130,3 @@ Here a dependency tree is set up in SLURM, which iterates calls to the scripts `
 
 For more details see the [code](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/ClimateMachine) and docs for the [HPC interfacing example: ClimateMachine](@ref).
 
- 
