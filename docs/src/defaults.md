@@ -12,7 +12,7 @@ Parameter dimension        | Ensemble size
 ``100\leq \mathrm{dim}(\theta)``| ``N_{\mathrm{ens}} = 100`` and [SEC](@ref localization)
 
 !!! note "for the `Unscented` process"
-    The [UKI method](@ref uki) always creates an ensemble size proportional to `` \mathrm{dim}(\theta)``. It is not configurable by the user.
+    [UKI](@ref uki) and [UTKI](@ref utki) always create an ensemble size proportional to `` \mathrm{dim}(\theta)``. It is not configurable by the user, and is retrievable from an `EnsembleKalmanProcess` object `ekp` using `get_N_ens(ekp)`.
 
 ### Quick links!
 - What does `scheduler = ...` do? See [here.](@ref learning-rate-schedulers)
