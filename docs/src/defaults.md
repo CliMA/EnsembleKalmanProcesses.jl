@@ -87,8 +87,18 @@ failure_handler_method = IgnoreFailures()
 accelerator = DefaultAccelerator()
 ```
 
-## `process <: Unscented`
+## `process <: Unscented` 
 Process documentation [here](@ref uki)
+
+```julia
+scheduler = DataMisfitController(terminate_at = 1)
+localization_method = Localizers.NoLocalization()
+failure_handler_method = SampleSuccGauss()
+accelerator = DefaultAccelerator()
+```
+
+## `process <: TransformUnscented` 
+Process documentation [here](@ref utki)
 
 ```julia
 scheduler = DataMisfitController(terminate_at = 1)
