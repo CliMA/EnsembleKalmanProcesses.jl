@@ -189,7 +189,7 @@ get_names(obs)
 > ["y_window_average", "z_window_average"]
 ```
 
-## [Building the noise covariances] (@id building-covariances)
+## [Building (scalable!) observational noise covariance] (@id building-covariances)
 
 For most low-dimensional problems (e.g. dim < 5000), the user can simply provide a `UniformScaling`, or an `AbstractMatrix` as they are most familiar, in conjunction with any EKP process.
 
@@ -208,7 +208,10 @@ The framework is extensible to new types as they arise (so long as one can defin
 
 The following example demonstrates our utilities `tsvd_cov_from_samples` to quickly build such forms from available samples.
 
-Imagine a problem where the observation dimension is size ``10^6``, and we have 30 noisy `samples` of such data from repeated runs of an experiment. We also believe that there may also be some additional 5% noise from model error when fitting our parameters to data, as our model is also not perfect. Let's build some observations!
+Imagine a problem where the observation dimension is size ``10^6``, and we have 30 noisy `samples` of such data from repeated runs of an experiment. We also believe that there may also be some additional 5% noise from model error when fitting our parameters to data, as our model is also not perfect. In case the model error and samples are zero anywhere, we also add a small regularization to the diagonal of size ``10^{-6}``.
+
+Let's build some observations!
+
 
 ```julia
 using EnsembleKalmanProcesses 
@@ -228,7 +231,10 @@ model_error_frac = 0.05
 data_mean = vec(mean(Y,dims=2));
 model_error_cov = Diagonal((model_error_frac*data_mean).^2);
 
-# Combine these
+# regularize the model error diagonal (in case of zero entries)
+model_error_cov += 1e-6*I
+
+# Combine...
 covariance = SVDplusD(internal_cov, model_error_cov);
 
 Y_obs_vec = [];
@@ -261,3 +267,8 @@ utki = EnsembleKalmanProcess(observation_series, TransformUnscented(prior));
 
 !!! warning
     Always extract the current observational noise from `ekp` with `get_obs_noise_cov(ekp, build=false)`. Using `build=true` (default) will cause memory issues in this case as it will try to build the compactly-stored matrix.
+
+Some tips:
+- We always recommend adding some regularization (via adding a `Diagonal` or `UniformScaling`) to low-rank covariances.
+- One can further reduce the rank by providing it as a second example `tsvd_cov_from_samples(samples, rank)`.
+- Details of the `SVDplusD` API, and other methods for creating tsvd objects can be found in the API docs.

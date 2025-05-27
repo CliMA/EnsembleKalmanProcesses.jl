@@ -1,4 +1,4 @@
-# Visualization
+# [Visualization and error metrics](@id visualization)
 
 We provide some simple plotting features to help users diagnose convergence in
 the algorithm. Through
