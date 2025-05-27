@@ -1,4 +1,4 @@
-# Accelerators
+# [Accelerators](@id accelerators)
 
 We provide options to accelerate the convergence of some optimizer variants with [accelerators](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/src/Accelerators.jl).
 These accelerators have been adapted from gradient-based methods in order to accelerate the following ensemble Kalman processes:
