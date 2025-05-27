@@ -155,7 +155,7 @@ Comparative behaviour.
 1. **Initialization:** `Inversion()` must be initialized from the prior, `Inversion(prior)` can still find the posterior when initialized off-prior. This might be useful when the prior is very broad and can enter, for example, regions of instability of the users forward model
 2. **Prior information:** `Inversion()` only contains prior information due to its initialization, `Inversion(prior)` enforces the prior at every iteration.
 3. **Solution**: `Inversion()` terminated at ``T=1`` (implemented by default) obtains an accurate MAP estimate, the ensemble spread at exactly ``T=1`` can represent a snapshot of the true (Gaussian-approximated) uncertainty. `Inversion(prior)` obtains this in the limit ``T\to\infty``, and undergoes collapse providing no uncertainty information.
-4. **Trust in prior** `Inversion()`, when iterated beyond ``T=1`` will lose prior information and thus move to find the MLE (minimize the data-misfit only) at ``T\to\infty``, this behaviour might be useful if the prior information is overly confident.  
+4. **Trust in prior** `Inversion()`, when iterated beyond ``T=1`` will lose prior information and thus move to find the MLE (minimize the data-misfit only) at ``T\to\infty``, this behaviour might be useful if the prior information is missprecified.  
 5. **Efficiency**: `Inversion()` is more efficient that `Inversion(prior)` as enforcing the prior in the infinite-time algorithm is performed via extending the linear systems to be solved. Performance is also impacted (positively or negatively) by the choice of initial distribution in the `Inversion(prior)`
 
 One can learn more about the early termination for finite-time algorithms [here](@ref early-terminate).
