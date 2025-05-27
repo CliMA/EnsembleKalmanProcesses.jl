@@ -13,6 +13,7 @@ using EnsembleKalmanProcesses
     samples = []
     covariances = []
     inv_covariances = []
+    metadatas = []
     for i in 1:n_samples
         push!(samples, vec(i * ones(sample_sizes[i])))
         if (i == 3)
@@ -31,6 +32,14 @@ using EnsembleKalmanProcesses
         end
         push!(inv_covariances, ic)
 
+        if (i == 1)
+            push!(metadatas, nothing)
+        elseif (i == 2)
+            push!(metadatas, "checks strings pushed not appended")
+        else
+            push!(metadatas, Dict("example$i" => i))
+        end
+
     end
     names = ["d$(string(i))" for i in 1:n_samples]
 
@@ -44,12 +53,13 @@ using EnsembleKalmanProcesses
 
     # 1) via a dict [singleton] 
     obs_dict = Dict("samples" => samples[1], "covariances" => covariances[1], "names" => names[1])
-    observation_1 = Observation(obs_dict)
+    observation_1 = Observation(obs_dict, metadata = "test")
     @test get_samples(observation_1) == [samples[1]] # all stored as a vec
     @test get_covs(observation_1) == [covariances[1]]
     @test all(isapprox.(get_inv_covs(observation_1)[1], inv_covariances[1], atol = 1e-10)) # inversion approximate
     @test get_names(observation_1) == [names[1]]
     @test get_indices(observation_1) == [indices[1]]
+    @test get_metadata(observation_1) == "test"
 
     # 2) via args [singleton] 
     observation_1 = Observation(samples[1], covariances[1], names[1])
@@ -58,6 +68,7 @@ using EnsembleKalmanProcesses
     @test all(isapprox.(get_inv_covs(observation_1)[1], inv_covariances[1], atol = 1e-10)) # inversion approximate
     @test get_names(observation_1) == [names[1]]
     @test get_indices(observation_1) == [indices[1]]
+    @test isnothing(get_metadata(observation_1))
 
     # 2) via a dict [vec], pass in inv_covs
     obs_dict = Dict(
@@ -65,22 +76,24 @@ using EnsembleKalmanProcesses
         "covariances" => covariances[2:4],
         "inv_covariances" => inv_covariances[2:4],
         "names" => names[2:4],
+        "metadata" => metadatas[2:4],
     )
     observation_2_4 = Observation(obs_dict)
     @test get_samples(observation_2_4) == samples[2:4]
     @test get_covs(observation_2_4) == covariances[2:4]
     @test get_inv_covs(observation_2_4) == inv_covariances[2:4]
     @test get_names(observation_2_4) == names[2:4]
-    @test get_indices(observation_2_4) == [id .- maximum(indices[1]) for id in indices[2:4]] # shifted 
+    @test get_indices(observation_2_4) == [id .- maximum(indices[1]) for id in indices[2:4]] # shifted
+    @test get_metadata(observation_2_4) == metadatas[2:4]
 
     # 3) via a list of args  (not pass inv_covs)
-    observation_2_4_new = Observation(samples[2:4], covariances[2:4], names[2:4])
+    observation_2_4_new = Observation(samples[2:4], covariances[2:4], names[2:4], metadata = metadatas[2:4])
     @test get_samples(observation_2_4_new) == samples[2:4]
     @test get_covs(observation_2_4_new) == covariances[2:4]
     @test all(isapprox.(get_inv_covs(observation_2_4_new), inv.(covariances[2:4]), atol = 1e-10)) # inversion approximate
     @test get_names(observation_2_4_new) == names[2:4]
     @test get_indices(observation_2_4_new) == [id .- maximum(indices[1]) for id in indices[2:4]] # shifted 
-
+    @test get_metadata(observation_2_4_new) == metadatas[2:4]
 
     # 4) via combining Observations
     observation = combine_observations([observation_1, observation_2_4])
@@ -89,6 +102,7 @@ using EnsembleKalmanProcesses
     @test all(isapprox.(get_inv_covs(observation), inv_covariances, atol = 1e-10))
     @test get_names(observation) == names
     @test get_indices(observation) == indices # correctly shifted back
+    @test get_metadata(observation) == metadatas # content the same
 
     # get_obs 
     obs_sample = get_obs(observation, build = false)

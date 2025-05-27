@@ -273,6 +273,7 @@ struct Observation{
     AV3 <: AbstractVector,
     AV4 <: AbstractVector,
     AV5 <: AbstractVector,
+    MD,
 }
     "A (vector of) observation vectors"
     samples::AV1
@@ -284,6 +285,9 @@ struct Observation{
     names::AV4
     "A (vector of) indices of the contained observation blocks"
     indices::AV5
+    "Metadata of any type that the user can group with the Observation"
+    metadata::MD
+
 end
 
 """
@@ -321,7 +325,14 @@ gets the `indices` field from the `Observation` object
 """
 get_indices(o::Observation) = o.indices
 
-function Observation(obs_dict::Dict)
+"""
+$(TYPEDSIGNATURES)
+
+gets the `metadata` field from the `Observation` object
+"""
+get_metadata(o::Observation) = o.metadata
+
+function Observation(obs_dict::Dict; metadata = nothing)
     if !all(["samples", "names", "covariances"] .∈ [collect(keys(obs_dict))])
         throw(
             ArgumentError(
@@ -410,28 +421,37 @@ function Observation(obs_dict::Dict)
         end
     end
 
-    return Observation(snew, cnew, icnew, nnew, indices)
+    # metadata - if multiple provided, dict-stored > keyword
+    if "metadata" ∈ collect(keys(obs_dict))
+        mnew = obs_dict["metadata"]
+    else
+        mnew = metadata
+    end
+
+    return Observation(snew, cnew, icnew, nnew, indices, mnew)
 
 end
 
 function Observation(
     sample::AV,
     obs_noise_cov::AMorUSorSVD,
-    name::AS,
+    name::AS;
+    kwargs...,
 ) where {
     AV <: AbstractVector,
     AMorUSorSVD <: Union{AbstractMatrix, UniformScaling, SVD, SumOfCovariances},
     AS <: AbstractString,
 }
-    return Observation(Dict("samples" => sample, "covariances" => obs_noise_cov, "names" => name))
+    return Observation(Dict("samples" => sample, "covariances" => obs_noise_cov, "names" => name); kwargs...)
 end
 
 function Observation(
     samples::AV1,
     obs_noise_covs::AV2,
-    names::AV3,
+    names::AV3;
+    kwargs...,
 ) where {AV1 <: AbstractVector, AV2 <: AbstractVector, AV3 <: AbstractVector}
-    return Observation(Dict("samples" => samples, "covariances" => obs_noise_covs, "names" => names))
+    return Observation(Dict("samples" => samples, "covariances" => obs_noise_covs, "names" => names); kwargs...)
 end
 
 
@@ -449,6 +469,7 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
     icnew = []
     nnew = []
     inew = []
+    mnew = []
     shift = [0] # running shift to add to indexing 
     for obs in obs_vec
         @assert(nameof(typeof(obs)) == :Observation) # check it's a vector of Observations
@@ -460,6 +481,15 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
         shifted_indices = [ind .+ shift[1] for ind in get_indices(obs)]
         append!(inew, shifted_indices)
         shift[1] = maximum(shifted_indices[end]) # increase the shift for the next "append"           
+        md = get_metadata(obs)
+        if isa(md, AbstractString) # strings are appendable but easier if pushed
+            push!(mnew, md)
+        elseif hasmethod(length, (typeof(md),)) # some types aren't appendable
+            append!(mnew, md)
+        else
+            push!(mnew, md)
+        end
+
     end
 
     #re-infer eltypes
@@ -474,7 +504,7 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
     T = promote_type((typeof(i) for i in inew)...)
     inew2 = [convert(T, i) for i in inew]
 
-    return Observation(snew2, cnew2, icnew2, nnew2, inew2)
+    return Observation(snew2, cnew2, icnew2, nnew2, inew2, mnew)
 end
 
 """
