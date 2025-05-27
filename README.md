@@ -113,7 +113,7 @@ See a similar working example [here!](https://clima.github.io/EnsembleKalmanProc
 # Quick links!
 
 - [How do I build prior distributions?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/parameter_distributions/)
-- [How do I access parameters/outputs from the ekp object](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/troubleshooting/)
+- [How do I access parameters/outputs from the ekp object?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/troubleshooting/)
 - [How do I plot convergence errors or parameter distributions?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/visualization/)
 - [How do I build good observational noise covariances](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/observations/)
 - [How do I build my observations and encode batching?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/observations/)
