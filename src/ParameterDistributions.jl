@@ -776,7 +776,7 @@ Returns a concatenated mean of the parameter distributions.
 mean(d::Parameterized) = mean(d.distribution)
 mean(d::Samples) = mean(d.distribution_samples, dims = 2)
 mean(d::VectorOfParameterized) = reduce(vcat, mean.(d.distribution))
-mean(pd::ParameterDistribution) = reduce(vcat, mean.(pd.distribution))
+mean(pd::ParameterDistribution) = reduce(vcat, [m[:] for m in mean.(pd.distribution)])
 
 #apply transforms
 function transform_constrained_to_unconstrained(
