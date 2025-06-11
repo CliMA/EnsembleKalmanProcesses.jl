@@ -134,7 +134,7 @@ $(TYPEDSIGNATURES)
 For a given matrix `X` and rank `r`, return the truncated SVD for X as a LinearAlgebra.jl `SVD` object. Setting `return_inverse=true` also return it's psuedoinverse X⁺.
 """
 function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, tsvd_kwargs...)
-  
+
     # Note, must only use tsvd approximation when rank < minimum dimension of X or you get very poor approximation.
     if isa(X, UniformScaling)
         if return_inverse
