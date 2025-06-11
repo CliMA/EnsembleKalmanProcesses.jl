@@ -134,6 +134,7 @@ $(TYPEDSIGNATURES)
 For a given matrix `X` and rank `r`, return the truncated SVD for X as a LinearAlgebra.jl `SVD` object. Setting `return_inverse=true` also return it's psuedoinverse X⁺.
 """
 function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, tsvd_kwargs...)
+  
     # Note, must only use tsvd approximation when rank < minimum dimension of X or you get very poor approximation.
     if isa(X, UniformScaling)
         if return_inverse
@@ -156,7 +157,7 @@ function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, tsvd_kwargs.
             else # perform exact svd (do NOT use tsvd for this! very poor approximation)
                 SS = svd(X)
                 if return_inverse
-                    return SS, SVD(permutedims(SS.Vt, (2, 1)), 1.0 ./ SS.S, permutedims(SS.U, (2, 1)))
+                    return SS, SVD(permutedims(SS.Vt, (2, 1)), 1 ./ SS.S, permutedims(SS.U, (2, 1)))
                 else
                     return SS
                 end
@@ -165,7 +166,7 @@ function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, tsvd_kwargs.
             U, s, V = tsvd(X, r; tsvd_kwargs...)
         end
         if return_inverse
-            return SVD(U, s, permutedims(V, (2, 1))), SVD(V, 1.0 ./ s, permutedims(U, (2, 1)))
+            return SVD(U, s, permutedims(V, (2, 1))), SVD(V, 1 ./ s, permutedims(U, (2, 1)))
         else
             return SVD(U, s, permutedims(V, (2, 1)))
         end
@@ -196,8 +197,8 @@ function tsvd_cov_from_samples(
     quiet = false,
     tsvd_kwargs...,
 ) where {AM <: AbstractMatrix}
-
     mat = data_are_columns ? sample_mat : permutedims(sample_mat, (2, 1))
+    FT = eltype(mat)
     N = size(mat, 2)
     if N > size(mat, 1) && !quiet
         @warn(
@@ -206,7 +207,7 @@ function tsvd_cov_from_samples(
     elseif N == 1
         throw(ArgumentError("Require multiple samples to estimate covariance matrix, only 1 provided"))
     end
-    debiased_scaled_mat = 1.0 / sqrt(N - 1) * (mat .- mean(mat, dims = 2))
+    debiased_scaled_mat = FT(1 ./ sqrt(N - 1)) * (mat .- mean(mat, dims = 2))
     rk = min(rank(debiased_scaled_mat), r)
 
     if return_inverse
@@ -568,7 +569,7 @@ function inv_cov(a::AM) where {AM <: AbstractMatrix}
     return inv(a)
 end
 function inv_cov(a::SVD)
-    return SVD(permutedims(a.Vt, (2, 1)), 1.0 ./ a.S, permutedims(a.U, (2, 1)))
+    return SVD(permutedims(a.Vt, (2, 1)), 1 ./ a.S, permutedims(a.U, (2, 1)))
 end
 
 function inv_cov(a::SpD) where {SpD <: SVDplusD}
