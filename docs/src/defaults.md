@@ -16,7 +16,7 @@ Parameter dimension        | Ensemble size
 
 ### Quick links!
 - What does `scheduler = ...` do? See [here.](@ref learning-rate-schedulers)
-- What does `localization_method = ...` do? See [here.](@ref localization) and our and our [example](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Localization)
+- What does `localization_method = ...` do? See [here.](@ref localization) and our [example](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Localization)
 - What does `failure_handler_method = ...` do? See [here](@ref failures)
 - What does `accelerator = ...` do? See [here](@ref accelerators), and our [examples](https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples/Accelerators)
 
