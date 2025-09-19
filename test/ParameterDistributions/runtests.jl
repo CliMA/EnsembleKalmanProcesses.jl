@@ -489,6 +489,11 @@ using EnsembleKalmanProcesses.ParameterDistributions
         name4 = "constrained_MVsampled"
         u4 = ParameterDistribution(d4, c4, name4)
 
+        d5 = Samples(reshape([1 2 3], 3, 1))
+        c5 = [no_constraint(), no_constraint(), no_constraint()]
+        name5 = "constrained_MVsampled_K_by_1"
+        u5 = ParameterDistribution(d5, c5, name5)
+
         v = combine_distributions([u1, u2, u3, u4])
 
         # Tests for sample distribution
@@ -501,6 +506,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
         sample(u3, 3)
         sample(u4)
         sample(u4, 3)
+        sample(u5)
+        sample(u5, 3)
         sample(v)
         sample(v, 3)
 
@@ -518,10 +525,12 @@ using EnsembleKalmanProcesses.ParameterDistributions
         x_in_bd = [0.0, 0.0, 0.0, 0.0]
         @test isapprox(logpdf(u1, x_in_bd) - logpdf(MvNormal(zeros(4), 0.1 * I), x_in_bd)[1], 0.0, atol = 1e-6)
         @test_throws DimensionMismatch logpdf(u1, [1])
+        # for Vector of K-by-1
+        @test Vector(mean(u5)) == [1.0, 2.0, 3.0]
         # for Parameterized Univar
-        u5 = constrained_gaussian("u5", 3.0, 1.0, -Inf, Inf)
+        u6 = constrained_gaussian("u6", 3.0, 1.0, -Inf, Inf)
         x_in_bd = 0.0
-        @test isapprox(logpdf(u5, x_in_bd) - logpdf(Normal(3.0, 1.0), x_in_bd)[1], 0.0, atol = 1e-6)
+        @test isapprox(logpdf(u6, x_in_bd) - logpdf(Normal(3.0, 1.0), x_in_bd)[1], 0.0, atol = 1e-6)
         @test_throws DimensionMismatch logpdf(u1, [1, 1])
         @test isapprox(
             logpdf(Parameterized(Normal(3.0, 1.0)), x_in_bd) - logpdf(Normal(3.0, 1.0), x_in_bd)[1],
