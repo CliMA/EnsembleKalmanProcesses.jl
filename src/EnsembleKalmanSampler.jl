@@ -34,7 +34,7 @@ struct Sampler{FT <: AbstractFloat, T} <: Process
 end
 
 function Sampler(prior::ParameterDistribution; sampler_type = "aldi")
-    mean_prior = Vector(mean(prior))
+    mean_prior = isa(mean(prior), Real) ? [mean(prior)] : Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     FT = eltype(mean_prior)
     st = if sampler_type == "eks"
@@ -56,9 +56,9 @@ get_sampler_type(process::Sampler{T1, T2}) where {T1, T2} = T2
 Base.:(==)(s_a::Sampler, s_b::Sampler) =
     get_prior_mean(s_a) == get_prior_mean(s_b) &&
     get_prior_cov(s_a) == get_prior_cov(s_b) &&
-    get_sampler_type(s_a) == get_sampler_type(s_b) 
-    
-    
+    get_sampler_type(s_a) == get_sampler_type(s_b)
+
+
 function FailureHandler(process::Sampler, method::IgnoreFailures)
     function failsafe_update(ekp, u, g, failed_ens, process)
         u_transposed = permutedims(u, (2, 1))
