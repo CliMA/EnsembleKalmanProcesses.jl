@@ -1,4 +1,11 @@
 #Ensemble Kalman Sampler: specific structures and function definitions
+export get_sampler_type
+
+# Sampler type 
+abstract type SamplerType end
+abstract type EKS <: SamplerType end # Garbuno-Iñigo Hoffmann Li Stuart 2019
+abstract type ALDI <: SamplerType end # Garbuno-Iñigo Nüsken Reich 2020
+
 
 """
     Sampler{FT<:AbstractFloat,IT<:Int} <: Process
@@ -13,29 +20,38 @@ $(TYPEDFIELDS)
 
 $(METHODLIST)
 """
-struct Sampler{FT <: AbstractFloat} <: Process
+struct Sampler{FT <: AbstractFloat, T} <: Process
     "Mean of Gaussian parameter prior in unconstrained space"
     prior_mean::Vector{FT}
     "Covariance of Gaussian parameter prior in unconstrained space"
     prior_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}}
 end
 
-function Sampler(prior::ParameterDistribution)
+function Sampler(prior::ParameterDistribution; sampler_type = "aldi")
     mean_prior = Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     FT = eltype(mean_prior)
-    return Sampler{FT}(mean_prior, cov_prior)
+    st = if sampler_type == "eks"
+        EKS
+    elseif sampler_type == "aldi"
+        ALDI
+    else
+        throw(ArgumentError("Expected sampler_type ∈ {\"aldi\" (default), \"eks\"}. Received $(sampler_type)."))
+    end
+    return Sampler{FT, st}(mean_prior, cov_prior)
 end
+
+
 
 get_prior_mean(process::Sampler) = process.prior_mean
 get_prior_cov(process::Sampler) = process.prior_cov
-
+get_sampler_type(process::Sampler{T1, T2}) where {T1, T2} = T2
 
 function FailureHandler(process::Sampler, method::IgnoreFailures)
-    function failsafe_update(ekp, u, g, failed_ens)
+    function failsafe_update(ekp, u, g, failed_ens, process)
         u_transposed = permutedims(u, (2, 1))
         g_transposed = permutedims(g, (2, 1))
-        u_transposed = eks_update(ekp, u_transposed, g_transposed)
+        u_transposed = eks_update(ekp, u_transposed, g_transposed, process)
         u_new = permutedims(u_transposed, (2, 1))
         return u_new
     end
@@ -43,24 +59,23 @@ function FailureHandler(process::Sampler, method::IgnoreFailures)
 end
 
 """
-     eks_update(
-        ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}},
-        u::AbstractMatrix{FT},
-        g::AbstractMatrix{FT},
-    ) where {FT <: Real, IT}
+$(TYPEDSIGNATURES)
 
 Returns the updated parameter vectors given their current values and
-the corresponding forward model evaluations, using the sampler algorithm.
+the corresponding forward model evaluations, using the sampler algorithm
+of (Garbuno-Iñigo Hoffmann Li Stuart 2019)
+
 
 The current implementation assumes that rows of u and g correspond to
 ensemble members, so it requires passing the transpose of the `u` and
 `g` arrays associated with ekp.
 """
 function eks_update(
-    ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}},
+    ekp::EnsembleKalmanProcess,
     u::AbstractMatrix{FT},
     g::AbstractMatrix{FT},
-) where {FT <: Real, IT}
+    process::PEKS,
+) where {FT <: Real, PEKS <: Sampler{FT, EKS}}
     # TODO: Work with input data as columns
 
     # u_mean: N_par × 1
@@ -82,9 +97,8 @@ function eks_update(
     Δt = get_Δt(ekp)[end]
 
     noise = MvNormal(zeros(size(u_cov, 1)), I)
-    process = get_process(ekp)
     implicit =
-        (1 * Matrix(I, size(u)[2], size(u)[2]) + Δt * (process.prior_cov' \ u_cov')') \
+        (I + Δt * (process.prior_cov' \ u_cov')') \
         (u' .- Δt * (u' .- u_mean) * D .+ Δt * u_cov * (process.prior_cov \ process.prior_mean))
 
     u = implicit' + sqrt(2 * Δt) * (sqrt(u_cov) * rand(get_rng(ekp), noise, get_N_ens(ekp)))'
@@ -93,12 +107,60 @@ function eks_update(
 end
 
 """
+$(TYPEDSIGNATURES)
+
+Returns the updated parameter vectors given their current values and
+the corresponding forward model evaluations, using the sampler algorithm
+of (Garbuno-Iñigo Nüsken Reich 2020)
+
+
+The current implementation assumes that rows of u and g correspond to
+ensemble members, so it requires passing the transpose of the `u` and
+`g` arrays associated with ekp.
+"""
+function eks_update(
+    ekp::EnsembleKalmanProcess,
+    u::AbstractMatrix{FT},
+    g::AbstractMatrix{FT},
+    process::PALDI,
+) where {FT <: Real, PALDI <: Sampler{FT, ALDI}}
+    # u_mean: N_par × 1
+    u_mean = mean(u', dims = 2)
+    # g_mean: N_obs × 1
+    g_mean = mean(g', dims = 2)
+    # g_cov: N_obs × N_obs
+    g_cov = cov(g, corrected = false)
+    # u_cov: N_par × N_par
+    u_cov = cov(u, corrected = false)
+
+    N_ens = get_N_ens(ekp)
+    dim_u = length(u_mean)
+    # Building tmp matrices for ALDI update:
+    U = u' .- u_mean
+    E = g' .- g_mean
+    R = g' .- get_obs(ekp)
+    # D: N_ens × N_ens
+    D = (1 / N_ens) * (E' * (get_obs_noise_cov(ekp) \ R))
+    finite_sample_correction = (dim_u + 1) / N_ens * U
+    # Default: Δt = 1 / (norm(D) + eps(FT))
+    Δt = get_Δt(ekp)[end]
+
+    noise = MvNormal(zeros(size(u_cov, 1)), I)
+    implicit =
+        (I + Δt * (process.prior_cov' \ u_cov')') \
+        (u' .- Δt * U * D .+ Δt * u_cov * (process.prior_cov \ process.prior_mean) + Δt * finite_sample_correction)
+
+    u = implicit' + sqrt(2 * Δt) * (sqrt(u_cov) * rand(get_rng(ekp), noise, get_N_ens(ekp)))'
+    return u
+end
+
+"""
     update_ensemble!(
-        ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}},
+        ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT,ST}},
         g::AbstractMatrix{FT},
-        process::Sampler{FT};
+        process::Sampler{FT, ST};
         failed_ens = nothing,
-    ) where {FT, IT}
+    ) where {FT, IT, ST}
 
 Updates the ensemble according to a Sampler process. 
 
@@ -112,14 +174,14 @@ Inputs:
     with NaN entries.
 """
 function update_ensemble!(
-    ekp::EnsembleKalmanProcess{FT, IT, Sampler{FT}},
+    ekp::EnsembleKalmanProcess{FT, IT, P},
     g::AbstractMatrix{FT},
-    process::Sampler{FT},
+    process::P,
     u_idx::Vector{Int},
     g_idx::Vector{Int};
     failed_ens = nothing,
     kwargs...,
-) where {FT, IT}
+) where {FT, IT, P <: Sampler}
 
     # u: N_ens × N_par
     # g: N_ens × N_obs
@@ -134,7 +196,7 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(ekp, u_old, g, failed_ens)
+    u = fh.failsafe_update(ekp, u_old, g, failed_ens, process)
 
     return u
 end
