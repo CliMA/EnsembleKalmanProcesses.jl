@@ -1,6 +1,6 @@
 #Ensemble Kalman Sampler: specific structures and function definitions
 export get_sampler_type
-
+export EKS, ALDI
 # Sampler type 
 abstract type SamplerType end
 abstract type EKS <: SamplerType end # Garbuno-Iñigo Hoffmann Li Stuart 2019
