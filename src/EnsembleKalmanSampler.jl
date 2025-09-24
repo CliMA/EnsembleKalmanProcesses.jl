@@ -8,9 +8,13 @@ abstract type ALDI <: SamplerType end # Garbuno-Iñigo Nüsken Reich 2020
 
 
 """
-    Sampler{FT<:AbstractFloat,IT<:Int} <: Process
+    Sampler{FT<:AbstractFloat, T <:SamplerType} <: Process
 
-An ensemble Kalman Sampler process.
+An ensemble Kalman Sampler process. with type Sampler Type (e.g., ALDI or EKS).
+
+# Constructor
+Sampler(prior::ParameterDistribution) # ALDI update (sampler_type="aldi")
+Sampler(prior::ParameterDistribution; sampler_type = "eks") # EKS update
 
 # Fields
 
@@ -65,7 +69,6 @@ Returns the updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the sampler algorithm
 of (Garbuno-Iñigo Hoffmann Li Stuart 2019)
 
-
 The current implementation assumes that rows of u and g correspond to
 ensemble members, so it requires passing the transpose of the `u` and
 `g` arrays associated with ekp.
@@ -113,7 +116,6 @@ Returns the updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the sampler algorithm
 of (Garbuno-Iñigo Nüsken Reich 2020)
 
-
 The current implementation assumes that rows of u and g correspond to
 ensemble members, so it requires passing the transpose of the `u` and
 `g` arrays associated with ekp.
@@ -142,6 +144,7 @@ function eks_update(
     # D: N_ens × N_ens
     D = (1 / N_ens) * (E' * (get_obs_noise_cov(ekp) \ R))
     finite_sample_correction = (dim_u + 1) / N_ens * U
+    C_sqrt = 1 / sqrt(N_ens) * U
     # Default: Δt = 1 / (norm(D) + eps(FT))
     Δt = get_Δt(ekp)[end]
 
@@ -150,7 +153,7 @@ function eks_update(
         (I + Δt * (process.prior_cov' \ u_cov')') \
         (u' .- Δt * U * D .+ Δt * u_cov * (process.prior_cov \ process.prior_mean) + Δt * finite_sample_correction)
 
-    u = implicit' + sqrt(2 * Δt) * (sqrt(u_cov) * rand(get_rng(ekp), noise, get_N_ens(ekp)))'
+    u = implicit' + sqrt(2 * Δt) * (C_sqrt .* rand(get_rng(ekp), noise, N_ens))'
     return u
 end
 
