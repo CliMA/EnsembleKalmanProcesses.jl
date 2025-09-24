@@ -1,6 +1,8 @@
 #Ensemble Kalman Sampler: specific structures and function definitions
+
 export get_sampler_type
 export EKS, ALDI
+
 # Sampler type 
 abstract type SamplerType end
 abstract type EKS <: SamplerType end # Garbuno-Iñigo Hoffmann Li Stuart 2019
@@ -51,14 +53,12 @@ get_prior_cov(process::Sampler) = process.prior_cov
 get_sampler_type(process::Sampler{T1, T2}) where {T1, T2} = T2
 
 # overload ==
-Base.(==)(s_a::Sampler, s_b::Sampler) =
+Base.:(==)(s_a::Sampler, s_b::Sampler) =
     get_prior_mean(s_a) == get_prior_mean(s_b) &&
     get_prior_cov(s_a) == get_prior_cov(s_b) &&
-    get_sampler_type(s_a) == get_sampler_type(s_b) &&
+    get_sampler_type(s_a) == get_sampler_type(s_b) 
     
     
-
-
 function FailureHandler(process::Sampler, method::IgnoreFailures)
     function failsafe_update(ekp, u, g, failed_ens, process)
         u_transposed = permutedims(u, (2, 1))
