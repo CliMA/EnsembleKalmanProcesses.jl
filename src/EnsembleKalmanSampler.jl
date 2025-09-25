@@ -156,12 +156,11 @@ function eks_update(
     # Default: Δt = 1 / (norm(D) + eps(FT))
     Δt = get_Δt(ekp)[end]
 
-    noise = MvNormal(zeros(size(u_cov, 1)), I)
     implicit =
         (I + Δt * (process.prior_cov' \ u_cov')') \
         (u' .- Δt * U * D .+ Δt * u_cov * (process.prior_cov \ process.prior_mean) + Δt * finite_sample_correction)
 
-    u = implicit' + sqrt(2 * Δt) * (C_sqrt .* rand(get_rng(ekp), noise, N_ens))'
+    u = implicit' + sqrt(2 * Δt) * (C_sqrt * randn(get_rng(ekp), (N_ens, N_ens)))' # ensemble-sqrt noise update
     return u
 end
 

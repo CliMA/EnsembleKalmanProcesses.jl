@@ -133,7 +133,7 @@ for case in case_list
         scheduler = EKSStableScheduler()
         N_iterations = 200
     elseif case == "sampler-eks"
-        process = Sampler(prior, sampler_type="eks")
+        process = Sampler(prior, sampler_type = "eks")
         #fixed_step = 1e-3 # 2e-6 unstable
         scheduler = EKSStableScheduler()
         N_iterations = 200
