@@ -58,7 +58,7 @@ At the core of the forward map ``\mathcal{G}`` is the dynamical model ``\Psi:\ma
 where ``\mathcal{H}:\mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation map and ``\mathcal{T}`` is the transformation from the constrained to the unconstrained parameter space, such that ``\mathcal{T}(\phi)=\theta``. A family of standard transformations and their inverses are available in the `ParameterDistributions` module.
 
 
-### How to Construct an Ensemble Kalman Sampler
+## How to Construct an Ensemble Kalman Sampler
 
 An EKS object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Sampler` type. The constructor takes an argument, the `prior`. The following example shows how an EKS object is instantiated. An observation (`y`) and the covariance of the observational noise (`obs_cov`) are assumed to be defined previously in the code.
 
@@ -75,7 +75,6 @@ N_ens = 20  # ensemble size
 initial_ensemble = construct_initial_ensemble(prior, N_ens)
 
 # Construct ensemble Kalman process
-Sampler(prior) 
 eksobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Sampler(prior))
 ```
 
@@ -127,10 +126,9 @@ using Random, Distributions
 ten_post_samples = rand(MvNormal(u_post,Γ_post), 10)
 ten_post_samples_phys = transform_unconstrained_to_constrained(prior, ten_post_samples) # the optimal physical parameter value
 ```
+## Quick comparison of samplers
 
-## From `examples/LossMinimization/loss_minimization_finite_vs_infinite_ekp.jl`
-
-Quick comparison between three samplers ALDI, EKS, and [GNKI](@ref gnki) at their default configurations. And a plot of error vs spread over iterations
+From `examples/LossMinimization/loss_minimization_finite_vs_infinite_ekp.jl`. Quick comparison between three samplers ALDI, EKS, and [GNKI](@ref gnki) at their default configurations. And a plot of error vs spread over iterations
 
 ```@raw html
 <img src="assets/samplers/animated_sampler.gif" width="300"> <img src="assets/samplers/animated_sampler-eks.gif" width="300"> <img src="assets/samplers/animated_gauss-newton.gif" width="300">  <img src="assets/samplers/mean_over_iteration" width="300"> 
