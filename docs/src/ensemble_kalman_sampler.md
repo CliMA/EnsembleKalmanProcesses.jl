@@ -75,7 +75,13 @@ N_ens = 20  # ensemble size
 initial_ensemble = construct_initial_ensemble(prior, N_ens)
 
 # Construct ensemble Kalman process
+Sampler(prior) 
 eksobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Sampler(prior))
+```
+
+One can also build the original EKS variant (not ALDI), with the `sampler_type` keyword 
+```julia
+Sampler(prior, sampler_type="eks")
 ```
 
 ### Updating the ensemble
@@ -121,3 +127,16 @@ using Random, Distributions
 ten_post_samples = rand(MvNormal(u_post,Γ_post), 10)
 ten_post_samples_phys = transform_unconstrained_to_constrained(prior, ten_post_samples) # the optimal physical parameter value
 ```
+
+## From `examples/LossMinimization/loss_minimization_finite_vs_infinite_ekp.jl`
+
+Quick comparison between three samplers ALDI, EKS, and [GNKI](@ref gnki) at their default configurations. And a plot of error vs spread over iterations
+
+```@raw html
+<img src="assets/samplers/animated_sampler.gif" width="300"> <img src="assets/samplers/animated_sampler-eks.gif" width="300"> <img src="assets/samplers/animated_gauss-newton.gif" width="300">  <img src="assets/samplers/mean_over_iteration" width="300"> 
+```
+
+- In black: Prior and posterior distribution contours
+- error (solid) is defined by ``\frac{1}{N_{ens}}\sum^{N_{ens}}_{i=1} \| \theta_i - \theta^* \|^2`` where ``\theta_i`` are ensemble members and ``\theta^*`` is the true value used to create the observed data.
+- spread (dashed) is defined by ``\frac{1}{N_{ens}}\sum^{N_{ens}}_{i=1} \| \theta_i - \bar{\theta} \|^2`` where ``\theta_i`` are ensemble members and ``\bar{\theta}`` is the mean over these members.
+We see the ensemble does not collapse and samples the posterior distribution. The statistics over long times of these methods are statistically the same, though the EKS/ALDI variant has faster convergence than GNKI.
