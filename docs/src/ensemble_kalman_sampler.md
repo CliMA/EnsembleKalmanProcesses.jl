@@ -128,7 +128,7 @@ ten_post_samples_phys = transform_unconstrained_to_constrained(prior, ten_post_s
 ```
 ## Quick comparison of samplers
 
-From `examples/LossMinimization/loss_minimization_finite_vs_infinite_ekp.jl`. Quick comparison between three samplers ALDI, EKS, and [GNKI](@ref gnki) at their default configurations. And a plot of error vs spread over iterations
+From `examples/LossMinimization/loss_minimization_finite_vs_infinite_ekp.jl`. Quick comparison between three samplers ALDI, EKS, and [GNKI](@ref gnki), taken attheir current defaults. We also plot of error vs spread over the iterations
 
 ```@raw html
 <img src="assets/samplers/animated_sampler.gif" width="300"> <img src="assets/samplers/animated_sampler-eks.gif" width="300"> <img src="assets/samplers/animated_gauss-newton.gif" width="300">  <img src="assets/samplers/mean_over_iteration.png" width="300"> 
