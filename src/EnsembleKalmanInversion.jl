@@ -51,8 +51,9 @@ Returns the stored `default_multiplicative_inflation` from the Inversion process
 get_default_multiplicative_inflation(process::Inversion) = process.default_multiplicative_inflation
 
 function Inversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation = 1e-3)
+    mp = isa(mean_prior, Real) ? [mean_prior] : mean_prior
     dmi = max(0.0, default_multiplicative_inflation)
-    return Inversion(mean_prior, cov_prior, impose_prior, dmi)
+    return Inversion(mp, cov_prior, impose_prior, dmi)
 end
 
 """
@@ -61,7 +62,7 @@ $(TYPEDSIGNATURES)
 Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 1e-3. 
 """
 function Inversion(prior::ParameterDistribution; impose_prior = true, default_multiplicative_inflation = 1e-3)
-    mean_prior = Vector(mean(prior))
+    mean_prior = isa(mean(prior), Real) ? [mean(prior)] : Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     return Inversion(
         mean_prior,

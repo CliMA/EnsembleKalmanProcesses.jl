@@ -461,65 +461,76 @@ end
     global eks_final_results = []
     global eksobjs = []
 
+    samplers = [
+        Sampler(prior; sampler_type = "aldi")
+        Sampler(prior; sampler_type = "eks")
+    ]
+    @test get_sampler_type(samplers[1]) == ALDI
+    @test get_sampler_type(samplers[2]) == EKS
+
+    #check default
+    @test Sampler(prior) == samplers[1]
     # Test EKS for different inverse problem
-    for (i_prob, inv_problem) in enumerate(inv_problems)
+    for sampler in samplers
+        "testing Sampler: $(get_sampler_type(sampler))..."
+        for (i_prob, inv_problem) in enumerate(inv_problems)
 
-        # Get inverse problem
-        y_obs, G, Γy, _ = inv_problem
+            # Get inverse problem
+            y_obs, G, Γy, _ = inv_problem
 
-        eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior); rng = rng)
+            eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, deepcopy(sampler); rng = rng)
 
-        params_0 = get_u_final(eksobj)
-        g_ens = G(params_0)
+            params_0 = get_u_final(eksobj)
+            g_ens = G(params_0)
 
-        @test size(g_ens) == (n_obs, N_ens)
+            @test size(g_ens) == (n_obs, N_ens)
 
-        if !(size(g_ens, 1) == size(g_ens, 2))
-            g_ens_t = permutedims(g_ens, (2, 1))
-            @test_throws DimensionMismatch EKP.update_ensemble!(eksobj, g_ens_t)
-        end
+            if !(size(g_ens, 1) == size(g_ens, 2))
+                g_ens_t = permutedims(g_ens, (2, 1))
+                @test_throws DimensionMismatch EKP.update_ensemble!(eksobj, g_ens_t)
+            end
 
-        # EKS iterations
-        for i in 1:N_iter
-            params_i = get_ϕ_final(prior, eksobj)
-            g_ens = G(params_i)
-            EKP.update_ensemble!(eksobj, g_ens)
-        end
-        # Collect mean initial parameter for comparison
-        initial_guess = vec(mean(get_u_prior(eksobj), dims = 2))
-        # Collect mean final parameter as the solution
-        eks_final_result = get_u_mean_final(eksobj)
+            # EKS iterations
+            for i in 1:N_iter
+                params_i = get_ϕ_final(prior, eksobj)
+                g_ens = G(params_i)
+                EKP.update_ensemble!(eksobj, g_ens)
+            end
+            # Collect mean initial parameter for comparison
+            initial_guess = vec(mean(get_u_prior(eksobj), dims = 2))
+            # Collect mean final parameter as the solution
+            eks_final_result = get_u_mean_final(eksobj)
 
-        @test initial_guess == get_u_mean(eksobj, 1)
-        @test eks_final_result == vec(mean(get_u_final(eksobj), dims = 2))
-        eks_init_spread = tr(get_u_cov(eksobj, 1))
-        eks_final_spread = tr(get_u_cov_final(eksobj))
-        @test eks_final_spread < 2 * eks_init_spread # we wouldn't expect the spread to increase much in any one dimension
+            @test initial_guess == get_u_mean(eksobj, 1)
+            @test eks_final_result == vec(mean(get_u_final(eksobj), dims = 2))
+            eks_init_spread = tr(get_u_cov(eksobj, 1))
+            eks_final_spread = tr(get_u_cov_final(eksobj))
+            @test eks_final_spread < 2 * eks_init_spread # we wouldn't expect the spread to increase much in any one dimension
 
-        ϕ_final_mean = get_ϕ_mean_final(prior, eksobj)
-        ϕ_init_mean = get_ϕ_mean(prior, eksobj, 1)
+            ϕ_final_mean = get_ϕ_mean_final(prior, eksobj)
+            ϕ_init_mean = get_ϕ_mean(prior, eksobj, 1)
 
-        # ϕ_final_mean is transformed mean, not mean transformed parameter
-        @test ϕ_final_mean == transform_unconstrained_to_constrained(prior, eks_final_result)
-        @test ϕ_final_mean != vec(mean(get_ϕ_final(prior, eksobj), dims = 2))
-        # ϕ_init_mean is transformed mean, not mean transformed parameter
-        @test ϕ_init_mean == transform_unconstrained_to_constrained(prior, initial_guess)
-        @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj, 1), dims = 2))
-        @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj)[1], dims = 2))
-        # Regression test of algorithmic efficacy
-        @test norm(y_obs .- G(eks_final_result))^2 < norm(y_obs .- G(initial_guess))^2
-        @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
+            # ϕ_final_mean is transformed mean, not mean transformed parameter
+            @test ϕ_final_mean == transform_unconstrained_to_constrained(prior, eks_final_result)
+            @test ϕ_final_mean != vec(mean(get_ϕ_final(prior, eksobj), dims = 2))
+            # ϕ_init_mean is transformed mean, not mean transformed parameter
+            @test ϕ_init_mean == transform_unconstrained_to_constrained(prior, initial_guess)
+            @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj, 1), dims = 2))
+            @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj)[1], dims = 2))
+            # Regression test of algorithmic efficacy
+            @test norm(y_obs .- G(eks_final_result))^2 < norm(y_obs .- G(initial_guess))^2
+            @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
 
-        # Store for comparison with other algorithms
-        push!(eks_final_results, eks_final_result)
-        push!(eksobjs, eksobj)
-        if TEST_PLOT_OUTPUT
-            plot_inv_problem_ensemble(prior, eksobj, joinpath(@__DIR__, "EKS_test_$(i_prob).png"))
+            # Store for comparison with other algorithms
+            push!(eks_final_results, eks_final_result)
+            push!(eksobjs, eksobj)
+            if TEST_PLOT_OUTPUT
+                plot_inv_problem_ensemble(prior, eksobj, joinpath(@__DIR__, "EKS_test_$(i_prob).png"))
+            end
+
         end
 
     end
-
-
 end
 
 
