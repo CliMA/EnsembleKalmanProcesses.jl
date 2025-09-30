@@ -85,35 +85,38 @@ The free parameters in the unscented Kalman inversion are ``\alpha, r, \Sigma_{\
 In short, users only need to change the ``\alpha`` (`α_reg`), and the frequency to update the ``\Lambda`` to the current covariance (`update_freq`). The user can first try `α_reg = 1.0` and `update_freq = 0` (corresponding to ``\Lambda = C_0``).
 
 !!! note "Preventing ensemble divergence"
-    If UKI suffers divergence (for example when inverse problems are not well-posed), one can prevent it by using Tikhonov regularization (see [Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)). It is used by setting the `impose_prior = true` flag. In this mode, the free parameters are fixed to `α_reg = 1.0`, `update_freq = 1`. 
+    If UKI suffers divergence (for example when inverse problems are not well-posed), one can prevent it by using prior regularization (see [Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)). It is used by setting the `impose_prior = true` flag. In this mode, the free parameters are fixed to `α_reg = 1.0`, `update_freq = 1`. 
 
 ## Implementation
 
 ### Initialization
-An unscented Kalman inversion object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Unscented()` process type.
-
-Creating an ensemble Kalman inversion object requires as arguments:
- 1. The mean value of the observed outputs, a vector of size `[d]`;
- 2. The covariance of the observational noise, a matrix of size `[d × d]`;
- 3. The `Unscented()` process type.
-
-The initialization of the `Unscented()` process requires prior mean and prior covariance, and the the size of the observation `d`. And user defined hyperparameters 
-`α_reg` and `update_freq`.
+An unscented Kalman inversion object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Unscented()` process type. The initialization of the `Unscented()` process requires a [prior distribution](@ref parameter-distributions). We recommend using the defaults, with also the `impose_prior=true` flag.
 ```julia
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 
+# impose_prior=true : prior information is enforced at every iteration (ensures convergence to MAP, false => MLE) 
+process = Unscented(prior; impose_prior=true) # typical initialization
+ukiobj = EnsembleKalmanProcess(observation, process)
 
+get_N_ens(ukiobj) # gets the number of sigma-points based on the dimension of the problem
+```
+Some other hyperparameters can also be set, (a full list can be seen with `?Unscented` in the REPL)
+```
 # need to choose regularization factor α ∈ (0,1],  
 # when you have enough observation data α=1: no regularization
 α_reg =  1.0
 # update_freq 1 : approximate posterior covariance matrix with an uninformative prior
 #             0 : weighted average between posterior covariance matrix with an uninformative prior and prior
 update_freq = 0
+impose_prior=true : additional prior regularization for stability and convergence to MAP estimator
 
-process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq)
-ukiobj = EnsembleKalmanProcess(truth_sample, truth.obs_noise_cov, process)
+# One can also use the prior mean and covariance
+using Statistics
+prior_mean = mean(prior)
+prior_cov = cov(prior)
 
+process = Unscented(prior_mean, prior_cov; α_reg = α_reg, update_freq = update_freq, impose_prior=impose_prior)
 ```
 
 Note that no information about the forward map is necessary to initialize the Unscented process. The only forward map information required by the inversion process consists of model evaluations at the ensemble elements, necessary to update the ensemble.
