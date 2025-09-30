@@ -179,7 +179,7 @@ function etki_update(
     for i in 1:ys2
         tmp[2][i, i] += 1.0
     end
-    Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = inv(I + Y' * Γ_inv * Y)
+    Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2)) # Ω = inv(I + Y' * Γ_inv * Y)
     w = FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- mean(g_ext, dims = 2))) #  w = Ω * Y' * Γ_inv * (y .- g_mean))
 
     return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]

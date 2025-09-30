@@ -136,7 +136,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
 
         # update group index of y,g,u
         prior_mean = process.prior_mean[u_idx]
-        prior_cov_inv = inv(process.prior_cov)[u_idx, u_idx] # take idx later
+        prior_cov_inv = safe_linear_solve(process.prior_cov[u_idx, u_idx], I(length(u_idx))) # take idx later
         u_p = u_p_full[u_idx, :]
         y = get_obs(uki)[g_idx]
         g = g_full[g_idx, :]
@@ -191,7 +191,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
             tmp[2][i, i] += 1.0
         end
 
-        Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y      
+        Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2)) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y      
         u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
         uu_cov = X * Ω * X' # cov update
 
@@ -238,7 +238,7 @@ function update_ensemble_analysis!(
 
     # update group index of y,g,u
     prior_mean = process.prior_mean[u_idx]
-    prior_cov_inv = inv(process.prior_cov)[u_idx, u_idx] # take idx later
+    prior_cov_inv = safe_linear_solve(process.prior_cov[u_idx, u_idx], I(length(u_idx))) # take idx later
     u_p = u_p_full[u_idx, :]
     y = get_obs(uki)[g_idx]
     g = g_full[g_idx, :]
@@ -285,7 +285,7 @@ function update_ensemble_analysis!(
     for i in 1:ys2
         tmp[2][i, i] += 1.0
     end
-    Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
+    Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2)) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
     u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext))
     uu_cov = X * Ω * X' # cov update 
 
