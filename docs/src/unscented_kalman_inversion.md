@@ -96,13 +96,13 @@ using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 
 # impose_prior=true : prior information is enforced at every iteration (ensures convergence to MAP, false => MLE) 
-process = Unscented(prior; impose_prior=true) # typical initialization
+process = Unscented(prior; impose_prior=true) 
 ukiobj = EnsembleKalmanProcess(observation, process)
 
 get_N_ens(ukiobj) # gets the number of sigma-points based on the dimension of the problem
 ```
 Some other hyperparameters can also be set, (a full list can be seen with `?Unscented` in the REPL)
-```
+```julia
 # need to choose regularization factor α ∈ (0,1],  
 # when you have enough observation data α=1: no regularization
 α_reg =  1.0
