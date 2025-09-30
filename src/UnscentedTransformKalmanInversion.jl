@@ -190,6 +190,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         for i in 1:ys2
             tmp[2][i, i] += 1.0
         end
+        add_diagonal_regularization!(tmp[2][1:ys2, 1:ys2])
 
         Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2)) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y      
         u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
@@ -285,6 +286,7 @@ function update_ensemble_analysis!(
     for i in 1:ys2
         tmp[2][i, i] += 1.0
     end
+    add_diagonal_regularization!(tmp[2][1:ys2, 1:ys2])
     Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2)) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
     u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext))
     uu_cov = X * Ω * X' # cov update 
