@@ -732,7 +732,10 @@ end
 Returns a dense blocked (co)variance of the distributions.
 """
 cov(d::Parameterized) = cov(d.distribution)
-cov(d::Samples) = cov(d.distribution_samples, dims = 2) #parameters are columns
+function cov(d::Samples)
+    cov_samples = cov(d.distribution_samples, dims = 2) #parameters are columns
+    return cov_samples
+end
 function cov(d::VectorOfParameterized)
     d_dims = get_dimensions(d)
 

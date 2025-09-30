@@ -1616,3 +1616,46 @@ end
         end
     end
 end
+
+@testset "LinearSolve" begin
+    @testset "safe_linear_solve" begin
+        A = randn(5, 5)
+        b = randn(5)
+        x_ref = A \ b
+        x = safe_linear_solve(A, b)
+        @test isapprox(x, x_ref; rtol = 1e-10, atol = 1e-12)
+        @test eltype(x) == eltype(x_ref)
+
+        B = randn(5, 3)
+        X_ref = A \ B
+        X = safe_linear_solve(A, B)
+        @test isapprox(X, X_ref; rtol = 1e-10, atol = 1e-12)
+        @test eltype(X) == eltype(X_ref)
+
+        # Make a rank-deficient matrix
+        A = [
+            1.0 2.0
+            2.0 4.0
+        ]
+        b = randn(2)
+        x_pinv = pinv(A) * b
+
+        x = safe_linear_solve(A, b)
+        @test isapprox(x, x_pinv; rtol = 1e-10, atol = 1e-12)
+    end
+
+    @testset "add_diagonal_regularization!" begin
+        C = randn(5, 5)
+        C = 0.5 * (C + C')  # symmetric
+        C0 = copy(C)
+
+        fac = sqrt(eps(eltype(C)))
+        add_diagonal_regularization!(C)
+        @test all(diag(C) .≈ diag(C0) .+ fac)
+        @test all(abs.(C .- Diagonal(diag(C))) .≈ abs.(C0 .- Diagonal(diag(C0))))
+
+        C2 = copy(C0)
+        add_diagonal_regularization!(C2; regularization_factor = 1e-8)
+        @test all(diag(C2) .≈ diag(C0) .+ 1e-8)
+    end
+end

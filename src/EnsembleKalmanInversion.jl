@@ -152,6 +152,7 @@ function eki_update(
 
         cov_est = cov([u; g_ext], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
+        add_diagonal_regularization!(cov_est)
         # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
         cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g_ext, 1), size(u, 2))
         cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
@@ -166,6 +167,7 @@ function eki_update(
         g_ext = g
         y_ext = y
         cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
+        add_diagonal_regularization!(cov_est)
 
         # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
         cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), size(u, 2))

@@ -137,6 +137,7 @@ function sparse_eki_update(
 ) where {FT <: Real, CT <: Real, IT}
 
     cov_est = cov([u; g], [u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
+    add_diagonal_regularization!(cov_est)
     process = get_process(ekp)
     # Localization
     cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), get_N_ens(ekp))
@@ -213,6 +214,7 @@ function update_ensemble!(
     u = get_u_final(ekp)
     N_obs = size(g, 1)
     cov_init = cov(u, dims = 2)
+    add_diagonal_regularization!(cov_init)
     fh = get_failure_handler(ekp)
 
     # Scale noise using Δt
