@@ -24,7 +24,7 @@ process = SparseInversion(γ, threshold_value, uc_idx, reg)</code></pre><pre cla
     g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
 
     EKP.update_ensemble!(ensemble_kalman_process, g_ens)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 4.7 seconds, 551.979 MiB of memory allocated
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 4.82 seconds, 523.379 MiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
@@ -52,6 +52,7 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.05 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
@@ -106,30 +107,8 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.01 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.01 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.01 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.01 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
@@ -145,9 +124,30 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.01 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.01 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>[Convex.jl] Compilation finished: 0.0 seconds, 146.719 KiB of memory allocated
