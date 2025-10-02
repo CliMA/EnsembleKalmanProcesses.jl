@@ -95,8 +95,11 @@ function eks_update(
     g_mean = mean(g', dims = 2)
     # g_cov: N_obs × N_obs
     g_cov = cov(g, corrected = false)
+    add_diagonal_regularization!(g_cov)
+
     # u_cov: N_par × N_par
     u_cov = cov(u, corrected = false)
+    add_diagonal_regularization!(u_cov)
 
     # Building tmp matrices for EKS update:
     E = g' .- g_mean
@@ -140,8 +143,11 @@ function eks_update(
     g_mean = mean(g', dims = 2)
     # g_cov: N_obs × N_obs
     g_cov = cov(g, corrected = false)
+    add_diagonal_regularization!(g_cov)
+
     # u_cov: N_par × N_par
     u_cov = cov(u, corrected = false)
+    add_diagonal_regularization!(u_cov)
 
     N_ens = get_N_ens(ekp)
     dim_u = length(u_mean)

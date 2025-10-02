@@ -336,7 +336,10 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
 
         if process.impose_prior
             ug_cov_reg = [ug_cov uu_p_cov]
-            gg_cov_reg = [gg_cov ug_cov'; ug_cov uu_p_cov+process.prior_cov[u_idx, u_idx] / get_Δt(uki)[end]]
+            gg_cov_reg = [
+                gg_cov ug_cov'
+                ug_cov uu_p_cov+process.prior_cov[u_idx, u_idx] / get_Δt(uki)[end]
+            ]
             tmp = ug_cov_reg / gg_cov_reg
             u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean[u_idx] - u_p_mean]
             uu_cov = uu_p_cov - tmp * ug_cov_reg'
@@ -492,6 +495,8 @@ function construct_cov(
         for i in 1:N_ens
             xx_cov .+= cov_weights[i] * (x[:, i] - x_mean) * (x[:, i] - x_mean)'
         end
+
+        add_diagonal_regularization!(xx_cov)
     else
         @assert isa(x_mean, FT)
         N_ens = length(x)
@@ -743,7 +748,10 @@ function update_ensemble_analysis!(
 
     if process.impose_prior
         ug_cov_reg = [ug_cov uu_p_cov]
-        gg_cov_reg = [gg_cov ug_cov'; ug_cov uu_p_cov+process.prior_cov[u_idx, u_idx] / get_Δt(uki)[end]]
+        gg_cov_reg = [
+            gg_cov ug_cov'
+            ug_cov uu_p_cov+process.prior_cov[u_idx, u_idx] / get_Δt(uki)[end]
+        ]
         tmp = ug_cov_reg / gg_cov_reg
         u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean[u_idx] - u_p_mean]
         uu_cov = uu_p_cov - tmp * ug_cov_reg'
