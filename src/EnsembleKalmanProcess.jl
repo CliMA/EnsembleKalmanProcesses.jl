@@ -881,8 +881,13 @@ prior distribution. Returned with parameters as columns in unconstrained space b
 Note: `Unscented` and `TransformUnscented` processes require different arguments than the other processes
 
 """
-function construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT; constrained=false) where {IT <: Int}
-    ss =  sample(rng, prior, N_ens) #of size [dim(param space) N_ens]
+function construct_initial_ensemble(
+    rng::AbstractRNG,
+    prior::ParameterDistribution,
+    N_ens::IT;
+    constrained = false,
+) where {IT <: Int}
+    ss = sample(rng, prior, N_ens) #of size [dim(param space) N_ens]
     if constrained
         return transform_unconstrained_to_constrained(prior, ss)
     else

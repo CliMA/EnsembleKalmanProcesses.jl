@@ -297,7 +297,11 @@ Constructs the initial ensemble for the `Unscented` or `TransformUnscented proce
 
 NOTE: This function is created just to see what the initial `sigma_ensemble` will be without constructing the EKP object. Do not pass the initial ensemble into the `EnsembleKalmanProcess` object.
 """
-function construct_initial_ensemble(prior::ParameterDistribution, process::UorTU; constrained=false) where {UorTU <: Union{Unscented, TransformUnscented}}
+function construct_initial_ensemble(
+    prior::ParameterDistribution,
+    process::UorTU;
+    constrained = false,
+) where {UorTU <: Union{Unscented, TransformUnscented}}
     u0_mean = process.u_mean[1]
     u0u0_cov = process.uu_cov[1]
     sigmas = construct_sigma_ensemble(process, u0_mean, u0u0_cov)

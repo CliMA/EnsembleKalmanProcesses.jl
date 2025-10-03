@@ -550,8 +550,14 @@ end
     @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs_tmp, Γy_tmp, Inversion())
 
     initial_ensemble = EKP.construct_initial_ensemble(copy(rng), prior, N_ens)
-    initial_ensemble_constrained = EKP.construct_intial_ensemble(copy(rng), prior, N_ens, constrained=true) 
-    @test all(isapprox.(transform_unconstrained_to_constrained(prior, initial_ensemble), initial_ensemble_constrained, atol=10*eps()))
+    initial_ensemble_constrained = EKP.construct_intial_ensemble(copy(rng), prior, N_ens, constrained = true)
+    @test all(
+        isapprox.(
+            transform_unconstrained_to_constrained(prior, initial_ensemble),
+            initial_ensemble_constrained,
+            atol = 10 * eps(),
+        ),
+    )
     #
     initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens) # for the _inf object initial != prior
 
@@ -641,12 +647,12 @@ end
         @test get_obs(ekiobj, 1) == y_obs
         @test get_obs_noise_cov(ekiobj, 1) == Γy
         @test get_obs_noise_cov_inv(ekiobj) == get_obs_noise_cov_inv(ekiobj, 1)
-        
+
         params_0 = get_ϕ_final(prior, ekiobj)
         g_ens = G(params_0)
         g_ens_t = permutedims(g_ens, (2, 1))
-        @test all(isapprox.(params_0, initial_ensemble_constrained, atol=10*eps()))
-              
+        @test all(isapprox.(params_0, initial_ensemble_constrained, atol = 10 * eps()))
+
         @test size(g_ens) == (n_obs, N_ens)
         @test get_N_ens(ekiobj) == ekiobj.N_ens
         @test get_rng(ekiobj) == ekiobj.rng
@@ -660,7 +666,7 @@ end
         for i in 1:N_iter
             # Check SampleSuccGauss handler
             params_i = get_ϕ_final(prior, ekiobj)
-            
+
             push!(u_i_vec, get_u_final(ekiobj))
             g_ens = G(params_i)
             # Add random failures
@@ -875,8 +881,8 @@ end
             sigma_points = "symmetric",
             impose_prior = impose_prior,
             update_freq = update_freq,
-        )        
-        
+        )
+
         ukiobj = EKP.EnsembleKalmanProcess(
             y_obs,
             Γy,
@@ -912,16 +918,16 @@ end
 
         # initial ensemble builder
         initial_ens = construct_initial_ensemble(prior, process)
-        initial_ens_cons = construct_initial_ensemble(prior, process, constrained=true)
+        initial_ens_cons = construct_initial_ensemble(prior, process, constrained = true)
         @test all(isapprox.(get_u_final(prior, ukiobj), initial_ens))
         @test all(isapprox.(get_ϕ_final(prior, ukiobj), initial_ens_cons))
         initial_ens = construct_initial_ensemble(prior, process_t)
-        initial_ens_cons = construct_initial_ensemble(prior, process_t, constrained=true)
+        initial_ens_cons = construct_initial_ensemble(prior, process_t, constrained = true)
         @test all(isapprox.(get_u_final(prior, ukiobj_t), initial_ens))
         @test all(isapprox.(get_ϕ_final(prior, ukiobj_t), initial_ens_cons))
-        
-        
-        
+
+
+
         # test simplex sigma points
         process_simplex = Unscented(prior; sigma_points = "simplex", impose_prior = impose_prior)
         process_t_simplex = TransformUnscented(prior; sigma_points = "simplex", impose_prior = impose_prior) # run unstable code but dont compare
@@ -943,17 +949,17 @@ end
         )
 
         initial_ens = construct_initial_ensemble(prior, process_simplex)
-        initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained=true)
+        initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained = true)
         @test all(isapprox.(get_u_final(prior, ukiobj_simplex), initial_ens))
         @test all(isapprox.(get_ϕ_final(prior, ukiobj_simplex), initial_ens_cons))
 
         initial_ens = construct_initial_ensemble(prior, process_t_simplex)
-        initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained=true)
+        initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained = true)
         @test all(isapprox.(get_u_final(prior, ukiobj_t_simplex), initial_ens))
         @test all(isapprox.(get_ϕ_final(prior, ukiobj_t_simplex), initial_ens_cons))
-        
 
-        
+
+
         # Test incorrect construction throws error
         @test_throws ArgumentError Unscented(prior; sigma_points = "unknowns", impose_prior = impose_prior)
         @test_throws ArgumentError TransformUnscented(prior; sigma_points = "unknowns", impose_prior = impose_prior)
