@@ -919,11 +919,11 @@ end
         # initial ensemble builder
         initial_ens = construct_initial_ensemble(prior, process)
         initial_ens_cons = construct_initial_ensemble(prior, process, constrained = true)
-        @test all(isapprox.(get_u_final(prior, ukiobj), initial_ens))
+        @test all(isapprox.(get_u_final(ukiobj), initial_ens))
         @test all(isapprox.(get_ϕ_final(prior, ukiobj), initial_ens_cons))
         initial_ens = construct_initial_ensemble(prior, process_t)
         initial_ens_cons = construct_initial_ensemble(prior, process_t, constrained = true)
-        @test all(isapprox.(get_u_final(prior, ukiobj_t), initial_ens))
+        @test all(isapprox.(get_u_final(ukiobj_t), initial_ens))
         @test all(isapprox.(get_ϕ_final(prior, ukiobj_t), initial_ens_cons))
 
 
@@ -950,12 +950,12 @@ end
 
         initial_ens = construct_initial_ensemble(prior, process_simplex)
         initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained = true)
-        @test all(isapprox.(get_u_final(prior, ukiobj_simplex), initial_ens))
+        @test all(isapprox.(get_u_final(ukiobj_simplex), initial_ens))
         @test all(isapprox.(get_ϕ_final(prior, ukiobj_simplex), initial_ens_cons))
 
         initial_ens = construct_initial_ensemble(prior, process_t_simplex)
         initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained = true)
-        @test all(isapprox.(get_u_final(prior, ukiobj_t_simplex), initial_ens))
+        @test all(isapprox.(get_u_final(ukiobj_t_simplex), initial_ens))
         @test all(isapprox.(get_ϕ_final(prior, ukiobj_t_simplex), initial_ens_cons))
 
 
