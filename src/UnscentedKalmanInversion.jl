@@ -289,6 +289,26 @@ end
 get_prior_mean(process::UorTU) where {UorTU <: Union{Unscented, TransformUnscented}} = process.prior_mean
 get_prior_cov(process::UorTU) where {UorTU <: Union{Unscented, TransformUnscented}} = process.prior_cov
 
+
+"""
+$(TYPEDSIGNATURES)
+
+Constructs the initial ensemble for the `Unscented` or `TransformUnscented process.  Returned with parameters as columns in unconstrained space by default (constrain by setting `constrained=true`)
+
+NOTE: This function is created just to see what the initial `sigma_ensemble` will be without constructing the EKP object. Do not pass the initial ensemble into the `EnsembleKalmanProcess` object.
+"""
+function construct_initial_ensemble(prior::ParameterDistribution, process::UorTU; constrained=false) where {UorTU <: Union{Unscented, TransformUnscented}}
+    u0_mean = process.u_mean[1]
+    u0u0_cov = process.uu_cov[1]
+    sigmas = construct_sigma_ensemble(process, u0_mean, u0u0_cov)
+    if constrained
+        return transform_unconstrained_to_constrained(prior, sigmas)
+    else
+        return sigmas
+    end
+end
+
+
 function FailureHandler(process::Unscented, method::IgnoreFailures)
     function failsafe_update(uki, u, g, u_idx, g_idx, failed_ens)
         #perform analysis on the model runs

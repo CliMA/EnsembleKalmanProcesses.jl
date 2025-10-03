@@ -873,22 +873,25 @@ function get_current_minibatch(ekp::EnsembleKalmanProcess)
 end
 
 """
-    construct_initial_ensemble(
-        rng::AbstractRNG,
-        prior::ParameterDistribution,
-        N_ens::IT
-    ) where {IT <: Int}
-    construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <: Int}
+$(TYPEDSIGNATURES)
 
 Construct the initial parameters, by sampling `N_ens` samples from specified
-prior distribution. Returned with parameters as columns.
+prior distribution. Returned with parameters as columns in unconstrained space by default (constrain by setting `constrained=true`)
+
+Note: `Unscented` and `TransformUnscented` processes require different arguments than the other processes
+
 """
-function construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT) where {IT <: Int}
-    return sample(rng, prior, N_ens) #of size [dim(param space) N_ens]
+function construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens::IT; constrained=false) where {IT <: Int}
+    ss =  sample(rng, prior, N_ens) #of size [dim(param space) N_ens]
+    if constrained
+        return transform_unconstrained_to_constrained(prior, ss)
+    else
+        return ss
+    end
 end
 # first arg optional; defaults to GLOBAL_RNG (as in Random, StatsBase)
-construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT) where {IT <: Int} =
-    construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens)
+construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; kwargs...) where {IT <: Int} =
+    construct_initial_ensemble(Random.GLOBAL_RNG, prior, N_ens; kwargs...)
 
 # metrics of interest
 """
