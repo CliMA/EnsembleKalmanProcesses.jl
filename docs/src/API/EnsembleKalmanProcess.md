@@ -7,7 +7,7 @@ CurrentModule = EnsembleKalmanProcesses
 ## Primary objects and functions
 ```@docs
 EnsembleKalmanProcess
-construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens) where {IT}
+construct_initial_ensemble(rng::AbstractRNG, prior::ParameterDistribution, N_ens)
 update_ensemble!
 ```
 ## Getter functions
