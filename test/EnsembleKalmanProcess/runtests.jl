@@ -550,7 +550,7 @@ end
     @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs_tmp, Γy_tmp, Inversion())
 
     initial_ensemble = EKP.construct_initial_ensemble(copy(rng), prior, N_ens)
-    initial_ensemble_constrained = EKP.construct_intial_ensemble(copy(rng), prior, N_ens, constrained = true)
+    initial_ensemble_constrained = EKP.construct_initial_ensemble(copy(rng), prior, N_ens, constrained = true)
     @test all(
         isapprox.(
             transform_unconstrained_to_constrained(prior, initial_ensemble),
