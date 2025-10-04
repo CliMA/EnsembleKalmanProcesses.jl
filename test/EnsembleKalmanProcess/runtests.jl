@@ -549,8 +549,15 @@ end
     initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior_60dims, 99)
     @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs_tmp, Γy_tmp, Inversion())
 
-    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-
+    initial_ensemble = EKP.construct_initial_ensemble(copy(rng), prior, N_ens)
+    initial_ensemble_constrained = EKP.construct_initial_ensemble(copy(rng), prior, N_ens, constrained = true)
+    @test all(
+        isapprox.(
+            transform_unconstrained_to_constrained(prior, initial_ensemble),
+            initial_ensemble_constrained,
+            atol = 10 * eps(),
+        ),
+    )
     #
     initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens) # for the _inf object initial != prior
 
@@ -641,8 +648,10 @@ end
         @test get_obs_noise_cov(ekiobj, 1) == Γy
         @test get_obs_noise_cov_inv(ekiobj) == get_obs_noise_cov_inv(ekiobj, 1)
 
-        g_ens = G(get_ϕ_final(prior, ekiobj))
+        params_0 = get_ϕ_final(prior, ekiobj)
+        g_ens = G(params_0)
         g_ens_t = permutedims(g_ens, (2, 1))
+        @test all(isapprox.(params_0, initial_ensemble_constrained, atol = 10 * eps()))
 
         @test size(g_ens) == (n_obs, N_ens)
         @test get_N_ens(ekiobj) == ekiobj.N_ens
@@ -657,6 +666,7 @@ end
         for i in 1:N_iter
             # Check SampleSuccGauss handler
             params_i = get_ϕ_final(prior, ekiobj)
+
             push!(u_i_vec, get_u_final(ekiobj))
             g_ens = G(params_i)
             # Add random failures
@@ -839,6 +849,7 @@ end
         TransformUnscented(prior; impose_prior = true),
     ]
     for (i, proc) in enumerate(proc_tmp)
+
         if i <= 2
             @test proc.uu_cov[1] == [1.0 0.0; 0.0 1.0]
             @test proc.u_mean[1] == [1.0, 1.0]
@@ -847,7 +858,6 @@ end
             @test proc.prior_mean == proc.u_mean[1]
         end
     end
-
 
     for (i_prob, inv_problem, impose_prior, update_freq) in
         zip(1:length(inv_problems), inv_problems, impose_priors, update_freqs)
@@ -905,6 +915,19 @@ end
             scheduler = deepcopy(scheduler),
             failure_handler_method = IgnoreFailures(),
         )
+
+        # initial ensemble builder
+        initial_ens = construct_initial_ensemble(prior, process)
+        initial_ens_cons = construct_initial_ensemble(prior, process, constrained = true)
+        @test all(isapprox.(get_u_final(ukiobj), initial_ens))
+        @test all(isapprox.(get_ϕ_final(prior, ukiobj), initial_ens_cons))
+        initial_ens = construct_initial_ensemble(prior, process_t)
+        initial_ens_cons = construct_initial_ensemble(prior, process_t, constrained = true)
+        @test all(isapprox.(get_u_final(ukiobj_t), initial_ens))
+        @test all(isapprox.(get_ϕ_final(prior, ukiobj_t), initial_ens_cons))
+
+
+
         # test simplex sigma points
         process_simplex = Unscented(prior; sigma_points = "simplex", impose_prior = impose_prior)
         process_t_simplex = TransformUnscented(prior; sigma_points = "simplex", impose_prior = impose_prior) # run unstable code but dont compare
@@ -924,6 +947,19 @@ end
             scheduler = scheduler_simplex,
             failure_handler_method = SampleSuccGauss(),
         )
+
+        initial_ens = construct_initial_ensemble(prior, process_simplex)
+        initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained = true)
+        @test all(isapprox.(get_u_final(ukiobj_simplex), initial_ens))
+        @test all(isapprox.(get_ϕ_final(prior, ukiobj_simplex), initial_ens_cons))
+
+        initial_ens = construct_initial_ensemble(prior, process_t_simplex)
+        initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained = true)
+        @test all(isapprox.(get_u_final(ukiobj_t_simplex), initial_ens))
+        @test all(isapprox.(get_ϕ_final(prior, ukiobj_t_simplex), initial_ens_cons))
+
+
+
         # Test incorrect construction throws error
         @test_throws ArgumentError Unscented(prior; sigma_points = "unknowns", impose_prior = impose_prior)
         @test_throws ArgumentError TransformUnscented(prior; sigma_points = "unknowns", impose_prior = impose_prior)
