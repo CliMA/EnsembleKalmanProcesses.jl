@@ -180,7 +180,8 @@ function eki_update(
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
-    tmp = FT.(safe_linear_solve(cov_gg + obs_noise_cov_ext, y_ext - g_ext))
+    verbose = ekp.verbose
+    tmp = FT.(safe_linear_solve(cov_gg + obs_noise_cov_ext, y_ext - g_ext; verbose))
     return u + (cov_ug * tmp) # [N_par × N_ens]  
 end
 

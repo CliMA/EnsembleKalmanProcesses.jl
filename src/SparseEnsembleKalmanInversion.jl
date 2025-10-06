@@ -89,11 +89,11 @@ function sparse_qp(
     y_j::Vector{FT};
     H_uc::AbstractMatrix{FT} = H_u,
 ) where {FT, IT}
-
-    obs_noise_cov_inv_H_g = safe_linear_solve(get_obs_noise_cov(ekp), H_g)
+    verbose = ekp.verbose
+    obs_noise_cov_inv_H_g = safe_linear_solve(get_obs_noise_cov(ekp), H_g; verbose)
     P = H_g' * obs_noise_cov_inv_H_g + cov_vv_inv
     P = 0.5 * (P + P')
-    obs_noise_cov_inv_y_j = safe_linear_solve(get_obs_noise_cov(ekp), y_j)
+    obs_noise_cov_inv_y_j = safe_linear_solve(get_obs_noise_cov(ekp), y_j; verbose)
     q = -(cov_vv_inv * v_j + H_g' * obs_noise_cov_inv_y_j)
     N_params = size(H_uc)[1]
     P1 = vcat(
@@ -147,7 +147,8 @@ function sparse_eki_update(
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
-    tmp = safe_linear_solve(cov_gg + obs_noise_cov, y - g)
+    verbose = ekp.verbose
+    tmp = safe_linear_solve(cov_gg + obs_noise_cov, y - g; verbose)
     tmp = FT.(tmp)
     u = u + (cov_ug * tmp) # [N_par × N_ens]
 
@@ -158,7 +159,7 @@ function sparse_eki_update(
 
     H_uc = H_u[process.uc_idx, :]
 
-    cov_vv_inv = safe_linear_solve(cov_vv, 1.0 * I(size(cov_vv)[1]))
+    cov_vv_inv = safe_linear_solve(cov_vv, 1.0 * I(size(cov_vv)[1]); verbose)
 
     # Loop over ensemble members to impose sparsity
     Threads.@threads for j in 1:size(u, 2)

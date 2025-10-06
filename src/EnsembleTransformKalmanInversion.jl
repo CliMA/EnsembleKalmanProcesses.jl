@@ -183,7 +183,8 @@ function etki_update(
         tmp[2][i, i] += 1.0
     end
     add_diagonal_regularization!(tmp[2][1:ys2, 1:ys2])
-    Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2)) # Ω = inv(I + Y' * Γ_inv * Y)
+    verbose = ekp.verbose
+    Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2); verbose) # Ω = inv(I + Y' * Γ_inv * Y)
     w = FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- mean(g_ext, dims = 2))) #  w = Ω * Y' * Γ_inv * (y .- g_mean))
 
     return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]

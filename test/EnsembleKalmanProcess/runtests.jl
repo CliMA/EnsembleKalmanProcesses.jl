@@ -1621,27 +1621,48 @@ end
     @testset "safe_linear_solve" begin
         A = randn(5, 5)
         b = randn(5)
+        B = randn(5, 3)
+
+        # safe_linear_solve with vector
         x_ref = A \ b
         x = safe_linear_solve(A, b)
         @test isapprox(x, x_ref; rtol = 1e-10, atol = 1e-12)
         @test eltype(x) == eltype(x_ref)
 
-        B = randn(5, 3)
+        # safe_linear_solve with matrix
         X_ref = A \ B
         X = safe_linear_solve(A, B)
         @test isapprox(X, X_ref; rtol = 1e-10, atol = 1e-12)
         @test eltype(X) == eltype(X_ref)
 
-        # Make a rank-deficient matrix
-        A = [
+        # safe_linear_solve! with vector
+        x_inplace = zeros(5)
+        safe_linear_solve!(x_inplace, A, b)
+        @test isapprox(x_inplace, x_ref; rtol = 1e-10, atol = 1e-12)
+
+        # safe_linear_solve! with matrix
+        X_inplace = zeros(5, 3)
+        safe_linear_solve!(X_inplace, A, B)
+        @test isapprox(X_inplace, X_ref; rtol = 1e-10, atol = 1e-12)
+
+        # dimension mismatch for safe_linear_solve!
+        X_wrong = zeros(4, 3)
+        @test_throws DimensionMismatch safe_linear_solve!(X_wrong, A, B)
+
+        # rank-deficient matrix
+        A_singular = [
             1.0 2.0
             2.0 4.0
         ]
-        b = randn(2)
-        x_pinv = pinv(A) * b
+        b_singular = randn(2)
+        x_pinv = pinv(A_singular) * b_singular
 
-        x = safe_linear_solve(A, b)
-        @test isapprox(x, x_pinv; rtol = 1e-10, atol = 1e-12)
+        x_safe = safe_linear_solve(A_singular, b_singular)
+        @test isapprox(x_safe, x_pinv; rtol = 1e-10, atol = 1e-12)
+
+        x_safe_inplace = zeros(2)
+        safe_linear_solve!(x_safe_inplace, A_singular, b_singular)
+        @test isapprox(x_safe_inplace, x_pinv; rtol = 1e-10, atol = 1e-12)
     end
 
     @testset "add_diagonal_regularization!" begin

@@ -94,7 +94,8 @@ function gnki_update(
     m = (prior_mean .+ m_noise)
     obs_noise_cov = scaled_obs_noise_cov * Δt / 2
 
-    cov_uu_inv_m_minus_u = safe_linear_solve(cov_uu, m .- u)
+    verbose = ekp.verbose
+    cov_uu_inv_m_minus_u = safe_linear_solve(cov_uu, m .- u; verbose)
     prior_contribution = -cov_ug' * cov_uu_inv_m_minus_u
 
     data_contribution = y .- g
@@ -102,12 +103,12 @@ function gnki_update(
     # solve for P (Cᵘᵍ)ᵀ (Cᵘᵘ)⁻¹ ( (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ + Γ)⁻¹ * A
 
     # Q = (Cᵘᵍ)ᵀ(Cᵘᵘ)⁻¹ P (Cᵘᵘ)⁻¹Cᵘᵍ
-    cov_uu_inv_prior_cov = safe_linear_solve(cov_uu, prior_cov)
-    cov_uu_inv_cov_ug = safe_linear_solve(cov_uu, cov_ug)
+    cov_uu_inv_prior_cov = safe_linear_solve(cov_uu, prior_cov; verbose)
+    cov_uu_inv_cov_ug = safe_linear_solve(cov_uu, cov_ug; verbose)
     Q = cov_ug' * cov_uu_inv_prior_cov * cov_uu_inv_cov_ug
 
-    Q_plus_obs_inv_A = safe_linear_solve(Q + obs_noise_cov, A)
-    cov_uu_inv_cov_ug_Q_inv_A = safe_linear_solve(cov_uu, cov_ug * Q_plus_obs_inv_A)
+    Q_plus_obs_inv_A = safe_linear_solve(Q + obs_noise_cov, A; verbose)
+    cov_uu_inv_cov_ug_Q_inv_A = safe_linear_solve(cov_uu, cov_ug * Q_plus_obs_inv_A; verbose)
     update = prior_cov * cov_uu_inv_cov_ug_Q_inv_A
 
     return (1 - Δt) * u + Δt * (m .+ update)

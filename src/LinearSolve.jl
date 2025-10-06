@@ -10,15 +10,15 @@ Solves the linear system Ax = b with robust handling of ill-conditioned matrices
 # Arguments
 - `A`: Coefficient matrix
 - `b`: Right-hand side vector or matrix  
-- `warn_on_singular`: Whether to issue warnings when ill-conditioned matrices are detected
+- `verbose`: Whether to issue warnings when ill-conditioned matrices are detected
 
 """
-function safe_linear_solve(A::AbstractMatrix, b::AbstractVecOrMat; warn_on_singular = true)
+function safe_linear_solve(A::AbstractMatrix, b::AbstractVecOrMat; verbose = true)
     try
         return A \ b
     catch e
         if e isa SingularException
-            warn_on_singular && @warn "Ill-conditioned matrix detected (cond=$(cond(A))). Using pseudoinverse solve."
+            verbose && @warn "Ill-conditioned matrix detected (cond=$(cond(A))). Using pseudoinverse solve."
             return pinv(A) * b
         else
             rethrow(e)
@@ -26,18 +26,18 @@ function safe_linear_solve(A::AbstractMatrix, b::AbstractVecOrMat; warn_on_singu
     end
 end
 """
-    safe_linear_solve!(x, A, b; kwargs...)
+    safe_linear_solve!(x, A, b; verbose=true)
 
 In-place version of `safe_linear_solve` that writes into `x`.
-Errors if shapes don’t match.
+Errors if shapes don't match.
 """
-function safe_linear_solve!(x::AbstractVecOrMat, A::AbstractMatrix, b::AbstractVecOrMat; kwargs...)
+function safe_linear_solve!(x::AbstractVecOrMat, A::AbstractMatrix, b::AbstractVecOrMat; verbose = true)
     n = size(A, 2)
-    ncols = ndims(b) == 1 ? 1 : size(b, 2)
-    if size(x) != (n, ncols)
-        throw(DimensionMismatch("x has size $(size(x)), expected ($(n), $(ncols))"))
+    expected_size = ndims(b) == 1 ? (n,) : (n, size(b, 2))
+    if size(x) != expected_size
+        throw(DimensionMismatch("x has size $(size(x)), expected $(expected_size)"))
     end
-    x .= safe_linear_solve(A, b; kwargs...)
+    x .= safe_linear_solve(A, b; verbose)
     return x
 end
 

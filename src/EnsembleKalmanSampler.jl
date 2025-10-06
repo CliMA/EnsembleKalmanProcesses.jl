@@ -104,16 +104,22 @@ function eks_update(
     # Building tmp matrices for EKS update:
     E = g' .- g_mean
     R = g' .- get_obs(ekp)
+    verbose = ekp.verbose
     # D: N_ens × N_ens
-    D = (1 / get_N_ens(ekp)) * (E' * (get_obs_noise_cov(ekp) \ R))
+    D = (1 / get_N_ens(ekp)) * (E' * safe_linear_solve(get_obs_noise_cov(ekp), R; verbose))
 
     # Default: Δt = 1 / (norm(D) + eps(FT))
     Δt = get_Δt(ekp)[end]
 
     noise = MvNormal(zeros(size(u_cov, 1)), I)
-    implicit =
-        (I + Δt * (process.prior_cov' \ u_cov')') \
-        (u' .- Δt * (u' .- u_mean) * D .+ Δt * u_cov * (process.prior_cov \ process.prior_mean))
+    implicit = safe_linear_solve(
+        (I + Δt * safe_linear_solve(process.prior_cov', u_cov'; verbose)'),
+        (
+            u' .- Δt * (u' .- u_mean) * D .+
+            Δt * u_cov * safe_linear_solve(process.prior_cov, process.prior_mean; verbose)
+        );
+        verbose,
+    )
 
     u = implicit' + sqrt(2 * Δt) * (sqrt(u_cov) * rand(get_rng(ekp), noise, get_N_ens(ekp)))'
 
@@ -155,16 +161,22 @@ function eks_update(
     U = u' .- u_mean
     E = g' .- g_mean
     R = g' .- get_obs(ekp)
+    verbose = ekp.verbose
     # D: N_ens × N_ens
-    D = (1 / N_ens) * (E' * (get_obs_noise_cov(ekp) \ R))
+    D = (1 / N_ens) * (E' * safe_linear_solve(get_obs_noise_cov(ekp), R; verbose))
     finite_sample_correction = (dim_u + 1) / N_ens * U
     C_sqrt = 1 / sqrt(N_ens) * U
     # Default: Δt = 1 / (norm(D) + eps(FT))
     Δt = get_Δt(ekp)[end]
 
-    implicit =
-        (I + Δt * (process.prior_cov' \ u_cov')') \
-        (u' .- Δt * U * D .+ Δt * u_cov * (process.prior_cov \ process.prior_mean) + Δt * finite_sample_correction)
+    implicit = safe_linear_solve(
+        (I + Δt * safe_linear_solve(process.prior_cov', u_cov'; verbose)'),
+        (
+            u' .- Δt * U * D .+ Δt * u_cov * safe_linear_solve(process.prior_cov, process.prior_mean; verbose) +
+            Δt * finite_sample_correction
+        );
+        verbose,
+    )
 
     u = implicit' + sqrt(2 * Δt) * (C_sqrt * randn(get_rng(ekp), (N_ens, N_ens)))' # ensemble-sqrt noise update
     return u
