@@ -511,7 +511,9 @@ Returns the unconstrained parameter sample covariance at the given iteration.
 """
 function get_u_cov(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
     u = get_data(ekp.u[iteration])
-    return cov(u, dims = 2)
+    cov_u = cov(u, dims = 2)
+    add_diagonal_regularization!(cov_u)
+    return cov_u
 end
 
 """
@@ -520,7 +522,9 @@ end
 Returns the unconstrained parameter sample covariance for the initial ensemble.
 """
 function get_u_cov_prior(ekp::EnsembleKalmanProcess)
-    return cov(get_u_prior(ekp), dims = 2)
+    cov_u_prior = cov(get_u_prior(ekp), dims = 2)
+    add_diagonal_regularization!(cov_u_prior)
+    return cov_u_prior
 end
 
 """
@@ -1002,6 +1006,7 @@ function compute_bayes_loss_at_mean(ekp::EnsembleKalmanProcess)
     if isnothing(prior_cov)
         u_prior = get_u(ekp, 1)
         prior_cov = cov(u_prior, dims = 2)
+        add_diagonal_regularization!(prior_cov)
         if !isposdef(prior_cov)
             prior_cov = posdef_correct(prior_cov)
         end
@@ -1269,11 +1274,11 @@ function impute_over_nans(
     not_fail = (.!(sum(nan_loc, dims = 1) .> tol))[:] # "not" fail vector
     # find if NaNs are in succesful particles still
     nan_in_row = sum(nan_loc[:, not_fail], dims = 2) .> 0
-    rows_for_imputation = [nan_in_row[i] * i for i in 1:size(out, 1) if nan_in_row[i] > 0]
+    rows_for_imputation = [nan_in_row[i] * i for i = 1:size(out, 1) if nan_in_row[i] > 0]
 
     if length(rows_for_imputation) > 0
         all_nan = sum(nan_loc, dims = 2) .== size(out, 2)
-        rows_all_nan = [all_nan[i] * i for i in 1:size(out, 1) if all_nan[i] > 0]
+        rows_all_nan = [all_nan[i] * i for i = 1:size(out, 1) if all_nan[i] > 0]
         if verbose
             @warn """
 In forward map ensemble g, detected $(sum(nan_loc)) NaNs. 

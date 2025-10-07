@@ -7,6 +7,7 @@ include("ParameterDistributions.jl")
 include("DataContainers.jl")
 include("Observations.jl")
 include("Localizers.jl")
+include("LinearSolve.jl")
 include("TOMLInterface.jl")
 include("UpdateGroup.jl")
 # algorithmic updates
