@@ -27,7 +27,7 @@ using EnsembleKalmanProcesses
         push!(covariances, i * X' * X)
         if !(i == 3) # take inverse if not == 3
             ic = inv(i * X' * X)
-        elseif i == 2 
+        elseif i == 2
             ic = 1.0 # α viewed as α*I by observation
         else # here submit a user-defined inverse covariance (not true inverse)
             ic = I

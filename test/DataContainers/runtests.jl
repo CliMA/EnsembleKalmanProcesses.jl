@@ -64,7 +64,7 @@ using EnsembleKalmanProcesses.DataContainers
     @test_logs (:warn,) PairedDataContainer(dx, dxf) # types clash, treat as promoted type
     pd1 = PairedDataContainer(dx, dxf)
     pd2 = PairedDataContainer(x, xf)
-    
+
     @test pd1 == pd2
     @test eltype(get_inputs(pd1)) == promote_type(eltype(x), eltype(xf))
     @test eltype(get_outputs(pd1)) == promote_type(eltype(x), eltype(xf))
