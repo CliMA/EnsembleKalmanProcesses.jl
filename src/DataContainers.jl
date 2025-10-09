@@ -28,7 +28,7 @@ struct DataContainer{FT <: Real}
     data::AbstractMatrix{FT}
     #constructor with 2D arrays
     function DataContainer(data::AVorM; data_are_columns = true) where {AVorM <: AbstractVecOrMat}
-        if isa(data, AbstractVector) 
+        if isa(data, AbstractVector)
             @warn "input to DataContainer is vector and has ambiguous shape, continuing with interpretation as a matrix of size (1,$(length(data))). \n use `reshape(data, 1, :)`  (n samples of 1d data) or `reshape(data, :, 1)` (1 sample of n-d data) to set preferred orientation directly."
             dd = reshape(data, 1, :)
         else
@@ -69,20 +69,20 @@ struct PairedDataContainer{FT <: Real}
         outputs::AVorM2;
         data_are_columns = true,
     ) where {AVorM1 <: AbstractVecOrMat, AVorM2 <: AbstractVecOrMat}
-        
-        if isa(inputs, AbstractVector) 
+
+        if isa(inputs, AbstractVector)
             @warn "input to DataContainer is vector and has ambiguous shape, continuing with interpretation as a matrix of size (1,$(length(inputs))). \n use `reshape(inputs, 1, :)`  (n samples of 1d inputs) or `reshape(inputs, :, 1)` (1 sample of n-d inputs) to set preferred orientation directly."
             in = reshape(inputs, 1, :)
         else
             in = inputs
         end
-        if isa(outputs, AbstractVector) 
+        if isa(outputs, AbstractVector)
             @warn "input to DataContainer is vector and has ambiguous shape, continuing with interpretation as a matrix of size (1,$(length(outputs))). \n use `reshape(outputs, 1, :)`  (n samples of 1d outputs) or `reshape(outputs, :, 1)` (1 sample of n-d outputs) to set preferred orientation directly."
             out = reshape(outputs, 1, :)
         else
             out = outputs
         end
-        
+
         sample_dim = data_are_columns ? 2 : 1
         if !(size(in, sample_dim) == size(out, sample_dim))
             throw(
@@ -98,14 +98,14 @@ struct PairedDataContainer{FT <: Real}
         end
         stored_inputs = DataContainer(convert(Matrix{FT}, in); data_are_columns = data_are_columns)
         stored_outputs = DataContainer(convert(Matrix{FT}, out); data_are_columns = data_are_columns)
-        
-        new{FT}(stored_inputs,stored_outputs)
-        
+
+        new{FT}(stored_inputs, stored_outputs)
+
     end
 
     # constructor with DataContainers
     function PairedDataContainer(inputs::DataContainer, outputs::DataContainer)
-        
+
         if !(size(inputs, 2) == size(outputs, 2))
             throw(
                 DimensionMismatch(
@@ -113,15 +113,15 @@ struct PairedDataContainer{FT <: Real}
                 ),
             )
         else
-            
-        FT = promote_type(eltype(get_data(inputs)), eltype(get_data(outputs)))
-        if !(FT == eltype(get_data(inputs))) || !(FT == eltype(get_data(outputs)))
-            @warn "inputs and outputs provided to PairedDataContainer have different types ($(eltype(get_data(inputs))), $(eltype(get_data(outputs)))), Storing both in mutual type: $(FT). "
-            new_inputs = DataContainer(convert(Matrix{FT}, get_data(inputs)))
-            new_outputs = DataContainer(convert(Matrix{FT}, get_data(outputs)))
 
-            return new{FT}(new_inputs, new_outputs)
-        end
+            FT = promote_type(eltype(get_data(inputs)), eltype(get_data(outputs)))
+            if !(FT == eltype(get_data(inputs))) || !(FT == eltype(get_data(outputs)))
+                @warn "inputs and outputs provided to PairedDataContainer have different types ($(eltype(get_data(inputs))), $(eltype(get_data(outputs)))), Storing both in mutual type: $(FT). "
+                new_inputs = DataContainer(convert(Matrix{FT}, get_data(inputs)))
+                new_outputs = DataContainer(convert(Matrix{FT}, get_data(outputs)))
+
+                return new{FT}(new_inputs, new_outputs)
+            end
             return new{FT}(inputs, outputs)
         end
     end

@@ -24,7 +24,7 @@ using EnsembleKalmanProcesses.DataContainers
     @test get_data(idata) == parameter_samples
     @test get_data(idata_T) == parameter_samples
     @test size(idata) == size(parameter_samples)
-    
+
     #test Paired Container
     idata = DataContainer(parameter_samples)
     odata = DataContainer(data_samples)
@@ -53,20 +53,20 @@ using EnsembleKalmanProcesses.DataContainers
     @test !isequal(retrieved_samples_T, get_data(idata_T))
 
     # test build from vectors and different types
-    x = [1,23,4,5,6]
-    xf = [1.4, 43.0,23.,5.,9.0]
+    x = [1, 23, 4, 5, 6]
+    xf = [1.4, 43.0, 23.0, 5.0, 9.0]
 
     @test_logs (:warn,) Datacontainer(x) # vector is ambiguous treat as 1 x n
     dx = DataContainer(x)
-    @test get_data(dx) == reshape(x,1,:) 
+    @test get_data(dx) == reshape(x, 1, :)
     dxf = DataContainer(xf)
 
-    @test_logs (:warn,) PairedDataContainer(dx,dxf) # types clash, treat as promoted type
-    @test_logs (:warn,)(:warn,)(:warn,) PairedDataContainer(x,xf) # types clash, and both are vecs = 3 warns
-    pd1 = PairedDataContainer(dx,dxf)
-    pd2 = PairedDataContainer(x,xf)
+    @test_logs (:warn,) PairedDataContainer(dx, dxf) # types clash, treat as promoted type
+    @test_logs (:warn,)(:warn)(:warn) PairedDataContainer(x, xf) # types clash, and both are vecs = 3 warns
+    pd1 = PairedDataContainer(dx, dxf)
+    pd2 = PairedDataContainer(x, xf)
     @test pd1 == pd2
     @test eltype(get_inputs(pd1)) == promote_type(eltype(x), eltype(xf))
     @test eltype(get_outputs(pd1)) == promote_type(eltype(x), eltype(xf))
-    
+
 end
