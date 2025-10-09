@@ -43,7 +43,7 @@ abstract type SumOfCovariances end
 
 # svd plus diagonal
 """
-    SVDplusD
+$(TYPEDEF)
 
 Storage for a covariance matrix of the form `D + USV'` for Diagonal D, and SVD decomposition USV'.
 Note the inverse of this type (as computed through `inv_cov(...)`) will be stored compactly as a `DminusTall` type.
@@ -88,7 +88,7 @@ end
 
 # the inverse of SVD plus diagonal is stored like this:
 """
-    DminusTall
+$(TYPEDEF)
 
 Storage for a covariance matrix of the form `D - RR'` for Diagonal D, and (tall) matrix R.
 Primary use case for this matrix is to compactly store the inverse of the `SVDplusD` type.
@@ -244,7 +244,7 @@ end
 
 # TODO: Define == and copy for these structs
 """
-    Observation
+$(TYPEDEF)
 
 Structure that contains a (possibly stacked) observation. Defined by sample(s), noise covariance(s), and name(s)
 
@@ -367,6 +367,8 @@ function Observation(obs_dict::Dict; metadata = nothing)
     for (id, c) in enumerate(ctmp)
         if isa(c, UniformScaling)
             push!(ctmp2, Diagonal(c.λ * ones(length(snew[id])))) # get dim from samples
+        elseif isa(c, Real) # treat number as uniform scaling
+            push!(ctmp2, Diagonal(c * ones(length(snew[id]))))
         else
             push!(ctmp2, c)
         end
@@ -678,7 +680,7 @@ function Base.:(==)(m_a::M1, m_b::M2) where {M1 <: Minibatcher, M2 <: Minibatche
 end
 
 """
-    FixedMinibatcher <: Minibatcher
+$(TYPEDEF)
 
 A `Minibatcher` that takes in a given epoch of batches. It creates a new epoch by either copying-in-order, or by shuffling, the provided batches.
 
@@ -782,7 +784,7 @@ function create_new_epoch!(m::FM, args...; kwargs...) where {FM <: FixedMinibatc
 end
 
 """
-    RandomFixedSizeMinibatcher <: Minibatcher
+$(TYPEDEF)
 
 A `Minibatcher` that takes in a given epoch of batches. It creates a new epoch by either copying-in-order, or by shuffling, the provided batches.
 
@@ -897,7 +899,7 @@ end
 
 
 """
-    ObservationSeries
+$(TYPEDEF)
 
 Structure that contains multiple `Observation`s along with an optional `Minibatcher`. Stores all observations in `EnsembleKalmanProcess`, as well as defining the behavior of the `get_obs`, `get_obs_noise_cov`, and `get_obs_noise_cov_inv` methods
 
