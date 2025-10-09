@@ -38,7 +38,7 @@ export constrained_gaussian
 abstract type ParameterDistributionType end
 
 """
-    Parameterized <: ParameterDistributionType
+$(TYPEDEF)
     
 A distribution constructed from a parameterized formula (e.g Julia Distributions.jl)
 
@@ -53,7 +53,7 @@ end
 
 
 """
-    Samples{FT <: Real} <: ParameterDistributionType
+$(TYPEDEF)
 
 A distribution comprised of only samples, stored as columns of parameters.
 
@@ -72,7 +72,7 @@ struct Samples{FT <: Real} <: ParameterDistributionType
 end
 
 """
-    VectorOfParameterized <: ParameterDistributionType
+$(TYPEDEF)
 
 A distribution built from an array of Parametrized distributions.
 A utility to help stacking of distributions where a multivariate equivalent doesn't exist.
@@ -96,7 +96,7 @@ abstract type Bounded <: ConstraintType end
 BasicConstraints = Union{BoundedBelow, BoundedAbove, Bounded, NoConstraint}
 
 """
-    Constraint{T} <: ConstraintType
+$(TYPEDEF)
 
 Class describing a 1D bijection between constrained and unconstrained spaces.
 Included parametric types for T:
@@ -139,7 +139,7 @@ function Base.show(io::IO, cons::Constraint{<:BasicConstraints})  # shorthand, e
 end
 
 """
-    no_constraint()
+$(TYPEDSIGNATURES)
 
 Constructs a Constraint with no constraints, enforced by maps x -> x and x -> x.
 """
@@ -151,7 +151,7 @@ function no_constraint()
 end
 
 """
-    bounded_below(lower_bound::FT) where {FT <: Real}
+$(TYPEDSIGNATURES)
 
 Constructs a Constraint with provided lower bound, enforced by maps `x -> log(x - lower_bound)`
 and `x -> exp(x) + lower_bound`.
@@ -168,7 +168,7 @@ function bounded_below(lower_bound::FT) where {FT <: Real}
 end
 
 """
-    bounded_above(upper_bound::FT) where {FT <: Real} 
+$(TYPEDSIGNATURES)
 
 Constructs a Constraint with provided upper bound, enforced by maps `x -> log(upper_bound - x)`
 and `x -> upper_bound - exp(x)`.
@@ -186,7 +186,7 @@ end
 
 
 """
-    bounded(lower_bound::Real, upper_bound::Real)
+$(TYPEDSIGNATURES)
 
 Constructs a Constraint with provided upper and lower bounds, enforced by maps
 `x -> log((x - lower_bound) / (upper_bound - x))`
@@ -220,14 +220,14 @@ function bounded(lower_bound::Real, upper_bound::Real)
 end
 
 """
-    get_bounds(c::Constraint)
+$(TYPEDSIGNATURES)
 
 Gets the bounds field from the Constraint.
 """
 get_bounds(c::C) where {C <: Constraint} = c.bounds
 
 """
-    get_bounds(c::Constraint{T})
+$(TYPEDSIGNATURES)
 
 Gets the parametric type T.
 """
@@ -236,7 +236,7 @@ get_constraint_type(c::Constraint{T}) where {T} = T
 
 #extending Base.length
 """
-    length(c<:ConstraintType)
+$(TYPEDSIGNATURES)
 
 A constraint has length 1. 
 """
@@ -244,14 +244,14 @@ length(c::CType) where {CType <: ConstraintType} = length([c])
 
 #extending Base.size
 """
-    size(c<:ConstraintType)
+$(TYPEDSIGNATURES)
 
 A constraint has size 1.
 """
 size(c::CType) where {CType <: ConstraintType} = size([c])
 
 """
-    ndims(d<:ParametrizedDistributionType)
+$(TYPEDSIGNATURES)
 
 The number of dimensions of the parameter space
 """
@@ -261,7 +261,7 @@ ndims(d::Samples; kwargs...) = size(d.distribution_samples, 1)
 
 ndims(d::VectorOfParameterized; kwargs...) = sum(length.(d.distribution))
 """
-    n_samples(d<:Samples)
+$(TYPEDSIGNATURES)
 
 The number of samples in the array.
 """
@@ -273,7 +273,7 @@ n_samples(d::VectorOfParameterized) = "Distribution stored in Parameterized form
 
 
 """
-    ParameterDistribution
+$(TYPEDEF)
 
 Structure to hold a parameter distribution, always stored as an array of distributions internally.
 
@@ -295,7 +295,7 @@ struct ParameterDistribution{PDType <: ParameterDistributionType, CType <: Const
 end
 
 """
-    ParameterDistribution(param_dist_dict::Union{Dict,AbstractVector})
+$(TYPEDSIGNATURES)
 
 Constructor taking in a Dict or array of Dicts. Each dict must contain the key-val pairs:
 - `"distribution"` - a distribution of `ParameterDistributionType`
@@ -379,9 +379,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 end
 
 """
-    ParameterDistribution(distribution::ParameterDistributionType,
-                                   constraint::Union{ConstraintType,AbstractVector{ConstraintType}},
-                                   name::AbstractString)
+$(TYPEDSIGNATURES)
 
 constructor of a ParameterDistribution from a single `distribution`, (array of) `constraint`, `name`.
 these can used to build another ParameterDistribution
@@ -421,10 +419,7 @@ function ParameterDistribution(
 end
 
 """
-    ParameterDistribution(distribution_samples::AbstractMatrix,
-                          constraint::Union{ConstraintType,AbstractVector{ConstraintType}},
-                          name::AbstractString;
-        params_are_columns::Bool = true)
+$(TYPEDSIGNATURES)
 
 constructor of a Samples ParameterDistribution from a matrix `distribution_samples` of parameters stored as columns by defaut, (array of) `constraint`, `name`.
 """
@@ -454,7 +449,7 @@ end
 ## Functions
 
 """
-    combine_distributions(pd_vec::AbstractVector{PD})
+$(TYPEDSIGNATURES)
 
 Form a ParameterDistribution by concatenating a vector of single ParameterDistributions.
 """
@@ -467,14 +462,14 @@ function combine_distributions(pd_vec::AbstractVector{PD}) where {PD <: Paramete
 end
 
 """
-    get_name(pd::ParameterDistribution)
+$(TYPEDSIGNATURES)
 
 Returns a list of ParameterDistribution names.
 """
 get_name(pd::ParameterDistribution) = pd.name
 
 """
-    get_dimensions(pd::ParameterDistribution; function_parameter_opt = "dof")
+$(TYPEDSIGNATURES)
 
 The number of dimensions of the parameter space. (Also represents other dimensions of interest for `FunctionParameterDistributionType`s with keyword argument)
 """
@@ -490,7 +485,7 @@ function ndims(pd::ParameterDistribution; function_parameter_opt::AbstractString
 end
 
 """
-    get_n_samples(pd::ParameterDistribution)
+$(TYPEDSIGNATURES)
 
 The number of samples in a Samples distribution
 """
@@ -499,7 +494,7 @@ function get_n_samples(pd::ParameterDistribution)
 end
 
 """
-    get_all_constraints(pd::ParameterDistribution; return_dict = false)
+$(TYPEDSIGNATURES)
 
 Returns the (flattened) array of constraints of the parameter distribution. or as a dictionary ("param_name" => constraints)
 """
@@ -518,7 +513,7 @@ function get_all_constraints(pd::ParameterDistribution; return_dict = false)
 end
 
 """
-    batch(pd::ParameterDistribution; function_parameter_opt = "dof")
+$(TYPEDSIGNATURES)
 
 Returns a list of contiguous `[collect(1:i), collect(i+1:j),... ]` used to split parameter arrays by distribution dimensions. `function_parameter_opt` is passed to ndims in the special case of `FunctionParameterDistributionType`s.
 """
@@ -536,7 +531,7 @@ function batch(pd::Union{ParameterDistribution, VectorOfParameterized}; function
 end
 
 """
-    get_distribution(pd::ParameterDistribution)
+$(TYPEDSIGNATURES)
 
 Returns a `Dict` of `ParameterDistribution` distributions, with the parameter names
 as dictionary keys. For parameters represented by `Samples`, the samples are returned
@@ -565,7 +560,7 @@ Base.:(==)(pd_a::ParameterDistribution, pd_b::ParameterDistribution) =
 
 
 """
-    sample([rng], pd::ParameterDistribution, [n_draws])
+$(TYPEDSIGNATURES)
 
 Draws `n_draws` samples from the parameter distributions `pd`. Returns an array, with 
 parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
@@ -581,7 +576,7 @@ sample(rng::AbstractRNG, pd::ParameterDistribution) = sample(rng, pd, 1)
 sample(pd::ParameterDistribution) = sample(Random.GLOBAL_RNG, pd, 1)
 
 """
-    sample([rng], d::Samples, [n_draws])
+$(TYPEDSIGNATURES)
 
 Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
 parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
@@ -603,7 +598,7 @@ sample(rng::AbstractRNG, d::Samples) = sample(rng, d, 1)
 sample(d::Samples) = sample(Random.GLOBAL_RNG, d, 1)
 
 """
-    sample([rng], d::Parameterized, [n_draws])
+$(TYPEDSIGNATURES)
 
 Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
 parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
@@ -623,7 +618,7 @@ sample(rng::AbstractRNG, d::Parameterized) = sample(rng, d, 1)
 sample(d::Parameterized) = sample(Random.GLOBAL_RNG, d, 1)
 
 """
-    sample([rng], d::VectorOfParameterized, [n_draws])
+$(TYPEDSIGNATURES)
 
 Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
 parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
@@ -644,7 +639,7 @@ sample(rng::AbstractRNG, d::VectorOfParameterized) = sample(rng, d, 1)
 sample(d::VectorOfParameterized) = sample(Random.GLOBAL_RNG, d, 1)
 
 """
-    logpdf(pd::ParameterDistribution, xarray::Array{<:Real,1})
+$(TYPEDSIGNATURES)
 
 Obtains the independent logpdfs of the parameter distributions at `xarray`
 (non-Samples Distributions only), and returns their sum.
@@ -710,7 +705,8 @@ logpdf(pd::ParameterDistribution, x::FT) where {FT <: Real} = logpdf(pd, [x])
 
 #extending StatsBase cov,var
 """
-    var(pd::ParameterDistribution)
+$(TYPEDSIGNATURES)
+
 Returns a flattened variance of the distributions
 """
 var(d::Parameterized) = var(d.distribution)
@@ -727,7 +723,7 @@ end
 
 
 """
-    cov(pd::ParameterDistribution)
+$(TYPEDSIGNATURES)
 
 Returns a dense blocked (co)variance of the distributions.
 """
@@ -772,7 +768,7 @@ end
 
 #extending mean
 """
-    mean(pd::ParameterDistribution)
+$(TYPEDSIGNATURES)
 
 Returns a concatenated mean of the parameter distributions. 
 """
@@ -797,7 +793,7 @@ end
 
 
 """
-    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::VecOrMat)
+$(TYPEDSIGNATURES)
 
 Apply the transformation to map (possibly constrained) parameter sample(s) `x` into the unconstrained space.
 
@@ -840,7 +836,7 @@ function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::R)
     return transform_constrained_to_unconstrained(pd, [x])[1]
 end
 """
-    transform_constrained_to_unconstrained(d::ParameterDistribution, x::Dict)
+$(TYPEDSIGNATURES)
 
 Apply the transformation to map (possibly constrained) parameter samples `x` into the unconstrained space.
 Here, `x` contains parameter names as keys, and 1- or 2-arrays as parameter samples.
@@ -860,7 +856,7 @@ end
 
 
 """
-    transform_constrained_to_unconstrained(pd::ParameterDistribution, x::iterable{AbstractVecOrMat})
+$(TYPEDSIGNATURES)
 
 Apply the transformation to map parameter sample ensembles `x` from the (possibly) constrained space into unconstrained space.
 Here, `x` is an iterable of parameters sample ensembles for different EKP iterations.
@@ -905,7 +901,7 @@ end
 
 
 """
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::VecOrMat; build_flag = true)
+$(TYPEDSIGNATURES)
 
 Apply the transformation to map unconstrained parameter sample(s) `x` into the constrained space.
 
@@ -969,7 +965,7 @@ function transform_unconstrained_to_constrained(
 end
 
 """
-    transform_unconstrained_to_constrained(d::ParameterDistribution, x::Dict; build_flag = true)
+$(TYPEDSIGNATURES)
 
 Apply the transformation to map (possibly constrained) parameter samples `x` into the unconstrained space.
 Here, `x` contains parameter names as keys, and 1- or 2-arrays as parameter samples.
@@ -989,7 +985,7 @@ function transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Di
 end
 
 """
-    transform_unconstrained_to_constrained(pd::ParameterDistribution, x::iterable{AbstractVecOrMat})
+$(TYPEDSIGNATURES)
 
 Apply the transformation to map parameter sample ensembles `x` from the unconstrained space into (possibly constrained) space.
 Here, `x` is an iterable of parameters sample ensembles for different EKP iterations.
@@ -1056,16 +1052,7 @@ end
 
 
 """
-    constrained_gaussian(
-        name::AbstractString,
-        μ_c::Real,
-        σ_c::Real,
-        lower_bound::Real,
-        upper_bound::Real;
-        repeats = 1,
-        optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
-        optim_kwargs...,
-    )
+$(TYPEDSIGNATURES)
 
 Constructor for a 1D ParameterDistribution consisting of a transformed Gaussian, constrained
 to have support on [`lower_bound`, `upper_bound`], with first two moments `μ_c` and `σ_c^2`. The 
