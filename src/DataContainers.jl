@@ -20,8 +20,8 @@ Container to store data samples as columns in an array.
 $(TYPEDFIELDS)
 
 # Constructors
+    DataContainer(data::AVorM; data_are_columns = true) where {AVorM <: AbstractVecOrMat}
 
-#(METHODLIST)
 """
 struct DataContainer{FT <: Real}
     "stored data, each piece of data is a column [data dimension × number samples]"
@@ -54,8 +54,14 @@ Stores input - output pairs as data containers, there must be an equal number of
 $(TYPEDFIELDS)
 
 # Constructors
+    PairedDataContainer(
+        inputs::AVorM1,
+        outputs::AVorM2;
+        data_are_columns = true,
+    ) where {AVorM1 <: AbstractVecOrMat, AVorM2 <: AbstractVecOrMat}
 
-#(METHODLIST)
+    PairedDataContainer(inputs::DataContainer, outputs::DataContainer)
+
 """
 struct PairedDataContainer{FT <: Real}
     "container for inputs, each Container holds an array size [data/parameter dimension × number samples]"
