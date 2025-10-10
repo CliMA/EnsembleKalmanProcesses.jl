@@ -283,6 +283,8 @@ $(TYPEDFIELDS)
 
 # Constructors
 
+Recommended construction (for most problems) is via the `constrained_gaussian()` utility.
+
 $(METHODLIST)
 """
 struct ParameterDistribution{PDType <: ParameterDistributionType, CType <: ConstraintType, ST <: AbstractString}
@@ -301,6 +303,8 @@ Constructor taking in a Dict or array of Dicts. Each dict must contain the key-v
 - `"distribution"` - a distribution of `ParameterDistributionType`
 - `"constraint"` - constraint(s) given as a `ConstraintType` or array of `ConstraintType`s with length equal to the dims of the distribution
 - `"name"` - a name of the distribution as a String.
+
+Recommended construction (for most problems) is via the `constrained_gaussian()` utility
 """
 function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
@@ -452,6 +456,15 @@ end
 $(TYPEDSIGNATURES)
 
 Form a ParameterDistribution by concatenating a vector of single ParameterDistributions.
+
+Example usage:
+```
+d1 = constrained_gaussian("mean2-sd1-positive", 2.0, 1.0, 0, Inf)
+d2 = constrained_gaussian("4-dim-mean0-sd10", 0.0, 4.0, -Inf, Inf, repeats=4)
+# the combine
+d = combine_distributions([d1,d2])
+```
+
 """
 function combine_distributions(pd_vec::AbstractVector{PD}) where {PD <: ParameterDistribution}
     # flatten the structure
@@ -1062,6 +1075,14 @@ with numerical optimization.
 kwargs:
 =======
  - `repeats=1` : K-dimensional distribution by stacking `K` independent copies of the defined univariate distribution by setting `repeats = K`.
+
+Example usage:
+```
+d1 = constrained_gaussian("mean2-sd1-positive", 2.0, 1.0, 0, Inf)
+d2 = constrained_gaussian("4-dim-mean0-sd10", 0.0, 4.0, -Inf, Inf, repeats=4)
+# combine with:
+d = combine_distributions([d1,d2])
+```
 
 !!! note
     The intended use case is defining priors set from user expertise for use in inference 

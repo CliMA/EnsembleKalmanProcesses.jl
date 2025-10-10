@@ -187,7 +187,26 @@ end
 """
 $(TYPEDSIGNATURES)
 
-For a given `sample_mat`, (with `data_are_columns = true`), rank "r" is optionally provided. Returns the SVDs corresponding to the matrix `cov(sample_mat; dims=2)`. Efficient representation when size(sample_mat,1) << size(sample_mat,2). Setting `return_inverse=true` also returns its psuedoinverse.
+For a given `sample_mat`, (with `data_are_columns = true`), rank "r" is optionally provided. Returns the SVD objects corresponding to the matrix `cov(sample_mat; dims=2)`. Efficient representation when `size(sample_mat,1) << size(sample_mat,2)`. Setting `return_inverse=true` also returns its psuedoinverse.
+
+Example usage to make a low-rank covariance:
+```
+# "data"
+n_trials = 30
+output_dim = 1_000_000
+Y = randn(output_dim, n_trials);
+
+# the noise estimated from the samples (will have rank n_trials-1)
+internal_cov = tsvd_cov_from_samples(Y)
+internal_cov_lower_rank = tsvd_cov_from_samples(Y, n_trials-5)
+```
+
+If one also wishes to add a Diagonal matrix to `internal cov` to increase the rank in a compact fashion, use the `SVDplusD` object type
+```
+diag_cov = 1e-6*Diagonal(1:output_dim)
+full_cov = SVDplusD(internal_cov, diag_cov)
+```
+Either can be passed in the `covariances` entry of an Observation
 """
 function tsvd_cov_from_samples(
     sample_mat::AM,
@@ -262,7 +281,7 @@ or
 ```
 Observation([1,2,3], I(3), "one_two_three")
 ```
-One can stack up multiple observations with combine_observations, or by providing vectors of samples, covariances and names to the dictionary.
+One can stack up multiple observations with `combine_observations`, (recommended), or by providing vectors of samples, covariances and names to the dictionary.
 
 # Fields
 
@@ -687,7 +706,19 @@ A `Minibatcher` that takes in a given epoch of batches. It creates a new epoch b
 # Fields
 
 $(TYPEDFIELDS)
+
+# Example epochs
+
+```
+given_batches = [[1,2,3][4,5,6][7,8,9]]
+mb = FixedMinibatcher(given_batches)
+# create_new_epoch(mb) = [[1,2,3],[4,5,6],[7,8,9]]
+
+mb2 = FixedMinibatcher(given_batches, "random")
+# create_new_epoch(mb2) = [[4,5,6],[1,2,3],[7,8,9]]
+```
 """
+
 struct FixedMinibatcher{AV1 <: AbstractVector, SS <: AbstractString, ARNG <: AbstractRNG} <: Minibatcher
     "explicit indices of the minibatched epoch"
     minibatches::AV1
@@ -791,6 +822,18 @@ A `Minibatcher` that takes in a given epoch of batches. It creates a new epoch b
 # Fields
 
 $(TYPEDFIELDS)
+
+# Example epochs
+
+```
+for data = 1:10
+batch_size = 3
+mb = RandomFixedSizeMinibatcher(batch_size)
+# create_new_epoch(mb) = [[6,7,5],[4,3,10],[9,2,8]] #  1 is trimmed
+
+mb2 = RandomFixedSizeMinibatcher(batch_size, "extend")
+# create_new_epoch(mb2) = [[2,9,1],[3,4,7],[10,5,1,6]] # last batch larger
+```
 """
 struct RandomFixedSizeMinibatcher{SS <: AbstractString, ARNG <: AbstractRNG, AV2 <: AbstractVector} <: Minibatcher
     "fixed size of minibatches"
