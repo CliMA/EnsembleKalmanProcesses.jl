@@ -718,7 +718,6 @@ mb2 = FixedMinibatcher(given_batches, "random")
 # create_new_epoch(mb2) = [[4,5,6],[1,2,3],[7,8,9]]
 ```
 """
-
 struct FixedMinibatcher{AV1 <: AbstractVector, SS <: AbstractString, ARNG <: AbstractRNG} <: Minibatcher
     "explicit indices of the minibatched epoch"
     minibatches::AV1
