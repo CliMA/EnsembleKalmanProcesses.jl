@@ -1059,6 +1059,10 @@ to have support on [`lower_bound`, `upper_bound`], with first two moments `μ_c`
 moment integrals can't be done in closed form, so we set the parameters of the distribution
 with numerical optimization.
 
+kwargs:
+=======
+ - `repeats=1` : K-dimensional distribution by stacking `K` independent copies of the defined univariate distribution by setting `repeats = K`.
+
 !!! note
     The intended use case is defining priors set from user expertise for use in inference 
     with adequate data, so for the sake of performance we only require that the optimization
