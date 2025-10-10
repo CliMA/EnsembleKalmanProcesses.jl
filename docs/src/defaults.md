@@ -1,6 +1,6 @@
 ## [Default Configurations](@id defaults)
 
-## Recommended Ensemble Size
+## [Recommended Ensemble Size](@id ens-size)
 
 The ensemble size is generally not determinable in advance.
 However there are several rules of thumb for calibrating a parameter vector ``\theta`` that can be used as a starting point.

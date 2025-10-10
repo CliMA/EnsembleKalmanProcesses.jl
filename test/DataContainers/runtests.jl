@@ -18,6 +18,7 @@ using EnsembleKalmanProcesses.DataContainers
     #test DataContainer
     parameter_samples_T = permutedims(parameter_samples, (2, 1))
     idata = DataContainer(parameter_samples)
+    @test idata == DataContainer(parameter_samples) # test ==
     idata_T = DataContainer(parameter_samples_T, data_are_columns = false)
 
     @test get_data(idata) == parameter_samples
@@ -31,6 +32,7 @@ using EnsembleKalmanProcesses.DataContainers
 
     @test_throws DimensionMismatch PairedDataContainer(parameter_samples, data_samples_short)
     iopairs = PairedDataContainer(parameter_samples, data_samples)
+    @test iopairs == PairedDataContainer(parameter_samples, data_samples) # test ==
 
     @test_throws DimensionMismatch PairedDataContainer(idata, odata_short)
     iopairs2 = PairedDataContainer(idata, odata)
@@ -50,6 +52,21 @@ using EnsembleKalmanProcesses.DataContainers
     retrieved_samples_T[1, 1] += 1
     @test !isequal(retrieved_samples_T, get_data(idata_T))
 
+    # test build from vectors and different types
+    x = [1, 23, 4, 5, 6]
+    xf = [1.4, 43.0, 23.0, 5.0, 9.0]
 
+    @test_logs (:warn,) DataContainer(x) # vector is ambiguous treat as 1 x n
+    dx = DataContainer(x)
+    @test get_data(dx) == reshape(x, 1, :)
+    dxf = DataContainer(xf)
+
+    @test_logs (:warn,) PairedDataContainer(dx, dxf) # types clash, treat as promoted type
+    pd1 = PairedDataContainer(dx, dxf)
+    pd2 = PairedDataContainer(x, xf)
+
+    @test pd1 == pd2
+    @test eltype(get_inputs(pd1)) == promote_type(eltype(x), eltype(xf))
+    @test eltype(get_outputs(pd1)) == promote_type(eltype(x), eltype(xf))
 
 end

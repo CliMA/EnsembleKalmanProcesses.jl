@@ -2,6 +2,7 @@ This page documents ensemble Kalman inversion (EKI), as well as two variants, [e
 
 # [Ensemble Kalman Inversion](@id eki)
 
+## What we optimize, and types of solution
 One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is ensemble
 Kalman inversion ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)).
 Ensemble Kalman inversion (EKI) is a derivative-free ensemble optimization method that seeks
@@ -15,40 +16,50 @@ where ``\mathcal{G}`` denotes the forward map, ``y \in \mathbb{R}^d`` is the vec
 and ``\eta  \in \mathbb{R}^d`` is additive noise. Note that ``p`` is the
 size of the parameter vector ``\theta`` and ``d`` the size of the observation vector ``y``. Here, we take ``\eta \sim \mathcal{N}(0, \Gamma_y)`` from a ``d``-dimensional Gaussian with zero mean and covariance matrix ``\Gamma_y``.  This noise structure aims to represent the correlations between observations.
 
-The optimal parameters ``\theta^* \in \mathbb{R}^p`` given relation (1) minimize the loss
-
- ```math
-\mathcal{L}(\theta, y) = \langle \mathcal{G}(\theta) - y \, , \, \Gamma_y^{-1} \left ( \mathcal{G}(\theta) - y \right ) \rangle,
+The optimal parameters ``\theta^* \in \mathbb{R}^p`` (Maximum Likelihood Estimation) given relation (1) minimize the loss 
+```math
+\mathcal{L}(\theta, y) = \frac{1}{2} \left(y - \mathcal{G}(\theta)\right)^{\top} \Gamma_y^{-1} \left(y - \mathcal{G}(\theta) \right),
 ```
-
 which can be interpreted as the negative log-likelihood given a Gaussian likelihood.
+- This is acheived using process `Inversion()` and stepping to algorithm time ``T=\infty``. This form uses the prior like an initial condition.
+
+If we using a prior to seek a Bayesian solution to our problem, (not just as initialization) then the optimal parameters ``\theta^* \in \mathbb{R}^p`` (Maximum A Posteriori estimation) given relation (1) minimize the loss 
+```math
+\mathcal{L}(\theta, y) = \frac{1}{2} \left(y - \mathcal{G}(\theta)\right)^{\top} \Gamma_y^{-1} \left(y - \mathcal{G}(\theta) \right) + \frac{1}{2}(\theta - m)^{\top} C^{-1}(\theta-m)
+```
+which can be interpreted as the negative log-likelihood given a Gaussian likelihood and Gaussian prior ``N(m,C)``. This is acheived in two ways:
+- using process `Inversion()` and terminating the iterations at algorithm time ``T=1`` (default), "finite-time variant"
+- using process `Inversion(prior)` and stepping to ``T=\infty``.  "infinite-time variant"
+
+See how these behave [here](@ref finite-vs-infinite-time)
+
+## The EKI update
 
 Denoting the parameter vector of the ``j``-th ensemble member at the ``n``-th iteration as ``\theta^{(j)}_n``, its update equation from ``n`` to ``n+1`` under EKI is
 
 ```math
-\tag{2} \theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n \, , \, \Gamma_y^{-1} \left ( \mathcal{G}(\theta_n^{(j)}) - y \right ) \right \rangle \theta_{n}^{(k)} ,
+\tag{2} \theta_{j+1}^{(n)} = \theta_j^{(n)} + \Delta t C^{\theta\mathcal{G}}_j(\Gamma_y + \Delta t C_j^{\mathcal{GG}})^{-1}(y - \mathcal{G}(\theta_j^{(n)})).
 ```
-
-where the subscript ``n=1, \dots, N_{\rm it}`` indicates the iteration, ``J`` is the number of
-members in the ensemble, ``\bar{\mathcal{G}}_n`` is the mean value of ``\mathcal{G}(\theta_n)``
-across ensemble members,
-
+Where the notations for means and covariances are given as
 ```math
-\bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)}) ,
+\begin{aligned}
+    C^{\theta\mathcal{G}}_j &= \frac{1}{N}\sum_{n=1}^N \left[ (\theta^{(n)}_j - \overline{\theta_j})\otimes(\mathcal{G}(\theta^{(n)}_j) - \overline{ \mathcal{G}(\theta)}_j) \right],\\
+    C^{\mathcal{GG}}_j &= \frac{1}{N}\sum_{n=1}^N \left[(\mathcal{G}(\theta^{(n)}_j) - \overline{ \mathcal{G}(\theta)}_j)\otimes(\mathcal{G}(\theta^{(n)}_j) - \overline{ \mathcal{G}(\theta)}_j) \right],\\
+    \overline{\theta}_j &= \frac{1}{N}\sum_{n=1}^N \theta^{(n)}_j,\qquad \overline{\mathcal{G}(\theta)}_j = \frac{1}{N} \sum_{n=1}^N\mathcal{G}(\theta^{(n)}_j),\\
+\end{aligned}
 ```
 
-and angle brackets denote the Euclidean inner product. By multiplying with ``\Gamma_y^{-1}``
-we render the inner product non-dimensional.
+There is no difference between the `Inversion()` and `Inversion(prior)` updates, but the latter works with an augmented state (see [here](@ref finite-vs-infinite-time)). The algorithmic timestep (a.k.a learning rate) ``\Delta t`` is usually taken to be adaptive with a schedule, as described [here](@ref learning-rate-schedulers).
 
-The EKI algorithm is considered converged when the ensemble achieves sufficient consensus/collapse
-in parameter space. The final estimate ``\bar{\theta}_{N_{\rm it}}`` is taken to be the ensemble
-mean at the final iteration,
+
+The final estimate ``\bar{\theta}_{N_{\rm it}}`` is taken to be the ensemble
+mean at the final iteration, 
 
 ```math
 \bar{\theta}_{N_{\rm it}} = \dfrac{1}{J}\sum_{k=1}^J\theta_{N_{\rm it}}^{(k)}.
 ```
 
-For typical applications, a near-optimal solution ``\theta`` can be found after as few as 10 iterations of the algorithm, or ``10\cdot J`` evaluations of the forward model ``\mathcal{G}``. The basic algorithm requires ``J \geq p``, and better performance is often seen with larger ensembles; a good rule of thumb is to start with ``J=10p``. The algorithm also extends to ``J < p`` , using localizers to maintain performance in these situations (see the Localizers.jl module).
+For typical applications, a near-optimal solution ``\theta`` can be found after as few as 10 iterations of the algorithm, or ``10\cdot J`` evaluations of the forward model ``\mathcal{G}``. The rules of thumb of choosing ``J`` are see [here](@ref ens-size), and to reduce errors when ``J \ll p`` , we have sampling-error-correction (localization) approaches [here](@ref localization). 
 
 ## Constructing the Forward Map
 
@@ -64,24 +75,38 @@ where ``\mathcal{H}: \mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation 
 
 An ensemble Kalman inversion object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Inversion()` process type.
 
-Creating an ensemble Kalman inversion object requires as arguments:
- 1. An initial parameter ensemble, `Array{Float, 2}` of size `[p × J]`;
- 2. The mean value of the observed outputs, a vector of size `[d]`;
- 3. The covariance of the observational noise, a matrix of size `[d × d]`;
- 4. The `Inversion()` process type.
-
-A typical initialization of the `Inversion()` process takes a user-defined `prior`, a summary of the observation statistics given by the mean `y` and covariance `obs_noise_cov`, and a desired number of members in the ensemble,
+The `EnsembleKalmanProcess` then is built with and initial ensemble, observation and the process. The following utilities describe this
 ```julia
-using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses # for `construct_initial_ensemble`, `Inversion`, `Observation`
+using EnsembleKalmanProcesses.ParameterDistributions # for `constrained_gaussian`
+
+prior = constrained_gaussian("4d-unit-gauss", 0.0, 1.0, -Inf, Inf, repeats=4)
 
 J = 50  # number of ensemble members
-initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble from prior
+initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble from prior (unconstrained u-space)
 
+# data
+ydim = 5
+y = ones(ydim)
+cov_y = 0.01*I
+
+# basic EKI, finite-time
 ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion())
+
+# fancier observation container, infinite-time, verbose i/o
+y_obs = Observation(
+    Dict(
+        "samples" => y,
+        "covariances" => cov_y,
+        "names" => "descriptive_name",
+        "metadata" => "some imporant information"
+    ),
+)
+
+ekiobj = EnsembleKalmanProcess(initial_ensemble, y_obs, Inversion(prior), verbose=true)
 ```
 
-See the [Prior distributions](@ref parameter-distributions) section to learn about the construction of priors in EnsembleKalmanProcesses.jl. The prior is assumed to be over the unconstrained parameter space where ``\theta`` is defined. For applications where enforcing parameter bounds is necessary, the `ParameterDistributions` module provides functions to map from constrained to unconstrained space and vice versa. 
+See the [Prior distributions](@ref parameter-distributions) section to learn about the construction of priors in EnsembleKalmanProcesses.jl. See the [Observations](@ref observations) section to learn about more complex observation construction and minibatching utilities. Note that the initial ensemble is in the unconstrained `u` space, apply `transform_unconstrained_to_constrained(prior, initial_ensemble)` to see the resulting constrained parameter ensemble.
 
 ## Updating the Ensemble
 
@@ -129,9 +154,15 @@ To obtain the optimal value in the constrained space, we use the getter with the
 !!! note "Finite-time vs infinite-time"
     Deeper description of these algorithms is discussed in detail in, for example, Section 4.5 of [Calvello, Reich, Stuart](https://arxiv.org/pdf/2209.11371)). Finite-time algorithms have also been called "transport" algorithms, and infinite-time algorithms are also known as prior-enforcing, or Tikhonov EKI [Chada, Stuart, Tong](https://doi.org/10.1137/19M1242331).
 
-Thus far, we have presented the finite-time algorithm `Inversion()`. The infinite-time variant `Inversion(prior)` algorithm has two key distinctions.
+Thus far, we have presented the finite-time algorithm `Inversion()`. The infinite-time variant `Inversion(prior)` algorithm has two key practical distinctions.
 1. The initial distribution does not need to come from the prior. 
 2. The particle distribution mean converges to the maximum a-posteriori estimator as ``T\to \infty`` (not via an [early-termination condition](@ref early-terminate))
+
+Both implementations perform the same update; but in the infinite-time variant, the forward-map, data and noise-covariance are augmented by a Gaussian prior ``N(m,C)`` by working with the following:
+```math
+\tilde \mathcal{G}(\theta) = \left[ \mathcal{G}(\theta), \theta\right]^{\top},\qquad \tilde y = \left[ y, m\right]^{\top}, \qquad \tilde\Gamma_y = \begin{bmatrix} \Gamma_y & 0 \\ 0 & C \end{bmatrix}
+```
+
 It is implemented as follows (here, for three parameters)
 ```julia
 using EnsembleKalmanProcesses
