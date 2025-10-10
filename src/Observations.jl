@@ -710,7 +710,7 @@ $(TYPEDFIELDS)
 # Example epochs
 
 ```
-given_batches = [[1,2,3][4,5,6][7,8,9]]
+given_batches = [[1,2,3], [4,5,6], [7,8,9]]
 mb = FixedMinibatcher(given_batches)
 # create_new_epoch(mb) = [[1,2,3],[4,5,6],[7,8,9]]
 
