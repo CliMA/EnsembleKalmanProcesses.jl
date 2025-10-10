@@ -29,6 +29,12 @@ Type to dispatch which Gaussian Random Field package to use:
 
 """
 abstract type GaussianRandomFieldsPackage end
+
+"""
+$(TYPEDEF)
+
+dispatches methods that use the Julia Package [`GaussianRandomFields.jl`](https://github.com/PieterjanRobbe/GaussianRandomFields.jl) 
+"""
 struct GRFJL <: GaussianRandomFieldsPackage end
 
 """
