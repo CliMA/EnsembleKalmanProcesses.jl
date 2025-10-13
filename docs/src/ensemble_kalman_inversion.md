@@ -160,7 +160,8 @@ Thus far, we have presented the finite-time algorithm `Inversion()`. The infinit
 
 Both implementations perform the same update; but in the infinite-time variant, the forward-map, data and noise-covariance are augmented by a Gaussian prior ``N(m,C)`` by working with the following:
 ```math
-\tilde{\mathcal{G}}(\theta) = [ \mathcal{G}(\theta), \theta] \qquad \tilde{y} = \left[ y, m \right]^{\top}, \qquad \tilde{\Gamma}_y = \begin{bmatrix} \Gamma_y & 0 \\ 0 & C \end{bmatrix} ```
+\tilde{\mathcal{G}}(\theta) = [ \mathcal{G}(\theta), \theta] \qquad \tilde{y} = \left[ y, m \right]^{\top}, \qquad \tilde{\Gamma}_y = \begin{bmatrix} \Gamma_y & 0 \\ 0 & C \end{bmatrix}
+```
 
 It is implemented as follows (here, for three parameters)
 ```julia
