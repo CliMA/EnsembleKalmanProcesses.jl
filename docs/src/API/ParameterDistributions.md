@@ -60,4 +60,12 @@ transform_constrained_to_unconstrained(::GaussianRandomFieldInterface, ::Abstrac
 transform_constrained_to_unconstrained(::GaussianRandomFieldInterface, ::AbstractVector, ::AbstractMatrix{FT}) where {FT <: Real}
 transform_unconstrained_to_constrained(::GaussianRandomFieldInterface, ::AbstractVector, ::AbstractVector{FT}) where {FT <: Real}
 transform_unconstrained_to_constrained(::GaussianRandomFieldInterface, ::AbstractVector, ::AbstractMatrix{FT}) where {FT <: Real}
+get_grf
+build_function_sample
+get_package
+spectrum
+n_dofs
+eval_pts
+n_eval_pts
+input_dims
 ```

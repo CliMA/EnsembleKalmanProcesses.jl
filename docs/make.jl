@@ -20,7 +20,6 @@ examples_for_literation = [
     "Sinusoid/sinusoid_example.jl",
     "LossMinimization/loss_minimization.jl",
     "SparseLossMinimization/loss_minimization_sparse_eki.jl",
-    "AerosolActivation/aerosol_activation.jl",
 ]
 
 if isempty(get(ENV, "CI", ""))
@@ -62,15 +61,13 @@ api = [
 
 examples = [
     "Simple example" => "literated/sinusoid_example.md",
-    "Cloudy" => "examples/Cloudy_example.md",
-    "Lorenz" => "examples/lorenz_example.md",
     "Minimization Loss" => "literated/loss_minimization.md",
-    "Sparse Minimization Loss" => "literated/loss_minimization_sparse_eki.md",
-    "Aerosol activation" => "literated/aerosol_activation.md",
     "Darcy flow" => "examples/darcy.md",
+    "Lorenz" => "examples/lorenz_example.md",
+    "Cloudy" => "examples/Cloudy_example.md",
     "TOML interface" => "examples/sinusoid_example_toml.md",
     "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md",
-    "Template" => "examples/template_example.md",
+    "Sparse Minimization Loss" => "literated/loss_minimization_sparse_eki.md",
 ]
 
 pages = [
