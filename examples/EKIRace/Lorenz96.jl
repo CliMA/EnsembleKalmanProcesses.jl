@@ -102,17 +102,16 @@ end
 # - params: structure with F (state-dependent-forcing vector) 
 # - x: current state
 function f(params::EnsembleMemberConfig, x::VorM) where {VorM <: AbstractVecOrMat}
-    F = params.F
     N = length(x)
     f = zeros(N)
     # Loop over N positions
     for i in 3:(N - 1)
-        f[i] = -x[i - 2] * x[i - 1] + x[i - 1] * x[i + 1] - x[i] + F[i]
+        f[i] = -x[i - 2] * x[i - 1] + x[i - 1] * x[i + 1] - x[i] + forcing(params, x, i)  
     end
     # Periodic boundary conditions
-    f[1] = -x[N - 1] * x[N] + x[N] * x[2] - x[1] + F[1]
-    f[2] = -x[N] * x[1] + x[1] * x[3] - x[2] + F[2]
-    f[N] = -x[N - 2] * x[N - 1] + x[N - 1] * x[1] - x[N] + F[N]
+    f[1] = -x[N - 1] * x[N] + x[N] * x[2] - x[1] +  forcing(params, x, 1) 
+    f[2] = -x[N] * x[1] + x[1] * x[3] - x[2] +  forcing(params, x, 2) 
+    f[N] = -x[N - 2] * x[N - 1] + x[N - 1] * x[1] - x[N] +  forcing(params, x, N) 
     # Output
     return f
 end
