@@ -25,8 +25,8 @@ end
 
 # This will change for each ensemble member
 struct EnsembleMemberConfig{VV <: AbstractVector}
-    "rho, sigma, beta (unknowns)"
-    u::VV
+    "state-dependent-forcing"
+    F::VV
 end
 
 # This will change for different "Observations" of Lorenz
@@ -43,7 +43,7 @@ end
 
 # Forward pass of forward model
 # Inputs: 
-# - params: structure with u (unknowns vector)
+# - params: structure with F (state-dependent-forcing vector)
 # - x0: initial condition vector
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
 function lorenz_forward(
@@ -61,7 +61,7 @@ end
 
 #Calculates statistics for forward model output
 # Inputs: 
-# - xn: timeseries of states for length of simulation through Lorenz63
+# - xn: timeseries of states for length of simulation through Lorenz96
 function stats(xn::VorM, config::LorenzConfig, observation_config::ObservationConfig) where {VorM <: AbstractVecOrMat}
     T_start = observation_config.T_start
     T_end = observation_config.T_end
@@ -70,18 +70,15 @@ function stats(xn::VorM, config::LorenzConfig, observation_config::ObservationCo
     N_end = Int(ceil(T_end / dt))
     xn_stat = xn[:, N_start:N_end]
     N_state = size(xn_stat, 1)
-    gt = zeros(9)  # Might want to switch to more general statement?
-    gt[1:3] = mean(xn_stat, dims = 2)
-    xn_stat_cov = cov(xn_stat, dims = 2)
-    gt[4:6] = diag(xn_stat_cov)
-    gt[7:8] = xn_stat_cov[1, 2:3]
-    gt[9] = xn_stat_cov[2, 3]
+    gt = zeros(2 * N_state)
+    gt[1:N_state] = mean(xn_stat, dims = 2)
+    gt[(N_state + 1):(2 * N_state)] = std(xn_stat, dims = 2)
     return gt
 end
 
 # Forward pass of the Lorenz 96 model
 # Inputs: 
-# - params: structure with u (unknowns vector)
+# - params: structure with F (state-dependent-forcing vector)
 # - x0: initial condition vector
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
 function lorenz_solve(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
@@ -102,17 +99,20 @@ end
 # Lorenz 96 system
 # f = dx/dt
 # Inputs: 
-# - params: structure with u (unknowns vector)
+# - params: structure with F (state-dependent-forcing vector) 
 # - x: current state
 function f(params::EnsembleMemberConfig, x::VorM) where {VorM <: AbstractVecOrMat}
-    u = params.u
+    F = params.F
     N = length(x)
     f = zeros(N)
-
-    f[1] = u[1] * (x[2] - x[1]) 
-    f[2] = x[1] * (u[2] - x[3]) - x[2]
-    f[3] = x[1] * x[2] - u[3] * x[3]
-
+    # Loop over N positions
+    for i in 3:(N - 1)
+        f[i] = -x[i - 2] * x[i - 1] + x[i - 1] * x[i + 1] - x[i] + F[i]
+    end
+    # Periodic boundary conditions
+    f[1] = -x[N - 1] * x[N] + x[N] * x[2] - x[1] + F[1]
+    f[2] = -x[N] * x[1] + x[1] * x[3] - x[2] + F[2]
+    f[N] = -x[N - 2] * x[N - 1] + x[N - 1] * x[1] - x[N] + F[N]
     # Output
     return f
 end
