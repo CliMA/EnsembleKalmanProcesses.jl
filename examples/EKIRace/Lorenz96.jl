@@ -6,6 +6,7 @@ using Plots
 using Random
 using JLD2
 using Statistics
+using Flux
 
 # CES 
 using EnsembleKalmanProcesses
@@ -25,9 +26,41 @@ end
 
 # This will change for each ensemble member
 struct EnsembleMemberConfig{VV <: AbstractVector}
-    "state-dependent-forcing"
-    F::VV
+    val::VV
 end
+
+# Sub-type of ensemble config for constant forcing
+struct ConstantEMC{FT <: Real} <: EnsembleMemberConfig
+   val::FT
+end
+build_forcing(val::FT, args...) where {FT <: Real} = ConstantEMC(val[1])
+
+# Sub-type of ensemble config for spatially-dependent forcing
+struct VectorEMC{VV<:AbstractVector} <: EnsembleMemberConfig
+   val::VV
+end
+build_forcing(val::FT, args...) where {FT <: AbstractVector} = VectorEMC(val)
+
+# Sub-type of ensemble config for spatially-dependent forcing with neural network approximation
+struct FluxEMC <: EnsembleMemberConfig
+    model::Flux.Chain
+end
+function build_forcing(model,params)
+    _ , reconstructor = Flux.destructure(model)
+    return FluxEMC(reconstructor(params))
+end
+
+# Constant-global
+forcing(params::ConstantEMC, x, i) = params.val
+    
+# Constant-vector
+forcing(params::VectorEMC, x, i) = params.val[i]
+        
+# Flux
+forcing(params::FluxEMC, x, i) = Float64(params.model([Float32(i)])[1])
+
+
+
 
 # This will change for different "Observations" of Lorenz
 struct ObservationConfig{FT1 <: Real, FT2 <: Real}
@@ -43,7 +76,7 @@ end
 
 # Forward pass of forward model
 # Inputs: 
-# - params: structure with F (state-dependent-forcing vector)
+# - params: structure with F 
 # - x0: initial condition vector
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
 function lorenz_forward(
@@ -78,7 +111,7 @@ end
 
 # Forward pass of the Lorenz 96 model
 # Inputs: 
-# - params: structure with F (state-dependent-forcing vector)
+# - params: structure with F 
 # - x0: initial condition vector
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
 function lorenz_solve(params::EnsembleMemberConfig, x0::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
@@ -99,7 +132,7 @@ end
 # Lorenz 96 system
 # f = dx/dt
 # Inputs: 
-# - params: structure with F (state-dependent-forcing vector) 
+# - params: structure with F 
 # - x: current state
 function f(params::EnsembleMemberConfig, x::VorM) where {VorM <: AbstractVecOrMat}
     N = length(x)
@@ -118,7 +151,7 @@ end
 
 # RK4 solve
 # Inputs: 
-# - params: structure with F (state-dependent-forcing vector) 
+# - params: structure with F 
 # - xold: current state
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
 function RK4(params::EnsembleMemberConfig, xold::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}

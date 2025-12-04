@@ -5,7 +5,7 @@
 struct ConstantEMC{FT <: Real} <: EnsembleMemberConfig
    val::FT
 end
-build_forcing(val, args..) where {FT <: Real} = ConstantEMC(val[1])
+build_forcing(val, args...) where {FT <: Real} = ConstantEMC(val[1])
 
 
 struct VectorEMC{VV<:AbstractVector} <: EnsembleMemberConfig
@@ -51,7 +51,7 @@ if case == "const-force"
     forcing = ConstantEMC(0.0)
     forcing_structure = nothing
 elseif case == "vec-force"
-    prior = ParameterDistribution(...)
+    prior = ParameterDistribution(..)
     forcing = VectorEMC([0.0])
     forcing_structure = nothing
 elseif case == "flux-force"
@@ -79,7 +79,7 @@ end
 # ... later on.
 
 # inside a loop over G_ens..
-G_ens = zeros(...)
+G_ens = zeros(..)
 for j in 1:Ne
     forcing = build_forcing(params_i[j,:], model_structure)
     G_ens[j,:] = lorenz_forward(
