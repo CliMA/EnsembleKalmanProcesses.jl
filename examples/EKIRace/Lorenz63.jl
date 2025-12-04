@@ -25,7 +25,7 @@ end
 
 # This will change for each ensemble member
 struct EnsembleMemberConfig{VV <: AbstractVector}
-    "rho, sigma, beta (unknowns)"
+    "rho, beta (unknowns)"
     u::VV
 end
 
@@ -109,9 +109,9 @@ function f(params::EnsembleMemberConfig, x::VorM) where {VorM <: AbstractVecOrMa
     N = length(x)
     f = zeros(N)
 
-    f[1] = u[1] * (x[2] - x[1]) 
-    f[2] = x[1] * (u[2] - x[3]) - x[2]
-    f[3] = x[1] * x[2] - u[3] * x[3]
+    f[1] = 10.0 * (x[2] - x[1]) 
+    f[2] = x[1] * (u[1] - x[3]) - x[2]
+    f[3] = x[1] * x[2] - u[2] * x[3]
 
     # Output
     return f
