@@ -1,20 +1,8 @@
 # Import modules
-using Distributions  # probability distributions and associated functions
 using LinearAlgebra
-using StatsPlots
-using Plots
-using Random
-using JLD2
 using Statistics
-using Flux
 
-# CES 
-using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.DataContainers
-using EnsembleKalmanProcesses.ParameterDistributions
-using EnsembleKalmanProcesses.Localizers
 
-const EKP = EnsembleKalmanProcesses
 
 # This will change for different Lorenz simulators
 struct LorenzConfig{FT1 <: Real, FT2 <: Real}
@@ -25,9 +13,10 @@ struct LorenzConfig{FT1 <: Real, FT2 <: Real}
 end
 
 # This will change for each ensemble member
-struct EnsembleMemberConfig{VV <: AbstractVector}
-    val::VV
-end
+abstract type EnsembleMemberConfig end
+# struct EnsembleMemberConfig{FT}
+#    val::FT
+# end
 
 # Sub-type of ensemble config for constant forcing
 struct ConstantEMC{FT <: Real} <: EnsembleMemberConfig
