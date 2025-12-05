@@ -29,10 +29,11 @@ cases = [
     "vec-force",
     "flux-force",
 ]
-case = cases[1]
+case = cases[2]
 
 if case == "const-force"
     nx = 40  #dimensions of parameter vector
+    nu = 1
     phi = ConstantEMC(8.0) # forcing
     phi_structure = nothing
     prior = constrained_gaussian("φ", 10.0, 4.0, 0, Inf)
@@ -40,6 +41,7 @@ if case == "const-force"
     inff = 2
 elseif case == "vec-force"
     nx = 40  # dimensions of parameter vector
+    nu = nx
     sinusoid = 8 .+ 6 * sin.((4 * pi * range(0, stop = nx - 1, step = 1)) / nx) 
     phi = VectorEMC(sinusoid)
     phi_structure = nothing
@@ -60,6 +62,7 @@ elseif case == "vec-force"
     inff = 2
 # elseif case == "flux-force"
 #     nx = 100  #dimensions of parameter vector
+#     nu = 61
 #     sinusoid = 8 .+ 6 * sin.((4 * pi * range(0, stop = nx - 1, step = 1)) / nx)
 #     from_file=true
 #     # from_file
@@ -129,3 +132,112 @@ covT = 2000.0  #time to simulate to calculate a covariance matrix of the system
 cov_solve = lorenz_solve(phi, x0, LorenzConfig(t, covT))
 ic_cov = 0.1 * cov(cov_solve, dims = 2)
 ic_cov_sqrt = sqrt(ic_cov)
+
+########################################################################
+########################### Running EKI Race ###########################
+########################################################################
+
+# EKP parameters
+N_ens_sizes = [100] #, 55] # number of ensemble members (should be problem dependent)
+N_iter = 20 # number of EKI iterations
+tolerance = 1.0
+
+rng_seeds = [2] #, 15] #, 42, 101]
+
+conv_alg_iters = zeros(4, length(N_ens_sizes), length(rng_seeds)) #count how many iterations it takes to converge (per algorithm, per rand seed, per ense size)
+final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nu)
+final_model_output = zeros(4, length(N_ens_sizes), length(rng_seeds), ny)
+
+for (rr, rng_seed) in enumerate(rng_seeds)
+    @info "Random seed: $(rng_seed)"
+    rng = MersenneTwister(rng_seed)
+
+    for (ee, N_ens) in enumerate(N_ens_sizes)
+        # initial parameters: N_params x N_ens
+        initial_params = construct_initial_ensemble(rng, prior, N_ens)
+
+        methods =
+            [Inversion(prior), TransformInversion(prior), GaussNewtonInversion(prior), Unscented(prior; impose_prior = true)]
+
+        @info "Ensemble size: $(N_ens)"
+        for (kk, method) in enumerate(methods)
+            if isa(method, Unscented)
+                ekpobj = EKP.EnsembleKalmanProcess(
+                    y,
+                    R,
+                    method;
+                    rng = copy(rng),
+                    verbose = true,
+                    accelerator = DefaultAccelerator(),
+                    localization_method = NoLocalization(),
+                    scheduler = DefaultScheduler(),
+                )
+            else
+                ekpobj = EKP.EnsembleKalmanProcess(
+                    initial_params,
+                    y,
+                    R,
+                    method;
+                    rng = copy(rng),
+                    verbose = true,
+                    accelerator = DefaultAccelerator(),
+                    localization_method = NoLocalization(),
+                    scheduler = DefaultScheduler(),
+                )
+            end
+            Ne = get_N_ens(ekpobj)
+
+            count = 0
+            for i in 1:N_iter
+                params_i = get_ϕ_final(prior, ekpobj)
+
+                # Calculating RMSE_e
+                ens_mean = mean(params_i, dims = 2)[:]
+                forcing = build_forcing(ens_mean, phi_structure)
+                G_ens_mean = lorenz_forward(
+                    forcing,
+                    x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, 1),
+                    lorenz_config_settings,
+                    observation_config,
+                )
+                RMSE_e = norm(R_inv_var * (y - G_ens_mean[:])) / sqrt(size(y, 1))
+                @info "RMSE (at G(u_mean)): $(RMSE_e)"
+                # Convergence criteria
+                if RMSE_e < tolerance
+                    conv_alg_iters[kk, ee, rr] = count * Ne
+                    final_parameters[kk, ee, rr, :] = ens_mean
+                    final_model_output[kk, ee, rr, :] = G_ens_mean
+                    break
+                end
+
+                # If RMSE convergence criteria is not satisfied 
+                G_ens = hcat(
+                    [
+                        lorenz_forward(
+                            build_forcing(params_i[:, j], phi_structure),
+                            (x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j],
+                            lorenz_config_settings,
+                            observation_config,
+                        ) for j in 1:Ne
+                    ]...,
+                )
+                # Update 
+                EKP.update_ensemble!(ekpobj, G_ens)
+                count = count + 1
+
+                # # Calculate RMSE_f #something is wrong with this calculation
+                # RMSE_f = sqrt(get_error(ekpobj)[end] / size(y, 1))
+                # @info "RMSE (at mean(G(u)): $(RMSE_f)"
+                # # Convergence criteria
+                # if RMSE_f < tolerance
+                #     conv_alg_iters[kk, ee, rr] = count * Ne
+                #     final_parameters[kk, ee, rr, :] = ens_mean
+                #     final_model_output[kk, ee, rr, :] = G_ens_mean
+                #     break
+                # end
+            end
+
+            final_ensemble = get_ϕ_final(prior, ekpobj)
+        end
+    end
+end
