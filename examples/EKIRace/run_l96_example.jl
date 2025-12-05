@@ -37,6 +37,7 @@ if case == "const-force"
     phi_structure = nothing
     prior = constrained_gaussian("φ", 10.0, 4.0, 0, Inf)
     T = 14.0
+    inff = 2
 elseif case == "vec-force"
     nx = 40  # dimensions of parameter vector
     sinusoid = 8 .+ 6 * sin.((4 * pi * range(0, stop = nx - 1, step = 1)) / nx) 
@@ -56,6 +57,7 @@ elseif case == "vec-force"
     name = "ml96_prior"
     prior = ParameterDistribution(distribution, constraint, name)
     T = 54.0
+    inff = 2
 # elseif case == "flux-force"
 #     nx = 100  #dimensions of parameter vector
 #     sinusoid = 8 .+ 6 * sin.((4 * pi * range(0, stop = nx - 1, step = 1)) / nx)
@@ -76,6 +78,7 @@ elseif case == "vec-force"
 #     end
 #     T = 504.0
 #     phi = FluxEMC(model) # need to call build_forcing(parameters, model)
+#     inff = 2.5
 end
 
 
@@ -105,8 +108,17 @@ observation_config = ObservationConfig(T_start, T_end)
 y = lorenz_forward(phi, x0, lorenz_config_settings, observation_config) # synthetic data
 
 #Observation covariance R
-model_out_vars = (0.1 * y) .^ 2
-R = Diagonal(model_out_vars)
+window = T_end - T_start
+T_R = 10*window*ny + T_start
+R_config = LorenzConfig(t, T_R)
+R_run = lorenz_solve(phi, x_initial, R_config)
+R_sample_size = Int(ceil(10*ny))
+R_samples = zeros(ny, R_sample_size)
+for ii in 1:R_sample_size
+    local_obs_config = ObservationConfig(T_start + (ii -1)*window, T_start + ii*window)
+    R_samples[:,ii] = stats(R_run, R_config, local_obs_config)
+end
+R = cov(R_samples, dims = 2)*inff
 R_sqrt = sqrt(R)
 R_inv_var = sqrt(inv(R))
 
