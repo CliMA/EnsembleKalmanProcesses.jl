@@ -29,7 +29,7 @@ cases = [
     "vec-force",
     "flux-force",
 ]
-case = cases[2]
+case = cases[1]
 
 if case == "const-force"
     nx = 40  #dimensions of parameter vector
@@ -142,7 +142,7 @@ N_ens_sizes = [100] #, 55] # number of ensemble members (should be problem depen
 N_iter = 20 # number of EKI iterations
 tolerance = 1.0
 
-rng_seeds = [2] #, 15] #, 42, 101]
+rng_seeds = [3] #, 15] #, 42, 101]
 
 conv_alg_iters = zeros(4, length(N_ens_sizes), length(rng_seeds)) #count how many iterations it takes to converge (per algorithm, per rand seed, per ense size)
 final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nu)
