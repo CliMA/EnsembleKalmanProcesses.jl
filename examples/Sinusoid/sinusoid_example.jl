@@ -73,8 +73,8 @@ prior_u2 = constrained_gaussian("vert_shift", 0, 5, -Inf, Inf)
 prior = combine_distributions([prior_u1, prior_u2])
 nothing # hide
 
-# We now generate the initial ensemble and set up the ensemble Kalman inversion. We define an ensemble size (defaults recommended in the documentation) and we define a maximum iteration for this experiment (depending on the timestepper, early termination criteria can be used)
-N_ensemble = 10
+# We now generate the initial ensemble and set up the ensemble Kalman inversion. We define an ensemble size and we define a maximum iteration for this experiment (depending on the timestepper, early termination criteria can be used). We highlight that a key benefit of many variants of the Kalman approach over other particle methods, is that typically the ensemble size does not need to scale (e.g., linearly) with the number of parameters.
+N_ensemble = 20
 N_iterations = 10
 
 initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
