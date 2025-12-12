@@ -15,9 +15,9 @@ end
 
 # constructors
 function GaussNewtonInversion(prior::ParameterDistribution)
-    mean_prior = Vector(mean(prior))
+    mean_prior = isa(mean(prior), Real) ? [mean(prior)] : Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
-    return GaussNewtonInversion(mean_prior, cov_prior)
+return GaussNewtonInversion(mean_prior, cov_prior)
 end
 
 get_prior_mean(process::GaussNewtonInversion) = process.prior_mean
