@@ -73,9 +73,9 @@ prior_u2 = constrained_gaussian("vert_shift", 0, 5, -Inf, Inf)
 prior = combine_distributions([prior_u1, prior_u2])
 nothing # hide
 
-# We now generate the initial ensemble and set up the ensemble Kalman inversion.
-N_ensemble = 5
-N_iterations = 5
+# We now generate the initial ensemble and set up the ensemble Kalman inversion. We define an ensemble size (defaults recommended in the documentation) and we define a maximum iteration for this experiment (depending on the timestepper, early termination criteria can be used)
+N_ensemble = 10
+N_iterations = 10
 
 initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
 
@@ -84,13 +84,17 @@ nothing # hide
 
 # We are now ready to carry out the inversion. At each iteration, we get the
 # ensemble from the last iteration, apply ``G(\theta)`` to each ensemble member,
-# and apply the Kalman update to the ensemble.
+# and apply the Kalman update to the ensemble. We also check if termination criteria has been exceeded, and break the loop if it has - on termination, the update is not performed.
 for i in 1:N_iterations
     params_i = get_ϕ_final(prior, ensemble_kalman_process)
 
     G_ens = hcat([G(params_i[:, i]) for i in 1:N_ensemble]...)
 
-    EKP.update_ensemble!(ensemble_kalman_process, G_ens)
+    terminate = EKP.update_ensemble!(ensemble_kalman_process, G_ens)
+    if !(isnothing(terminate))
+        @info "Termination at iteration $(i-1)"
+        break
+    end
 end
 nothing # hide
 
