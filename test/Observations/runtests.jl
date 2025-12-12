@@ -230,7 +230,7 @@ end
     dim = get_cov_size(mat_lr)
     X_I = SVDplusD(mat_lr, 6.0 * I)
 
-    @test X_I == SVDplusD(mat_lr, 6.0 * I(size(mat_lr.U,1)))
+    @test X_I == SVDplusD(mat_lr, 6.0 * I(size(mat_lr.U, 1)))
     a_diag = Diagonal(collect(1.0:dim))
     X_D = SVDplusD(mat_lr, a_diag)
     X_M = SVDplusD(mat_lr, Matrix(a_diag)) # converts it to a Diagonal type

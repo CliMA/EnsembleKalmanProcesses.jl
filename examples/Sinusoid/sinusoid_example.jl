@@ -105,34 +105,10 @@ final_ensemble = get_ϕ_final(prior, ensemble_kalman_process)
 # parameters, the initial ensemble, and the final ensemble.
 p = plot(trange, model(theta_true...), c = :black, label = "Truth", legend = :bottomright, linewidth = 2)
 
-plot!(
-    p,
-    trange,
-    [model(get_ϕ(prior, ensemble_kalman_process, 1)[:, 1]...)],
-    c = :red,
-    label = "Initial ensemble",
-)
-plot!(
-    p,
-    trange,
-    [model(final_ensemble[:, 1]...)],
-    c = :blue,
-    label = "Final ensemble",
-)
-plot!(
-    p,
-    trange,
-    [model(get_ϕ(prior, ensemble_kalman_process, 1)[:, i]...) for i in 2:N_ensemble],
-    c = :red,
-    label = "",
-)
-plot!(
-    p,
-    trange,
-    [model(final_ensemble[:, i]...) for i in 2:N_ensemble],
-    c = :blue,
-    label = "",
-)
+plot!(p, trange, [model(get_ϕ(prior, ensemble_kalman_process, 1)[:, 1]...)], c = :red, label = "Initial ensemble")
+plot!(p, trange, [model(final_ensemble[:, 1]...)], c = :blue, label = "Final ensemble")
+plot!(p, trange, [model(get_ϕ(prior, ensemble_kalman_process, 1)[:, i]...) for i in 2:N_ensemble], c = :red, label = "")
+plot!(p, trange, [model(final_ensemble[:, i]...) for i in 2:N_ensemble], c = :blue, label = "")
 
 xlabel!("Time")
 
