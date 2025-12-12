@@ -117,7 +117,7 @@ end
 
 
 function SVDplusD(s_in::SVD, us_in::US) where {US <: UniformScaling}
-    return SVDplusD(s_in, us_in(size(s_in.U,1))) # make US into Diag
+    return SVDplusD(s_in, us_in(size(s_in.U, 1))) # make US into Diag
 
 end
 
