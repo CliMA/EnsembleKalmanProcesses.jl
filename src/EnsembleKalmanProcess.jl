@@ -906,7 +906,7 @@ construct_initial_ensemble(prior::ParameterDistribution, N_ens::IT; kwargs...) w
 """
 $(TYPEDSIGNATURES)
 
-Computes the average unweighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' * (g_i - y))`.
+Computes the average unweighted error over the forward model ensemble, normalized by the dimension: `mean(sqrt( 1/dim(y) * tr((g_i - y)' * (g_i - y))))`.
 The error is retrievable as `get_error_metrics(ekp)["unweighted_avg_rmse"]`
 """
 function compute_average_unweighted_rmse(ekp::EnsembleKalmanProcess)
@@ -930,7 +930,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Computes the average covariance-weighted error over the forward model ensemble, normalized by the dimension: `1/dim(y) * tr((g_i - y)' *  Γ⁻¹ *  (g_i - y))`.
+Computes the average covariance-weighted error over the forward model ensemble, normalized by the dimension: `mean(sqrt( 1/dim(y) * tr((g_i - y)' *  Γ⁻¹ *  (g_i - y))))`.
 The error is retrievable as `get_error_metrics(ekp)["avg_rmse"]`
 """
 function compute_average_rmse(ekp::EnsembleKalmanProcess)

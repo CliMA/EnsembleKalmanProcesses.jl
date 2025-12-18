@@ -117,7 +117,8 @@ end
 
 
 function SVDplusD(s_in::SVD, us_in::US) where {US <: UniformScaling}
-    return SVD(s_in.U, (s_in.S .+ us_in.λ), s_in.Vt) # just use SVD
+    return SVDplusD(s_in, us_in(size(s_in.U, 1))) # make US into Diag
+
 end
 
 function SVDplusD(s_in::SVD, am_in::AM) where {AM <: AbstractMatrix}
