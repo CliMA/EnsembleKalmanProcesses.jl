@@ -22,19 +22,20 @@ abstract type EnsembleMemberConfig end
 struct ConstantEMC{FT <: Real} <: EnsembleMemberConfig
    val::FT
 end
-build_forcing(val::FT, args...) where {FT <: Real} = ConstantEMC(val[1])
+build_forcing(::T, val::FT, args...) where {T <: ConstantEMC, FT <: Real} = ConstantEMC(val)
+build_forcing(::T, val::FT, args...) where {T <: ConstantEMC, FT <: AbstractVector} = ConstantEMC(val[1])
 
 # Sub-type of ensemble config for spatially-dependent forcing
-struct VectorEMC{VV<:AbstractVector} <: EnsembleMemberConfig
+struct VectorEMC{VV<:AbstractVector} <: EnsembleMemberConfig 
    val::VV
 end
-build_forcing(val::FT, args...) where {FT <: AbstractVector} = VectorEMC(val)
+build_forcing(::T, val::VV, args...) where {T <: VectorEMC, VV <: AbstractVector} = VectorEMC(val)
 
 # Sub-type of ensemble config for spatially-dependent forcing with neural network approximation
 struct FluxEMC <: EnsembleMemberConfig
     model::Flux.Chain
 end
-function build_forcing(model,params)
+function build_forcing(::T, model, params) where {T <: FluxEMC}
     _ , reconstructor = Flux.destructure(model)
     return FluxEMC(reconstructor(params))
 end
