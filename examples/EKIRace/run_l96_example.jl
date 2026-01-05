@@ -137,7 +137,7 @@ ic_cov_sqrt = sqrt(ic_cov)
 ########################### Running EKI Race ###########################
 ########################################################################
 
-# EKP parameters
+# EKP parameters (move towards top for having user choice, put info statement at top)
 N_ens_sizes = [100] #, 55] # number of ensemble members (should be problem dependent)
 N_iter = 20 # number of EKI iterations
 tolerance = 1.0
@@ -156,8 +156,11 @@ for (rr, rng_seed) in enumerate(rng_seeds)
         # initial parameters: N_params x N_ens
         initial_params = construct_initial_ensemble(rng, prior, N_ens)
 
+        prior_mean = isa(mean(prior), AbstractVector) ? mean(prior) : [mean(prior)] # mean of unconstrained distribution
+        prior_cov = Matrix(cov(prior)) # cov of unconstrained distribution
+
         methods =
-            [Inversion(prior), TransformInversion(prior), GaussNewtonInversion(prior), Unscented(prior; impose_prior = true)]
+            [Inversion(prior), TransformInversion(prior), GaussNewtonInversion(prior_mean, prior_cov), Unscented(prior; impose_prior = true)] # GaussNewtonInversion(prior)
 
         @info "Ensemble size: $(N_ens)"
         for (kk, method) in enumerate(methods)
@@ -193,7 +196,8 @@ for (rr, rng_seed) in enumerate(rng_seeds)
 
                 # Calculating RMSE_e
                 ens_mean = mean(params_i, dims = 2)[:]
-                forcing = build_forcing(ens_mean, phi_structure)
+                # forcing = build_forcing(ens_mean, phi_structure)
+                forcing = build_forcing(phi, ens_mean, phi_structure)
                 G_ens_mean = lorenz_forward(
                     forcing,
                     x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, 1),
@@ -214,7 +218,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 G_ens = hcat(
                     [
                         lorenz_forward(
-                            build_forcing(params_i[:, j], phi_structure),
+                            build_forcing(phi, params_i[:, j], phi_structure),
                             (x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j],
                             lorenz_config_settings,
                             observation_config,
@@ -225,16 +229,16 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 EKP.update_ensemble!(ekpobj, G_ens)
                 count = count + 1
 
-                # # Calculate RMSE_f #something is wrong with this calculation
-                # RMSE_f = sqrt(get_error(ekpobj)[end] / size(y, 1))
-                # @info "RMSE (at mean(G(u)): $(RMSE_f)"
-                # # Convergence criteria
-                # if RMSE_f < tolerance
-                #     conv_alg_iters[kk, ee, rr] = count * Ne
-                #     final_parameters[kk, ee, rr, :] = ens_mean
-                #     final_model_output[kk, ee, rr, :] = G_ens_mean
-                #     break
-                # end
+                # Calculate RMSE_f #something is wrong with this calculation
+                RMSE_f = get_error_metrics(ekpobj)["avg_rmse"][end]
+                @info "RMSE (at mean(G(u)): $(RMSE_f)"
+                # Convergence criteria
+                if RMSE_f < tolerance
+                    conv_alg_iters[kk, ee, rr] = count * Ne
+                    final_parameters[kk, ee, rr, :] = ens_mean
+                    final_model_output[kk, ee, rr, :] = G_ens_mean
+                    break
+                end
             end
 
             final_ensemble = get_ϕ_final(prior, ekpobj)
