@@ -29,7 +29,7 @@ cases = [
     "vec-force",
     "flux-force",
 ]
-case = cases[1]
+case = cases[2]
 
 if case == "const-force"
     nx = 40  #dimensions of parameter vector
@@ -156,11 +156,11 @@ for (rr, rng_seed) in enumerate(rng_seeds)
         # initial parameters: N_params x N_ens
         initial_params = construct_initial_ensemble(rng, prior, N_ens)
 
-        prior_mean = isa(mean(prior), AbstractVector) ? mean(prior) : [mean(prior)] # mean of unconstrained distribution
-        prior_cov = Matrix(cov(prior)) # cov of unconstrained distribution
+        # prior_mean = isa(mean(prior), AbstractVector) ? mean(prior) : [mean(prior)] # mean of unconstrained distribution
+        # prior_cov = Matrix(cov(prior)) # cov of unconstrained distribution
 
         methods =
-            [Inversion(prior), TransformInversion(prior), GaussNewtonInversion(prior_mean, prior_cov), Unscented(prior; impose_prior = true)] # GaussNewtonInversion(prior)
+            [Inversion(prior), TransformInversion(prior), GaussNewtonInversion(prior), Unscented(prior; impose_prior = true)] # GaussNewtonInversion(prior)
 
         @info "Ensemble size: $(N_ens)"
         for (kk, method) in enumerate(methods)
@@ -229,8 +229,9 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 EKP.update_ensemble!(ekpobj, G_ens)
                 count = count + 1
 
-                # Calculate RMSE_f #something is wrong with this calculation
-                RMSE_f = get_error_metrics(ekpobj)["avg_rmse"][end]
+                # Calculate RMSE_f 
+                # RMSE_f = get_error_metrics(ekpobj)["avg_rmse"][end]
+                RMSE_f = norm(R_inv_var * (y - mean(G_ens, dims = 2))) / sqrt(size(y, 1))
                 @info "RMSE (at mean(G(u)): $(RMSE_f)"
                 # Convergence criteria
                 if RMSE_f < tolerance
