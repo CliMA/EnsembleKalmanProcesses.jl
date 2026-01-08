@@ -1,6 +1,8 @@
 # Import modules
 using LinearAlgebra
 using Statistics
+using Random, Distributions
+using Flux
 
 
 
@@ -32,12 +34,13 @@ end
 build_forcing(::T, val::VV, args...) where {T <: VectorEMC, VV <: AbstractVector} = VectorEMC(val)
 
 # Sub-type of ensemble config for spatially-dependent forcing with neural network approximation
-struct FluxEMC <: EnsembleMemberConfig
-    model::Flux.Chain
+struct FluxEMC{FC<:Flux.Chain, VV<:AbstractVector} <: EnsembleMemberConfig
+    model::FC
+    sample_range::VV
 end
-function build_forcing(::T, model, params) where {T <: FluxEMC}
+function build_forcing(::T, params, model, sample_range) where {T <: FluxEMC}
     _ , reconstructor = Flux.destructure(model)
-    return FluxEMC(reconstructor(params))
+    return FluxEMC(reconstructor(params), sample_range)
 end
 
 # Constant-global
@@ -47,7 +50,7 @@ forcing(params::ConstantEMC, x, i) = params.val
 forcing(params::VectorEMC, x, i) = params.val[i]
         
 # Flux
-forcing(params::FluxEMC, x, i) = Float64(params.model([Float32(i)])[1])
+forcing(params::FluxEMC, x, i) = Float64(params.model([params.sample_range[i]])[1])
 
 
 
@@ -157,4 +160,28 @@ function RK4(params::EnsembleMemberConfig, xold::VorM, config::LorenzConfig) whe
     xnew = xold + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
     # Output
     return xnew
+end
+
+
+# Neural network functions 
+function train_network(model, x_train, y_train)
+    loss(model, x, y) = Flux.Losses.mse(model(x), y)
+
+    # Reshape x_train and y_train for Flux compatibility
+    x_train = reshape(x_train, 1, :)
+    y_train = reshape(y_train, 1, :)
+    x_train = Float32.(x_train)
+    y_train = Float32.(y_train)
+
+    opt = Flux.setup(Adam(),model)
+    data = Flux.DataLoader((x_train, y_train), batchsize=32, shuffle=true)  # train the model
+
+    # Train the model over multiple epochs
+    epochs = 5000
+    for epoch in 1:epochs
+        Flux.train!(loss, model, data, opt)
+    end
+
+    params, _ = Flux.destructure(model)
+    return model, params
 end

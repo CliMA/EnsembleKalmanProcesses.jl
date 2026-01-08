@@ -20,22 +20,27 @@ const EKP = EnsembleKalmanProcesses
 include("Lorenz96.jl") # Contains Lorenz 96 source code
 
 ########################################################################
-######################### Choose problem type ##########################
+############### Choose problem type and structure ######################
 ########################################################################
 
-## Define forcing:
-cases = [
-    "const-force",
-    "vec-force",
-    "flux-force",
-]
-case = cases[2]
+cases = ["const-force", "vec-force", "flux-force"] # problem types
+# User specifications
+case = cases[3] # choose problem type
+N_ens_sizes = [100] # list of number of ensemble members (should be problem dependent)
+N_iter = 20 # maximum number of EKI iterations allowed
+tolerance = 1.0 # target RMSE 
+rng_seeds = [3] # list of random seeds
+@info "Running $case case"
+@info "Maximum number of EKI iterations: $N_iter"
+@info "RMSE target: $tolerance"
+
 
 if case == "const-force"
     nx = 40  #dimensions of parameter vector
     nu = 1
     phi = ConstantEMC(8.0) # forcing
     phi_structure = nothing
+    sample_range = nothing
     prior = constrained_gaussian("φ", 10.0, 4.0, 0, Inf)
     T = 14.0
     inff = 2
@@ -45,43 +50,81 @@ elseif case == "vec-force"
     sinusoid = 8 .+ 6 * sin.((4 * pi * range(0, stop = nx - 1, step = 1)) / nx) 
     phi = VectorEMC(sinusoid)
     phi_structure = nothing
+    sample_range = nothing
     pl, psig = 2.0, 3.0
-    B = zeros(nx, nx) # prior covariance
+    prior_cov = zeros(nx, nx) # prior covariance
     for ii in 1:nx
         for jj in 1:nx
-            B[ii, jj] = psig^2 * exp(-abs(ii - jj) / pl)
+            prior_cov[ii, jj] = psig^2 * exp(-abs(ii - jj) / pl)
         end
     end
-    mu = 8.0 * ones(nx) # prior mean
+    prior_mean = 8.0 * ones(nx) # prior mean
     #Creating prior distribution
-    distribution = Parameterized(MvNormal(mu, B))
+    distribution = Parameterized(MvNormal(prior_mean, prior_cov))
     constraint = repeat([no_constraint()], 40)
     name = "ml96_prior"
     prior = ParameterDistribution(distribution, constraint, name)
     T = 54.0
     inff = 2
-# elseif case == "flux-force"
-#     nx = 100  #dimensions of parameter vector
-#     nu = 61
-#     sinusoid = 8 .+ 6 * sin.((4 * pi * range(0, stop = nx - 1, step = 1)) / nx)
-#     from_file=true
-#     # from_file
-#     if from_file
-#         filename = "filename"
-#         phi_structure = BSON.@load "$(filename).bson" model
-#         prior_mean, prior_cov = BSON.@load "$(filename).bson" prior_mean, prior_cov
-#         prior = ParameterDistribution(..)
-#     else
-#         input_dim = 1
-#         phi_structure = Chain(
-#             Dense(input_dim => 20, tanh),                 
-#             Dense(20 => 1),                       
-#         )
-#         prior = constrained_gaussian("params", 0,1,-Inf, Inf, repeat=input_dim)
-#     end
-#     T = 504.0
-#     phi = FluxEMC(model) # need to call build_forcing(parameters, model)
-#     inff = 2.5
+elseif case == "flux-force"
+    nx = 100  #dimensions of parameter vector
+    nu = 61
+    true_sinusoid(x) = 8 .+ 6 * sin.((4 * pi * x) / 10)
+    x_train = collect(-5.0:0.01:5.0)
+    y_train = true_sinusoid.(x_train) .+ 0.2 .* randn(length(x_train))
+    phi_structure = Chain(
+        Dense(1 => 20, tanh),                 
+        Dense(20 => 1),                       
+    )
+    true_model, _ = train_network(phi_structure, x_train, y_train)
+    sample_range = collect(-5.0:0.1:4.9)
+    phi = FluxEMC(true_model, sample_range)
+
+    prior_sinusoid(x) = 8.02 .+ 6.5 * sin.(1.02*(4 * pi * x) / 10 + 0.2)
+    prior_train = prior_sinusoid.(x_train) .+ 0.2 .* randn(length(x_train))
+    prior_model, prior_mean = train_network(phi_structure, x_train, prior_train)
+
+    y_pred = true_model(reshape(sample_range, 1, :))
+    prior_pred = prior_model(reshape(sample_range, 1, :))
+    # Plot for visualizing training results
+    # p = plot(sample_range, true_sinusoid.(sample_range), label="True function", lw=2, color=:blue)
+    # scatter!(p, x_train, y_train, label="Training data", ms=1, color=:red, alpha=0.5)
+    # plot!(p, sample_range, y_pred[1,:], label="Predicted function", lw=2, color=:green)
+    # xlabel!("x")
+    # ylabel!("y")
+    # title!("Offline 1D DNN")
+    # display(p)
+
+    # p = plot(sample_range, prior_sinusoid.(sample_range), label="True prior function", lw=2, color=:blue)
+    # scatter!(p, x_train, prior_train, label="Training data", ms=1, color=:red, alpha=0.5)
+    # plot!(p, sample_range, prior_pred[1,:], label="Predicted prior function", lw=2, color=:green)
+    # xlabel!("x")
+    # ylabel!("y")
+    # title!("Offline 1D DNN")
+    # display(p)
+
+    # p = plot(sample_range, prior_sinusoid.(sample_range), label="Prior function", lw=2, color=:blue)
+    # plot!(p, sample_range, true_sinusoid.(sample_range), label="True function", lw=2, color=:green)
+    # xlabel!("x")
+    # ylabel!("y")
+    # title!("Offline 1D DNN")
+    # display(p)
+
+    # from_file = false
+    # # from_file
+    # if from_file
+    #     filename = "filename"
+    #     phi_structure = BSON.@load "$(filename).bson" model
+    #     prior_mean, prior_cov = BSON.@load "$(filename).bson" prior_mean, prior_cov
+    #     sample_range = nothing
+    
+    prior_cov = (0.1^2) * I(length(prior_mean))
+    distribution = Parameterized(MvNormal(prior_mean, prior_cov))
+    constraint = repeat([no_constraint()], 61)
+    name = "l96_nn_prior"
+    prior = ParameterDistribution(distribution, constraint, name)
+    T = 54.0
+    inff = 2.5
 end
 
 
@@ -137,13 +180,7 @@ ic_cov_sqrt = sqrt(ic_cov)
 ########################### Running EKI Race ###########################
 ########################################################################
 
-# EKP parameters (move towards top for having user choice, put info statement at top)
-N_ens_sizes = [100] #, 55] # number of ensemble members (should be problem dependent)
-N_iter = 20 # number of EKI iterations
-tolerance = 1.0
-
-rng_seeds = [3] #, 15] #, 42, 101]
-
+# Counters
 conv_alg_iters = zeros(4, length(N_ens_sizes), length(rng_seeds)) #count how many iterations it takes to converge (per algorithm, per rand seed, per ense size)
 final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nu)
 final_model_output = zeros(4, length(N_ens_sizes), length(rng_seeds), ny)
@@ -155,12 +192,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
     for (ee, N_ens) in enumerate(N_ens_sizes)
         # initial parameters: N_params x N_ens
         initial_params = construct_initial_ensemble(rng, prior, N_ens)
-
-        # prior_mean = isa(mean(prior), AbstractVector) ? mean(prior) : [mean(prior)] # mean of unconstrained distribution
-        # prior_cov = Matrix(cov(prior)) # cov of unconstrained distribution
-
-        methods =
-            [Inversion(prior), TransformInversion(prior), GaussNewtonInversion(prior), Unscented(prior; impose_prior = true)] # GaussNewtonInversion(prior)
+        methods = [Inversion(prior), TransformInversion(prior), GaussNewtonInversion(prior), Unscented(prior; impose_prior = true)]
 
         @info "Ensemble size: $(N_ens)"
         for (kk, method) in enumerate(methods)
@@ -197,7 +229,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 # Calculating RMSE_e
                 ens_mean = mean(params_i, dims = 2)[:]
                 # forcing = build_forcing(ens_mean, phi_structure)
-                forcing = build_forcing(phi, ens_mean, phi_structure)
+                forcing = build_forcing(phi, ens_mean, phi_structure, sample_range)
                 G_ens_mean = lorenz_forward(
                     forcing,
                     x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, 1),
@@ -218,7 +250,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 G_ens = hcat(
                     [
                         lorenz_forward(
-                            build_forcing(phi, params_i[:, j], phi_structure),
+                            build_forcing(phi, params_i[:, j], phi_structure, sample_range),
                             (x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j],
                             lorenz_config_settings,
                             observation_config,
