@@ -22,33 +22,33 @@ abstract type EnsembleMemberConfig end
 
 # Sub-type of ensemble config for constant forcing
 struct ConstantEMC{FT <: Real} <: EnsembleMemberConfig
-   val::FT
+    val::FT
 end
 build_forcing(::T, val::FT, args...) where {T <: ConstantEMC, FT <: Real} = ConstantEMC(val)
 build_forcing(::T, val::FT, args...) where {T <: ConstantEMC, FT <: AbstractVector} = ConstantEMC(val[1])
 
 # Sub-type of ensemble config for spatially-dependent forcing
-struct VectorEMC{VV<:AbstractVector} <: EnsembleMemberConfig 
-   val::VV
+struct VectorEMC{VV <: AbstractVector} <: EnsembleMemberConfig
+    val::VV
 end
 build_forcing(::T, val::VV, args...) where {T <: VectorEMC, VV <: AbstractVector} = VectorEMC(val)
 
 # Sub-type of ensemble config for spatially-dependent forcing with neural network approximation
-struct FluxEMC{FC<:Flux.Chain, VV<:AbstractVector} <: EnsembleMemberConfig
+struct FluxEMC{FC <: Flux.Chain, VV <: AbstractVector} <: EnsembleMemberConfig
     model::FC
     sample_range::VV
 end
 function build_forcing(::T, params, model, sample_range) where {T <: FluxEMC}
-    _ , reconstructor = Flux.destructure(model)
+    _, reconstructor = Flux.destructure(model)
     return FluxEMC(reconstructor(params), sample_range)
 end
 
 # Constant-global
 forcing(params::ConstantEMC, x, i) = params.val
-    
+
 # Constant-vector
 forcing(params::VectorEMC, x, i) = params.val[i]
-        
+
 # Flux
 forcing(params::FluxEMC, x, i) = Float64(params.model([params.sample_range[i]])[1])
 
@@ -132,12 +132,12 @@ function f(params::EnsembleMemberConfig, x::VorM) where {VorM <: AbstractVecOrMa
     f = zeros(N)
     # Loop over N positions
     for i in 3:(N - 1)
-        f[i] = -x[i - 2] * x[i - 1] + x[i - 1] * x[i + 1] - x[i] + forcing(params, x, i)  
+        f[i] = -x[i - 2] * x[i - 1] + x[i - 1] * x[i + 1] - x[i] + forcing(params, x, i)
     end
     # Periodic boundary conditions
-    f[1] = -x[N - 1] * x[N] + x[N] * x[2] - x[1] +  forcing(params, x, 1) 
-    f[2] = -x[N] * x[1] + x[1] * x[3] - x[2] +  forcing(params, x, 2) 
-    f[N] = -x[N - 2] * x[N - 1] + x[N - 1] * x[1] - x[N] +  forcing(params, x, N) 
+    f[1] = -x[N - 1] * x[N] + x[N] * x[2] - x[1] + forcing(params, x, 1)
+    f[2] = -x[N] * x[1] + x[1] * x[3] - x[2] + forcing(params, x, 2)
+    f[N] = -x[N - 2] * x[N - 1] + x[N - 1] * x[1] - x[N] + forcing(params, x, N)
     # Output
     return f
 end
@@ -173,8 +173,8 @@ function train_network(model, x_train, y_train)
     x_train = Float32.(x_train)
     y_train = Float32.(y_train)
 
-    opt = Flux.setup(Adam(),model)
-    data = Flux.DataLoader((x_train, y_train), batchsize=32, shuffle=true)  # train the model
+    opt = Flux.setup(Adam(), model)
+    data = Flux.DataLoader((x_train, y_train), batchsize = 32, shuffle = true)  # train the model
 
     # Train the model over multiple epochs
     epochs = 5000

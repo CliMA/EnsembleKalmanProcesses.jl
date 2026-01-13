@@ -47,7 +47,7 @@ if case == "const-force"
 elseif case == "vec-force"
     nx = 40  # dimensions of parameter vector
     nu = nx
-    sinusoid = 8 .+ 6 * sin.((4 * pi * range(0, stop = nx - 1, step = 1)) / nx) 
+    sinusoid = 8 .+ 6 * sin.((4 * pi * range(0, stop = nx - 1, step = 1)) / nx)
     phi = VectorEMC(sinusoid)
     phi_structure = nothing
     sample_range = nothing
@@ -72,15 +72,12 @@ elseif case == "flux-force"
     true_sinusoid(x) = 8 .+ 6 * sin.((4 * pi * x) / 10)
     x_train = collect(-5.0:0.01:5.0)
     y_train = true_sinusoid.(x_train) .+ 0.2 .* randn(length(x_train))
-    phi_structure = Chain(
-        Dense(1 => 20, tanh),                 
-        Dense(20 => 1),                       
-    )
+    phi_structure = Chain(Dense(1 => 20, tanh), Dense(20 => 1))
     true_model, _ = train_network(phi_structure, x_train, y_train)
     sample_range = collect(-5.0:0.1:4.9)
     phi = FluxEMC(true_model, sample_range)
 
-    prior_sinusoid(x) = 8.02 .+ 6.5 * sin.(1.02*(4 * pi * x) / 10 + 0.2)
+    prior_sinusoid(x) = 8.02 .+ 6.5 * sin.(1.02 * (4 * pi * x) / 10 + 0.2)
     prior_train = prior_sinusoid.(x_train) .+ 0.2 .* randn(length(x_train))
     prior_model, prior_mean = train_network(phi_structure, x_train, prior_train)
 
@@ -117,7 +114,7 @@ elseif case == "flux-force"
     #     phi_structure = BSON.@load "$(filename).bson" model
     #     prior_mean, prior_cov = BSON.@load "$(filename).bson" prior_mean, prior_cov
     #     sample_range = nothing
-    
+
     prior_cov = (0.1^2) * I(length(prior_mean))
     distribution = Parameterized(MvNormal(prior_mean, prior_cov))
     constraint = repeat([no_constraint()], 61)
@@ -138,7 +135,7 @@ rng_i = MersenneTwister(rng_seed_init)
 
 t = 0.01  #time step
 T_long = 1000.0  #total time 
-picking_initial_condition = LorenzConfig(t, T_long) 
+picking_initial_condition = LorenzConfig(t, T_long)
 x_initial = rand(rng_i, Normal(0.0, 1.0), nx) # initial condition for spinning up Lorenz system
 x_spun_up = lorenz_solve(phi, x_initial, picking_initial_condition) # spinning up Lorenz system
 
@@ -155,16 +152,16 @@ y = lorenz_forward(phi, x0, lorenz_config_settings, observation_config) # synthe
 
 #Observation covariance R
 window = T_end - T_start
-T_R = 10*window*ny + T_start
+T_R = 10 * window * ny + T_start
 R_config = LorenzConfig(t, T_R)
 R_run = lorenz_solve(phi, x_initial, R_config)
-R_sample_size = Int(ceil(10*ny))
+R_sample_size = Int(ceil(10 * ny))
 R_samples = zeros(ny, R_sample_size)
 for ii in 1:R_sample_size
-    local_obs_config = ObservationConfig(T_start + (ii -1)*window, T_start + ii*window)
-    R_samples[:,ii] = stats(R_run, R_config, local_obs_config)
+    local_obs_config = ObservationConfig(T_start + (ii - 1) * window, T_start + ii * window)
+    R_samples[:, ii] = stats(R_run, R_config, local_obs_config)
 end
-R = cov(R_samples, dims = 2)*inff
+R = cov(R_samples, dims = 2) * inff
 R_sqrt = sqrt(R)
 R_inv_var = sqrt(inv(R))
 
@@ -192,7 +189,12 @@ for (rr, rng_seed) in enumerate(rng_seeds)
     for (ee, N_ens) in enumerate(N_ens_sizes)
         # initial parameters: N_params x N_ens
         initial_params = construct_initial_ensemble(rng, prior, N_ens)
-        methods = [Inversion(prior), TransformInversion(prior), GaussNewtonInversion(prior), Unscented(prior; impose_prior = true)]
+        methods = [
+            Inversion(prior),
+            TransformInversion(prior),
+            GaussNewtonInversion(prior),
+            Unscented(prior; impose_prior = true),
+        ]
 
         @info "Ensemble size: $(N_ens)"
         for (kk, method) in enumerate(methods)

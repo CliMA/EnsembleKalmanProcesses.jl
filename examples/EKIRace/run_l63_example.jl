@@ -31,11 +31,13 @@ rng_seeds = [3] # list of random seeds
 
 nx = 3  # dimensions of parameter vector
 nu = 2
-u = EnsembleMemberConfig([28.0, 8.0/3.0])
+u = EnsembleMemberConfig([28.0, 8.0 / 3.0])
 
 prior_mean = [3.3, 1.2]
-prior_cov = [0.15^2 0;
-             0 0.5^2]
+prior_cov = [
+    0.15^2 0
+    0 0.5^2
+]
 #Creating prior distribution
 distribution = Parameterized(MvNormal(prior_mean, prior_cov))
 constraint = repeat([no_constraint()], 2)
@@ -53,7 +55,7 @@ rng_i = MersenneTwister(rng_seed_init)
 
 t = 0.01  #time step
 T_long = 1000.0  #total time 
-picking_initial_condition = LorenzConfig(t, T_long) 
+picking_initial_condition = LorenzConfig(t, T_long)
 x_initial = rand(rng_i, Normal(0.0, 1.0), nx) # initial condition for spinning up Lorenz system
 x_spun_up = lorenz_solve(u, x_initial, picking_initial_condition) # spinning up Lorenz system
 
@@ -71,14 +73,14 @@ y = lorenz_forward(u, x0, lorenz_config_settings, observation_config) # syntheti
 #Observation covariance R
 multiple = 36
 window = T_end - T_start
-T_R = multiple*window + T_start
+T_R = multiple * window + T_start
 R_config = LorenzConfig(t, T_R)
 R_run = lorenz_solve(u, x_initial, R_config)
 R_sample_size = Int(ceil(multiple))
 R_samples = zeros(ny, R_sample_size)
 for ii in 1:R_sample_size
-    local_obs_config = ObservationConfig(T_start + (ii -1)*window, T_start + ii*window)
-    R_samples[:,ii] = stats(R_run, R_config, local_obs_config)
+    local_obs_config = ObservationConfig(T_start + (ii - 1) * window, T_start + ii * window)
+    R_samples[:, ii] = stats(R_run, R_config, local_obs_config)
 end
 R = cov(R_samples, dims = 2)
 R_sqrt = sqrt(R)
@@ -108,7 +110,12 @@ for (rr, rng_seed) in enumerate(rng_seeds)
     for (ee, N_ens) in enumerate(N_ens_sizes)
         # initial parameters: N_params x N_ens
         initial_params = construct_initial_ensemble(rng, prior, N_ens)
-        methods = [Inversion(prior), TransformInversion(prior), GaussNewtonInversion(prior), Unscented(prior; impose_prior = true)]
+        methods = [
+            Inversion(prior),
+            TransformInversion(prior),
+            GaussNewtonInversion(prior),
+            Unscented(prior; impose_prior = true),
+        ]
 
         @info "Ensemble size: $(N_ens)"
         for (kk, method) in enumerate(methods)
