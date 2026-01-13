@@ -40,17 +40,20 @@ struct FluxEMC{FC <: Flux.Chain, VV <: AbstractVector} <: EnsembleMemberConfig
 end
 function build_forcing(::T, params, model, sample_range) where {T <: FluxEMC}
     _, reconstructor = Flux.destructure(model)
-    return FluxEMC(reconstructor(params), sample_range)
+    return FluxEMC(reconstructor(params), Float32.(sample_range))
 end
 
 # Constant-global
 forcing(params::ConstantEMC, x, i) = params.val
+forcing(params::ConstantEMC, x) = repeat([params.val], length(x))
 
 # Constant-vector
 forcing(params::VectorEMC, x, i) = params.val[i]
+forcing(params::VectorEMC, x) = params.val
 
 # Flux
 forcing(params::FluxEMC, x, i) = Float64(params.model([params.sample_range[i]])[1])
+forcing(params::FluxEMC, x) = Float64.(params.model([sr])[1] for sr in params.sample_range)
 
 
 
@@ -114,9 +117,10 @@ function lorenz_solve(params::EnsembleMemberConfig, x0::VorM, config::LorenzConf
     xn = zeros(size(x0, 1), nstep + 1)
     xn[:, 1] = x0
 
-    # March forward in time
+    # March forward in time    
+    forcing_vec = forcing(params, x0) # not state dependent so evaluate once here
     for j in 1:nstep
-        xn[:, j + 1] = RK4(params, xn[:, j], config)
+        xn[:, j + 1] = RK4(forcing_vec, xn[:, j], config)
     end
     # Output
     return xn
@@ -127,17 +131,18 @@ end
 # Inputs: 
 # - params: structure with F 
 # - x: current state
-function f(params::EnsembleMemberConfig, x::VorM) where {VorM <: AbstractVecOrMat}
+function f(forcing_vec::VV, x::VorM) where {VV <: AbstractVector, VorM <: AbstractVecOrMat}
     N = length(x)
     f = zeros(N)
     # Loop over N positions
     for i in 3:(N - 1)
-        f[i] = -x[i - 2] * x[i - 1] + x[i - 1] * x[i + 1] - x[i] + forcing(params, x, i)
+        f[i] = -x[i - 2] * x[i - 1] + x[i - 1] * x[i + 1] - x[i] + forcing_vec[i]
     end
     # Periodic boundary conditions
-    f[1] = -x[N - 1] * x[N] + x[N] * x[2] - x[1] + forcing(params, x, 1)
-    f[2] = -x[N] * x[1] + x[1] * x[3] - x[2] + forcing(params, x, 2)
-    f[N] = -x[N - 2] * x[N - 1] + x[N - 1] * x[1] - x[N] + forcing(params, x, N)
+    f[1] = -x[N - 1] * x[N] + x[N] * x[2] - x[1] + forcing_vec[1]
+    f[2] = -x[N] * x[1] + x[1] * x[3] - x[2] + forcing_vec[2]
+    f[N] = -x[N - 2] * x[N - 1] + x[N - 1] * x[1] - x[N] + forcing_vec[N]
+
     # Output
     return f
 end
@@ -147,15 +152,15 @@ end
 # - params: structure with F 
 # - xold: current state
 # - config: structure including dt (timestep Float64(1)) and T (total time Float64(1))
-function RK4(params::EnsembleMemberConfig, xold::VorM, config::LorenzConfig) where {VorM <: AbstractVecOrMat}
+function RK4(forcing_vec::VV, xold::VorM, config::LorenzConfig) where {VV <: AbstractVector, VorM <: AbstractVecOrMat}
     N = length(xold)
     dt = config.dt
 
     # Predictor steps (note no time-dependence is needed here)
-    k1 = f(params, xold)
-    k2 = f(params, xold + k1 * dt / 2.0)
-    k3 = f(params, xold + k2 * dt / 2.0)
-    k4 = f(params, xold + k3 * dt)
+    k1 = f(forcing_vec, xold)
+    k2 = f(forcing_vec, xold + k1 * dt / 2.0)
+    k3 = f(forcing_vec, xold + k2 * dt / 2.0)
+    k4 = f(forcing_vec, xold + k3 * dt)
     # Step
     xnew = xold + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
     # Output

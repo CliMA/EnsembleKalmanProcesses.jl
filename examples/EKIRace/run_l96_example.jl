@@ -74,7 +74,7 @@ elseif case == "flux-force"
     y_train = true_sinusoid.(x_train) .+ 0.2 .* randn(length(x_train))
     phi_structure = Chain(Dense(1 => 20, tanh), Dense(20 => 1))
     true_model, _ = train_network(phi_structure, x_train, y_train)
-    sample_range = collect(-5.0:0.1:4.9)
+    sample_range = Float32.(collect(-5.0:0.1:4.9))
     phi = FluxEMC(true_model, sample_range)
 
     prior_sinusoid(x) = 8.02 .+ 6.5 * sin.(1.02 * (4 * pi * x) / 10 + 0.2)
@@ -122,6 +122,7 @@ elseif case == "flux-force"
     prior = ParameterDistribution(distribution, constraint, name)
     T = 54.0
     inff = 2.5
+
 end
 
 
@@ -132,9 +133,9 @@ rng_seed_init = 11
 rng_i = MersenneTwister(rng_seed_init)
 
 #Creating my sythetic data
-
 t = 0.01  #time step
 T_long = 1000.0  #total time 
+@info "Initial spin up stage: Running $( (T_long)) time units"
 picking_initial_condition = LorenzConfig(t, T_long)
 x_initial = rand(rng_i, Normal(0.0, 1.0), nx) # initial condition for spinning up Lorenz system
 x_spun_up = lorenz_solve(phi, x_initial, picking_initial_condition) # spinning up Lorenz system
@@ -147,6 +148,7 @@ lorenz_config_settings = LorenzConfig(t, T)
 # construct how we compute Observations
 T_start = 4.0  #2*max
 T_end = T
+@info "Compute synthetic data: Running $(T) time units"
 observation_config = ObservationConfig(T_start, T_end)
 y = lorenz_forward(phi, x0, lorenz_config_settings, observation_config) # synthetic data
 
@@ -154,7 +156,9 @@ y = lorenz_forward(phi, x0, lorenz_config_settings, observation_config) # synthe
 window = T_end - T_start
 T_R = 10 * window * ny + T_start
 R_config = LorenzConfig(t, T_R)
+@info "Estimating noise covariance: Running $(T_R) time units"
 R_run = lorenz_solve(phi, x_initial, R_config)
+
 R_sample_size = Int(ceil(10 * ny))
 R_samples = zeros(ny, R_sample_size)
 for ii in 1:R_sample_size
@@ -165,14 +169,13 @@ R = cov(R_samples, dims = 2) * inff
 R_sqrt = sqrt(R)
 R_inv_var = sqrt(inv(R))
 
-
 # Need a way to perturb the initial condition when doing the EKI updates
 # Solving for initial condition perturbation covariance
 covT = 2000.0  #time to simulate to calculate a covariance matrix of the system
+@info "Estimating initial condition covariance: Running $(covT) time units"
 cov_solve = lorenz_solve(phi, x0, LorenzConfig(t, covT))
 ic_cov = 0.1 * cov(cov_solve, dims = 2)
 ic_cov_sqrt = sqrt(ic_cov)
-
 ########################################################################
 ########################### Running EKI Race ###########################
 ########################################################################
