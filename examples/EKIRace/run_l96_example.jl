@@ -132,50 +132,79 @@ end
 rng_seed_init = 11
 rng_i = MersenneTwister(rng_seed_init)
 
-#Creating my sythetic data
-t = 0.01  #time step
-T_long = 1000.0  #total time 
-@info "Initial spin up stage: Running $( (T_long)) time units"
-picking_initial_condition = LorenzConfig(t, T_long)
-x_initial = rand(rng_i, Normal(0.0, 1.0), nx) # initial condition for spinning up Lorenz system
-x_spun_up = lorenz_solve(phi, x_initial, picking_initial_condition) # spinning up Lorenz system
 
-x0 = x_spun_up[:, end]  #last element of the run is the initial condition for creating the data
 
 ny = nx * 2   #number of data points
-lorenz_config_settings = LorenzConfig(t, T)
 
-# construct how we compute Observations
-T_start = 4.0  #2*max
-T_end = T
-@info "Compute synthetic data: Running $(T) time units"
-observation_config = ObservationConfig(T_start, T_end)
-y = lorenz_forward(phi, x0, lorenz_config_settings, observation_config) # synthetic data
-
-#Observation covariance R
-window = T_end - T_start
-T_R = 10 * window * ny + T_start
-R_config = LorenzConfig(t, T_R)
-@info "Estimating noise covariance: Running $(T_R) time units"
-R_run = lorenz_solve(phi, x_initial, R_config)
-
-R_sample_size = Int(ceil(10 * ny))
-R_samples = zeros(ny, R_sample_size)
-for ii in 1:R_sample_size
-    local_obs_config = ObservationConfig(T_start + (ii - 1) * window, T_start + ii * window)
-    R_samples[:, ii] = stats(R_run, R_config, local_obs_config)
+#Creating my sythetic data
+prelim_file = "computed_preliminaries_$(case).jld2"
+if isfile(prelim_file)
+    loaded_data = JLD2.load("computed_preliminaries_$(case).jld2")
+    x0 = loaded_data["x0"]
+    y = loaded_data["y"]
+    ic_cov_sqrt = loaded_data["ic_cov_sqrt"]
+    R = loaded_data["R"]
+    R_inv_var = loaded_data["R_inv_var"]
+    lorenz_config_settings = loaded_data["lorenz_config_settings"]
+    observation_config = loaded_data["observation_config"]
+    
+    @info "loaded precomputed preliminary quantities from $(prelim_file)"
+else
+    t = 0.01  #time step
+    T_long = 1000.0  #total time 
+    lorenz_config_settings = LorenzConfig(t, T)
+    @info "Initial spin up stage: Running $( (T_long)) time units"
+    picking_initial_condition = LorenzConfig(t, T_long)
+    x_initial = rand(rng_i, Normal(0.0, 1.0), nx) # initial condition for spinning up Lorenz system
+    x_spun_up = lorenz_solve(phi, x_initial, picking_initial_condition) # spinning up Lorenz system
+    
+    x0 = x_spun_up[:, end]  #last element of the run is the initial condition for creating the data
+    
+    # construct how we compute Observations
+    T_start = 4.0  #2*max
+    T_end = T
+    observation_config = ObservationConfig(T_start, T_end)
+    @info "Compute synthetic data: Running $(T) time units"
+    y = lorenz_forward(phi, x0, lorenz_config_settings, observation_config) # synthetic data
+    
+    #Observation covariance R
+    window = T_end - T_start
+    T_R = 10 * window * ny + T_start
+    R_config = LorenzConfig(t, T_R)
+    @info "Estimating noise covariance: Running $(T_R) time units"
+    R_run = lorenz_solve(phi, x_initial, R_config)
+    
+    R_sample_size = Int(ceil(10 * ny))
+    R_samples = zeros(ny, R_sample_size)
+    for ii in 1:R_sample_size
+        local_obs_config = ObservationConfig(T_start + (ii - 1) * window, T_start + ii * window)
+        R_samples[:, ii] = stats(R_run, R_config, local_obs_config)
+    end
+    R = cov(R_samples, dims = 2) * inff
+    R_sqrt = sqrt(R)
+    R_inv_var = sqrt(inv(R))
+    
+    # Need a way to perturb the initial condition when doing the EKI updates
+    # Solving for initial condition perturbation covariance
+    covT = 2000.0  #time to simulate to calculate a covariance matrix of the system
+    @info "Estimating initial condition covariance: Running $(covT) time units"
+    cov_solve = lorenz_solve(phi, x0, LorenzConfig(t, covT))
+    ic_cov = 0.1 * cov(cov_solve, dims = 2)
+    ic_cov_sqrt = sqrt(ic_cov)
+    
+    JLD2.save(prelim_file,
+              "x0", x0,
+              "y", y,
+              "lorenz_config_settings", lorenz_config_settings,
+              "observation_config", observation_config,
+              "ic_cov_sqrt", ic_cov_sqrt,
+              "R", R,
+              "R_inv_var", R_inv_var,
+              )
+    @info "saving computed quantities in $prelim_file"
 end
-R = cov(R_samples, dims = 2) * inff
-R_sqrt = sqrt(R)
-R_inv_var = sqrt(inv(R))
+          
 
-# Need a way to perturb the initial condition when doing the EKI updates
-# Solving for initial condition perturbation covariance
-covT = 2000.0  #time to simulate to calculate a covariance matrix of the system
-@info "Estimating initial condition covariance: Running $(covT) time units"
-cov_solve = lorenz_solve(phi, x0, LorenzConfig(t, covT))
-ic_cov = 0.1 * cov(cov_solve, dims = 2)
-ic_cov_sqrt = sqrt(ic_cov)
 ########################################################################
 ########################### Running EKI Race ###########################
 ########################################################################
@@ -207,7 +236,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                     R,
                     method;
                     rng = copy(rng),
-                    verbose = true,
+#                    verbose = true,
                     accelerator = DefaultAccelerator(),
                     localization_method = NoLocalization(),
                     scheduler = DefaultScheduler(),
@@ -219,7 +248,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                     R,
                     method;
                     rng = copy(rng),
-                    verbose = true,
+#                    verbose = true,
                     accelerator = DefaultAccelerator(),
                     localization_method = NoLocalization(),
                     scheduler = DefaultScheduler(),
