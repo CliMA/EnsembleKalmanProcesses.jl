@@ -35,7 +35,7 @@ rng_seeds = randperm(1_000_000)[1:n_repeats] # list of random seeds
 @info "Maximum number of EKI iterations: $N_iter"
 @info "RMSE target: $target_rmse"
 # saved and loaded for plotting etc.
-configuration = Dict("case" => case, "N_iter" => N_iter, "target_rmse" => target_rmse, "rng_seeds" => rng_seeds)
+configuration = Dict("case" => case, "N_iter" => N_iter, "N_ens_sizes"=> N_ens_sizes, "target_rmse" => target_rmse, "rng_seeds" => rng_seeds)
 
 
 if case == "const-force"
@@ -143,7 +143,7 @@ end
 ny = nx * 2   #number of data points
 
 #Creating my sythetic data
-prelim_file = joinpath(output_dir, "computed_preliminaries_$(case).jld2")
+prelim_file = joinpath(output_dir, "l96_computed_preliminaries_$(case).jld2")
 if isfile(prelim_file)
     loaded_data = JLD2.load(prelim_file)
     x0 = loaded_data["x0"]
@@ -340,7 +340,7 @@ end
 # Saving data:
 using Dates
 date_of_exp = today()
-data_filename = joinpath(output_dir, "output_$(case)_$(today()).jld2")
+data_filename = joinpath(output_dir, "l96_output_$(case)_$(today()).jld2")
 JLD2.save(
     data_filename,
     "configuration", configuration,

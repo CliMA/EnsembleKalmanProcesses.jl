@@ -23,11 +23,12 @@ include("Lorenz63.jl") # Contains Lorenz 96 source code
 
 N_ens_sizes = [20] # list of number of ensemble members (should be problem dependent)
 N_iter = 20 # maximum number of EKI iterations allowed
-tolerance = 1.0 # target RMSE 
+target_rmse = 1.0 # target RMSE 
 rng_seeds = [3] # list of random seeds
 @info "Running Lorenz 63 problem"
 @info "Maximum number of EKI iterations: $N_iter"
-@info "RMSE target: $tolerance"
+@info "RMSE target: $target_rmse"
+configuration = Dict("N_iter" => N_iter, "N_ens_sizes"=>N_ens_sizes, "target_rmse" => target_rmse, "rng_seeds" => rng_seeds)
 
 nx = 3  # dimensions of parameter vector
 nu = 2
@@ -45,11 +46,18 @@ name = "l63_prior"
 prior = ParameterDistribution(distribution, constraint, name)
 T = 40.0
 
+
+
 ########################################################################
 ############################ Problem setup #############################
 ########################################################################
 rng_seed_init = 11
 rng_i = MersenneTwister(rng_seed_init)
+
+output_dir = joinpath(@__DIR__, "output")
+if !isdir(output_dir)
+    mkdir(output_dir)
+end
 
 #Creating my sythetic data
 
@@ -103,6 +111,14 @@ conv_alg_iters = zeros(4, length(N_ens_sizes), length(rng_seeds)) #count how man
 final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nu)
 final_model_output = zeros(4, length(N_ens_sizes), length(rng_seeds), ny)
 
+method_names= [
+    "Inversion(prior)",
+    "TransformInversion(prior)",
+    "GaussNewtonInversion(prior)",
+    "Unscented(prior; impose_prior=true)"
+]
+
+
 for (rr, rng_seed) in enumerate(rng_seeds)
     @info "Random seed: $(rng_seed)"
     rng = MersenneTwister(rng_seed)
@@ -123,7 +139,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 ekpobj = EKP.EnsembleKalmanProcess(
                     y,
                     R,
-                    method;
+                    deepcopy(method);
                     rng = copy(rng),
                     verbose = true,
                     accelerator = DefaultAccelerator(),
@@ -135,7 +151,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                     initial_params,
                     y,
                     R,
-                    method;
+                    deepcopy(method);
                     rng = copy(rng),
                     verbose = true,
                     accelerator = DefaultAccelerator(),
@@ -160,7 +176,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 RMSE_e = norm(R_inv_var * (y - G_ens_mean[:])) / sqrt(size(y, 1))
                 @info "RMSE (at G(u_mean)): $(RMSE_e)"
                 # Convergence criteria
-                if RMSE_e < tolerance
+                if RMSE_e < target_rmse
                     conv_alg_iters[kk, ee, rr] = count * Ne
                     final_parameters[kk, ee, rr, :] = ens_mean
                     final_model_output[kk, ee, rr, :] = G_ens_mean
@@ -187,7 +203,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 RMSE_f = norm(R_inv_var * (y - mean(G_ens, dims = 2))) / sqrt(size(y, 1))
                 @info "RMSE (at mean(G(u)): $(RMSE_f)"
                 # Convergence criteria
-                if RMSE_f < tolerance
+                if RMSE_f < target_rmse
                     conv_alg_iters[kk, ee, rr] = count * Ne
                     final_parameters[kk, ee, rr, :] = ens_mean
                     final_model_output[kk, ee, rr, :] = G_ens_mean
@@ -199,3 +215,16 @@ for (rr, rng_seed) in enumerate(rng_seeds)
         end
     end
 end
+
+# Saving data:
+using Dates
+date_of_exp = today()
+data_filename = joinpath(output_dir, "l63_output_$(case)_$(today()).jld2")
+JLD2.save(
+    data_filename,
+    "configuration", configuration,
+    "method_names", method_names,
+    "conv_alg_iters", conv_alg_iters,
+    "final_parameters", final_parameters,
+    "final_model_output", final_model_output,
+)
