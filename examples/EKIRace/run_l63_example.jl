@@ -28,7 +28,8 @@ rng_seeds = [3] # list of random seeds
 @info "Running Lorenz 63 problem"
 @info "Maximum number of EKI iterations: $N_iter"
 @info "RMSE target: $target_rmse"
-configuration = Dict("N_iter" => N_iter, "N_ens_sizes"=>N_ens_sizes, "target_rmse" => target_rmse, "rng_seeds" => rng_seeds)
+configuration =
+    Dict("N_iter" => N_iter, "N_ens_sizes" => N_ens_sizes, "target_rmse" => target_rmse, "rng_seeds" => rng_seeds)
 
 nx = 3  # dimensions of parameter vector
 nu = 2
@@ -111,11 +112,11 @@ conv_alg_iters = zeros(4, length(N_ens_sizes), length(rng_seeds)) #count how man
 final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nu)
 final_model_output = zeros(4, length(N_ens_sizes), length(rng_seeds), ny)
 
-method_names= [
+method_names = [
     "Inversion(prior)",
     "TransformInversion(prior)",
     "GaussNewtonInversion(prior)",
-    "Unscented(prior; impose_prior=true)"
+    "Unscented(prior; impose_prior=true)",
 ]
 
 
@@ -222,9 +223,14 @@ date_of_exp = today()
 data_filename = joinpath(output_dir, "l63_output_$(case)_$(today()).jld2")
 JLD2.save(
     data_filename,
-    "configuration", configuration,
-    "method_names", method_names,
-    "conv_alg_iters", conv_alg_iters,
-    "final_parameters", final_parameters,
-    "final_model_output", final_model_output,
+    "configuration",
+    configuration,
+    "method_names",
+    method_names,
+    "conv_alg_iters",
+    conv_alg_iters,
+    "final_parameters",
+    final_parameters,
+    "final_model_output",
+    final_model_output,
 )

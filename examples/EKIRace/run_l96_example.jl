@@ -35,7 +35,13 @@ rng_seeds = randperm(1_000_000)[1:n_repeats] # list of random seeds
 @info "Maximum number of EKI iterations: $N_iter"
 @info "RMSE target: $target_rmse"
 # saved and loaded for plotting etc.
-configuration = Dict("case" => case, "N_iter" => N_iter, "N_ens_sizes"=> N_ens_sizes, "target_rmse" => target_rmse, "rng_seeds" => rng_seeds)
+configuration = Dict(
+    "case" => case,
+    "N_iter" => N_iter,
+    "N_ens_sizes" => N_ens_sizes,
+    "target_rmse" => target_rmse,
+    "rng_seeds" => rng_seeds,
+)
 
 
 if case == "const-force"
@@ -228,11 +234,11 @@ conv_alg_iters = zeros(4, length(N_ens_sizes), length(rng_seeds)) #count how man
 final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nu)
 final_model_output = zeros(4, length(N_ens_sizes), length(rng_seeds), ny)
 
-method_names= [
+method_names = [
     "Inversion(prior)",
     "TransformInversion(prior)",
     "GaussNewtonInversion(prior)",
-    "Unscented(prior; impose_prior=true)"
+    "Unscented(prior; impose_prior=true)",
 ]
 
 for (rr, rng_seed) in enumerate(rng_seeds)
@@ -273,7 +279,6 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                     verbose = true,
                     accelerator = DefaultAccelerator(),
                     localization_method = NoLocalization(),
-
                     scheduler = DefaultScheduler(),
                 )
             end
@@ -343,9 +348,14 @@ date_of_exp = today()
 data_filename = joinpath(output_dir, "l96_output_$(case)_$(today()).jld2")
 JLD2.save(
     data_filename,
-    "configuration", configuration,
-    "method_names", method_names,
-    "conv_alg_iters", conv_alg_iters,
-    "final_parameters", final_parameters,
-    "final_model_output", final_model_output,
+    "configuration",
+    configuration,
+    "method_names",
+    method_names,
+    "conv_alg_iters",
+    conv_alg_iters,
+    "final_parameters",
+    final_parameters,
+    "final_model_output",
+    final_model_output,
 )
