@@ -323,8 +323,8 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 EKP.update_ensemble!(ekpobj, G_ens)
                 count = count + 1
 
-                # Calculate RMSE_f 
-                # RMSE_f = get_error_metrics(ekpobj)["avg_rmse"][end]
+                # Calculate RMSE_f to the mean G(u)
+                # RMSE_f = sqrt(get_error_metrics(ekpobj)["loss"][end]) # equivalently
                 RMSE_f = norm(R_inv_var * (y - mean(G_ens, dims = 2))) / sqrt(size(y, 1))
                 @info "RMSE (at mean(G(u)): $(RMSE_f)"
                 # Convergence criteria
