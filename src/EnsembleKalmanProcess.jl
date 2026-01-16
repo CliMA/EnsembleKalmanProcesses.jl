@@ -921,7 +921,7 @@ function compute_average_unweighted_rmse(ekp::EnsembleKalmanProcess)
             ),
         )
     end
-
+    
     ens_rmse = sqrt.(dot_diff) # rmse for each ens member
     avg_rmse = mean(ens_rmse) # average
     return avg_rmse
@@ -946,7 +946,8 @@ function compute_average_rmse(ekp::EnsembleKalmanProcess)
             ),
         )
     end
-    ens_rmse = sqrt.(sum(weight_diff)) # rmse for each ens member
+
+    ens_rmse = sqrt.(weight_diff) # rmse for each ens member
     avg_rmse = mean(ens_rmse) # average
     return avg_rmse
 end
