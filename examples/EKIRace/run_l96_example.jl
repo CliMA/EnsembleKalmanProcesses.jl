@@ -323,17 +323,16 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 EKP.update_ensemble!(ekpobj, G_ens)
                 count = count + 1
 
-                # Calculate RMSE_f to the mean G(u)
-                # RMSE_f = sqrt(get_error_metrics(ekpobj)["loss"][end]) # equivalently
-                RMSE_f = norm(R_inv_var * (y - mean(G_ens, dims = 2))) / sqrt(size(y, 1))
-                @info "RMSE (at mean(G(u)): $(RMSE_f)"
-                # Convergence criteria
-                if RMSE_f < target_rmse
-                    conv_alg_iters[kk, ee, rr] = count * Ne
-                    final_parameters[kk, ee, rr, :] = ens_mean
-                    final_model_output[kk, ee, rr, :] = G_ens_mean
-                    break
-                end
+                # # Calculate RMSE_f to the mean G(u) if desired
+                # RMSE_f = sqrt(get_error_metrics(ekpobj)["loss"][end])
+                # @info "RMSE (at mean(G(u)): $(RMSE_f)"
+                # # Convergence criteria
+                # if RMSE_f < target_rmse
+                #     conv_alg_iters[kk, ee, rr] = count * Ne
+                #     final_parameters[kk, ee, rr, :] = ens_mean
+                #     final_model_output[kk, ee, rr, :] = G_ens_mean
+                #     break
+                # end
             end
 
             final_ensemble = get_ϕ_final(prior, ekpobj)
