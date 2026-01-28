@@ -1,8 +1,6 @@
 # Import modules
 using Distributions  # probability distributions and associated functions
 using LinearAlgebra
-using StatsPlots
-using Plots
 using Random
 using JLD2
 using Statistics
@@ -219,7 +217,7 @@ end
 # Saving data:
 using Dates
 date_of_exp = today()
-data_filename = joinpath(output_dir, "l63_output_$(case)_$(today()).jld2")
+data_filename = joinpath(output_dir, "l63_output_$(today()).jld2")
 JLD2.save(
     data_filename,
     "configuration",

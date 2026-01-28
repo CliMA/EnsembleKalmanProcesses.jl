@@ -1,8 +1,6 @@
 # Import modules
 using Distributions  # probability distributions and associated functions
 using LinearAlgebra
-using StatsPlots
-using Plots
 using Random
 using JLD2
 using Statistics
