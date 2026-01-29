@@ -43,7 +43,7 @@ abstract type SumOfCovariances end
 
 # svd plus diagonal
 """
-    SVDplusD
+$(TYPEDEF)
 
 Storage for a covariance matrix of the form `D + USV'` for Diagonal D, and SVD decomposition USV'.
 Note the inverse of this type (as computed through `inv_cov(...)`) will be stored compactly as a `DminusTall` type.
@@ -88,7 +88,7 @@ end
 
 # the inverse of SVD plus diagonal is stored like this:
 """
-    DminusTall
+$(TYPEDEF)
 
 Storage for a covariance matrix of the form `D - RR'` for Diagonal D, and (tall) matrix R.
 Primary use case for this matrix is to compactly store the inverse of the `SVDplusD` type.
@@ -117,7 +117,8 @@ end
 
 
 function SVDplusD(s_in::SVD, us_in::US) where {US <: UniformScaling}
-    return SVD(s_in.U, (s_in.S .+ us_in.λ), s_in.Vt) # just use SVD
+    return SVDplusD(s_in, us_in(size(s_in.U, 1))) # make US into Diag
+
 end
 
 function SVDplusD(s_in::SVD, am_in::AM) where {AM <: AbstractMatrix}
@@ -187,7 +188,26 @@ end
 """
 $(TYPEDSIGNATURES)
 
-For a given `sample_mat`, (with `data_are_columns = true`), rank "r" is optionally provided. Returns the SVDs corresponding to the matrix `cov(sample_mat; dims=2)`. Efficient representation when size(sample_mat,1) << size(sample_mat,2). Setting `return_inverse=true` also returns its psuedoinverse.
+For a given `sample_mat`, (with `data_are_columns = true`), rank "r" is optionally provided. Returns the SVD objects corresponding to the matrix `cov(sample_mat; dims=2)`. Efficient representation when `size(sample_mat,1) << size(sample_mat,2)`. Setting `return_inverse=true` also returns its psuedoinverse.
+
+Example usage to make a low-rank covariance:
+```
+# "data"
+n_trials = 30
+output_dim = 1_000_000
+Y = randn(output_dim, n_trials);
+
+# the noise estimated from the samples (will have rank n_trials-1)
+internal_cov = tsvd_cov_from_samples(Y)
+internal_cov_lower_rank = tsvd_cov_from_samples(Y, n_trials-5)
+```
+
+If one also wishes to add a Diagonal matrix to `internal cov` to increase the rank in a compact fashion, use the `SVDplusD` object type
+```
+diag_cov = 1e-6*Diagonal(1:output_dim)
+full_cov = SVDplusD(internal_cov, diag_cov)
+```
+Either can be passed in the `covariances` entry of an Observation
 """
 function tsvd_cov_from_samples(
     sample_mat::AM,
@@ -244,7 +264,7 @@ end
 
 # TODO: Define == and copy for these structs
 """
-    Observation
+$(TYPEDEF)
 
 Structure that contains a (possibly stacked) observation. Defined by sample(s), noise covariance(s), and name(s)
 
@@ -262,7 +282,7 @@ or
 ```
 Observation([1,2,3], I(3), "one_two_three")
 ```
-One can stack up multiple observations with combine_observations, or by providing vectors of samples, covariances and names to the dictionary.
+One can stack up multiple observations with `combine_observations`, (recommended), or by providing vectors of samples, covariances and names to the dictionary.
 
 # Fields
 
@@ -367,6 +387,8 @@ function Observation(obs_dict::Dict; metadata = nothing)
     for (id, c) in enumerate(ctmp)
         if isa(c, UniformScaling)
             push!(ctmp2, Diagonal(c.λ * ones(length(snew[id])))) # get dim from samples
+        elseif isa(c, Real) # treat number as uniform scaling
+            push!(ctmp2, Diagonal(c * ones(length(snew[id]))))
         else
             push!(ctmp2, c)
         end
@@ -678,13 +700,24 @@ function Base.:(==)(m_a::M1, m_b::M2) where {M1 <: Minibatcher, M2 <: Minibatche
 end
 
 """
-    FixedMinibatcher <: Minibatcher
+$(TYPEDEF)
 
 A `Minibatcher` that takes in a given epoch of batches. It creates a new epoch by either copying-in-order, or by shuffling, the provided batches.
 
 # Fields
 
 $(TYPEDFIELDS)
+
+# Example epochs
+
+```
+given_batches = [[1,2,3], [4,5,6], [7,8,9]]
+mb = FixedMinibatcher(given_batches)
+# create_new_epoch(mb) = [[1,2,3],[4,5,6],[7,8,9]]
+
+mb2 = FixedMinibatcher(given_batches, "random")
+# create_new_epoch(mb2) = [[4,5,6],[1,2,3],[7,8,9]]
+```
 """
 struct FixedMinibatcher{AV1 <: AbstractVector, SS <: AbstractString, ARNG <: AbstractRNG} <: Minibatcher
     "explicit indices of the minibatched epoch"
@@ -782,13 +815,25 @@ function create_new_epoch!(m::FM, args...; kwargs...) where {FM <: FixedMinibatc
 end
 
 """
-    RandomFixedSizeMinibatcher <: Minibatcher
+$(TYPEDEF)
 
 A `Minibatcher` that takes in a given epoch of batches. It creates a new epoch by either copying-in-order, or by shuffling, the provided batches.
 
 # Fields
 
 $(TYPEDFIELDS)
+
+# Example epochs
+
+```
+for data = 1:10
+batch_size = 3
+mb = RandomFixedSizeMinibatcher(batch_size)
+# create_new_epoch(mb) = [[6,7,5],[4,3,10],[9,2,8]] #  1 is trimmed
+
+mb2 = RandomFixedSizeMinibatcher(batch_size, "extend")
+# create_new_epoch(mb2) = [[2,9,1],[3,4,7],[10,5,1,6]] # last batch larger
+```
 """
 struct RandomFixedSizeMinibatcher{SS <: AbstractString, ARNG <: AbstractRNG, AV2 <: AbstractVector} <: Minibatcher
     "fixed size of minibatches"
@@ -897,7 +942,7 @@ end
 
 
 """
-    ObservationSeries
+$(TYPEDEF)
 
 Structure that contains multiple `Observation`s along with an optional `Minibatcher`. Stores all observations in `EnsembleKalmanProcess`, as well as defining the behavior of the `get_obs`, `get_obs_noise_cov`, and `get_obs_noise_cov_inv` methods
 

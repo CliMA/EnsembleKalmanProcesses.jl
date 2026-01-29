@@ -54,10 +54,11 @@ cases = [
     "transform-infinite",
     "unscented-infinite",
     "transform-unscented-infinite",
-    "sampler",
+    "sampler", # "aldi" variant of EKS
+    "sampler-eks", # original EKS
     "gauss-newton",
 ]
-case_list = cases[1:8] # i:j even if i=j
+case_list = cases[1:9] # i:j even if i=j
 
 # We can choose to add noise to every "G" call? (making the loss function of the problem noisy)
 stoch_G_flag = false
@@ -128,6 +129,11 @@ for case in case_list
         #        N_iterations = 5
     elseif case == "sampler"
         process = Sampler(prior)
+        #fixed_step = 1e-3 # 2e-6 unstable
+        scheduler = EKSStableScheduler()
+        N_iterations = 200
+    elseif case == "sampler-eks"
+        process = Sampler(prior, sampler_type = "eks")
         #fixed_step = 1e-3 # 2e-6 unstable
         scheduler = EKSStableScheduler()
         N_iterations = 200

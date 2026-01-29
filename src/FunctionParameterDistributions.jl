@@ -21,7 +21,7 @@ export get_package, spectrum, n_dofs, eval_pts, n_eval_pts, input_dims # for fun
 abstract type FunctionParameterDistributionType <: ParameterDistributionType end
 
 """
-$(DocStringExtensions.TYPEDEF)
+$(TYPEDEF)
 
 Type to dispatch which Gaussian Random Field package to use:
 
@@ -29,10 +29,16 @@ Type to dispatch which Gaussian Random Field package to use:
 
 """
 abstract type GaussianRandomFieldsPackage end
+
+"""
+$(TYPEDEF)
+
+dispatches methods that use the Julia Package [`GaussianRandomFields.jl`](https://github.com/PieterjanRobbe/GaussianRandomFields.jl) 
+"""
 struct GRFJL <: GaussianRandomFieldsPackage end
 
 """
-    struct GaussianRandomFieldInterface <: FunctionParameterDistributionType
+$(TYPEDEF)
 
 GaussianRandomFieldInterface object based on a GRF package. Only a ND->1D output-dimension field interface is implemented.
 
@@ -70,14 +76,20 @@ struct GaussianRandomFieldInterface <: FunctionParameterDistributionType
 end
 
 """
+$(TYPEDSIGNATURES)
+
 gets the package type used to construct the GRF
 """
 get_package(grfi::GaussianRandomFieldInterface) = grfi.package
 """
+$(TYPEDSIGNATURES)
+
 gets the distribution, i.e. Gaussian random field object
 """
 get_grf(grfi::GaussianRandomFieldInterface) = grfi.gaussian_random_field
 """
+$(TYPEDSIGNATURES)
+
 gets the, distribution over the coefficients
 """
 get_distribution(grfi::GaussianRandomFieldInterface) = grfi.distribution
@@ -85,42 +97,42 @@ get_distribution(grfi::GaussianRandomFieldInterface) = grfi.distribution
 
 ### Functions to look at grf properties i.e. (related to function view)
 """
-    spectrum(grfi::GaussianRandomFieldInterface)
+$(TYPEDSIGNATURES)
 
 the spectral information of the GRF, e.g. the Karhunen-Loeve coefficients and eigenfunctions if using this decomposition
 """
 spectrum(grfi::GaussianRandomFieldInterface) = spectrum(get_grf(grfi), get_package(grfi))
 
 """
-    input_dims(grfi::GaussianRandomFieldInterface
+$(TYPEDSIGNATURES)
 
 the number of input dimensions of the GRF
 """
 input_dims(grfi::GaussianRandomFieldInterface) = input_dims(get_grf(grfi), get_package(grfi))
 
 """
-    eval_pts(grfi::GaussianRandomFieldInterface)
+$(TYPEDSIGNATURES)
 
 the discrete evaluation point grid, stored as a range in each dimension
 """
 eval_pts(grfi::GaussianRandomFieldInterface) = eval_pts(get_grf(grfi), get_package(grfi))
 
 """
-    n_eval_pts(grfi::GaussianRandomFieldInterface)
+$(TYPEDSIGNATURES)
 
 the number of total discrete evaluation points
 """
 n_eval_pts(grfi::GaussianRandomFieldInterface) = n_eval_pts(get_grf(grfi), get_package(grfi))
 
 """
-    n_dofs(grfi::GaussianRandomFieldInterface)
+$(TYPEDSIGNATURES)
 
 the number of degrees of freedom / coefficients (i.e. the number of parameters)
 """
 n_dofs(grfi::GaussianRandomFieldInterface) = n_dofs(get_grf(grfi), get_package(grfi))
 
 """
-    build_function_sample(grfi::GaussianRandomFieldInterface, coeff_vecormat::AbstractVecOrMat, n_draws::Int)
+$(TYPEDSIGNATURES)
 
 build function `n_draw` times on the discrete grid, given the coefficients `coeff_vecormat`.
 
@@ -132,7 +144,7 @@ build_function_sample(grfi::GaussianRandomFieldInterface, coeff_vecormat::Abstra
     build_function_sample(grfi, coeff_vecormat, 1) # sample with rng once
 
 """
-    build_function_sample(rng::AbstractRNG, grfi::GaussianRandomFieldInterface, n_draws::Int)
+$(TYPEDSIGNATURES)
 
 sample function distribution `n_draw` times on the discrete grid, from the stored prior distributions.
 
@@ -194,7 +206,7 @@ end
 
 
 """
-    GaussianRandomFieldInterface(gaussian_random_field::Any, package::GRFJL)
+$(TYPEDSIGNATURES)
 
 Constructor of the interface with GRFJL package. Internally this constructs a prior for the degrees of freedom of the function distribution
 
@@ -230,14 +242,14 @@ sample(rng::AbstractRNG, grfi::GaussianRandomFieldInterface, n_draws::Int) =
 
 # unlike the other PDT, grfi contains internal constraints for the coeffs
 """
-    get_all_constraints(grfi::GaussianRandomFieldInterface) = get_all_constraints(get_distribution(grfi))
+$(TYPEDSIGNATURES)
 
 gets all the constraints of the internally stored coefficient prior distribution of the GRFI
 """
 get_all_constraints(grfi::GaussianRandomFieldInterface) = get_all_constraints(get_distribution(grfi))
 
 """
-    ndims(grfi::GaussianRandomFieldInterface, function_parameter_opt = "dof")
+$(TYPEDSIGNATURES)
 
 Provides a relevant number of dimensions in different circumstances, If `function_parameter_opt` =
 - "dof"       : returns `n_dofs(grfi)`, the degrees of freedom in the function
@@ -262,7 +274,7 @@ end
 
 # Specific methods for FunctionParameterDistributionType
 """
-    transform_unconstrained_to_constrained(d::GaussianRandomFieldInterface, constraint::AbstractVector, x::AbstractVector)
+$(TYPEDSIGNATURES)
 
 Optional Args build_flag::Bool = true
 
@@ -298,7 +310,7 @@ end
 
 
 """
-    transform_unconstrained_to_constrained(d::GaussianRandomFieldInterface, constraint::AbstractVector, x::AbstractMatri)
+$(TYPEDSIGNATURES)
 
 Optional args: build_flag::Bool = true
 
@@ -335,7 +347,7 @@ end
 
 ## Note that this is no longer an inverse to the above! Should be noted in the docs.
 """
-    transform_constrained_to_unconstrained(d::GaussianRandomFieldInterface, constraint::AbstractVector, x::AbstractMatrix)
+$(TYPEDSIGNATURES)
 
 Assume x is a matrix with columns as flattened samples of evaluation points.
 Remove the constraint from `constraint` to the output space of the function.
@@ -352,7 +364,7 @@ function transform_constrained_to_unconstrained(
 end
 
 """
-    transform_constrained_to_unconstrained(d::GaussianRandomFieldInterface, constraint::AbstractVector, x::AbstractVector)
+$(TYPEDSIGNATURES)
 
 Assume x is a flattened vector of evaluation points.
 Remove the constraint from `constraint` to the output space of the function.

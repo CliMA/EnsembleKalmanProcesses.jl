@@ -1,4 +1,4 @@
-# [Observations] (@id observations)
+# [Observations](@id observations)
 
 The Observations object facilitates convenient storing, grouping and minibatching over observations.
 
@@ -189,7 +189,7 @@ get_names(obs)
 > ["y_window_average", "z_window_average"]
 ```
 
-## [Building (scalable!) observational noise covariance] (@id building-covariances)
+## [Building (scalable!) observational noise covariance](@id building-covariances)
 
 For most low-dimensional problems (e.g. dim < 5000), the user can simply provide a `UniformScaling`, or an `AbstractMatrix` as they are most familiar, in conjunction with any EKP process.
 

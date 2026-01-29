@@ -51,8 +51,9 @@ Returns the stored `default_multiplicative_inflation` from the Inversion process
 get_default_multiplicative_inflation(process::Inversion) = process.default_multiplicative_inflation
 
 function Inversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation = 1e-3)
+    mp = isa(mean_prior, Real) ? [mean_prior] : mean_prior
     dmi = max(0.0, default_multiplicative_inflation)
-    return Inversion(mean_prior, cov_prior, impose_prior, dmi)
+    return Inversion(mp, cov_prior, impose_prior, dmi)
 end
 
 """
@@ -61,7 +62,7 @@ $(TYPEDSIGNATURES)
 Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 1e-3. 
 """
 function Inversion(prior::ParameterDistribution; impose_prior = true, default_multiplicative_inflation = 1e-3)
-    mean_prior = Vector(mean(prior))
+    mean_prior = isa(mean(prior), Real) ? [mean(prior)] : Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     return Inversion(
         mean_prior,
@@ -151,6 +152,7 @@ function eki_update(
 
         cov_est = cov([u; g_ext], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
+        add_diagonal_regularization!(cov_est)
         # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
         cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g_ext, 1), size(u, 2))
         cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
@@ -165,6 +167,7 @@ function eki_update(
         g_ext = g
         y_ext = y
         cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
+        add_diagonal_regularization!(cov_est)
 
         # Localization - a function taking in (cov, float-type, n_par, n_obs, n_ens)
         cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), size(u, 2))
@@ -177,17 +180,8 @@ function eki_update(
 
     # N_obs × N_obs \ [N_obs × N_ens]
     # --> tmp is [N_obs × N_ens]
-    tmp = try
-        FT.((cov_gg + obs_noise_cov_ext) \ (y_ext - g_ext))
-    catch e
-        if e isa SingularException
-            LHS = Matrix{BigFloat}(cov_gg + obs_noise_cov)
-            RHS = Matrix{BigFloat}(y - g)
-            FT.(LHS \ RHS)
-        else
-            rethrow(e)
-        end
-    end
+    verbose = ekp.verbose
+    tmp = FT.(safe_linear_solve(cov_gg + obs_noise_cov_ext, y_ext - g_ext; verbose))
     return u + (cov_ug * tmp) # [N_par × N_ens]  
 end
 

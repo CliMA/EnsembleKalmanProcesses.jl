@@ -461,65 +461,76 @@ end
     global eks_final_results = []
     global eksobjs = []
 
+    samplers = [
+        Sampler(prior; sampler_type = "aldi")
+        Sampler(prior; sampler_type = "eks")
+    ]
+    @test get_sampler_type(samplers[1]) == ALDI
+    @test get_sampler_type(samplers[2]) == EKS
+
+    #check default
+    @test Sampler(prior) == samplers[1]
     # Test EKS for different inverse problem
-    for (i_prob, inv_problem) in enumerate(inv_problems)
+    for sampler in samplers
+        "testing Sampler: $(get_sampler_type(sampler))..."
+        for (i_prob, inv_problem) in enumerate(inv_problems)
 
-        # Get inverse problem
-        y_obs, G, Γy, _ = inv_problem
+            # Get inverse problem
+            y_obs, G, Γy, _ = inv_problem
 
-        eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, Sampler(prior); rng = rng)
+            eksobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γy, deepcopy(sampler); rng = rng)
 
-        params_0 = get_u_final(eksobj)
-        g_ens = G(params_0)
+            params_0 = get_u_final(eksobj)
+            g_ens = G(params_0)
 
-        @test size(g_ens) == (n_obs, N_ens)
+            @test size(g_ens) == (n_obs, N_ens)
 
-        if !(size(g_ens, 1) == size(g_ens, 2))
-            g_ens_t = permutedims(g_ens, (2, 1))
-            @test_throws DimensionMismatch EKP.update_ensemble!(eksobj, g_ens_t)
-        end
+            if !(size(g_ens, 1) == size(g_ens, 2))
+                g_ens_t = permutedims(g_ens, (2, 1))
+                @test_throws DimensionMismatch EKP.update_ensemble!(eksobj, g_ens_t)
+            end
 
-        # EKS iterations
-        for i in 1:N_iter
-            params_i = get_ϕ_final(prior, eksobj)
-            g_ens = G(params_i)
-            EKP.update_ensemble!(eksobj, g_ens)
-        end
-        # Collect mean initial parameter for comparison
-        initial_guess = vec(mean(get_u_prior(eksobj), dims = 2))
-        # Collect mean final parameter as the solution
-        eks_final_result = get_u_mean_final(eksobj)
+            # EKS iterations
+            for i in 1:N_iter
+                params_i = get_ϕ_final(prior, eksobj)
+                g_ens = G(params_i)
+                EKP.update_ensemble!(eksobj, g_ens)
+            end
+            # Collect mean initial parameter for comparison
+            initial_guess = vec(mean(get_u_prior(eksobj), dims = 2))
+            # Collect mean final parameter as the solution
+            eks_final_result = get_u_mean_final(eksobj)
 
-        @test initial_guess == get_u_mean(eksobj, 1)
-        @test eks_final_result == vec(mean(get_u_final(eksobj), dims = 2))
-        eks_init_spread = tr(get_u_cov(eksobj, 1))
-        eks_final_spread = tr(get_u_cov_final(eksobj))
-        @test eks_final_spread < 2 * eks_init_spread # we wouldn't expect the spread to increase much in any one dimension
+            @test initial_guess == get_u_mean(eksobj, 1)
+            @test eks_final_result == vec(mean(get_u_final(eksobj), dims = 2))
+            eks_init_spread = tr(get_u_cov(eksobj, 1))
+            eks_final_spread = tr(get_u_cov_final(eksobj))
+            @test eks_final_spread < 2 * eks_init_spread # we wouldn't expect the spread to increase much in any one dimension
 
-        ϕ_final_mean = get_ϕ_mean_final(prior, eksobj)
-        ϕ_init_mean = get_ϕ_mean(prior, eksobj, 1)
+            ϕ_final_mean = get_ϕ_mean_final(prior, eksobj)
+            ϕ_init_mean = get_ϕ_mean(prior, eksobj, 1)
 
-        # ϕ_final_mean is transformed mean, not mean transformed parameter
-        @test ϕ_final_mean == transform_unconstrained_to_constrained(prior, eks_final_result)
-        @test ϕ_final_mean != vec(mean(get_ϕ_final(prior, eksobj), dims = 2))
-        # ϕ_init_mean is transformed mean, not mean transformed parameter
-        @test ϕ_init_mean == transform_unconstrained_to_constrained(prior, initial_guess)
-        @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj, 1), dims = 2))
-        @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj)[1], dims = 2))
-        # Regression test of algorithmic efficacy
-        @test norm(y_obs .- G(eks_final_result))^2 < norm(y_obs .- G(initial_guess))^2
-        @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
+            # ϕ_final_mean is transformed mean, not mean transformed parameter
+            @test ϕ_final_mean == transform_unconstrained_to_constrained(prior, eks_final_result)
+            @test ϕ_final_mean != vec(mean(get_ϕ_final(prior, eksobj), dims = 2))
+            # ϕ_init_mean is transformed mean, not mean transformed parameter
+            @test ϕ_init_mean == transform_unconstrained_to_constrained(prior, initial_guess)
+            @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj, 1), dims = 2))
+            @test ϕ_init_mean != vec(mean(get_ϕ(prior, eksobj)[1], dims = 2))
+            # Regression test of algorithmic efficacy
+            @test norm(y_obs .- G(eks_final_result))^2 < norm(y_obs .- G(initial_guess))^2
+            @test norm(ϕ_star - ϕ_final_mean) < norm(ϕ_star - ϕ_init_mean)
 
-        # Store for comparison with other algorithms
-        push!(eks_final_results, eks_final_result)
-        push!(eksobjs, eksobj)
-        if TEST_PLOT_OUTPUT
-            plot_inv_problem_ensemble(prior, eksobj, joinpath(@__DIR__, "EKS_test_$(i_prob).png"))
+            # Store for comparison with other algorithms
+            push!(eks_final_results, eks_final_result)
+            push!(eksobjs, eksobj)
+            if TEST_PLOT_OUTPUT
+                plot_inv_problem_ensemble(prior, eksobj, joinpath(@__DIR__, "EKS_test_$(i_prob).png"))
+            end
+
         end
 
     end
-
-
 end
 
 
@@ -538,8 +549,15 @@ end
     initial_ensemble_small = EKP.construct_initial_ensemble(rng, prior_60dims, 99)
     @test_logs (:warn,) EKP.EnsembleKalmanProcess(initial_ensemble_small, y_obs_tmp, Γy_tmp, Inversion())
 
-    initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
-
+    initial_ensemble = EKP.construct_initial_ensemble(copy(rng), prior, N_ens)
+    initial_ensemble_constrained = EKP.construct_initial_ensemble(copy(rng), prior, N_ens, constrained = true)
+    @test all(
+        isapprox.(
+            transform_unconstrained_to_constrained(prior, initial_ensemble),
+            initial_ensemble_constrained,
+            atol = 10 * eps(),
+        ),
+    )
     #
     initial_ensemble_inf = EKP.construct_initial_ensemble(copy(rng), initial_dist, N_ens) # for the _inf object initial != prior
 
@@ -630,8 +648,10 @@ end
         @test get_obs_noise_cov(ekiobj, 1) == Γy
         @test get_obs_noise_cov_inv(ekiobj) == get_obs_noise_cov_inv(ekiobj, 1)
 
-        g_ens = G(get_ϕ_final(prior, ekiobj))
+        params_0 = get_ϕ_final(prior, ekiobj)
+        g_ens = G(params_0)
         g_ens_t = permutedims(g_ens, (2, 1))
+        @test all(isapprox.(params_0, initial_ensemble_constrained, atol = 10 * eps()))
 
         @test size(g_ens) == (n_obs, N_ens)
         @test get_N_ens(ekiobj) == ekiobj.N_ens
@@ -646,6 +666,7 @@ end
         for i in 1:N_iter
             # Check SampleSuccGauss handler
             params_i = get_ϕ_final(prior, ekiobj)
+
             push!(u_i_vec, get_u_final(ekiobj))
             g_ens = G(params_i)
             # Add random failures
@@ -828,6 +849,7 @@ end
         TransformUnscented(prior; impose_prior = true),
     ]
     for (i, proc) in enumerate(proc_tmp)
+
         if i <= 2
             @test proc.uu_cov[1] == [1.0 0.0; 0.0 1.0]
             @test proc.u_mean[1] == [1.0, 1.0]
@@ -836,7 +858,6 @@ end
             @test proc.prior_mean == proc.u_mean[1]
         end
     end
-
 
     for (i_prob, inv_problem, impose_prior, update_freq) in
         zip(1:length(inv_problems), inv_problems, impose_priors, update_freqs)
@@ -894,6 +915,19 @@ end
             scheduler = deepcopy(scheduler),
             failure_handler_method = IgnoreFailures(),
         )
+
+        # initial ensemble builder
+        initial_ens = construct_initial_ensemble(prior, process)
+        initial_ens_cons = construct_initial_ensemble(prior, process, constrained = true)
+        @test all(isapprox.(get_u_final(ukiobj), initial_ens))
+        @test all(isapprox.(get_ϕ_final(prior, ukiobj), initial_ens_cons))
+        initial_ens = construct_initial_ensemble(prior, process_t)
+        initial_ens_cons = construct_initial_ensemble(prior, process_t, constrained = true)
+        @test all(isapprox.(get_u_final(ukiobj_t), initial_ens))
+        @test all(isapprox.(get_ϕ_final(prior, ukiobj_t), initial_ens_cons))
+
+
+
         # test simplex sigma points
         process_simplex = Unscented(prior; sigma_points = "simplex", impose_prior = impose_prior)
         process_t_simplex = TransformUnscented(prior; sigma_points = "simplex", impose_prior = impose_prior) # run unstable code but dont compare
@@ -913,6 +947,19 @@ end
             scheduler = scheduler_simplex,
             failure_handler_method = SampleSuccGauss(),
         )
+
+        initial_ens = construct_initial_ensemble(prior, process_simplex)
+        initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained = true)
+        @test all(isapprox.(get_u_final(ukiobj_simplex), initial_ens))
+        @test all(isapprox.(get_ϕ_final(prior, ukiobj_simplex), initial_ens_cons))
+
+        initial_ens = construct_initial_ensemble(prior, process_t_simplex)
+        initial_ens_cons = construct_initial_ensemble(prior, process_t_simplex, constrained = true)
+        @test all(isapprox.(get_u_final(ukiobj_t_simplex), initial_ens))
+        @test all(isapprox.(get_ϕ_final(prior, ukiobj_t_simplex), initial_ens_cons))
+
+
+
         # Test incorrect construction throws error
         @test_throws ArgumentError Unscented(prior; sigma_points = "unknowns", impose_prior = impose_prior)
         @test_throws ArgumentError TransformUnscented(prior; sigma_points = "unknowns", impose_prior = impose_prior)
@@ -1567,5 +1614,69 @@ end
         if TEST_PLOT_OUTPUT
             plot_inv_problem_ensemble(prior, gnkiobj, joinpath(@__DIR__, "GNKI_test_$(i_prob).png"))
         end
+    end
+end
+
+@testset "LinearSolve" begin
+    @testset "safe_linear_solve" begin
+        A = randn(5, 5)
+        b = randn(5)
+        B = randn(5, 3)
+
+        # safe_linear_solve with vector
+        x_ref = A \ b
+        x = safe_linear_solve(A, b)
+        @test isapprox(x, x_ref; rtol = 1e-10, atol = 1e-12)
+        @test eltype(x) == eltype(x_ref)
+
+        # safe_linear_solve with matrix
+        X_ref = A \ B
+        X = safe_linear_solve(A, B)
+        @test isapprox(X, X_ref; rtol = 1e-10, atol = 1e-12)
+        @test eltype(X) == eltype(X_ref)
+
+        # safe_linear_solve! with vector
+        x_inplace = zeros(5)
+        safe_linear_solve!(x_inplace, A, b)
+        @test isapprox(x_inplace, x_ref; rtol = 1e-10, atol = 1e-12)
+
+        # safe_linear_solve! with matrix
+        X_inplace = zeros(5, 3)
+        safe_linear_solve!(X_inplace, A, B)
+        @test isapprox(X_inplace, X_ref; rtol = 1e-10, atol = 1e-12)
+
+        # dimension mismatch for safe_linear_solve!
+        X_wrong = zeros(4, 3)
+        @test_throws DimensionMismatch safe_linear_solve!(X_wrong, A, B)
+
+        # rank-deficient matrix
+        A_singular = [
+            1.0 2.0
+            2.0 4.0
+        ]
+        b_singular = randn(2)
+        x_pinv = pinv(A_singular) * b_singular
+
+        x_safe = safe_linear_solve(A_singular, b_singular)
+        @test isapprox(x_safe, x_pinv; rtol = 1e-10, atol = 1e-12)
+
+        x_safe_inplace = zeros(2)
+        safe_linear_solve!(x_safe_inplace, A_singular, b_singular)
+        @test isapprox(x_safe_inplace, x_pinv; rtol = 1e-10, atol = 1e-12)
+    end
+
+    @testset "add_diagonal_regularization!" begin
+        C = randn(5, 5)
+        C = 0.5 * (C + C')  # symmetric
+        C0 = copy(C)
+
+        fac = sqrt(eps(eltype(C)))
+        add_diagonal_regularization!(C)
+        @test all(diag(C) .≈ diag(C0) .+ fac)
+        @test all(abs.(C .- Diagonal(diag(C))) .≈ abs.(C0 .- Diagonal(diag(C0))))
+
+        C2 = copy(C0)
+        add_diagonal_regularization!(C2; regularization_factor = 1e-8)
+        @test all(diag(C2) .≈ diag(C0) .+ 1e-8)
     end
 end

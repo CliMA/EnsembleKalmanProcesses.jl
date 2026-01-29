@@ -118,14 +118,17 @@ initial_params = construct_initial_ensemble(rng, prior, N_ens)
 ekiobj = EKP.EnsembleKalmanProcess(initial_params, truth_sample, obs_noise_cov, Inversion(), scheduler=DataMisfitController())
 ```
 
-We perform the inversion loop. Remember that within calls to `get_ϕ_final` the EKP transformations are applied, thus the ensemble that is returned will be the positively-bounded permeability field evaluated at all the discretization points. Each ensemble member is stored as a column and therefore for uses such as plotting one needs to reshape to the desired dimension.
+We perform the inversion loop. Remember that within calls to `get_ϕ_final` the EKP transformations are applied, thus the ensemble that is returned will be the positively-bounded permeability field evaluated at all the discretization points. Each ensemble member is stored as a column and therefore for uses such as plotting one needs to reshape to the desired dimension. We allow for early termination when using the `DataMisfitController` scheudler.
 
 ```julia
 err = zeros(N_iter)
 for i in 1:N_iter
     params_i = get_ϕ_final(prior, ekiobj)
     g_ens = run_G_ensemble(darcy, params_i)
-    EKP.update_ensemble!(ekiobj, g_ens)
+    terminate = EKP.update_ensemble!(ekiobj, g_ens)
+    if !isnothing(terminate)
+        break
+    end
 end
 ```
 

@@ -126,7 +126,7 @@ end
 # implemented by specializing
 # Makie.plot!(plot::ConstrainedParamsAndItersOrTime)
 @recipe(ErrorAndItersOrTime, ekp) do scene
-    Attributes(linewidth = 4.5)
+    Attributes(linewidth = 4.5, xvals = nothing, error_metric = nothing)
 end
 
 """
@@ -238,7 +238,7 @@ end
 # Define the function constrainedparamsanditersortime whose functionality is
 # implemented by specializing Makie.plot!(plot::ConstrainedParamsAndItersOrTime)
 @recipe(ConstrainedParamsAndItersOrTime, ekp, prior, dim_idx) do scene
-    Theme()
+    Attributes(xvals = nothing)
 end
 
 """
@@ -248,7 +248,7 @@ Plot the constrained parameter of index `dim_idx` against time on `gridposition`
 
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
-(`Makie.Scatter`)[https://docs.makie.org/dev/reference/plots/scatter].
+[`Makie.Scatter`](https://docs.makie.org/dev/reference/plots/scatter).
 """
 Visualize.plot_ϕ_over_iters(args...; kwargs...) =
     _plot_ϕ_over_iters(constrainedparamsanditersortime, args...; kwargs...)
@@ -260,7 +260,7 @@ Plot the constrained parameter of index `dim_idx` against time on `axis`.
 
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
-(`Makie.Scatter`)[https://docs.makie.org/dev/reference/plots/scatter].
+[`Makie.Scatter`](https://docs.makie.org/dev/reference/plots/scatter).
 """
 Visualize.plot_ϕ_over_iters!(args...; kwargs...) =
     _plot_ϕ_over_iters(constrainedparamsanditersortime!, args...; kwargs...)
@@ -299,7 +299,7 @@ Plot the constrained parameter of index `dim_idx` against time on `gridposition`
 
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
-(`Makie.Scatter`)[https://docs.makie.org/dev/reference/plots/scatter].
+[`Makie.Scatter`](https://docs.makie.org/dev/reference/plots/scatter).
 """
 Visualize.plot_ϕ_over_time(args...; kwargs...) = _plot_ϕ_over_time(constrainedparamsanditersortime, args...; kwargs...)
 
@@ -310,7 +310,7 @@ Plot the constrained parameter of index `dim_idx` against time on `axis`.
 
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
-(`Makie.Scatter`)[https://docs.makie.org/dev/reference/plots/scatter].
+[`Makie.Scatter`](https://docs.makie.org/dev/reference/plots/scatter).
 """
 Visualize.plot_ϕ_over_time!(args...; kwargs...) =
     _plot_ϕ_over_time(constrainedparamsanditersortime!, args...; kwargs...)
@@ -364,7 +364,7 @@ end
 # implemented by specializing
 # Makie.plot!(plot::ConstrainedMeanParamsAndItersOrTime)
 @recipe(ConstrainedMeanParamsAndItersOrTime, ekp, prior, dim_idx) do scene
-    Attributes(linewidth = 4.5)
+    Attributes(linewidth = 4.5, xvals = nothing, plot_std = nothing)
 end
 
 """
@@ -379,7 +379,7 @@ of the ensemble is also plotted.
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 [`Makie.Lines`](https://docs.makie.org/dev/reference/plots/lines) and
-(`Makie.Band`)[https://docs.makie.org/dev/reference/plots/band] if
+[`Makie.Band`](https://docs.makie.org/dev/reference/plots/band) if
 `plot_std = true`.
 
 Keyword arguments passed to `line_kwargs` and `band_kwargs` are merged with
@@ -401,7 +401,7 @@ of the ensemble is also plotted.
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 [`Makie.Lines`](https://docs.makie.org/dev/reference/plots/lines) and
-(`Makie.Band`)[https://docs.makie.org/dev/reference/plots/band] if
+[`Makie.Band`](https://docs.makie.org/dev/reference/plots/band) if
 `plot_std = true`.
 
 Keyword arguments passed to `line_kwargs` and `band_kwargs` are merged with
@@ -460,7 +460,7 @@ of the ensemble is also plotted.
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 [`Makie.Lines`](https://docs.makie.org/dev/reference/plots/lines) and
-(`Makie.Band`)[https://docs.makie.org/dev/reference/plots/band] if
+[`Makie.Band`](https://docs.makie.org/dev/reference/plots/band) if
 `plot_std = true`.
 
 Keyword arguments passed to `line_kwargs` and `band_kwargs` are merged with
@@ -482,7 +482,7 @@ of the ensemble is also plotted.
 Any keyword arguments is passed to the plotting function which takes in any
 keyword arguments supported by
 [`Makie.Lines`](https://docs.makie.org/dev/reference/plots/lines) and
-(`Makie.Band`)[https://docs.makie.org/dev/reference/plots/band] if
+[`Makie.Band`](https://docs.makie.org/dev/reference/plots/band) if
 `plot_std = true`.
 
 Keyword arguments passed to `line_kwargs` and `band_kwargs` are merged with

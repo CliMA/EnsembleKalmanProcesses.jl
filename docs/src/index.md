@@ -51,7 +51,7 @@ Currently, the following processes are implemented in the library. More details 
 ```@raw html
 <img src="assets/animations/animated_gauss-newton.gif" width="300"> <img src="assets/animations/animated_gauss-newton_stochG.gif" width="300">
 ```
- - [`Sampler(prior)`](@ref eks) Ensemble Kalman Sampler (EKS) - also obtains a Gaussian Approximation of the posterior distribution, through a Monte Carlo integration ([Garbuno-Inigo, Hoffmann, Li, Stuart, 2020](https://doi.org/10.1137/19M1251655)),
+ - [`Sampler(prior)`](@ref eks) Ensemble Kalman Sampler (EKS) - also obtains a Gaussian Approximation of the posterior distribution, through a Monte Carlo integration [Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1304891), ("ALDI" variant)
 ```@raw html
 <img src="assets/animations/animated_sampler.gif" width="300"> <img src="assets/animations/animated_sampler_stochG.gif" width="300">
 ```

@@ -64,8 +64,9 @@ Returns the stored `default_multiplicative_inflation` from the TransformInversio
 get_default_multiplicative_inflation(p::TI) where {TI <: TransformInversion} = p.default_multiplicative_inflation
 
 function TransformInversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation = 0.0)
+    mp = isa(mean_prior, Real) ? [mean_prior] : mean_prior
     dmi = max(0.0, default_multiplicative_inflation)
-    return TransformInversion(mean_prior, cov_prior, impose_prior, dmi, [])
+    return TransformInversion(mp, cov_prior, impose_prior, dmi, [])
 end
 
 """
@@ -74,7 +75,7 @@ $(TYPEDSIGNATURES)
 Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 0.0.
 """
 function TransformInversion(prior::ParameterDistribution; impose_prior = true, default_multiplicative_inflation = 0.0)
-    mean_prior = Vector(mean(prior))
+    mean_prior = isa(mean(prior), Real) ? [mean(prior)] : Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     return TransformInversion(
         mean_prior,
@@ -147,6 +148,9 @@ function etki_update(
     X = FT.((u .- mean(u, dims = 2)) / sqrt(m - 1))
     Y = FT.((g_ext .- mean(g_ext, dims = 2)) / sqrt(m - 1))
 
+    # Apply diagonal regularization to prevent singular matrix issues in covariance computations
+    # This ensures numerical stability when ensemble members are similar or identical
+
     # we have three options with the buffer:
     # (1) in the first iteration, create a buffer
     # (2) if a future iteration requires a smaller buffer, use the existing tmp
@@ -178,7 +182,9 @@ function etki_update(
     for i in 1:ys2
         tmp[2][i, i] += 1.0
     end
-    Ω = inv(tmp[2][1:ys2, 1:ys2]) # Ω = inv(I + Y' * Γ_inv * Y)
+    add_diagonal_regularization!(tmp[2][1:ys2, 1:ys2])
+    verbose = ekp.verbose
+    Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2); verbose) # Ω = inv(I + Y' * Γ_inv * Y)
     w = FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- mean(g_ext, dims = 2))) #  w = Ω * Y' * Γ_inv * (y .- g_mean))
 
     return mean(u, dims = 2) .+ X * (w .+ sqrt(m - 1) * real(sqrt(Ω))) # [N_par × N_ens]
