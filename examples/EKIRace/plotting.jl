@@ -4,8 +4,10 @@ using Plots
 using JLD2
 using Statistics
 
-data_filename = "output/l96_output_vec-force_2026-01-30.jld2" # add filename here
+plot_id = "l63" # id in output filename
+data_filename = "output/l63_output_2026-01-30.jld2" # add filename here
 @info "reading filename: $(data_filename)"
+@info "plotting id: $(plot_id)"
 
 data = JLD2.load(data_filename)
 configuration        = data["configuration"]
@@ -26,10 +28,10 @@ if ~isdir(data_save_directory)
     mkdir(data_save_directory)
 end
 
-ens_size_index = 2 # add info statement here
-@info "Index pickekd in ensemble sizes list: $ens_size_index"
+ens_size_index = 1
+@info "Index picked in ensemble sizes list: $ens_size_index"
 N_ens_size = configuration["N_ens_sizes"]
-@info "Plotting for ensemble size = $(N_ens_size[ens_size_index])"
+@info "Plotting for ensemble size = $(N_ens_size[ens_size_index]) of $(N_ens_size)"
 
 ens_size_per_method = []
 labels = String[]
@@ -45,9 +47,12 @@ end
 
 avg_evaluations = mean(conv_alg_iters[:, ens_size_index, :], dims = 2)
 if size(conv_alg_iters)[3] >= 3
-    eval_err = std(conv_alg_iters[:, ens_size_index, :], dims = 2)
+    std_evaluations = std(conv_alg_iters[:, ens_size_index, :], dims = 2)
+    eval_err_low = min.(avg_evaluations, std_evaluations)
+    eval_err_high = std_evaluations
 else 
-    eval_err = zeros(length(labels))
+    eval_err_low = zeros(length(labels))
+    eval_err_high = zeros(length(labels))
 end
 @info "Error bars plotted for experiments with 3 or more trials (random seeeds)"
 target_rmse = configuration["target_rmse"]
@@ -55,7 +60,7 @@ target_rmse = configuration["target_rmse"]
 fow_run_plot = bar(
     labels,
     avg_evaluations,
-    yerr = eval_err,
+    yerr = [eval_err_low'; eval_err_high']',
     color = [:lightgreen, :deepskyblue3, :palevioletred1, :mediumpurple1],
     xlabel = "Method (ensemble size)",
     ylabel = "Average number of model evaluations",
@@ -67,12 +72,12 @@ fow_run_plot = bar(
     reuse = false,
 )
 readline()
-savefig(fow_run_plot, figure_save_directory * "fow_run_comparison.png")
+savefig(fow_run_plot, joinpath(figure_save_directory, "$(plot_id)_ens$(N_ens_size[ens_size_index])_" * "fow_run_comparison.png"))
 
 iter_plot = bar(
     labels,
     avg_evaluations ./ ens_size_per_method,
-    yerr = (eval_err ./ ens_size_per_method),
+    yerr = ([eval_err_low'; eval_err_high']' ./ ens_size_per_method),
     color = [:lightgreen, :deepskyblue3, :palevioletred1, :mediumpurple1],
     xlabel = "Method (ensemble size)",
     ylabel = "Average number of iterations",
@@ -84,24 +89,4 @@ iter_plot = bar(
     reuse = false,
 )
 readline()
-savefig(iter_plot, figure_save_directory * "number_of_iterations.png")
-
-
-
-# p = plot(
-#     configuration["N_ens_sizes"],
-#     [mean(conv_alg_iters[1, :, :], dims = 2) mean(conv_alg_iters[2, :, :], dims = 2) mean(
-#         conv_alg_iters[3, :, :],
-#         dims = 2,
-#     )],
-#     label = ["EKI" "ETKI" "GNKI"],
-#     color = [:lightgreen :deepskyblue3 :palevioletred1],
-#     xlabel = "Ensemble size",
-#     ylabel = "Number of forward runs",
-#     title = "EKI Race",
-#     show = true,
-#     reuse = false,
-# )
-# plot!([81], [mean(conv_alg_iters[4, :, :])], label = "UKI", color = :mediumpurple1, marker = :square)
-# readline()
-# savefig(p, figure_save_directory * "fow_run_comparison.png")
+savefig(iter_plot, joinpath(figure_save_directory, "$(plot_id)_ens$(N_ens_size[ens_size_index])_" * "number_of_iterations.png"))
