@@ -2,7 +2,6 @@ using DocStringExtensions
 using LinearAlgebra
 using Statistics
 using Random
-using TSVD
 import Base: size
 export Observation, Minibatcher, FixedMinibatcher, RandomFixedSizeMinibatcher, ObservationSeries, SVDplusD, DminusTall
 export get_samples,
@@ -134,9 +133,8 @@ $(TYPEDSIGNATURES)
 
 For a given matrix `X` and rank `r`, return the truncated SVD for X as a LinearAlgebra.jl `SVD` object. Setting `return_inverse=true` also return it's psuedoinverse X⁺.
 """
-function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, tsvd_kwargs...)
+function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, kwargs...)
 
-    # Note, must only use tsvd approximation when rank < minimum dimension of X or you get very poor approximation.
     if isa(X, UniformScaling)
         if return_inverse
             return svd(X(r)), svd(inv(X)(r))
@@ -146,35 +144,29 @@ function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, tsvd_kwargs.
     else
         rx = rank(X)
         mindim = minimum(size(X))
+        SS = svd(X)
+
         if rx <= r
             if rx < r && !quiet
                 @warn(
                     "Requested truncation to rank $(r) for an input matrix of rank $(rx). Performing (truncated) SVD for rank $(rx) matrix."
                 )
             end
-
-            if rx < mindim
-                U, s, V = tsvd(X, rx; tsvd_kwargs...)
-            else # perform exact svd (do NOT use tsvd for this! very poor approximation)
-                SS = svd(X)
-                if return_inverse
-                    return SS, SVD(permutedims(SS.Vt, (2, 1)), 1 ./ SS.S, permutedims(SS.U, (2, 1)))
-                else
-                    return SS
-                end
-            end
-        else
-            U, s, V = tsvd(X, r; tsvd_kwargs...)
         end
+        trunc = min(r, rx)
+
+        # Note this following call scales poorly with N. So if r << N AND r=O(1-20), then we could replace this with TSVD.jl "tsvd(X,r=...)", poor accuracy with ~ r>=20. Leaving for now.
+        U, s, Vt = SS.U[:, 1:trunc], SS.S[1:trunc], SS.Vt[1:trunc, :]
+
         if return_inverse
-            return SVD(U, s, permutedims(V, (2, 1))), SVD(V, 1 ./ s, permutedims(U, (2, 1)))
+            return SVD(U, s, Vt), SVD(permutedims(Vt, (2, 1)), 1 ./ s, permutedims(U, (2, 1)))
         else
-            return SVD(U, s, permutedims(V, (2, 1)))
+            return SVD(U, s, Vt)
         end
     end
 end
 
-function tsvd_mat(X; return_inverse = false, quiet = false, tsvd_kwargs...)
+function tsvd_mat(X; return_inverse = false, quiet = false, kwargs...)
     if isa(X, UniformScaling)
         throw(
             ArgumentError(
@@ -182,7 +174,7 @@ function tsvd_mat(X; return_inverse = false, quiet = false, tsvd_kwargs...)
             ),
         )
     end
-    return tsvd_mat(X, rank(X); return_inverse = return_inverse, quiet = quiet, tsvd_kwargs...)
+    return tsvd_mat(X, rank(X); return_inverse = return_inverse, quiet = quiet, kwargs...)
 end
 
 """
@@ -215,7 +207,7 @@ function tsvd_cov_from_samples(
     data_are_columns::Bool = true,
     return_inverse = false,
     quiet = false,
-    tsvd_kwargs...,
+    kwargs...,
 ) where {AM <: AbstractMatrix}
     mat = data_are_columns ? sample_mat : permutedims(sample_mat, (2, 1))
     FT = eltype(mat)
@@ -231,11 +223,11 @@ function tsvd_cov_from_samples(
     rk = min(rank(debiased_scaled_mat), r)
 
     if return_inverse
-        A, Ainv = tsvd_mat(debiased_scaled_mat, rk; return_inverse = return_inverse, tsvd_kwargs...)
+        A, Ainv = tsvd_mat(debiased_scaled_mat, rk; return_inverse = return_inverse, kwargs...)
         # A now represents the sqrt of the covariance, so we square the singular values 
         return SVD(A.U, A.S .^ 2, permutedims(A.U, (2, 1))), SVD(permutedims(Ainv.Vt, (2, 1)), Ainv.S .^ 2, Ainv.Vt)
     else
-        A = tsvd_mat(debiased_scaled_mat, rk; return_inverse = return_inverse, tsvd_kwargs...)
+        A = tsvd_mat(debiased_scaled_mat, rk; return_inverse = return_inverse, kwargs...)
         # A now represents the sqrt of the covariance, so we square the singular values 
         return SVD(A.U, A.S .^ 2, permutedims(A.U, (2, 1)))
     end
@@ -246,7 +238,7 @@ function tsvd_cov_from_samples(
     data_are_columns::Bool = true,
     return_inverse = false,
     quiet = false,
-    tsvd_kwargs...,
+    kwargs...,
 ) where {AM <: AbstractMatrix}
     # (need to compute this to get the rank as debiasing can change it)
     mat = data_are_columns ? sample_mat : permutedims(sample_mat, (2, 1))
@@ -258,7 +250,7 @@ function tsvd_cov_from_samples(
         data_are_columns = data_are_columns,
         return_inverse = return_inverse,
         quiet = quiet,
-        tsvd_kwargs...,
+        kwargs...,
     )
 end
 

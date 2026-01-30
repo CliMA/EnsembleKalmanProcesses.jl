@@ -190,8 +190,8 @@ end
     pinv_full_cov = pinv(full_cov) # inv is not well defined, but psuedoinv is
 
     mat_lr, mat_inv_lr = tsvd_cov_from_samples(testmat3, return_inverse = true)
-    @test norm(full_cov - mat_lr.U * Diagonal(mat_lr.S) * mat_lr.Vt) < 1e-10
-    @test norm(pinv_full_cov - mat_inv_lr.U * Diagonal(mat_inv_lr.S) * mat_inv_lr.Vt) < 1e-10
+    @test norm(full_cov - Matrix(mat_lr)) < 1e-10
+    @test norm(pinv_full_cov - Matrix(mat_inv_lr)) < 1e-10
 
     @test_throws ArgumentError tsvd_cov_from_samples(testmat3[:, 1:1])
     @test_logs (:warn,) tsvd_cov_from_samples(testmat3, data_are_columns = false)
@@ -214,6 +214,31 @@ end
     cov_inv_lr2 = get_obs_noise_cov_inv(obs_inv_lr)
     @test norm(pinv_full_cov - cov_inv_lr) < 1e-10
     @test norm(pinv_full_cov - cov_inv_lr2) < 1e-10
+
+    # Check sing vals/vecs for a larger matrix
+    NN = 500
+    testmat4 = randn(rng, 100_000, NN)
+    mat = tsvd_cov_from_samples(testmat4)
+    rk = length(mat.S)
+    mat_test = svd(1 / sqrt(NN - 1) * (testmat4 .- mean(testmat4, dims = 2))) # svd of scaled,debiased, samples (but NOT cov)
+
+    @test norm(mat.S - mat_test.S[1:rk] .^ 2) < 1e-11
+    @test norm(mat.U - mat_test.U[:, 1:rk]) < 1e-10
+    @test norm(mat.Vt - mat_test.U[:, 1:rk]') < 1e-10
+
+    mat_lr4 = tsvd_cov_from_samples(testmat4, 10)
+    @test norm(mat_lr4.S - mat_test.S[1:10] .^ 2) < 1e-11
+    @test norm(mat_lr4.U - mat_test.U[:, 1:10]) < 1e-10
+    @test norm(mat_lr4.Vt - mat_test.U[:, 1:10]') < 1e-10
+
+    @info "tsvd_from_cov_sample() timings for K x 500 matrix at different K"
+    for sz in (1000, 10_000, 100_000, 1_000_000)
+        testmat4 = randn(rng, 100_000, NN)
+        dt = @elapsed begin
+            mat = tsvd_cov_from_samples(testmat4)
+        end
+        @info "    K=$(sz):  $(dt)"
+    end
 
     # even more reduced rank
     rk = 3
