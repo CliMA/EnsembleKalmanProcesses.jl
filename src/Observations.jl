@@ -143,7 +143,6 @@ function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, kwargs...)
         end
     else
         rx = rank(X)
-        mindim = minimum(size(X))
         SS = svd(X)
 
         if rx <= r
