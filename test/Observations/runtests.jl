@@ -231,7 +231,7 @@ end
     @test norm(mat_lr4.U - mat_test.U[:, 1:10]) < 1e-10
     @test norm(mat_lr4.Vt - mat_test.U[:, 1:10]') < 1e-10
 
-    NN=100
+    NN = 100
     @info "tsvd_from_cov_sample() timings for K x $(NN) matrix at different K"
     for sz in (1000, 10_000, 100_000, 1_000_000)
         testmat4 = randn(rng, sz, NN)
