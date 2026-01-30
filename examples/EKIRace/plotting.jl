@@ -10,11 +10,11 @@ data_filename = "output/l63_output_2026-01-30.jld2" # add filename here
 @info "plotting id: $(plot_id)"
 
 data = JLD2.load(data_filename)
-configuration        = data["configuration"]
-method_names         = data["method_names"]
-conv_alg_iters       = data["conv_alg_iters"]
-final_parameters     = data["final_parameters"]
-final_model_output   = data["final_model_output"]
+configuration = data["configuration"]
+method_names = data["method_names"]
+conv_alg_iters = data["conv_alg_iters"]
+final_parameters = data["final_parameters"]
+final_model_output = data["final_model_output"]
 
 # Output figure save directory
 homedir = pwd()
@@ -38,7 +38,7 @@ labels = String[]
 for method in method_names
     if method[2] == "UKI"
         push!(labels, method[2] * " ($(1 +2*(size(final_parameters, 4))))")
-        push!(ens_size_per_method, 1 +2*(size(final_parameters, 4)))
+        push!(ens_size_per_method, 1 + 2 * (size(final_parameters, 4)))
     else
         push!(labels, method[2] * " ($(N_ens_size[ens_size_index]))")
         push!(ens_size_per_method, N_ens_size[ens_size_index])
@@ -50,7 +50,7 @@ if size(conv_alg_iters)[3] >= 3
     std_evaluations = std(conv_alg_iters[:, ens_size_index, :], dims = 2)
     eval_err_low = min.(avg_evaluations, std_evaluations)
     eval_err_high = std_evaluations
-else 
+else
     eval_err_low = zeros(length(labels))
     eval_err_high = zeros(length(labels))
 end
@@ -64,7 +64,7 @@ fow_run_plot = bar(
     color = [:lightgreen, :deepskyblue3, :palevioletred1, :mediumpurple1],
     xlabel = "Method (ensemble size)",
     ylabel = "Average number of model evaluations",
-    title  = "Target RMSE = $target_rmse",
+    title = "Target RMSE = $target_rmse",
     bar_width = 0.7,
     alpha = 0.8,
     legend = false,
@@ -72,7 +72,10 @@ fow_run_plot = bar(
     reuse = false,
 )
 readline()
-savefig(fow_run_plot, joinpath(figure_save_directory, "$(plot_id)_ens$(N_ens_size[ens_size_index])_" * "fow_run_comparison.png"))
+savefig(
+    fow_run_plot,
+    joinpath(figure_save_directory, "$(plot_id)_ens$(N_ens_size[ens_size_index])_" * "fow_run_comparison.png"),
+)
 
 iter_plot = bar(
     labels,
@@ -81,7 +84,7 @@ iter_plot = bar(
     color = [:lightgreen, :deepskyblue3, :palevioletred1, :mediumpurple1],
     xlabel = "Method (ensemble size)",
     ylabel = "Average number of iterations",
-    title  = "Target RMSE = $target_rmse",
+    title = "Target RMSE = $target_rmse",
     bar_width = 0.7,
     alpha = 0.8,
     legend = false,
@@ -89,4 +92,7 @@ iter_plot = bar(
     reuse = false,
 )
 readline()
-savefig(iter_plot, joinpath(figure_save_directory, "$(plot_id)_ens$(N_ens_size[ens_size_index])_" * "number_of_iterations.png"))
+savefig(
+    iter_plot,
+    joinpath(figure_save_directory, "$(plot_id)_ens$(N_ens_size[ens_size_index])_" * "number_of_iterations.png"),
+)
