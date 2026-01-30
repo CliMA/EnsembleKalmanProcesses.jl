@@ -17,6 +17,7 @@ const EKP = EnsembleKalmanProcesses
 
 include("Lorenz96.jl") # Contains Lorenz 96 source code
 
+verbose_flag = false
 ########################################################################
 ############### Choose problem type and structure ######################
 ########################################################################
@@ -253,7 +254,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                     R,
                     deepcopy(method);
                     rng = copy(rng),
-                    verbose = true,
+                    verbose = verbose_flag,
                     accelerator = DefaultAccelerator(),
                     localization_method = NoLocalization(),
                     scheduler = DefaultScheduler(),
@@ -265,7 +266,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                     R,
                     deepcopy(method);
                     rng = copy(rng),
-                    verbose = true,
+                    verbose = verbose_flag,
                     accelerator = DefaultAccelerator(),
                     localization_method = NoLocalization(),
                     scheduler = DefaultScheduler(),
