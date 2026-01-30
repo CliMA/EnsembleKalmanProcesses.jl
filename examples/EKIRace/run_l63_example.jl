@@ -19,10 +19,10 @@ include("Lorenz63.jl") # Contains Lorenz 96 source code
 ############### Choose problem type and structure ######################
 ########################################################################
 
-N_ens_sizes = [20] # list of number of ensemble members (should be problem dependent)
+N_ens_sizes = [20, 25, 30] # list of number of ensemble members (should be problem dependent)
 N_iter = 20 # maximum number of EKI iterations allowed
 target_rmse = 1.0 # target RMSE 
-rng_seeds = [3] # list of random seeds
+rng_seeds = [3, 4] # list of random seeds
 @info "Running Lorenz 63 problem"
 @info "Maximum number of EKI iterations: $N_iter"
 @info "RMSE target: $target_rmse"
@@ -111,10 +111,10 @@ final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nu)
 final_model_output = zeros(4, length(N_ens_sizes), length(rng_seeds), ny)
 
 method_names = [
-    "Inversion(prior)",
-    "TransformInversion(prior)",
-    "GaussNewtonInversion(prior)",
-    "Unscented(prior; impose_prior=true)",
+    ("Inversion(prior)", "TEKI"),
+    ("TransformInversion(prior)", "ETKI"),
+    ("GaussNewtonInversion(prior)", "GNKI"),
+    ("Unscented(prior; impose_prior=true)", "UKI"),
 ]
 
 

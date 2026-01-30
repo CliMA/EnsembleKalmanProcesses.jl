@@ -23,11 +23,11 @@ include("Lorenz96.jl") # Contains Lorenz 96 source code
 
 cases = ["const-force", "vec-force", "flux-force"] # problem types
 # User specifications
-case = cases[3] # choose problem type
-N_ens_sizes = [20, 50, 100] # list of number of ensemble members (should be problem dependent)
+case = cases[2] # choose problem type
+N_ens_sizes = [80, 90, 100] # list of number of ensemble members (should be problem dependent)
 N_iter = 20 # maximum number of EKI iterations allowed
 target_rmse = 1.0 # target RMSE
-n_repeats = 10
+n_repeats = 4
 rng_seeds = randperm(1_000_000)[1:n_repeats] # list of random seeds
 @info "Running $case case"
 @info "Maximum number of EKI iterations: $N_iter"
@@ -113,15 +113,6 @@ elseif case == "flux-force"
     # ylabel!("y")
     # title!("Offline 1D DNN")
     # display(p)
-
-    # from_file = false
-    # # from_file
-    # if from_file
-    #     filename = "filename"
-    #     phi_structure = BSON.@load "$(filename).bson" model
-    #     prior_mean, prior_cov = BSON.@load "$(filename).bson" prior_mean, prior_cov
-    #     sample_range = nothing
-
     prior_cov = (0.1^2) * I(length(prior_mean))
     distribution = Parameterized(MvNormal(prior_mean, prior_cov))
     constraint = repeat([no_constraint()], 61)
@@ -233,10 +224,10 @@ final_parameters = zeros(4, length(N_ens_sizes), length(rng_seeds), nu)
 final_model_output = zeros(4, length(N_ens_sizes), length(rng_seeds), ny)
 
 method_names = [
-    "Inversion(prior)",
-    "TransformInversion(prior)",
-    "GaussNewtonInversion(prior)",
-    "Unscented(prior; impose_prior=true)",
+    ("Inversion(prior)", "TEKI"),
+    ("TransformInversion(prior)", "ETKI"),
+    ("GaussNewtonInversion(prior)", "GNKI"),
+    ("Unscented(prior; impose_prior=true)", "UKI"),
 ]
 
 for (rr, rng_seed) in enumerate(rng_seeds)
@@ -297,7 +288,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                     observation_config,
                 )
                 RMSE_e = norm(R_inv_var * (y - G_ens_mean[:])) / sqrt(size(y, 1))
-                #@info "RMSE (at G(u_mean)): $(RMSE_e)"
+                @info "RMSE (at G(u_mean)): $(RMSE_e)"
                 # Convergence criteria
                 if RMSE_e < target_rmse
                     conv_alg_iters[kk, ee, rr] = count * Ne
