@@ -233,7 +233,7 @@ end
 
     @info "tsvd_from_cov_sample() timings for K x 500 matrix at different K"
     for sz in (1000, 10_000, 100_000, 1_000_000)
-        testmat4 = randn(rng, 100_000, NN)
+        testmat4 = randn(rng, sz, NN)
         dt = @elapsed begin
             mat = tsvd_cov_from_samples(testmat4)
         end
