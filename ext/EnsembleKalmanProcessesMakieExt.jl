@@ -126,7 +126,7 @@ end
 # implemented by specializing
 # Makie.plot!(plot::ConstrainedParamsAndItersOrTime)
 @recipe(ErrorAndItersOrTime, ekp) do scene
-    Attributes(linewidth = 4.5)
+    Attributes(linewidth = 4.5, xvals = nothing, error_metric = nothing)
 end
 
 """
@@ -238,7 +238,7 @@ end
 # Define the function constrainedparamsanditersortime whose functionality is
 # implemented by specializing Makie.plot!(plot::ConstrainedParamsAndItersOrTime)
 @recipe(ConstrainedParamsAndItersOrTime, ekp, prior, dim_idx) do scene
-    Theme()
+    Attributes(xvals = nothing)
 end
 
 """
@@ -364,7 +364,7 @@ end
 # implemented by specializing
 # Makie.plot!(plot::ConstrainedMeanParamsAndItersOrTime)
 @recipe(ConstrainedMeanParamsAndItersOrTime, ekp, prior, dim_idx) do scene
-    Attributes(linewidth = 4.5)
+    Attributes(linewidth = 4.5, xvals = nothing, plot_std = nothing)
 end
 
 """
