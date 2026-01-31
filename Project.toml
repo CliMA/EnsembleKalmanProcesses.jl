@@ -1,6 +1,6 @@
 name = "EnsembleKalmanProcesses"
 uuid = "aa8a2aa5-91d8-4396-bcef-d4f2ec43552d"
-version = "2.7.1"
+version = "2.7.0"
 authors = ["CLIMA contributors <clima-software@caltech.edu>"]
 
 [deps]
