@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Surface Fluxes · EnsembleKalmanProcesses.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="EnsembleKalmanProcesses.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">EnsembleKalmanProcesses.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../installation_instructions/">Installation instructions</a></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../sinusoid_example/">Simple example</a></li><li><a class="tocitem" href="../../examples/Cloudy_example/">Cloudy</a></li><li><a class="tocitem" href="../../examples/lorenz_example/">Lorenz</a></li><li><a class="tocitem" href="../loss_minimization/">Minimization Loss</a></li><li><a class="tocitem" href="../loss_minimization_sparse_eki/">Sparse Minimization Loss</a></li><li><a class="tocitem" href="../aerosol_activation/">Aerosol activation</a></li><li><a class="tocitem" href="../../examples/sinusoid_example_toml/">TOML interface</a></li><li><a class="tocitem" href="../../examples/ClimateMachine_example/">HPC interfacing example: ClimateMachine</a></li><li class="is-active"><a class="tocitem" href>Surface Fluxes</a><ul class="internal"><li><a class="tocitem" href="#Overview"><span>Overview</span></a></li><li><a class="tocitem" href="#Prerequisites"><span>Prerequisites</span></a></li><li><a class="tocitem" href="#Example"><span>Example</span></a></li></ul></li><li><a class="tocitem" href="../../examples/template_example/">Template</a></li></ul></li><li><a class="tocitem" href="../../ensemble_kalman_inversion/">Ensemble Kalman Inversion</a></li><li><a class="tocitem" href="../../ensemble_kalman_sampler/">Ensemble Kalman Sampler</a></li><li><a class="tocitem" href="../../unscented_kalman_inversion/">Unscented Kalman Inversion</a></li><li><a class="tocitem" href="../../learning_rate_scheduler/">Learning rate schedulers</a></li><li><a class="tocitem" href="../../parameter_distributions/">Prior distributions</a></li><li><a class="tocitem" href="../../internal_data_representation/">Internal data representation</a></li><li><a class="tocitem" href="../../localization/">Localization and SEC</a></li><li><a class="tocitem" href="../../inflation/">Inflation</a></li><li><a class="tocitem" href="../../parallel_hpc/">Parallelism and HPC</a></li><li><a class="tocitem" href="../../observations/">Observations</a></li><li><input class="collapse-toggle" id="menuitem-14" type="checkbox"/><label class="tocitem" for="menuitem-14"><span class="docs-label">API</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../API/ParameterDistributions/">ParameterDistributions</a></li><li><a class="tocitem" href="../../API/Observations/">Observations</a></li><li><a class="tocitem" href="../../API/DataContainers/">DataContainers</a></li><li><a class="tocitem" href="../../API/EnsembleKalmanProcess/">EnsembleKalmanProcess</a></li><li><a class="tocitem" href="../../API/Inversion/">Inversion</a></li><li><a class="tocitem" href="../../API/Unscented/">Unscented</a></li><li><a class="tocitem" href="../../API/Sampler/">Sampler</a></li><li><a class="tocitem" href="../../API/SparseInversion/">SparseInversion</a></li><li><a class="tocitem" href="../../API/TOMLInterface/">TOML Interface</a></li><li><a class="tocitem" href="../../API/Localizers/">Localizers</a></li></ul></li><li><a class="tocitem" href="../../contributing/">Contributing</a></li><li><a class="tocitem" href="../../glossary/">Glossary</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Surface Fluxes</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Surface Fluxes</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/SurfaceFluxExample/kappa_calibration.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Kappa-Calibration-Example"><a class="docs-heading-anchor" href="#Kappa-Calibration-Example">Kappa Calibration Example</a><a id="Kappa-Calibration-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Kappa-Calibration-Example" title="Permalink"></a></h1><h2 id="Overview"><a class="docs-heading-anchor" href="#Overview">Overview</a><a id="Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Overview" title="Permalink"></a></h2><p>In this example, we use the inverse problem to calibrate the von-karman constant, κ in the equation: u(z) = u^* / κ log (z / z0), which represents the wind profile in Monin-Obukhov Similarity Theory (MOST) formulations. In order to recover the empirically determined κ = 0.4, we use data from the John Hopkins Tubulence Channel Flow, which offers DNS simulations of a channel flow with smooth wall boundary conditions, i.e. z0m ≈ 0 m. The dataset can be found here: https://turbulence.pha.jhu.edu/Channel_Flow.aspx. We use the dataset&#39;s u^* as an observable, and each ensemble member estimates u^* through the SurfaceFluxes.jl function surface_conditions, see https://github.com/CliMA/SurfaceFluxes.jl In order to calculate u^*, the function surface_conditions is provided a set of thermodynamic params, a functional form for stability functions (Businger, Gryanick, Grachev), and the constants corresponding to that functional form. In this example, we elect the Businger functions.</p><h2 id="Prerequisites"><a class="docs-heading-anchor" href="#Prerequisites">Prerequisites</a><a id="Prerequisites-1"></a><a class="docs-heading-anchor-permalink" href="#Prerequisites" title="Permalink"></a></h2><p>This example depends on standard Julia packages as well as CliMA packages: <a href="https://github.com/CliMA/EnsembleKalmanProcesses.jl">EnsembleKalmanProcess.jl</a>, <a href="https://github.com/CliMA/CLIMAParameters.jl">CLIMAParameters.jl</a>, <a href="https://github.com/CliMA/SurfaceFluxes.jl">SurfaceFluxes v0.6</a>, <a href="https://github.com/CliMA/Thermodynamics.jl">Thermodynamics v0.10</a> Note that this example is only compatible with certain versions of these packages.</p><h2 id="Example"><a class="docs-heading-anchor" href="#Example">Example</a><a id="Example-1"></a><a class="docs-heading-anchor-permalink" href="#Example" title="Permalink"></a></h2><p>First, we import relevant modules.</p><pre><code class="nohighlight hljs">using LinearAlgebra, Random
+using Distributions, Plots
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+const EKP = EnsembleKalmanProcesses
+
+using Downloads
+using DelimitedFiles
+
+using CLIMAParameters
+const CP = CLIMAParameters
+FT = Float64
+
+import SurfaceFluxes as SF
+import Thermodynamics as TD
+import Thermodynamics.Parameters as TP
+import SurfaceFluxes.UniversalFunctions as UF
+import SurfaceFluxes.Parameters as SFP
+using StaticArrays: SVector
+include(&quot;setup_parameter_set.jl&quot;)</code></pre><p>Next, we download and read data from the John Hopkins Tubulence Channel Flow dataset, specifically those concerning mean velocity and its variance over various heights. The parameters defining the dataset are given by:</p><ul><li>u_star = 4.14872e-02</li><li>δ = 1.000</li><li>ν = 8.00000e-06</li><li>Re_tau = 5185.897</li></ul><pre><code class="nohighlight hljs">mkpath(joinpath(@__DIR__, &quot;data&quot;)) # create data folder if not exists
+web_datafile_path = &quot;https://turbulence.oden.utexas.edu/channel2015/data/LM_Channel_5200_mean_prof.dat&quot;
+localfile = &quot;data/profiles.dat&quot;
+Downloads.download(web_datafile_path, localfile)
+data_mean_velocity = readdlm(&quot;data/profiles.dat&quot;, skipstart = 112) ## We skip 72 lines (header) and 40(laminar layer)</code></pre><p>We extract the required info for this problem</p><pre><code class="nohighlight hljs">u_star_obs = 4.14872e-02
+z = data_mean_velocity[:, 1]
+u = data_mean_velocity[:, 3] * u_star_obs</code></pre><p>Next, we define our physical model, where we first define thermodynamic parameters and MOST parameters to pass into the surface_conditions function from SurfaceFluxes.jl. We define the MOST stability functions to be of the Businger type.</p><pre><code class="nohighlight hljs">&quot;&quot;&quot;
+    physical_model(inputs, parameters)
+
+Takes in kappa and mean states, producing a ustar (or u(z) profile) ensemble for each horizontal point.
+
+Inputs:
+    inputs{Array}(len)          in this case containing u and z
+    parameters{NamedTuple}      in this case κ
+
+Example:
+
+`inputs` are the measured profiles, which would be inputs to `SurfaceFluxes.jl` -&gt; See JH DNS Database.
+EKP requires `parameters` in `Vector` form - `Tuples` are not permitted.
+&quot;&quot;&quot;
+function physical_model(parameters, inputs)
+    κ = parameters[1] # this is being updated by the EKP iterator
+    (; u, z) = inputs</code></pre><p>First, we set up thermodynamic parameters</p><pre><code class="nohighlight hljs">    # This line initializes a toml dict, where we will extract parameters from
+    toml_dict = CP.create_toml_dict(FT; dict_type = &quot;alias&quot;)
+    param_set = create_parameters(toml_dict, UF.BusingerType())
+    thermo_params = SFP.thermodynamics_params(param_set)
+
+    # in this idealized case, we assume dry isothermal conditions
+    ts_sfc = TD.PhaseEquil_ρθq(thermo_params, FT(1), FT(300), FT(0))
+    ts_in = TD.PhaseEquil_ρθq(thermo_params, FT(1), FT(300), FT(0))</code></pre><p>Next, we set up SF parameters</p><pre><code class="nohighlight hljs">    # An alias for each constant we need
+    aliases = [&quot;Pr_0_Businger&quot;, &quot;a_m_Businger&quot;, &quot;a_h_Businger&quot;, &quot;ζ_a_Businger&quot;, &quot;γ_Businger&quot;]
+    sf_pairs = CP.get_parameter_values!(toml_dict, aliases, &quot;UniversalFunctions&quot;)
+    sf_pairs = (; sf_pairs...) # convert parameter pairs to NamedTuple
+    # change the keys from their alias to more concise keys
+    sf_pairs = (;
+        Pr_0 = sf_pairs.Pr_0_Businger,
+        a_m = sf_pairs.a_m_Businger,
+        a_h = sf_pairs.a_h_Businger,
+        ζ_a = sf_pairs.ζ_a_Businger,
+        γ = sf_pairs.γ_Businger,
+    )
+    ufp = UF.BusingerParams{FT}(; sf_pairs...) # initialize Businger params
+
+    κ_nt = (; von_karman_const = κ)</code></pre><p>Now, we initialize the variable surf_flux_params, which we will eventually pass into surface_conditions along with mean wind data</p><pre><code class="nohighlight hljs">    UFP = typeof(ufp)
+    TPtype = typeof(thermo_params)
+    surf_flux_params = SF.Parameters.SurfaceFluxesParameters{FT, UFP, TPtype}(; κ_nt..., ufp, thermo_params)</code></pre><p>Now, we loop over all the observations and call SF.surface_conditions to estimate u^*</p><pre><code class="nohighlight hljs">    u_star = zeros(length(u))
+    for i in 1:lastindex(u)
+        u_in = u[i]
+        v_in = FT(0)
+        z_in = z[i]
+        u_in = SVector{2, FT}(u_in, v_in)
+        u_sfc = SVector{2, FT}(FT(0), FT(0))
+
+        state_sfc = SF.SurfaceValues(FT(0), u_sfc, ts_sfc)
+        state_in = SF.InteriorValues(z_in, u_in, ts_in)</code></pre><p>We provide a few additional parameters for SF.surface_conditions</p><pre><code class="nohighlight hljs">        z0m = z0b = FT(0.0001)
+        gustiness = FT(0)
+        kwargs = (; state_in, state_sfc, z0m, z0b, gustiness)
+        sc = SF.ValuesOnly{FT}(; kwargs...)</code></pre><p>Now, we call surface_conditions and store the calculated ustar:</p><pre><code class="nohighlight hljs">        sf = SF.surface_conditions(surf_flux_params, sc)
+        u_star[i] = sf.ustar  # TODO: also try for u_profiles[i, :] = sf.u_profile(z)
+    end
+
+    return u_star
+end</code></pre><p>Here, we define G, which returns observable values given the parameters and inputs from the dataset. The observable we elect is the mean of the calculated ustar across all z, which is eventually compared to the actual observed ustar.</p><pre><code class="nohighlight hljs">function G(parameters, inputs)
+    u_star = physical_model(parameters, inputs)
+    u_star_mean = mean(u_star) # H map
+    return [u_star_mean]
+end</code></pre><p>Here, we define the true value of the parameters we wish to recover</p><pre><code class="nohighlight hljs">κ = 0.4
+theta_true = [κ]
+u_star_obs = 4.14872e-02</code></pre><p>Define the arguments to be passed into G:</p><pre><code class="nohighlight hljs">parameters = (; κ)
+u = u[1:(end - 1)] # we remove the last line because we want different surface state conditions
+z = z[1:(end - 1)]
+inputs = (; u, z)</code></pre><p>Next, we define y, which is the noisy observation. Because we already have the truth observation, we add noise to the observed u^* and store it in y. Refer to Cleary et al 2021 for more details. We choose a noise scaling constant of 0.0005, which is small because the order of magnitude of u_* is 10^-2, and we don&#39;t want the noise to be greater than our observation.</p><pre><code class="nohighlight hljs">Γ = 0.0005 * I
+η_dist = MvNormal(zeros(1), Γ)
+y = [u_star_obs] .+ rand(η_dist) # (H ⊙ Ψ ⊙ T^{-1})(θ) + η from Cleary et al 2021
+# we can try these definitions of y later: y = G(inputs, parameters) .+ rand(η_dist)
+# y = u - u_star/κ (log(z/z0))</code></pre><p>Assume that users have prior knowledge of approximate truth. (e.g. via physical models / subset of obs / physical laws.)</p><pre><code class="nohighlight hljs">prior_u1 = constrained_gaussian(&quot;κ&quot;, 0.35, 0.25, 0, Inf);
+prior = combine_distributions([prior_u1])</code></pre><p>Set up the initial ensembles</p><pre><code class="nohighlight hljs">N_ensemble = 10;
+N_iterations = 50;
+
+rng_seed = 41
+rng = Random.MersenneTwister(rng_seed)
+initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble);
+nothing #hide</code></pre><p>Define EKP and run iterative solver for defined number of iterations</p><pre><code class="nohighlight hljs">ensemble_kalman_process = EKP.EnsembleKalmanProcess(initial_ensemble, y, Γ, Inversion(); rng = rng)
+
+for n in 1:N_iterations
+    # get_ϕ_final returns the most recently updated constrained parameters, which it used to make the
+    # next model forward and thus the next update
+    params_i = get_ϕ_final(prior, ensemble_kalman_process)
+    # calculate the forwarded model values
+    G_ens = hcat([G(params_i[:, m], inputs) for m in 1:N_ensemble]...)
+    EKP.update_ensemble!(ensemble_kalman_process, G_ens)
+end</code></pre><p>Mean values in final ensemble for the two parameters of interest reflect the &quot;truth&quot; within some degree of uncertainty that we can quantify from the elements of <code>final_ensemble</code>.</p><pre><code class="nohighlight hljs">final_ensemble = get_ϕ_final(prior, ensemble_kalman_process)
+mean(final_ensemble[1, :]) # [param, ens_no]</code></pre><p>To visualize the success of the inversion, we plot model with 3 different forms of the truth:</p><ul><li>The absolute truth of u^* given by the dataset</li><li>y, the noisy observation we used to calibrate our model parameter κ</li><li>The output of the physical model given the true κ = 0.4</li></ul><p>We then compare them to the initial ensemble and the final ensemble.</p><pre><code class="nohighlight hljs">zrange = z
+initial_ensemble = get_ϕ(prior, ensemble_kalman_process, 1)
+ENV[&quot;GKSwstype&quot;] = &quot;nul&quot;
+plot(
+    zrange,
+    physical_model(theta_true..., inputs),
+    c = :black,
+    label = &quot;Model Truth&quot;,
+    legend = :bottomright,
+    linewidth = 2,
+    linestyle = :dash,
+)
+plot!(
+    zrange,
+    ones(length(zrange)) .* y,
+    c = :black,
+    label = &quot;y&quot;,
+    legend = :bottomright,
+    linewidth = 2,
+    linestyle = :dot,
+)
+plot!(zrange, ones(length(zrange)) .* u_star_obs, c = :black, label = &quot;Truth u*&quot;, legend = :bottomright, linewidth = 2)
+plot!(
+    zrange,
+    [physical_model(get_ϕ(prior, ensemble_kalman_process, 1)[:, i]..., inputs) for i in 1:N_ensemble],
+    c = :red,
+    label = reshape(vcat([&quot;Initial ensemble&quot;], [&quot;&quot; for i in 1:(N_ensemble - 1)]), 1, N_ensemble), # reshape to convert from vector to matrix
+)
+plot!(
+    zrange,
+    [physical_model(final_ensemble[:, i]..., inputs) for i in 1:N_ensemble],
+    c = :blue,
+    label = reshape(vcat([&quot;Final ensemble&quot;], [&quot;&quot; for i in 1:(N_ensemble - 1)]), 1, N_ensemble),
+)
+xlabel!(&quot;Z&quot;)
+ylabel!(&quot;U^*&quot;)
+png(&quot;our_plot&quot;)</code></pre><p><img src="../../assets/kappa_calibration_plot1.png" alt="see plot: "/></p><p>We also plot the constrained κ values across all ensembles before and after the EKI process in a histogram.</p><pre><code class="nohighlight hljs">histogram(initial_ensemble[1, :], label = &quot;initial&quot;)
+histogram!(final_ensemble[1, :], label = &quot;final&quot;)
+xlabel!(&quot;κ&quot;)
+ylabel!(&quot;# of Ensembles&quot;)
+png(&quot;final_and_initial_ensemble&quot;)</code></pre><p><img src="../../assets/kappa_calibration_plot2.png" alt="see plot: "/></p><p>Evidently, EKI was highly successful at recovering the von karman constant κ = 0.4. This process will be extended to recover stability function parameters such as a_m, a_h, b_m, b_h, and Pr_0.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../examples/ClimateMachine_example/">« HPC interfacing example: ClimateMachine</a><a class="docs-footer-nextpage" href="../../examples/template_example/">Template »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Tuesday 18 July 2023 18:12">Tuesday 18 July 2023</span>. Using Julia version 1.9.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
