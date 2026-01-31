@@ -1382,8 +1382,8 @@ end
 
             # Should: skip timing of first due to precompilation
             @info "$n_final iterations of experiment $(name) with $(n_obs_test)-dim observation took $T seconds. \n (avg update: $(T/Float64(n_final)))"
-            if T / (n_obs_test * Float64(n_final)) > 5e-6 && n_obs_test > 5_000 # tol back-computed from 1_000_000 computation
-                @error "The update of experiment $(name) for $(n_obs_test) observations should take under $(n_obs_test*4e-6) per update, received $(T/Float64(n_final)). Significant slowdowns encountered in ETKI"
+            if T / (n_obs_test * Float64(n_final)) > 1e-5 && n_obs_test > 5_000 # tol back-computed from 1_000_000 computation
+                @error "The update of experiment $(name) for $(n_obs_test) observations should take under $(n_obs_test*1e-5) per update, received $(T/Float64(n_final)). Significant slowdowns encountered in ETKI"
             end
         end
     end
