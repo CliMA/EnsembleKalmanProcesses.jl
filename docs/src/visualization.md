@@ -184,7 +184,7 @@ viz.plot_ϕ_over_time(
     ekp,
     prior,
     "two_with_spread_2",
-    linewidth = 1.5)
+    markersize = 8)
 viz.plot_ϕ_mean_over_time(
     [fig_ϕ[2, 1], fig_ϕ[2, 2]],
     ekp,

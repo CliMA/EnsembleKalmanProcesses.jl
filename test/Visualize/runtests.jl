@@ -78,17 +78,15 @@ if TEST_PLOT_OUTPUT
             fig1[2, 2],
             ekp,
             linestyle = :dash,
-            auto_log_scale = true,
             error_metric = "bayes_loss",
         )
         ax1 = CairoMakie.Axis(fig1[3, 1], title = "Error over iterations (called from mutating function)")
         ax2 = CairoMakie.Axis(fig1[3, 2], title = "Error over time (called from mutating function)")
-        EnsembleKalmanProcesses.Visualize.plot_error_over_iters!(ax1, ekp, color = :aquamarine, auto_log_scale = true)
+        EnsembleKalmanProcesses.Visualize.plot_error_over_iters!(ax1, ekp, color = :aquamarine)
         EnsembleKalmanProcesses.Visualize.plot_error_over_time!(
             ax2,
             ekp,
             linestyle = :dashdotdot,
-            auto_log_scale = true,
             error_metric = "bayes_loss",
         )
         save(joinpath(tmp_dir, "priors_and_errors.png"), fig1)
