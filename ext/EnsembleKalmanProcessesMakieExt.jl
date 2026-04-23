@@ -125,8 +125,11 @@ end
 # Define the function erroranditersortime whose functionality is
 # implemented by specializing
 # Makie.plot!(plot::ConstrainedParamsAndItersOrTime)
-@recipe(ErrorAndItersOrTime, ekp) do scene
-    Attributes(linewidth = 4.5, xvals = nothing, error_metric = nothing)
+@recipe ErrorAndItersOrTime (ekp,) begin
+    Makie.documented_attributes(Makie.Lines)...
+    linewidth = 4.5
+    xvals = nothing
+    error_metric = nothing
 end
 
 """
@@ -229,16 +232,16 @@ Plot the errors against iteration or time.
 function Makie.plot!(plot::ErrorAndItersOrTime)
     xvals = plot.xvals[]
     errors = get_error_metrics(plot.ekp[])[plot.error_metric[]]
-    valid_attributes = Makie.shared_attributes(plot, Makie.Lines)
-    Makie.lines!(plot, xvals, errors; valid_attributes...)
+    Makie.lines!(plot, plot.attributes, xvals, errors)
     return plot
 end
 
 # Define plot recipe for iteration or time vs constrained parameters scatter plots
 # Define the function constrainedparamsanditersortime whose functionality is
 # implemented by specializing Makie.plot!(plot::ConstrainedParamsAndItersOrTime)
-@recipe(ConstrainedParamsAndItersOrTime, ekp, prior, dim_idx) do scene
-    Attributes(xvals = nothing)
+@recipe ConstrainedParamsAndItersOrTime (ekp, prior, dim_idx) begin
+    Makie.documented_attributes(Makie.Scatter)...
+    xvals = nothing
 end
 
 """
@@ -353,8 +356,7 @@ function Makie.plot!(plot::ConstrainedParamsAndItersOrTime)
     ensemble_size = size(first(ϕ))[2]
     nums = vcat((xval * ones(ensemble_size) for xval in xvals)...)
     param_nums = vcat((ϕ[idx][dim_idx, :] for idx in eachindex(xvals))...)
-    valid_attributes = Makie.shared_attributes(plot, Makie.Scatter)
-    Makie.scatter!(plot, nums, param_nums; valid_attributes...)
+    Makie.scatter!(plot, plot.attributes, nums, param_nums)
     return plot
 end
 
@@ -363,8 +365,15 @@ end
 # Define the function constrainedmeanparamsanditersortime whose functionality is
 # implemented by specializing
 # Makie.plot!(plot::ConstrainedMeanParamsAndItersOrTime)
-@recipe(ConstrainedMeanParamsAndItersOrTime, ekp, prior, dim_idx) do scene
-    Attributes(linewidth = 4.5, xvals = nothing, plot_std = nothing)
+@recipe ConstrainedMeanParamsAndItersOrTime (ekp, prior, dim_idx) begin
+    Makie.DocumentedAttributes(
+        merge(Makie.documented_attributes(Makie.Lines).d, Makie.documented_attributes(Makie.Band).d),
+    )...
+    linewidth = 4.5
+    xvals = nothing
+    plot_std = nothing
+    band_kwargs = ()
+    line_kwargs = ()
 end
 
 """
@@ -536,16 +545,18 @@ function Makie.plot!(plot::ConstrainedMeanParamsAndItersOrTime)
     ekp, prior, dim_idx, xvals = plot.ekp[], plot.prior[], plot.dim_idx[], plot.xvals[]
     ϕ_mean_vals = [get_ϕ_mean(prior, ekp, iter)[dim_idx] for iter in 1:length(xvals)]
 
-    valid_attributes = Makie.shared_attributes(plot, Makie.Lines)
-    hasproperty(plot, :line_kwargs) && (valid_attributes = merge(plot.line_kwargs, valid_attributes))
-    Makie.lines!(plot, xvals, ϕ_mean_vals; valid_attributes...)
+    Makie.lines!(plot, plot.attributes, xvals, ϕ_mean_vals; plot.attributes[:line_kwargs][]...)
 
     if plot.plot_std[]
         stds = [std(get_ϕ(prior, ekp, iter)[dim_idx, :]) for iter in 1:length(xvals)]
-
-        valid_attributes = Makie.shared_attributes(plot, Makie.Band)
-        hasproperty(plot, :band_kwargs) && (valid_attributes = merge(plot.band_kwargs, valid_attributes))
-        Makie.band!(plot, xvals, ϕ_mean_vals .- stds, ϕ_mean_vals .+ stds; valid_attributes...)
+        Makie.band!(
+            plot,
+            plot.attributes,
+            xvals,
+            ϕ_mean_vals .- stds,
+            ϕ_mean_vals .+ stds;
+            plot.attributes[:band_kwargs][]...,
+        )
     end
     return plot
 end
