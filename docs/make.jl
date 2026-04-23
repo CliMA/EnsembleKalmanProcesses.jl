@@ -111,11 +111,10 @@ makedocs(
     checkdocs = :none,
 )
 
-if !isempty(get(ENV, "CI", ""))
-    deploydocs(
-        repo = "github.com/CliMA/EnsembleKalmanProcesses.jl.git",
-        versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"],
-        push_preview = true,
-        devbranch = "main",
-    )
-end
+deploydocs(
+    repo = "github.com/CliMA/EnsembleKalmanProcesses.jl.git",
+    versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"],
+    push_preview = true,
+    devbranch = "main",
+    forcepush = true,
+)
