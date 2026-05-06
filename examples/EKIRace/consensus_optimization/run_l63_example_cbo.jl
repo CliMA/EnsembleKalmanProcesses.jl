@@ -112,7 +112,7 @@ ic_cov_sqrt = sqrt(ic_cov)
 ########################################################################
 
 # Counters
-conv_alg_iters = zeros(length(N_ens_sizes), length(rng_seeds)) #count how many iterations it takes to converge (per algorithm, per rand seed, per ense size)
+conv_alg_iters = fill(NaN, (length(N_ens_sizes), length(rng_seeds))) #count how many iterations it takes to converge (per algorithm, per rand seed, per ense size)
 final_parameters = fill(NaN, (length(N_ens_sizes), length(rng_seeds), nu))
 final_model_output = fill(NaN, (length(N_ens_sizes), length(rng_seeds), ny))
 
@@ -175,8 +175,10 @@ for (rr, rng_seed) in enumerate(rng_seeds)
         for i in 1:N_iter             
 
             # For second order scheme, the state is doubled to hold a momentum-type variable. so only take 1:ndims(prior):
-            params_i = param_state[i,1:ndims(prior),:]
-            
+            params_i_unconstrained = param_state[i,1:ndims(prior),:]
+            # transform as we don't use "ekp"
+            params_i = transform_unconstrained_to_constrained(prior, params_i_unconstrained)
+                   
             # Calculating RMSE_e
             ens_mean = mean(params_i, dims = 2)[:]
             G_ens_mean = lorenz_forward(
