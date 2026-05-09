@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template for a new specialism.
+  Copy this file to ai/<name>.xml, fill in each section, then add a row to ai/README.md.
+
+  Authoring principles:
+  - Keep every step GENERAL: describe how to discover targets (grep, module introspection),
+    not which specific files or symbols to change.
+  - Examples inside <example> blocks should use generic placeholder names (MyType, my_function),
+    never real package symbols.
+  - Prose in <task> should answer: what class of work does this cover, and why does it matter?
+-->
+
+<specialism name="<!-- short-slug (matches filename without .xml) -->" version="1">
+
+  <task>
+    <!-- One paragraph. Describe the *class* of work this specialism covers and why it matters.
+         Answer: what output does this produce, and what problem does it solve for users/maintainers? -->
+  </task>
+
+  <workflow>
+    <!-- Ordered steps. Each step should be a complete, actionable instruction.
+         Use grep/module introspection to discover targets at runtime — do not name specific files. -->
+
+    <step n="1">
+      <!-- Detect the relevant convention or baseline already in the codebase
+           (e.g. read one well-done example to calibrate output style). -->
+    </step>
+
+    <step n="2">
+      <!-- Enumerate candidates: describe the grep pattern or introspection command to find targets.
+           Example: grep -nE '^(function|struct|abstract type|mutable struct)' src/ -->
+    </step>
+
+    <step n="3">
+      <!-- Execute the change for each candidate, following the detected convention. -->
+    </step>
+
+    <step n="4">
+      <!-- Verify: load the package, run relevant tests, or build docs to confirm no regressions. -->
+    </step>
+
+    <!-- Add more steps as needed -->
+  </workflow>
+
+  <rubric>
+    <!-- Quality criteria with weights (high / medium / low).
+         Each criterion should be testable or observable without running the full test suite. -->
+
+    <criterion name="completeness" weight="high">
+      <!-- Every discovered candidate receives the treatment. -->
+    </criterion>
+
+    <criterion name="convention-parity" weight="high">
+      <!-- Output style matches the baseline convention detected in step 1. -->
+    </criterion>
+
+    <criterion name="correctness" weight="medium">
+      <!-- Package loads without error; tests pass if a test suite exists. -->
+    </criterion>
+
+    <criterion name="no-regression" weight="medium">
+      <!-- Pre-existing content not unintentionally altered. -->
+    </criterion>
+
+    <!-- Add additional criteria as needed -->
+  </rubric>
+
+  <formatting>
+    <!-- Rules that govern the literal text / code Claude must produce. -->
+
+    <rule><!-- e.g. "Use triple-quoted strings for all docstrings." --></rule>
+    <rule><!-- e.g. "One-line summary, blank line, then prose." --></rule>
+    <!-- Add more rules as needed -->
+
+    <example><![CDATA[
+# Replace this with a short, self-contained before/after example using
+# generic placeholder names (MyType, my_function) — never real package symbols.
+
+## Before
+
+# (show the state before applying this specialism)
+
+## After
+
+# (show the desired output)
+    ]]></example>
+  </formatting>
+
+</specialism>

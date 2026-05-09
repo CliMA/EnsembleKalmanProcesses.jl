@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<specialism name="docs-installation" version="1">
+
+  <task>
+    Write or improve a setup or installation page (e.g., docs/src/getting_started.md or
+    docs/src/installation_instructions.md). This page walks a reader from zero to a working
+    Julia environment with the package installed, and optionally covers developer workflows
+    (cloning the repository, running the test suite, building the docs locally). It is almost
+    entirely procedural: every step should be actionable, accurate, and verifiable by the reader
+    without consulting another page. The output is a page a first-time user can follow top-to-bottom
+    and arrive at a working installation.
+  </task>
+
+  <workflow>
+    <step n="1">
+      Gather facts from the project. Read:
+        — Project.toml: the registered package name (for Pkg.add), Julia compat bounds.
+        — test/runtests.jl: whether a test suite exists and what command runs it.
+        — docs/make.jl: whether a docs build exists and what command runs it.
+      These facts determine what procedures to include and what version constraints to state.
+    </step>
+
+    <step n="2">
+      Locate the installation page:
+        find docs/src -maxdepth 2 \( -name '*install*' -o -name '*getting_start*' \)
+      Read the current page (if one exists) and identify: missing procedures, inaccurate commands,
+      untagged code fences, prose tips that should be admonitions, and missing H1.
+    </step>
+
+    <step n="3">
+      Draft or edit the page following the structure and conventions below.
+
+      Canonical structure:
+        1. H1 = "Installation" or "Getting started" (match whatever the project uses).
+        2. Opening sentence stating the package is a registered Julia package (if true).
+        3. H3 for each distinct procedure — do not use H2; the convention is H1 then H3 for
+           all sub-sections. Typical procedures:
+             H3 Basic installation (Pkg.add)
+             H3 Cloning the repository (for contributors)
+             H3 Running the test suite
+             H3 Building the documentation locally
+        4. Optional steps or alternative paths go inside !!! info admonitions, not inline.
+
+      The page is self-contained: avoid @ref cross-references. If linking to another page
+      (e.g., a tutorial), use a relative Markdown path.
+    </step>
+
+    <step n="4">
+      Verify accuracy: check that the Pkg.add package name matches the name in Project.toml,
+      that Julia version constraints are consistent with the compat section, and that any test
+      or docs build commands match the current project structure.
+    </step>
+
+    <step n="5">
+      Build the docs locally to confirm the page renders without new warnings:
+        julia --project=docs docs/make.jl
+      Resolve any Documenter warnings introduced by the edits before reporting the task complete.
+    </step>
+  </workflow>
+
+  <rubric>
+    <criterion name="imperative-voice" weight="high">
+      All instructions use second-person imperative: "you can install...", "run the following",
+      "press ]". Never passive ("the package can be installed by...") or third-person.
+    </criterion>
+
+    <criterion name="accurate-snippets" weight="high">
+      Pkg.add uses the exact registered package name from Project.toml. Julia version bounds
+      match the compat section. Test and build commands match the current project layout.
+    </criterion>
+
+    <criterion name="h3-only-nesting" weight="medium">
+      Sub-sections are H3. The H1 → H3 skip (no H2) is intentional for installation pages
+      and should be preserved even though it violates the general heading-hierarchy convention.
+    </criterion>
+
+    <criterion name="admonitions-for-asides" weight="medium">
+      Optional tips, alternative paths, and gotchas appear in !!! info blocks with a
+      quoted friendly title, not as inline paragraphs. Warning-level issues use !!! warning.
+    </criterion>
+
+    <criterion name="self-contained" weight="medium">
+      The page does not rely on @ref cross-references. A reader who lands directly on this page
+      via a search engine can complete the installation without navigating elsewhere.
+    </criterion>
+  </rubric>
+
+  <formatting>
+    <rule>H1 as the page title; all sub-sections as H3 (skipping H2 is intentional here).</rule>
+    <rule>Julia Pkg-mode commands use the julia> ] prefix on a separate line:
+            julia> ]
+            pkg> add MyPackage
+          or use the functional form inside a julia block: `Pkg.add("MyPackage")`.</rule>
+    <rule>Shell commands go in a sh block; Julia commands in a julia block. Never leave a
+          fence untagged.</rule>
+    <rule>!!! info "Friendly title" for optional tips and alternative paths.
+          !!! warning "Title" for real gotchas (e.g., version incompatibilities).</rule>
+    <rule>No @ref links. If pointing to another docs page, use a relative Markdown path.</rule>
+    <rule>No badges, no embedded images, no figures.</rule>
+    <rule>Second-person throughout ("you", "your"). No first-person plural ("we").</rule>
+
+    <example><![CDATA[
+## Before (missing H1, untagged fence, tip buried in prose)
+
+MyPackage is a registered Julia package. To install:
+
+```
+using Pkg; Pkg.add("MyPackage")
+```
+
+If you want to run the tests you can do `Pkg.test("MyPackage")`.
+Note: you need Julia 1.9 or higher.
+
+## After (H1, tagged fence, H3 sub-sections, !!! info admonition)
+
+# Installation
+
+MyPackage is a registered Julia package. Install it from the Julia package manager:
+
+```julia
+using Pkg
+Pkg.add("MyPackage")
+```
+
+!!! info "Julia version requirement"
+    MyPackage requires Julia 1.9 or higher. Check your version with `julia --version`.
+
+### Running the test suite
+
+To verify your installation, run the package tests:
+
+```julia
+using Pkg
+Pkg.test("MyPackage")
+```
+
+### Building the documentation locally
+
+```sh
+julia --project=docs docs/make.jl
+```
+    ]]></example>
+  </formatting>
+
+</specialism>

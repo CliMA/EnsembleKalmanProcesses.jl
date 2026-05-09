@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<specialism name="docs-neaten" version="1">
+
+  <task>
+    Polish the surface quality of any documentation markdown page without changing its content or
+    structure. This is a cross-cutting style pass: fix prose that is wordy, inconsistent in voice,
+    or unclear; correct Documenter.jl cross-reference syntax; add missing language tags to code
+    fences; enforce heading hierarchy; and replace bare URLs with the appropriate link form.
+    The specialism does not add new sections, reorder content, or introduce page-type-specific
+    conventions (those belong to the docs-readme, docs-index, docs-installation, and docs-tutorial
+    specialisms). Its output is a page that reads more clearly and builds without new warnings.
+  </task>
+
+  <workflow>
+    <step n="1">
+      Detect the established conventions. Read 1–2 pages that are most complete in the project's
+      docs/src/ directory. Note: voice (second-person imperative, third-person descriptive),
+      heading case (sentence-case vs title-case), how cross-references are written
+      (`[`Symbol`](@ref)` vs bare name), and which language tags are used on code fences.
+      This baseline governs every edit made in step 3.
+    </step>
+
+    <step n="2">
+      Identify every target page. If the user named specific pages, restrict to those.
+      Otherwise enumerate all markdown files:
+        find docs/src -name '*.md'
+      For each file, read it and flag issues in four categories:
+        (a) Prose: passive voice, wordiness, tense inconsistency, mismatched register.
+        (b) Cross-references: bare symbol names that should be `[`Symbol`](@ref)`, bare URLs
+            to the deployed docs site that should be `@ref`, incorrect `@ref` anchor strings.
+        (c) Code fences: missing language tags (untagged triple-backtick blocks). Do NOT
+            alter @example or jldoctest block names — only add the language tag if absent.
+        (d) Headings: more than one H1 on a page, skipped heading levels (H1 → H3),
+            title-case headings where sentence-case is the convention (or vice versa).
+        (e) Links: repeated URLs that should use reference-style link definitions; reference-style
+            definitions that are unused.
+    </step>
+
+    <step n="3">
+      Edit pages in place, applying the detected conventions from step 1. Rules:
+      — Prose: tighten wordy constructions; favour active voice; preserve the author's intent.
+      — Cross-references: convert bare symbol names to `[`Symbol`](@ref)` form; replace bare
+        absolute doc URLs with the appropriate `[label](@ref target)` form.
+      — Code fences: add the correct language tag (`julia`, `sh`, `toml`, `yaml`, `text`, etc.)
+        to every untagged fence. Leave @example and jldoctest block metadata untouched.
+      — Headings: promote/demote to restore hierarchy; apply the detected case convention.
+        Preserve anchor-tagged H1s of the form `# [Title](@id slug)` — do not collapse them
+        to `# Title`. This `@id` suffix is the cross-reference target used by other pages.
+      — Links: introduce reference-style definitions where the same URL appears more than once.
+      Do not invent new content. Do not restructure sections. Do not move paragraphs.
+    </step>
+
+    <step n="4">
+      Build the docs locally to confirm no new warnings were introduced:
+        julia --project=docs docs/make.jl
+      Resolve any new Documenter warnings introduced by the edits (e.g., broken @ref anchors,
+      unresolved cross-references). Do not report the task complete if the build emits errors.
+    </step>
+  </workflow>
+
+  <rubric>
+    <criterion name="prose-quality" weight="high">
+      Edited prose is no longer than necessary; active voice is preferred; voice and register are
+      consistent within each page and with the detected project baseline.
+    </criterion>
+
+    <criterion name="ref-correctness" weight="high">
+      All symbol cross-references use Documenter.jl `@ref` form. No bare absolute URLs to the
+      docs site. No bare symbol names that are exported and documented.
+    </criterion>
+
+    <criterion name="code-fence-tags" weight="high">
+      Every triple-backtick code fence carries a language tag. @example and jldoctest fence
+      metadata is preserved exactly as found.
+    </criterion>
+
+    <criterion name="heading-hierarchy" weight="medium">
+      Each page has exactly one H1. Heading levels do not skip (H1 → H3 is a violation unless
+      the existing convention deliberately uses H3-only sub-sections, which must be detected in
+      step 1 before assuming it is an error).
+    </criterion>
+
+    <criterion name="no-new-warnings" weight="high">
+      The docs build (if run) produces no more Documenter warnings after the edit than before.
+    </criterion>
+
+    <criterion name="no-invented-content" weight="high">
+      Only existing content is edited. No new sections, paragraphs, or examples are added.
+    </criterion>
+  </rubric>
+
+  <formatting>
+    <rule>ATX headings (# style), sentence-case (first word and proper nouns only).</rule>
+    <rule>Second-person imperative for instructional content; third-person descriptive for
+          concept pages. Match whichever the detected project convention prescribes.</rule>
+    <rule>Every code fence must carry a language tag: ```julia, ```sh, ```toml, ```yaml,
+          ```text, etc. Never leave a fence untagged.</rule>
+    <rule>Inline code for symbol names, file paths, and short commands: `MyType`, `make.jl`.</rule>
+    <rule>Cross-references to documented symbols: [`MyType`](@ref) or [custom text](@ref MyType).
+          Cross-references to page anchors: [custom text](@ref anchor-name).</rule>
+    <rule>Reference-style link definitions when the same URL appears more than once on a page.
+          Inline links when the URL appears only once.</rule>
+    <rule>No trailing whitespace; no hard line-breaks inside paragraphs.</rule>
+    <rule>Preserve anchor-tagged H1s: `# [Title](@id slug)` must remain intact. The `{#slug}`
+          suffix is the Documenter.jl `@id` anchor used by cross-references in other pages;
+          stripping it will silently break those links.</rule>
+
+    <example><![CDATA[
+## Before (multiple issues: untagged fence, bare URL, skipped heading level)
+
+# MyPackage
+
+### Installation
+
+Install with:
+```
+using Pkg; Pkg.add("MyPackage")
+```
+
+See the [API](https://myclimate.github.io/MyPackage.jl/dev/api/) and MyType for details.
+
+## After (tagged fence, @ref cross-reference, heading hierarchy restored)
+
+# MyPackage
+
+## Installation
+
+Install with:
+
+```julia
+using Pkg
+Pkg.add("MyPackage")
+```
+
+See the [API reference](@ref api) and [`MyType`](@ref) for details.
+    ]]></example>
+  </formatting>
+
+</specialism>

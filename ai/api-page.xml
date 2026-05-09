@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<specialism name="api-page" version="1">
+
+  <task>
+    Write or update a hand-curated `@docs`-block API reference page for one module of
+    EnsembleKalmanProcesses.jl. These pages live in `docs/src/API/` and are the authoritative
+    source of the documented public API as it appears in the built docs site. Each page selects
+    which exported symbols are documented, in what order, and under which H2 section headings.
+    Unlike `@autodocs` (which sweeps everything automatically), these are hand-curated: new
+    exported symbols must be added explicitly, and removed or renamed symbols must be pruned.
+    The output is a page that builds without `@docs` warnings and covers every exported symbol
+    of the target module exactly once.
+  </task>
+
+  <workflow>
+    <step n="1">
+      Detect the existing template. Read 1–2 well-formed pages to calibrate:
+        — `docs/src/API/EnsembleKalmanProcess.md` for the H2-grouped style (multiple sections
+          with headings like "## Getter functions", "## Error metrics").
+        — `docs/src/API/Sampler.md` for the flat style (a single `@docs` block with no H2 groups).
+      Note the `@meta CurrentModule = ...` opening block — it sets the module context for all
+      `@docs` lookups on the page.
+    </step>
+
+    <step n="2">
+      Identify the exported symbols of the target module:
+        grep -E '^export' src/&lt;Module&gt;.jl
+      Also check the main module file `src/EnsembleKalmanProcesses.jl` for any re-exports
+      that are associated with the target module.
+    </step>
+
+    <step n="3">
+      Read the current API page (if it exists):
+        cat docs/src/API/&lt;Module&gt;.md
+      For each exported symbol, check whether it already has a `@docs` entry on the page.
+      Produce two lists:
+        — Missing: exported symbols with no `@docs` entry.
+        — Orphan: `@docs` entries whose symbol is no longer exported or whose docstring no
+          longer exists in `src/`.
+      For method-dispatched symbols (multiple `@docs` entries with different signatures, e.g.
+      `get_obs(ekp::EnsembleKalmanProcess)` vs `get_obs(ekp::EnsembleKalmanProcess, iteration)`),
+      check that all relevant dispatch variants are listed on separate lines.
+    </step>
+
+    <step n="4">
+      Edit the page:
+        — Add missing symbols. Decide whether they belong in an existing H2 group or need a
+          new one. Heuristics for grouping (match whatever grouping already exists):
+            * Constructor / primary struct → "## Primary objects and functions"
+            * Accessor functions (`get_*`) → "## Getter functions"
+            * Error / convergence metrics → "## Error metrics"
+            * Algorithm-specific update functions → flat or a section matching the algorithm name.
+        — Remove orphan entries.
+        — Add or update method-specific signatures for any exported function where dispatch on
+          argument types matters for the public API (list each signature on its own line inside
+          the `@docs` block).
+        — Keep the `@meta CurrentModule` block at the very top of the file.
+    </step>
+
+    <step n="5">
+      Build the docs locally to confirm no new warnings:
+        julia --project=docs docs/make.jl
+      Common warnings to fix:
+        — "missing docstring for Symbol" — the symbol is in `@docs` but has no docstring in `src/`.
+          Add the docstring or remove the `@docs` entry.
+        — "duplicate docstring" — the symbol appears more than once on the page or across pages.
+          Remove the duplicate.
+      Do not report the task complete if the build emits `@docs`-related errors.
+    </step>
+  </workflow>
+
+  <rubric>
+    <criterion name="completeness" weight="high">
+      Every symbol returned by `grep -E '^export' src/&lt;Module&gt;.jl` has a corresponding `@docs`
+      entry on the page after the task is applied. No exported symbol is silently undocumented
+      in the API reference.
+    </criterion>
+
+    <criterion name="no-orphans" weight="high">
+      No `@docs` entry references a symbol that is no longer exported or that lacks a docstring
+      in the current source tree.
+    </criterion>
+
+    <criterion name="grouping-convention" weight="medium">
+      New symbols are placed under the appropriate existing H2 group (or a new group that
+      follows the naming convention of existing groups). The H2 → `@docs` structure is
+      consistent with the rest of the page.
+    </criterion>
+
+    <criterion name="no-new-warnings" weight="high">
+      The docs build produces no more `@docs`-related warnings after the edit than before.
+    </criterion>
+
+    <criterion name="dispatch-coverage" weight="medium">
+      For any function with multiple public dispatch variants (different argument types that
+      a user would need to distinguish), each variant is listed on its own line inside the
+      `@docs` block, matching the convention already established on the page.
+    </criterion>
+  </rubric>
+
+  <formatting>
+    <rule>`@meta CurrentModule = EnsembleKalmanProcesses` block at the very top of the file,
+          immediately after the H1 heading.</rule>
+    <rule>H1 = display name of the module or concept (sentence-case, may omit .jl suffix).
+          H2 = section group names (sentence-case). No H3 inside API pages.</rule>
+    <rule>One symbol per line inside each `@docs` block. Never comma-separate on one line.</rule>
+    <rule>Method-specific signatures: list each dispatch variant on its own line, written as
+          the full function call with typed arguments — e.g.,
+          `get_obs(ekp::EnsembleKalmanProcess)` and `get_obs(ekp::EnsembleKalmanProcess, iteration)`
+          on separate lines. Use the exact signature form that Documenter.jl matches.</rule>
+    <rule>No prose, no admonitions, no code fences on API pages — just the `@meta` block,
+          H1, optional H2 groups, and `@docs` blocks.</rule>
+
+    <example><![CDATA[
+## Template for a flat API page (few symbols, no grouping needed):
+
+# My Module
+
+```@meta
+CurrentModule = EnsembleKalmanProcesses
+```
+
+```@docs
+MyType
+my_function
+my_other_function(::MyType)
+my_other_function(::MyType, ::Int)
+```
+
+## Template for an H2-grouped API page (many symbols, logical groupings):
+
+# My Module
+
+```@meta
+CurrentModule = EnsembleKalmanProcesses
+```
+
+## Primary objects
+
+```@docs
+MyType
+construct_my_type
+update_my_type!
+```
+
+## Getter functions
+
+```@docs
+get_field_a
+get_field_b(::MyType)
+get_field_b(::MyType, ::Int)
+```
+
+## [Error metrics](@id my_errors_api)
+
+```@docs
+compute_my_error
+get_my_error_metrics
+```
+    ]]></example>
+  </formatting>
+
+</specialism>

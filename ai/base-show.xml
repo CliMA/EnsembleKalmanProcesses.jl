@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<specialism name="base-show" version="1">
+
+  <task>
+    Add concise Base.show(io::IO, ::MIME"text/plain", x::T) methods to Julia types whose default
+    REPL representation would be unhelpful or overwhelming. Default Julia show dumps every field
+    recursively; types that hold DataFrames, large dictionaries, nested arrays, or many scalar
+    fields produce screens of text at the REPL. This specialism produces compact, informative
+    custom show methods and accompanying unit tests so that interactive use of the package is
+    pleasant without losing key summary information.
+  </task>
+
+  <workflow>
+    <step n="1">
+      Enumerate concrete types defined in the package:
+        grep -nrE '^(mutable )?struct ' src/
+      Exclude abstract types (abstract type ...) — they cannot be instantiated.
+    </step>
+
+    <step n="2">
+      For each concrete type, classify its default show noisiness. A type is "noisy" if it
+      holds at least one of: a DataFrame, a Dict with many entries, a large Array, another
+      struct that is itself noisy, or more than ~6 fields. If the package already defines a
+      Base.show method for a type (grep -nrE 'Base\.show' src/), skip that type.
+    </step>
+
+    <step n="3">
+      For each noisy type with no existing show method, write:
+
+        function Base.show(io::IO, ::MIME"text/plain", x::T)
+
+      The method must print:
+      - The type name (bare, without type parameters) on the first line. For parametric types
+        such as `EnsembleKalmanProcess{FT,IT,P,...}`, print only `EnsembleKalmanProcess` — the
+        type-parameter tuple adds noise without informing the reader about the instance's state.
+      - 1–5 concise summary lines: key scalar fields (e.g. "process = Inversion()"),
+        counts (e.g. "N_ensemble = 50"), iteration number, sizes of stored collections.
+        Never print collection contents.
+      - Total output: at most 10 lines.
+
+      Placement: adjacent to the type definition in the same source file (the existing
+      convention — see `src/ParameterDistributions.jl:124–440`). Do not create a separate
+      `src/show.jl` unless there is already one in the package.
+    </step>
+
+    <step n="4">
+      Write a unit test for each new show method. The test must assert structural properties
+      of the output (contains the bare type name, line count ≤ 10) rather than exact strings,
+      so stylistic edits do not break the test. Use sprint(show, MIME("text/plain"), instance)
+      to capture the output.
+
+      Placement: add the test as a `@testset "show"` block inside the matching per-module test
+      file at `test/&lt;Module&gt;/runtests.jl` (e.g., a show test for `EnsembleKalmanProcess` goes
+      in `test/EnsembleKalmanProcess/runtests.jl`). Do not create a standalone `test/show/`
+      directory — that does not match the package's test-dispatch convention.
+    </step>
+
+    <step n="5">
+      Verify: load the package (julia --project -e 'using &lt;PackageName&gt;') and run the
+      test suite. Confirm the new tests pass and no pre-existing tests regress.
+    </step>
+  </workflow>
+
+  <rubric>
+    <criterion name="coverage" weight="high">
+      Every type classified as noisy in step 2 has a Base.show method after the task is applied.
+    </criterion>
+
+    <criterion name="brevity" weight="high">
+      show output is at most 10 lines for any instance, including edge cases (empty collections,
+      zero-element structs, etc.).
+    </criterion>
+
+    <criterion name="safety" weight="high">
+      The show method does not throw on any valid instance, including default-constructed or
+      partially-populated instances.
+    </criterion>
+
+    <criterion name="allocation-safety" weight="high">
+      Every data access inside a show method must be an O(1) metadata query: length(), size(),
+      isempty(), first() on a lazy iterator, or direct field access. Never call collect(),
+      sort(), filter(), keys()/values() followed by iteration, or any function that materialises
+      a new collection from an existing one. This guarantees show is safe to call on structs
+      holding millions of elements without triggering large allocations or hangs.
+    </criterion>
+
+    <criterion name="test-robustness" weight="medium">
+      Unit tests assert structural properties (contains type name, line count), not exact strings.
+      A cosmetic change to the show output does not break any test.
+    </criterion>
+
+    <criterion name="no-regression" weight="high">
+      Pre-existing tests continue to pass; no unintended changes to other source files.
+    </criterion>
+  </rubric>
+
+  <formatting>
+    <rule>Method signature: Base.show(io::IO, ::MIME"text/plain", x::MyType)</rule>
+    <rule>First printed line: type name (and key size hints if cheap to compute), using print or println.</rule>
+    <rule>Subsequent lines indented by two spaces for readability.</rule>
+    <rule>Never print collection contents — only counts, sizes, or ranges.</rule>
+    <rule>Never allocate inside show: use length(), size(), isempty(), and first() on lazy
+          iterators (e.g. values(dict)) rather than collect(), sort(), or any function that
+          copies a collection. All data access must be O(1).</rule>
+    <rule>Use sprint(show, MIME("text/plain"), x) in tests to capture output without side effects.</rule>
+    <rule>Place the show method adjacent to the type definition in the same source file
+          (matching the existing convention in `src/ParameterDistributions.jl`). Do not create
+          a separate `src/show.jl` — there is no such file in this package.</rule>
+
+    <example><![CDATA[
+## Scenario: MyEnvironment holds a large Dict of DataFrames and a date range.
+
+## Before (default Julia show — prints entire Dict contents)
+
+julia> env
+MyEnvironment(data=Dict{String, DataFrame}(...dozens of rows...))
+
+## After (custom show method)
+
+function Base.show(io::IO, ::MIME"text/plain", x::MyEnvironment)
+    println(io, "MyEnvironment")
+    println(io, "  n_basins : ", length(x.data))
+    println(io, "  date_range: ", x.start_date, " to ", x.end_date)
+end
+
+# julia> env
+# MyEnvironment
+#   n_basins : 847
+#   date_range: 2000-01-01 to 2020-12-31
+
+## Corresponding unit test
+
+@testset "MyEnvironment show" begin
+    env = MyEnvironment(...)                   # construct a minimal valid instance
+    out = sprint(show, MIME("text/plain"), env)
+    @test occursin("MyEnvironment", out)
+    @test count(==('\n'), out) <= 10
+end
+    ]]></example>
+  </formatting>
+
+</specialism>

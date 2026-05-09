@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<specialism name="docs-readme" version="1">
+
+  <task>
+    Write or improve the project-root README.md. The README is the GitHub landing page: its
+    primary job is to pitch the package in one glance, provide a minimal runnable demo, and route
+    interested readers to the full documentation. It must render correctly on GitHub, which means
+    no Documenter.jl syntax (@ref, @raw html, @example) — all links must be absolute URLs to the
+    deployed docs site. The output is a README that communicates what the package does, gives a
+    reader enough to decide if it is relevant to them, and makes it trivial to find next steps.
+  </task>
+
+  <workflow>
+    <step n="1">
+      Orient yourself. Read the project's docs/src/index.md (if it exists) to understand the
+      package's purpose and any "Quick links" navigation section that may need mirroring in the
+      README. Note the deployed documentation URL (found in docs/make.jl, the repo's CI deploy
+      workflow, or the existing README). This URL is the base for every doc link in the README.
+    </step>
+
+    <step n="2">
+      Assess the current README (if one exists). Identify:
+        (a) Missing or broken badge table.
+        (b) Relative or @ref links that will not resolve on GitHub.
+        (c) Whether a minimal runnable demo exists and is accurate.
+        (d) Whether the package description answers "what does it do and why would I use it?"
+        (e) Whether a citation or "Quick links" section is present in index.md but absent here.
+    </step>
+
+    <step n="3">
+      Draft or edit the README following the section order below. Keep each section minimal —
+      the README is an advertisement and a signpost, not a tutorial or API reference.
+
+      Canonical section order:
+        1. H1 = package name (include .jl suffix). Immediately below: one-line tagline.
+        2. Badge table (reference-style link definitions at bottom of file).
+        3. H2 "What does this package do?" — 2–4 sentences or a short bulleted list.
+        4. H2 "Quick start" or equivalent — copy-pasteable Julia code that installs and runs
+           the most basic use case; include a representative output image if one exists.
+        5. H2 "Quick links" (if index.md has this section) — bullet list of absolute doc links.
+        6. H2 "Citation" (if the package has a citable publication).
+
+      Translate any @ref links from index.md to absolute URLs when mirroring a Quick links section.
+    </step>
+
+    <step n="4">
+      Review all links and code blocks:
+        — Every link to the documentation site must be an absolute URL.
+        — Badge URLs must use the correct repo path and branch (check CI workflow for correct
+          badge endpoint — do not guess badge URLs).
+        — The code demo must be accurate: test it mentally against the current API.
+        — Reference-style link definitions must be collected at the bottom of the file.
+    </step>
+
+    <step n="5">
+      Verify by rendering locally if possible (e.g., a Markdown previewer or `grip`).
+      Confirm: (a) badges render, (b) all links resolve, (c) no @ref or relative doc paths remain.
+    </step>
+
+    <step n="6">
+      Run the docs build to confirm the overall site still builds without new warnings:
+        julia --project=docs docs/make.jl
+      The README itself is not processed by Documenter, but this step confirms that any pages
+      the README links to still exist and that no earlier edits broke the docs site.
+      Do not report the task complete if the build emits errors.
+    </step>
+  </workflow>
+
+  <rubric>
+    <criterion name="absolute-urls-only" weight="high">
+      Every link to the documentation site uses a full absolute URL. No @ref, no relative paths
+      (../../docs/...), no bare anchor fragments. GitHub cannot render Documenter.jl syntax.
+    </criterion>
+
+    <criterion name="demo-accurate" weight="high">
+      The copy-paste demo installs and runs against the current public API. Package name matches
+      the registered name in Project.toml. Output (or expected behaviour) is described.
+    </criterion>
+
+    <criterion name="badge-table" weight="medium">
+      Standard badges are present: at minimum docs (stable and/or dev) and CI status.
+      Reference-style link definitions are used for badge image and target URLs.
+    </criterion>
+
+    <criterion name="pitch-clarity" weight="high">
+      A reader unfamiliar with the package can understand what it does and who it is for within
+      the first three paragraphs. No jargon without explanation.
+    </criterion>
+
+    <criterion name="quick-links-mirrored" weight="medium">
+      If docs/src/index.md contains a "Quick links" section, the README mirrors it with
+      @ref anchors translated to absolute URLs. Content must stay in sync with index.md;
+      link form is the only difference.
+    </criterion>
+  </rubric>
+
+  <formatting>
+    <rule>H1 = "PackageName.jl"; tagline on the next line, plain text, no formatting.</rule>
+    <rule>Badge table: a Markdown table or a line of badge images; use reference-style link
+          definitions collected at the bottom of the file. Minimum: docs badge + CI badge.</rule>
+    <rule>All links to the documentation site: absolute URLs
+          (e.g., https://clima.github.io/MyPackage.jl/dev/installation/).</rule>
+    <rule>No @ref, no [`Symbol`](@ref), no @raw html, no @example — GitHub renders none of these.</rule>
+    <rule>Code blocks: triple-backtick ```julia, hand-written, copy-pasteable end-to-end.</rule>
+    <rule>Package description voice: third-person for what the package is
+          ("MyPackage is a Julia library for..."); second-person imperative for the demo
+          ("Install and run:").</rule>
+    <rule>Reference-style link definitions at the very bottom of the file.</rule>
+
+    <example><![CDATA[
+## Before (relative links, no badges, untagged fence)
+
+# MyPackage
+
+A library for solving inverse problems.
+
+```
+using MyPackage
+run_something()
+```
+
+[API docs](docs/src/api.md)
+
+## After (badge table, absolute URLs, tagged fence, reference-style links)
+
+# MyPackage.jl
+
+A Julia library for solving inverse problems using ensemble methods.
+
+[![Documentation][docs-img]][docs-url]
+[![CI Status][ci-img]][ci-url]
+
+## What does this package do?
+
+MyPackage implements ensemble-based inversion algorithms that estimate unknown
+parameters from noisy observations. It is designed for scientific computing
+workflows in Julia.
+
+## Quick start
+
+Install via the Julia package manager:
+
+```julia
+using Pkg
+Pkg.add("MyPackage")
+```
+
+Run a minimal example:
+
+```julia
+using MyPackage
+result = solve(MyProblem())
+```
+
+## Quick links
+
+- [Documentation][docs-url]
+- [Installation](https://clima.github.io/MyPackage.jl/dev/installation/)
+- [API reference](https://clima.github.io/MyPackage.jl/dev/api/)
+
+[docs-img]: https://img.shields.io/badge/docs-dev-blue.svg
+[docs-url]: https://clima.github.io/MyPackage.jl/dev/
+[ci-img]: https://github.com/CliMA/MyPackage.jl/actions/workflows/ci.yml/badge.svg
+[ci-url]: https://github.com/CliMA/MyPackage.jl/actions/workflows/ci.yml
+    ]]></example>
+  </formatting>
+
+</specialism>
