@@ -17,6 +17,7 @@ A `UserPromptSubmit` hook in `.claude/settings.json` injects this file into ever
 | base-show | [base-show.xml](base-show.xml) | Add concise `Base.show` methods for types with unhelpful default REPL output | show, display, print, repr, REPL output |
 | api-page | [api-page.xml](api-page.xml) | Write or update a hand-curated `@docs`-block API reference page in `docs/src/API/` | api page, @docs block, exported symbols, API reference |
 | stale-cleanup | [stale-cleanup.xml](stale-cleanup.xml) | Detect and remove stale editor backups, orphan tmp files, and coverage artifacts from the working tree | stale files, backup files, \*~ files, tmp, cov, cleanup |
+| repo-summary-generation | [repo-summary-generation.xml](repo-summary-generation.xml) | Build and maintain a dense, machine-readable repo index (modules, types, methods, testsets, example drivers, docs pages, semantic groups, jump table) under `ai/repo-summary-<YYYY-MM-DD>/` so downstream agents avoid re-scanning the codebase | repo summary, repo index, generate repo summary, navigation, jump table, semantic index, file summary, where is X defined |
 
 ## Adding a new specialism
 
