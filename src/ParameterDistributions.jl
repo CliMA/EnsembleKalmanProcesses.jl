@@ -121,23 +121,6 @@ struct Constraint{T} <: ConstraintType
     bounds::Union{Dict, Nothing}
 end
 
-function Base.show(io::IO, ::MIME"text/plain", cons::Constraint{T}) where {T <: BasicConstraints}  # verbose
-    bounds = isnothing(cons.bounds) ? Dict() : cons.bounds
-    lb = get(bounds, "lower_bound", "-∞")
-    ub = get(bounds, "upper_bound", "∞")
-    print(io, "Constraint{$(T)} with bounds ($(lb), $(ub))")
-end
-function Base.show(io::IO, cons::Constraint{T}) where {T}
-    suffix = isnothing(cons.bounds) ? "" : " with characterization $(tuple(cons.bounds...))"
-    print(io, "Constraint{$(T)}" * suffix)
-end
-function Base.show(io::IO, cons::Constraint{<:BasicConstraints})  # shorthand, e.g. in parameter distributions
-    bounds = isnothing(cons.bounds) ? Dict() : cons.bounds
-    lb = get(bounds, "lower_bound", "-∞")
-    ub = get(bounds, "upper_bound", "∞")
-    print(io, "Bounds: ($(lb), $(ub))")
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -435,19 +418,6 @@ function ParameterDistribution(
 )
     distribution = Samples(distribution_samples, params_are_columns = params_are_columns)
     return ParameterDistribution(distribution, constraint, name)
-end
-
-function Base.show(io::IO, distributions::ParameterDistribution)
-    n = length(distributions.name)
-    out = "ParameterDistribution with $n entries: \n"
-    for (i, inds) in enumerate(batch(distributions, function_parameter_opt = "constraint"))
-        dist = distributions.distribution[i]
-        dist_string = replace("$dist", "\n" => " ")  # hack to remove `\n` from `Parameterized(FullNormal(...))`
-        cons = distributions.constraint[inds]
-        nam = distributions.name[i]
-        out *= "'$(nam)' with $(cons) over distribution $dist_string \n"
-    end
-    print(io, out)
 end
 
 ## Functions
