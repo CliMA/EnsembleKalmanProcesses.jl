@@ -5,6 +5,8 @@
             "Bash(julia --project *)",
             "Read(*)",
             "FileWrite(src/*, test/*, docs/*, examples/*, ai/*)",
+            "Edit(src/*)",
+            "Write(src/*)",
             "Bash(git log*)",
             "Bash(git diff*)",
             "Bash(git status*)",
