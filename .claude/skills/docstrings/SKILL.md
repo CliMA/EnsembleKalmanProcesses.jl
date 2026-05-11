@@ -24,14 +24,23 @@ self-documenting and satisfies any `checkdocs` requirement in the docs build.
 
 ### Step 1 — Detect the existing convention
 
-Read 1–2 symbols that already have complete docstrings to calibrate style.
+Use an Explore subagent to read 2–3 symbols that already have complete docstrings
+to calibrate style. This avoids consuming the main context window with large file
+reads. Ask the Explore agent to return the verbatim docstring text for each symbol.
+
 Identify:
 
-- Whether DocStringExtensions macros are used, and which ones.
+- Whether DocStringExtensions macros are used, and which ones (`$(TYPEDEF)`,
+  `$(TYPEDFIELDS)`, `$(TYPEDSIGNATURES)`, `$(METHODLIST)`).
 - How prose is structured relative to macro-generated content (e.g. does prose
   come before or after `$(TYPEDFIELDS)`?).
 - What field documentation pattern is preferred: inline string literals above
   each struct field vs. a separate prose block.
+- Which format is used for struct docstrings: the **old format** (an indented
+  type-name header on the first line, no `$(TYPEDEF)`, manual `# Constructor`
+  section), or the **new format** (prose only, `$(TYPEDEF)` for the signature,
+  `$(METHODLIST)` for constructors). Normalise old-format structs to new-format
+  during Step 3.
 
 This detected baseline becomes the style target for every new or normalised
 docstring. Do not impose a different convention — match what is already there.
@@ -44,18 +53,71 @@ Discover the package name from `Project.toml` (the `name =` field). Then run:
 grep -nE '^(function |struct |abstract type |mutable struct |const )' src/**/*.jl
 ```
 
-Cross-reference the result with the module's exported names by reading the main
-module file for `export` statements. For each exported symbol, check whether a
-non-empty docstring immediately precedes the definition.
+**Cross-file exports**: exported names may be declared in a central module file
+(e.g. `src/PackageName.jl`) while the definition lives in a different file.
+Read the module file for all `export` statements so you catch every public symbol
+regardless of where it is defined.
 
-Produce a prioritised list:
-1. Missing entirely.
-2. Empty or stub (e.g. only a macro line with no prose).
-3. Incomplete (prose present but key sections absent).
+For each exported symbol, check whether a non-empty docstring immediately precedes
+the definition. Produce a prioritised list:
+
+1. **Missing entirely** — no docstring at all.
+2. **Old-format struct** — indented type name on first line, no `$(TYPEDEF)`,
+   or redundant manual `# Constructor` / `# Constructors` section alongside
+   `$(METHODLIST)`.
+3. **Empty or stub** — only a bare macro line (e.g. `$(TYPEDSIGNATURES)`) with
+   no prose.
+4. **Incomplete** — prose present but key sections absent (missing `# Arguments`,
+   `# Examples`, or field strings not describing semantic role).
 
 ### Step 3 — Draft docstrings
 
-For each candidate, write a docstring that matches the detected convention:
+For each candidate, write a docstring that matches the detected convention.
+
+#### Getters and simple accessors
+
+Simple getters for exported process/struct types (e.g.
+`get_prior_mean(p::MyProcess)`) are public API and must be documented if
+exported. A one-line `$(TYPEDSIGNATURES)` + short prose sentence suffices; no
+`# Arguments` or `# Examples` is needed unless the semantics are non-obvious.
+
+#### Old-format struct docstrings
+
+If a struct docstring starts with an indented type name (e.g. `    MyStruct{...}`),
+convert it to the new format:
+
+- Remove the indented type name from the docstring.
+- Add `$(TYPEDEF)` immediately after the opening prose sentence.
+- Replace any manual `# Constructor` or `# Constructors` section (listing
+  function signatures) with a `# Constructors` section containing only
+  `$(METHODLIST)`. If `$(METHODLIST)` is already present alongside the manual
+  list, remove the manual list.
+- Preserve any genuine prose that was in the old `# Constructor` section if it
+  explains non-obvious behaviour; discard boilerplate signature repetition.
+
+#### Multiple dispatch — one docstring per concept
+
+When a function has multiple dispatch methods, document **only** the primary
+user-facing overload and leave all other overloads undocumented. Competing
+docstrings fragment the rendered API docs and create maintenance burden.
+
+The primary overload is the method whose argument type is the **broadest
+user-facing type** — e.g. `ParameterDistribution` rather than `Parameterized`
+or `Samples`.
+
+**Type-parameter specialisations count as overloads.** If the same function name
+is defined for `where {FT, P <: MyProcess{FT, TypeA}}` and
+`where {FT, P <: MyProcess{FT, TypeB}}`, these are two dispatch methods of the
+same concept. Document only one — typically the first defined, or the more
+general one — and leave the rest undocumented.
+
+`update_ensemble!` is a specialised internal update hook called by the framework,
+not by users directly. It must **not** be documented even if it is exported.
+
+Append a `# Method list` section containing `$(METHODLIST)` to the chosen
+docstring so Documenter.jl surfaces all overloads automatically.
+
+#### General rules
 
 - Use the same macro set as the best-documented symbols already in the package.
 - Preserve any inline field string literals already present above struct fields —
@@ -72,7 +134,30 @@ For each candidate, write a docstring that matches the detected convention:
   written, add a `# Examples` section with a `jldoctest` block so Documenter.jl
   can verify the example stays correct as the code evolves.
 
-### Step 4 — Verify
+### Step 4 — Apply edits
+
+When editing files that contain non-ASCII characters (e.g. author names with
+accented letters like "Garbuno-Iñigo" or "Nüsken"), the file may store
+characters in Unicode NFD form while the Edit tool normalises to NFC, causing
+match failures. If an Edit call fails with a "not found" error on a string you
+can see in the file, use a Python one-liner to apply the replacement with
+NFD-normalised strings:
+
+```bash
+python3 - <<'EOF'
+import unicodedata, pathlib
+p = pathlib.Path("src/MyFile.jl")
+text = p.read_text()
+old = unicodedata.normalize('NFD', "the old string here")
+new = unicodedata.normalize('NFD', "the new string here")
+p.write_text(text.replace(old, new, 1))
+EOF
+```
+
+After a Python edit, re-read the file before making any further Edit calls to
+the same file (the Edit tool tracks file state from the last Read).
+
+### Step 5 — Verify
 
 Find the package name from `Project.toml`, then confirm the package loads
 without error:
@@ -84,9 +169,12 @@ julia --project -e 'import Pkg; Pkg.instantiate(); using <PackageName>'
 If a docs build is configured (`docs/make.jl` is present), run it and resolve
 any `checkdocs` warnings introduced by the new docstrings.
 
-### Step 5 — Offer to improve the skill
+### Step 6 — Offer to improve the skill
 
-Once the docs build is clean, ask the user: "Would you like to improve the **docstrings** skill itself using skill-creator? You can share suggestions, or I can analyse patterns from this session — recurring edge cases, formatting decisions, or anything that felt awkward — to refine the skill for next time."
+Once the docs build is clean, ask the user: "Would you like to improve the
+**docstrings** skill itself using skill-creator? You can share suggestions, or I
+can analyse patterns from this session — recurring edge cases, formatting
+decisions, or anything that felt awkward — to refine the skill for next time."
 
 ## Formatting rules
 
@@ -112,6 +200,10 @@ expect. Apply them consistently.
 - Avoid vague labels such as "data object" or "container". Say what the field
   represents in domain terms (e.g. "mapping of basin ID to forcing timeseries"
   rather than "dictionary of forcing timeseries data objects").
+- **Multiple-dispatch — one docstring per concept**: Document only the primary
+  user-facing overload (the method taking the top-level composite type). End
+  that docstring with a `# Method list` section containing `$(METHODLIST)`. All
+  other dispatch methods remain undocumented.
 - **`# Arguments` section**: add after the opening prose for any function with
   more than two parameters, or where argument semantics are non-obvious. Format:
   `` - `name`: description [unit] ``.
@@ -131,48 +223,62 @@ expect. Apply them consistently.
 | Criterion | Weight | What to check |
 |---|---|---|
 | **Completeness** | High | Every exported symbol has a non-empty docstring after the task is applied. |
-| **Convention parity** | High | New docstrings use the same macro set and structural pattern as the best-documented symbols already present. |
+| **Convention parity** | High | New docstrings use the same macro set and structural pattern as the best-documented symbols already present. Old-format struct docstrings have been normalised. |
 | **Informativeness** | Medium | Prose answers "what, when, why". Units present for physical quantities. `# Arguments` section present where needed. `# Examples` jldoctest block present for non-trivial public functions. |
-| **No duplication** | Medium | Prose does not duplicate macro-generated content. Field string literals do not restate the field's type. |
+| **No duplication** | Medium | Prose does not duplicate macro-generated content. Field string literals do not restate the field's type. No redundant manual `# Constructor` section alongside `$(METHODLIST)`. |
 | **Correctness** | High | Package loads without error; docs build (if configured) completes without new warnings. |
 
-## Example
+## Examples
 
-The example below is intentionally synthetic — generic type and function names
-are used so the pattern stays clear regardless of what the package defines.
+### Struct: old format → new format
 
 ```julia
-## Before — struct with no docstring; field strings use type names in brackets (anti-pattern)
-
-struct MyStruct
-    "Wave velocity [Float64]"   # BAD: [Float64] is the type, not a unit
-    velocity::Float64
-    "Start date [Date]"         # BAD: [Date] is the type, not a unit
-    start::Date
-    "Number of nodes"
-    n_nodes::Int
-end
-
-## After — struct-level docstring added; field strings use units, not type names
+## Before — OLD format: indented type name, no $(TYPEDEF), manual # Constructor section
 
 """
-    MyStruct
+    Sampler{FT<:AbstractFloat, T <:SamplerType} <: Process
 
-Represent the spatial discretization parameters for a single channel reach.
+An ensemble Kalman Sampler process. with type Sampler Type (e.g., ALDI or EKS).
+
+# Constructor
+Sampler(prior::ParameterDistribution) # ALDI update (sampler_type="aldi")
+Sampler(prior::ParameterDistribution; sampler_type = "eks") # EKS update
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
+"""
+struct Sampler{FT <: AbstractFloat, T} <: Process
+    ...
+end
+
+## After — NEW format: prose only, $(TYPEDEF) for signature, $(METHODLIST) for constructors
+
+"""
+An ensemble Kalman Sampler process parameterised by algorithm type `T <: SamplerType` (`ALDI` or `EKS`).
 
 $(TYPEDEF)
+
+# Fields
+
 $(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
-struct MyStruct
-    "Wave velocity [m/day]"              # GOOD: physical unit
-    velocity::Float64
-    "Start of the simulation period"     # GOOD: semantic description, no redundant type
-    start::Date
-    "Number of nodes along the reach"
-    n_nodes::Int
+struct Sampler{FT <: AbstractFloat, T} <: Process
+    ...
 end
+```
 
+### Function: stub docstring improved
 
+```julia
 ## Before — function with an empty stub docstring
 
 """
@@ -206,4 +312,64 @@ julia> advance(m, 0.5)
 function advance(x::MyStruct, dt::Float64)
     ...
 end
+```
+
+### Multiple-dispatch: type-parameter specialisations
+
+```julia
+## Before — both specialisations documented (anti-pattern)
+
+"""
+$(TYPEDSIGNATURES)
+
+Returns the updated parameters using the EKS algorithm.
+"""
+function eks_update(ekp, u, g, process::PEKS) where {FT, PEKS <: Sampler{FT, EKS}}
+    ...
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Returns the updated parameters using the ALDI algorithm.
+"""
+function eks_update(ekp, u, g, process::PALDI) where {FT, PALDI <: Sampler{FT, ALDI}}
+    ...
+end
+
+## After — only the first overload documented; second left bare
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the updated parameter vectors using the EKS sampler algorithm
+(Garbuno-Iñigo, Hoffmann, Li, Stuart 2019).
+
+# Method list
+$(METHODLIST)
+"""
+function eks_update(ekp, u, g, process::PEKS) where {FT, PEKS <: Sampler{FT, EKS}}
+    ...
+end
+
+function eks_update(ekp, u, g, process::PALDI) where {FT, PALDI <: Sampler{FT, ALDI}}
+    ...
+end
+```
+
+### Simple getter: minimal docstring
+
+```julia
+## Before — getter with no docstring
+
+get_prior_mean(process::Sampler) = process.prior_mean
+
+## After — one-liner is enough
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the prior mean vector stored in `process`.
+"""
+get_prior_mean(process::Sampler) = process.prior_mean
 ```
