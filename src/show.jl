@@ -14,15 +14,15 @@ function Base.summary(io::IO, x::DataContainers.DataContainer)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", x::DataContainers.PairedDataContainer)
-    m_in,  n_in  = size(x.inputs.data)
+    m_in, n_in = size(x.inputs.data)
     m_out, n_out = size(x.outputs.data)
     println(io, "PairedDataContainer")
-    println(io, "  inputs : ", m_in,  " × ", n_in,  " params × samples")
+    println(io, "  inputs : ", m_in, " × ", n_in, " params × samples")
     println(io, "  outputs: ", m_out, " × ", n_out, " obs × samples")
 end
 
 function Base.summary(io::IO, x::DataContainers.PairedDataContainer)
-    m_in,  n_in  = size(x.inputs.data)
+    m_in, n_in = size(x.inputs.data)
     m_out, n_out = size(x.outputs.data)
     print(io, "PairedDataContainer (", m_in, "×", n_in, " → ", m_out, "×", n_out, ")")
 end
@@ -55,7 +55,7 @@ end
 # ── Observations: Observation ─────────────────────────────────────────────────
 
 function Base.show(io::IO, ::MIME"text/plain", x::Observation)
-    n_blocks  = length(x.samples)
+    n_blocks = length(x.samples)
     total_dim = isempty(x.indices) ? 0 : last(last(x.indices))
     println(io, "Observation")
     println(io, "  n_blocks : ", n_blocks)
@@ -64,7 +64,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::Observation)
 end
 
 function Base.summary(io::IO, x::Observation)
-    n_blocks  = length(x.samples)
+    n_blocks = length(x.samples)
     total_dim = isempty(x.indices) ? 0 : last(last(x.indices))
     print(io, "Observation (", n_blocks, " block", n_blocks == 1 ? "" : "s", ", dim=", total_dim, ")")
 end
@@ -94,7 +94,7 @@ end
 # ── Observations: ObservationSeries ──────────────────────────────────────────
 
 function Base.show(io::IO, ::MIME"text/plain", x::ObservationSeries)
-    n_obs    = length(x.observations)
+    n_obs = length(x.observations)
     n_epochs = length(x.minibatches)
     println(io, "ObservationSeries")
     println(io, "  n_observations: ", n_obs)
@@ -117,7 +117,18 @@ function Base.show(io::IO, ::MIME"text/plain", x::ParameterDistributions.Paramet
     for (i, inds) in enumerate(ParameterDistributions.batch(x, function_parameter_opt = "constraint"))
         i > max_show && break
         n_con = length(inds)
-        println(io, "  '", x.name[i], "': ", sprint(summary, x.distribution[i]), " [", n_con, " constraint", n_con == 1 ? "" : "s", "]")
+        println(
+            io,
+            "  '",
+            x.name[i],
+            "': ",
+            sprint(summary, x.distribution[i]),
+            " [",
+            n_con,
+            " constraint",
+            n_con == 1 ? "" : "s",
+            "]",
+        )
     end
     n > max_show && println(io, "  … and ", n - max_show, " more")
 end
@@ -132,7 +143,11 @@ function Base.summary(io::IO, x::ParameterDistributions.ParameterDistribution)
 end
 
 # ── ParameterDistributions: Constraint  ──────────────────────────────────────────
-function Base.show(io::IO, ::MIME"text/plain", cons::ParameterDistributions.Constraint{T}) where {T <: ParameterDistributions.BasicConstraints}  # verbose
+function Base.show(
+    io::IO,
+    ::MIME"text/plain",
+    cons::ParameterDistributions.Constraint{T},
+) where {T <: ParameterDistributions.BasicConstraints}  # verbose
     bounds = isnothing(cons.bounds) ? Dict() : cons.bounds
     lb = get(bounds, "lower_bound", "-∞")
     ub = get(bounds, "upper_bound", "∞")
@@ -151,7 +166,10 @@ function Base.show(io::IO, cons::ParameterDistributions.Constraint{<:ParameterDi
     print(io, "Bounds: ($(lb), $(ub))")
 end
 
-function Base.summary(io::IO, cons::ParameterDistributions.Constraint{T}) where {T <: ParameterDistributions.BasicConstraints}
+function Base.summary(
+    io::IO,
+    cons::ParameterDistributions.Constraint{T},
+) where {T <: ParameterDistributions.BasicConstraints}
     bounds = isnothing(cons.bounds) ? Dict() : cons.bounds
     lb = get(bounds, "lower_bound", "-∞")
     ub = get(bounds, "upper_bound", "∞")
@@ -368,7 +386,7 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", x::EnsembleKalmanProcess)
     n_iter = length(x.u) - 1
-    n_par  = size(x.u[1].data, 1)
+    n_par = size(x.u[1].data, 1)
     println(io, "EnsembleKalmanProcess")
     println(io, "  process    : ", nameof(typeof(x.process)))
     println(io, "  N_ens      : ", x.N_ens)
