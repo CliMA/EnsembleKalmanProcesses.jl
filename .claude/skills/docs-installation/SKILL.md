@@ -75,6 +75,10 @@ julia --project=docs docs/make.jl
 
 Resolve any Documenter warnings introduced by your edits before reporting the task complete.
 
+### Step 6 — Offer to improve the skill
+
+Once the docs build is clean, ask the user: "Would you like to improve the **docs-installation** skill itself using skill-creator? You can suggest additions to the workflow or quality criteria, or I can use what came up during this session — missing steps, awkward conventions, project-specific wrinkles — to make the skill better for next time."
+
 ## Quality criteria
 
 - **Imperative voice** (high priority): All instructions use second-person imperative —

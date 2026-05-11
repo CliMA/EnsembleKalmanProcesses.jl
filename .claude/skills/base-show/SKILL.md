@@ -130,6 +130,102 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 Confirm that all new tests pass and no pre-existing tests regress.
 
+### Step 6 — Offer to improve the skill
+
+After the tests pass and the REPL output looks good, ask the user: "Would you like to improve the **base-show** skill itself using skill-creator? You can suggest changes to the workflow or quality criteria, or I can analyse what came up during this session to identify improvements to the skill."
+
+## Common patterns
+
+### Forward plain show to the MIME method
+
+When a type should look the same whether printed inside a container or directly in the
+REPL, add a one-line plain-show forwarder so both display paths converge:
+
+```julia
+function Base.show(io::IO, x::MyProcess)
+    show(io, MIME("text/plain"), x)
+end
+```
+
+Without this, `[ekp]` in a Vector will fall back to Julia's default dump while the
+direct REPL display uses your custom method.
+
+### Truncate long collections with "… and N more"
+
+When a type holds a variable-length collection, cap the loop to keep output bounded:
+
+```julia
+function Base.show(io::IO, ::MIME"text/plain", x::ParameterDistribution)
+    n = length(x.name)
+    println(io, "ParameterDistribution with ", n, " entr", n == 1 ? "y" : "ies")
+    max_show = 8
+    for i in 1:min(n, max_show)
+        println(io, "  '", x.name[i], "': ", sprint(summary, x.distribution[i]))
+    end
+    n > max_show && println(io, "  … and ", n - max_show, " more")
+end
+```
+
+### Conditional fields
+
+Only print a field when it carries information:
+
+```julia
+if !isnothing(x.prior_mean)
+    println(io, "  prior_dim: ", length(x.prior_mean))
+end
+```
+
+### Pluralisation in summary
+
+Match English grammar for counts that can be 0 or 1:
+
+```julia
+print(io, "Observation (", n, " block", n == 1 ? "" : "s", ", dim=", dim, ")")
+```
+
+### Arrow notation for mappings
+
+Use `→` in summary when the type represents a transformation between spaces:
+
+```julia
+print(io, "PairedDataContainer (", m_in, "×", n_in, " → ", m_out, "×", n_out, ")")
+```
+
+### Unicode in mathematical contexts
+
+Use `×` for matrix dimensions, `→` for transformations, `∞` for unbounded constraints,
+and `|u|` for set sizes. These are rendered cleanly in all modern Julia terminals and
+communicate mathematical meaning concisely.
+
+```julia
+# Constraint summary: Constraint{NoConstraint} (−∞, ∞)
+lb = get(bounds, "lower_bound", "-∞")
+ub = get(bounds, "upper_bound", "∞")
+print(io, "Constraint{$(T)} ($(lb), $(ub))")
+```
+
+### Use nameof for parametric type identity
+
+When a type carries a type-parameter that identifies its variant, use `nameof` rather
+than printing the full parameterised name:
+
+```julia
+# Sampler{Float64} (prior_dim=12) — not the raw Sampler{Float64, ...} dump
+print(io, "Sampler{", nameof(get_sampler_type(x)), "} (prior_dim=", length(x.prior_mean), ")")
+```
+
+### Section separators in show.jl
+
+When collecting all methods in a dedicated `show.jl`, organise by type family with
+aligned comment rulers:
+
+```julia
+# ── DataContainers ────────────────────────────────────────────────────────────
+# ── Observations ─────────────────────────────────────────────────────────────
+# ── EnsembleKalmanProcess ────────────────────────────────────────────────────
+```
+
 ## Quality criteria
 
 | Criterion | Priority | Definition |
@@ -154,48 +250,140 @@ Confirm that all new tests pass and no pre-existing tests regress.
 - **Tests — show**: use `sprint(show, MIME("text/plain"), x)` to capture output without side effects.
 - **Tests — summary**: use `sprint(summary, x)` to capture the one-line description.
 
-## Example
+## Examples
+
+### Example 1 — matrix-carrying type (size hint)
 
 ```julia
-# Scenario: a type holds a large Dict of DataFrames and a date range.
+# Scenario: a type wraps a parameter matrix and a forward-model output matrix.
 
-# Before (default Julia show — dumps the entire Dict contents)
-julia> env
-MyEnvironment(data=Dict{String, DataFrame}(...dozens of rows...))
+# Before (default Julia show — prints the full matrix)
+julia> pdc
+PairedDataContainer{Float64}(inputs=DataContainer{Float64}(data=[...50×100 matrix...]),
+  outputs=DataContainer{Float64}(data=[...30×100 matrix...]))
 
-# After — custom show method (multi-line REPL display)
-function Base.show(io::IO, ::MIME"text/plain", x::MyEnvironment)
-    println(io, "MyEnvironment")
-    println(io, "  n_basins  : ", length(x.data))
-    println(io, "  date_range: ", x.start_date, " to ", x.end_date)
+# After — custom show method
+function Base.show(io::IO, ::MIME"text/plain", x::PairedDataContainer)
+    m_in,  n_in  = size(x.inputs.data)
+    m_out, n_out = size(x.outputs.data)
+    println(io, "PairedDataContainer")
+    println(io, "  inputs : ", m_in,  " × ", n_in,  " params × samples")
+    println(io, "  outputs: ", m_out, " × ", n_out, " obs × samples")
 end
 
-# julia> env
-# MyEnvironment
-#   n_basins  : 847
-#   date_range: 2000-01-01 to 2020-12-31
+# julia> pdc
+# PairedDataContainer
+#   inputs : 50 × 100  params × samples
+#   outputs: 30 × 100  obs × samples
 
-# After — custom summary method (one-line description used inside containers)
-function Base.summary(io::IO, x::MyEnvironment)
-    print(io, "MyEnvironment (", length(x.data), " basins)")
+# After — custom summary (arrow notation for a mapping type)
+function Base.summary(io::IO, x::PairedDataContainer)
+    m_in, n_in   = size(x.inputs.data)
+    m_out, n_out = size(x.outputs.data)
+    print(io, "PairedDataContainer (", m_in, "×", n_in, " → ", m_out, "×", n_out, ")")
 end
 
-# julia> [env]
-# 1-element Vector{MyEnvironment}:
-#  MyEnvironment (847 basins)
+# julia> [pdc]
+# 1-element Vector{PairedDataContainer{Float64}}:
+#  PairedDataContainer (50×100 → 30×100)
+```
 
-# Corresponding unit tests
-@testset "MyEnvironment show" begin
-    env = MyEnvironment(...)          # construct a minimal valid instance
-    out = sprint(show, MIME("text/plain"), env)
-    @test occursin("MyEnvironment", out)
+### Example 2 — collection-carrying type with truncation
+
+```julia
+# Scenario: a type holds N named parameter distributions; N can be large.
+
+# Before (default Julia show — prints every distribution in full)
+julia> prior
+ParameterDistribution{Parameterized, Constraint{NoConstraint}, String}(
+  distribution=[Parameterized(Normal{Float64}(μ=0.0, σ=1.0)), ...],
+  constraint=[[Constraint{NoConstraint}(bounds=nothing)], ...],
+  name=["amplitude", "length_scale", "noise_var", ...])
+
+# After — custom show with truncation
+function Base.show(io::IO, ::MIME"text/plain", x::ParameterDistribution)
+    n = length(x.name)
+    println(io, "ParameterDistribution with ", n, " entr", n == 1 ? "y" : "ies")
+    max_show = 8
+    for i in 1:min(n, max_show)
+        n_con = length(batch(x)[i])
+        println(io, "  '", x.name[i], "': ", sprint(summary, x.distribution[i]),
+                " [", n_con, " constraint", n_con == 1 ? "" : "s", "]")
+    end
+    n > max_show && println(io, "  … and ", n - max_show, " more")
+end
+
+# julia> prior
+# ParameterDistribution with 3 entries
+#   'amplitude'   : Parameterized (Normal) [1 constraint]
+#   'length_scale': Parameterized (LogNormal) [1 constraint]
+#   'noise_var'   : Parameterized (Uniform) [1 constraint]
+
+# After — summary
+function Base.summary(io::IO, x::ParameterDistribution)
+    n = length(x.name)
+    print(io, "ParameterDistribution (", n, " entr", n == 1 ? "y" : "ies", ")")
+end
+```
+
+### Example 3 — stateful iterative process
+
+```julia
+# Scenario: a mutable struct accumulates state across EKI iterations.
+
+# Before (default Julia show — dumps every matrix stored in the struct)
+julia> ekp
+EnsembleKalmanProcess{Float64, ...}(u=[50×100 matrix, 50×100 matrix, ...],
+  g=[...], Δt=[0.5, 0.5], rng=MersenneTwister(...), N_ens=100, ...)
+
+# After — custom show surfacing iteration progress
+function Base.show(io::IO, ::MIME"text/plain", x::EnsembleKalmanProcess)
+    n_iter = length(x.u) - 1
+    n_par  = size(x.u[1].data, 1)
+    println(io, "EnsembleKalmanProcess")
+    println(io, "  process    : ", nameof(typeof(x.process)))
+    println(io, "  N_ens      : ", x.N_ens)
+    println(io, "  N_par      : ", n_par)
+    println(io, "  n_iter     : ", n_iter)
+    println(io, "  scheduler  : ", nameof(typeof(x.scheduler)))
+    println(io, "  accelerator: ", nameof(typeof(x.accelerator)))
+end
+
+# julia> ekp
+# EnsembleKalmanProcess
+#   process    : Inversion
+#   N_ens      : 100
+#   N_par      : 50
+#   n_iter     : 5
+#   scheduler  : DefaultScheduler
+#   accelerator: DefaultAccelerator
+
+# After — summary capturing what matters most at a glance
+function Base.summary(io::IO, x::EnsembleKalmanProcess)
+    n_iter = length(x.u) - 1
+    print(io, "EnsembleKalmanProcess (", nameof(typeof(x.process)),
+          ", N_ens=", x.N_ens, ", ", n_iter, " iter)")
+end
+
+# julia> [ekp]
+# 1-element Vector{EnsembleKalmanProcess{...}}:
+#  EnsembleKalmanProcess (Inversion, N_ens=100, 5 iter)
+```
+
+### Unit tests
+
+```julia
+@testset "PairedDataContainer show" begin
+    pdc = PairedDataContainer(rand(50, 100), rand(30, 100))
+    out = sprint(show, MIME("text/plain"), pdc)
+    @test occursin("PairedDataContainer", out)
     @test count(==('\n'), out) <= 10
 end
 
-@testset "MyEnvironment summary" begin
-    env = MyEnvironment(...)
-    out = sprint(summary, env)
-    @test occursin("MyEnvironment", out)
-    @test !occursin('\n', out)        # must be exactly one line
+@testset "PairedDataContainer summary" begin
+    pdc = PairedDataContainer(rand(50, 100), rand(30, 100))
+    out = sprint(summary, pdc)
+    @test occursin("PairedDataContainer", out)
+    @test !occursin('\n', out)    # must be exactly one line
 end
 ```

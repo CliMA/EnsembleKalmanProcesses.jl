@@ -84,6 +84,10 @@ julia --project -e 'import Pkg; Pkg.instantiate(); using <PackageName>'
 If a docs build is configured (`docs/make.jl` is present), run it and resolve
 any `checkdocs` warnings introduced by the new docstrings.
 
+### Step 5 — Offer to improve the skill
+
+Once the docs build is clean, ask the user: "Would you like to improve the **docstrings** skill itself using skill-creator? You can share suggestions, or I can analyse patterns from this session — recurring edge cases, formatting decisions, or anything that felt awkward — to refine the skill for next time."
+
 ## Formatting rules
 
 These rules encode the conventions most Julia packages following DocStringExtensions
