@@ -95,6 +95,56 @@ convert it to the new format:
 - Preserve any genuine prose that was in the old `# Constructor` section if it
   explains non-obvious behaviour; discard boilerplate signature repetition.
 
+#### Named constructors (factory functions)
+
+`$(METHODLIST)` only lists methods whose name matches the struct type. Exported functions
+that **build an instance of the struct but carry a different name** — factory functions such
+as `constrained_gaussian` for `ParameterDistribution` — are invisible to `$(METHODLIST)`
+and must be surfaced manually in the struct docstring.
+
+When such functions exist, add a prose note inside the `# Constructors` section,
+immediately before `$(METHODLIST)`:
+
+```julia
+"""
+Structure to hold a parameter distribution, always stored as an array of
+distributions internally.
+
+$(TYPEDEF)
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+Recommended construction (for most problems) is via the `constrained_gaussian()`
+utility (see its own docstring for details and a usage example).
+
+$(METHODLIST)
+"""
+struct ParameterDistribution
+    ...
+end
+```
+
+The note should:
+- Name the function in backticks.
+- Give a one-line hint about when to prefer it over the direct constructor.
+- Optionally include a minimal usage snippet if the factory is the primary entry point
+  and no separate `# Examples` block exists on the factory function itself.
+
+The factory function still needs its **own full docstring** (`$(TYPEDSIGNATURES)`,
+`# Arguments`, `# Examples` if non-trivial). The struct-level note is a pointer,
+not a replacement.
+
+**Detecting named constructors during Step 2:** when enumerating candidates, flag
+exported functions whose name differs from any type name but whose body or doc
+clearly returns an instance of a specific struct. Common signals: the function name
+ends with a domain term (e.g. `constrained_gaussian`, `from_file`), its return
+statement calls the struct constructor directly, or the existing codebase already
+mentions the relationship somewhere in prose.
+
 #### Multiple dispatch — one docstring per concept
 
 When a function has multiple dispatch methods, document **only** the primary
