@@ -3,11 +3,15 @@ name: docstrings
 description: >
   Add or normalise Julia docstrings on public symbols (exported types, functions,
   and constants) so the package's public API is fully self-documenting and the
-  Documenter.jl docs build passes its checkdocs check.
+  Documenter.jl docs build passes its checkdocs check. After writing docstrings,
+  also updates docs/src/API/ pages so every exported symbol appears exactly once,
+  organised into logical categories, with stale entries removed.
   Invoke this skill whenever the user mentions: docstring, missing doc,
-  undocumented symbol, API doc, checkdocs warning, or asks to document a type or
-  function. Also use it when the user asks to "write docs for" or "add docs to"
-  source files, or when a CI failure mentions missing or incomplete docstrings.
+  undocumented symbol, API doc, checkdocs warning, docs/src/API, @docs block,
+  or asks to document a type or function, sync the API pages, or keep the API
+  index up to date. Also use it when the user asks to "write docs for" or "add
+  docs to" source files, or when a CI failure mentions missing or incomplete
+  docstrings.
 ---
 
 # docstrings
@@ -207,7 +211,98 @@ EOF
 After a Python edit, re-read the file before making any further Edit calls to
 the same file (the Edit tool tracks file state from the last Read).
 
-### Step 5 — Verify
+### Step 5 — Sync `docs/src/API/` pages
+
+After all source-file edits are applied, update the Documenter.jl API pages so
+that every exported, documented symbol appears exactly once, organised into
+logical categories. The goal is that a reader browsing `docs/src/API/` sees a
+complete, non-redundant index of the public API — nothing missing, nothing
+stale.
+
+#### 5a — Build the source-to-page map
+
+Read `docs/make.jl` and extract the `api` array to see which display name maps
+to which page path (e.g. `"Inversion" => "API/Inversion.md"`). For each page,
+read its `@meta` block to find `CurrentModule = ...`. This tells you which
+module's exports the page is responsible for.
+
+#### 5b — Collect current `@docs` entries per page
+
+For each API page, extract every symbol entry listed inside ` ```@docs ``` `
+blocks. Some entries carry type-signature qualifiers (e.g.
+`get_obs(ekp::EnsembleKalmanProcess)`) — track both the raw entry string and
+the base name (everything before the first `(`).
+
+#### 5c — Find missing and stale entries
+
+**Exported but not defined (phantom exports).** Before anything else, check
+that every exported name actually resolves to a definition — a function, type,
+or constant — somewhere in the source files of that module. If an exported name
+has no definition anywhere, it is a phantom export: remove the `export`
+statement (or just that name from a multi-name `export` line) from the source
+file. Do not add phantom exports to any API page.
+
+**Missing from the API.** A symbol is **missing** from a page when it is
+exported from that page's `CurrentModule`, its base name does not appear in any
+`@docs` block on any API page, and it has a definition in the source. If it
+lacks a docstring, go back and write one now (following the conventions from
+Steps 1–3) before adding it to the API page — an undocumented entry in a
+`@docs` block will cause the docs build to error. Every exported, defined
+symbol must end up with a docstring and an API page entry.
+
+**Stale API entries.** An entry is **stale** when the base name is no longer
+exported from the module, or the symbol no longer has a definition in the
+source.
+
+Run all three checks before making edits so you can see the full diff in one
+pass.
+
+#### 5d — Place missing symbols into appropriate sections
+
+Insert each missing symbol into the section of its API page that best matches
+its role. Use the existing section headings on the page as the primary guide —
+`## Getter functions`, `## Error metrics`, etc. are already established
+categories; add the new symbol to the most thematically fitting one.
+
+When no existing section fits, create a new `##` heading that names the
+functional group (e.g. `## Accelerators`, `## Utility functions`) and open a
+fresh ` ```@docs ``` ` block below it. Avoid catch-all sections like
+`## Miscellaneous`; if you find yourself reaching for that, split more finely.
+
+Broad heuristics for categorisation when the page has no existing sections to
+guide you:
+
+- Struct / abstract type → primary types section (first block on page)
+- Functions starting with `get_` → `## Getter functions`
+- Functions starting with `compute_`, `construct_`, `build_` → a computation
+  or construction section
+- Update or step functions → an operations section
+- Error-metric functions → `## Error metrics`
+- Scheduler or controller types/functions → their own named section
+
+For a multiple-dispatch function where only the primary overload is documented
+(per Step 3), list only that overload. If the existing page convention uses
+type-qualified entries (e.g. `foo(x::MyType)`), follow that convention;
+otherwise use the plain name.
+
+#### 5e — Remove stale entries
+
+For each stale API entry:
+
+1. Delete the line from its `@docs` block. If that empties the block, delete
+   the block. If that empties the section, delete the section heading too.
+2. If the symbol is stale because it is no longer defined (phantom export),
+   also remove the `export` statement from the source file. For multi-name
+   export lines (e.g. `export foo, bar, baz`), remove only the stale name and
+   leave the rest intact.
+
+#### 5f — Ensure no symbol appears on two pages
+
+Each base name must appear on at most one API page. If you find a duplicate,
+keep it on the page whose `CurrentModule` matches the module where the symbol
+is defined, and remove it from the other page.
+
+### Step 6 — Verify
 
 Find the package name from `Project.toml`, then confirm the package loads
 without error:
@@ -219,7 +314,7 @@ julia --project -e 'import Pkg; Pkg.instantiate(); using <PackageName>'
 If a docs build is configured (`docs/make.jl` is present), run it and resolve
 any `checkdocs` warnings introduced by the new docstrings.
 
-### Step 6 — Offer to improve the skill
+### Step 7 — Offer to improve the skill
 
 Once the docs build is clean, ask the user: "Would you like to improve the
 **docstrings** skill itself using skill-creator? You can share suggestions, or I
@@ -276,6 +371,7 @@ expect. Apply them consistently.
 | **Convention parity** | High | New docstrings use the same macro set and structural pattern as the best-documented symbols already present. Old-format struct docstrings have been normalised. |
 | **Informativeness** | Medium | Prose answers "what, when, why". Units present for physical quantities. `# Arguments` section present where needed. `# Examples` jldoctest block present for non-trivial public functions. |
 | **No duplication** | Medium | Prose does not duplicate macro-generated content. Field string literals do not restate the field's type. No redundant manual `# Constructor` section alongside `$(METHODLIST)`. |
+| **API page coverage** | High | Every exported, documented symbol appears exactly once across `docs/src/API/` pages. No stale entries. Symbols are grouped into descriptive sections. |
 | **Correctness** | High | Package loads without error; docs build (if configured) completes without new warnings. |
 
 ## Examples
