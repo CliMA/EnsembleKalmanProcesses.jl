@@ -22,6 +22,48 @@ them propagate into cryptic numerical failures.
 
 ## Workflow
 
+### Step 0 — Offer an Explore agent for multi-file scope
+
+If the user's request covers more than one file — a whole directory, a module, or
+the entire repo — offer to spawn an Explore agent before doing any file reads
+yourself. The agent runs all the reads in parallel without flooding the main
+context, and returns a structured inventory you can act on directly.
+
+**When to offer**: any time the target is a directory path (e.g. `src/`) or a
+vague scope like "the whole package" or "all the source files".
+
+**Offer text** (adapt as needed):
+> "This spans multiple files — I'd recommend spawning an Explore agent to survey
+> all `throw`/`@assert`/`error` sites in parallel. It keeps the audit fast and
+> leaves the main context clean for the actual rewrites. Want me to do that?"
+
+**Agent prompt to use** (fill in `<path>` and `<package_name>`):
+
+```
+Audit `<path>` for error-raising patterns. For every `@assert`, `error(`, or
+`throw(` site in every `.jl` file:
+
+1. Record: file, line number, exception type (or "bare @assert" / "bare error"),
+   and the full message text (including multiline strings).
+2. Classify message quality:
+   - "good"  — has `$(expr)` interpolation showing the actual received value
+   - "vague" — missing a received value, or no Expected/Got structure
+   - "missing" — bare `@assert` with no message at all
+3. Note whether the site is at an API boundary (user-facing input) or an internal
+   invariant (would require a package bug to fire).
+
+Return a markdown table with columns:
+  File | Line | Exception type | Quality | Notes (one-line note on what's wrong if vague/missing)
+
+Focus only on sites that are "vague" or "missing" — skip "good" ones.
+```
+
+**How to use the result**: treat the returned table as your working inventory for
+Steps 1 and 2. You do not need to re-read the flagged files yourself to classify —
+go straight to reading only the lines that need rewrites (Step 3 onwards).
+
+---
+
 ### Step 1 — Audit the target scope
 
 Identify which files or functions to address. If the user named a specific
@@ -176,14 +218,29 @@ julia --project -e 'using EnsembleKalmanProcesses'
 
 ### Step 7 — Add @test_throws tests
 
-For every rewritten site, add a test in the matching `test/<module>/runtests.jl`
-that exercises the invalid-input path:
+Before writing any test, check whether coverage already exists. Grep the matching
+`test/<module>/runtests.jl` for the public API function that reaches the rewritten
+site:
+
+```bash
+grep -n '@test_throws' test/<module>/runtests.jl | grep '<function_name>'
+```
+
+Three outcomes:
+
+| Situation | Action |
+|---|---|
+| `@test_throws <correct_type>` already present | Skip — do not add a duplicate |
+| `@test_throws <wrong_type>` already present | Update the existing line to the new type |
+| No coverage at all | Add a new test |
+
+For every site that needs a new test, add it in the matching `test/<module>/runtests.jl`:
 
 ```julia
 @test_throws ArgumentError multiplicative_inflation!(ekp; s = 2.0)
 ```
 
-Use the specific exception type—never bare `@test_throws Exception`. The test
+Use the specific exception type — never bare `@test_throws Exception`. The test
 should construct the minimal invalid input that triggers the new error, without
 duplicating happy-path coverage.
 
@@ -223,7 +280,9 @@ next time."
 - **No full matrix dumps**. Use `size(x)`, `eltype(x)`, `norm(x - ...)`, or
   `extrema(x)` instead.
 - **Interpolate actual values** in Got sections so the user sees the numbers,
-  not just variable names.
+  not just variable names. For `String`-typed arguments use `$(repr(x))` rather
+  than `$(x)` — it adds the surrounding quotes so the output clearly reads as a
+  string value (e.g. `Got: sigma_points = "bad"` instead of `Got: sigma_points = bad`).
 - **Raise early**: prefer guarding at the function entry point over deep inside a
   helper.
 - **No `@assert` for user-facing validation**. `@assert` is a debugging tool;
@@ -279,6 +338,28 @@ Suggestion:
     Ensure the TOML entry for this parameter includes a `constraint = ...` field.
 """))
 ```
+
+### Replace a single-line string-value error (use `repr`)
+
+```julia
+# Before
+throw(ArgumentError("sigma_points type is not recognized. Select from \"symmetric\" or \"simplex\". "))
+
+# After
+throw(ArgumentError("""
+Unrecognized sigma_points type.
+
+Expected:
+    "symmetric" or "simplex"
+
+Got:
+    sigma_points = $(repr(sigma_points))
+"""))
+```
+
+Using `repr(sigma_points)` rather than `$(sigma_points)` keeps the string
+quotes visible in the output, making it unambiguous that the user passed a
+`String` value (and making copy-paste errors easy to spot).
 
 ### Replace a dimension-mismatch `@assert`
 
