@@ -278,19 +278,18 @@ function get_distribution_from_expr(d::Expr)
             kwargs = []
             for arg in args
                 # Only parse repeats kwarg for now
-                arg.args[1] != :repeats &&
-                    throw(ArgumentError("""
-Unsupported keyword argument in constrained_gaussian TOML entry.
+                arg.args[1] != :repeats && throw(ArgumentError("""
+                       Unsupported keyword argument in constrained_gaussian TOML entry.
 
-Expected:
-    repeats (the only keyword argument supported by the TOML parser)
+                       Expected:
+                           repeats (the only keyword argument supported by the TOML parser)
 
-Got:
-    $(arg.args[1])
+                       Got:
+                           $(arg.args[1])
 
-Suggestion:
-    Remove unsupported keyword arguments from the TOML entry, or use the Julia API directly.
-"""))
+                       Suggestion:
+                           Remove unsupported keyword arguments from the TOML entry, or use the Julia API directly.
+                       """))
                 push!(kwargs, arg.args[1] => parse(Int64, string(arg.args[2])))
             end
             return kwargs

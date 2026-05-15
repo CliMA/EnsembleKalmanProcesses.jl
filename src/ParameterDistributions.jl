@@ -220,10 +220,12 @@ and `x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1)`.
 """
 function bounded(lower_bound::Real, upper_bound::Real)
     if (upper_bound <= lower_bound)
-        throw(DomainError(
-            (lower_bound, upper_bound),
-            "upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
-        ))
+        throw(
+            DomainError(
+                (lower_bound, upper_bound),
+                "upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
+            ),
+        )
     end
     # As far as I know, only way to dispatch method based on isinf() would be to bring in 
     # Traits as another dependency, which would be overkill
@@ -1238,16 +1240,20 @@ function constrained_gaussian(
     optim_kwargs...,
 )
     if (upper_bound <= lower_bound)
-        throw(DomainError(
-            (lower_bound, upper_bound),
-            "`$(name)`: upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
-        ))
+        throw(
+            DomainError(
+                (lower_bound, upper_bound),
+                "`$(name)`: upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
+            ),
+        )
     end
     if (μ_c <= lower_bound) || (μ_c >= upper_bound)
-        throw(DomainError(
-            μ_c,
-            "`$(name)`: target mean μ_c = $(μ_c) is outside the open constraint interval ($(lower_bound), $(upper_bound)); choose μ_c strictly between the bounds.",
-        ))
+        throw(
+            DomainError(
+                μ_c,
+                "`$(name)`: target mean μ_c = $(μ_c) is outside the open constraint interval ($(lower_bound), $(upper_bound)); choose μ_c strictly between the bounds.",
+            ),
+        )
     end
 
     if isinf(lower_bound)
@@ -1264,16 +1270,20 @@ function constrained_gaussian(
         else
             # finite interval case; need to solve numerically
             if (μ_c - σ_c <= lower_bound)
-                throw(DomainError(
-                    σ_c,
-                    "`$(name)`: target std σ_c = $(σ_c) places μ - σ = $(μ_c - σ_c) at or below lower_bound = $(lower_bound); reduce σ_c or move μ_c away from the lower bound.",
-                ))
+                throw(
+                    DomainError(
+                        σ_c,
+                        "`$(name)`: target std σ_c = $(σ_c) places μ - σ = $(μ_c - σ_c) at or below lower_bound = $(lower_bound); reduce σ_c or move μ_c away from the lower bound.",
+                    ),
+                )
             end
             if (μ_c + σ_c >= upper_bound)
-                throw(DomainError(
-                    σ_c,
-                    "`$(name)`: target std σ_c = $(σ_c) places μ + σ = $(μ_c + σ_c) at or above upper_bound = $(upper_bound); reduce σ_c or move μ_c away from the upper bound.",
-                ))
+                throw(
+                    DomainError(
+                        σ_c,
+                        "`$(name)`: target std σ_c = $(σ_c) places μ + σ = $(μ_c + σ_c) at or above upper_bound = $(upper_bound); reduce σ_c or move μ_c away from the upper bound.",
+                    ),
+                )
             end
             # 1.2 seems a reasonable tolerance here for solver to converge quickly
             if (μ_c - 1.2 * σ_c <= lower_bound)
