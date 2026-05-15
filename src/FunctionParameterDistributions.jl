@@ -61,11 +61,19 @@ struct GaussianRandomFieldInterface <: FunctionParameterDistributionType
         n_dof = n_dofs(gaussian_random_field, package)
         ndim = ndims(coefficient_prior)
         if !(ndim == n_dof)
-            throw(
-                ArgumentError(
-                    "The implemented Random Field requires $n_dof coefficients, but the prior distribution provided is only for $ndim coefficients",
-                ),
-            )
+            throw(DimensionMismatch("""
+GaussianRandomFieldInterface: coefficient prior has wrong number of dimensions.
+
+Expected:
+    ndims(coefficient_prior) = $n_dof  (required by the random field)
+
+Got:
+    ndims(coefficient_prior) = $ndim
+
+Suggestion:
+    Build the prior with the correct number of repeats, e.g.
+    constrained_gaussian("GRF_coefficients", 0.0, 1.0, -Inf, Inf, repeats = $n_dof)
+"""))
         end
         # create a distribution over which to sample coefficients (degrees of freedom)
 
@@ -185,12 +193,15 @@ function build_function_sample(g, coeff_vecormat::AbstractVecOrMat, n_draws::Int
     n_dof = n_dofs(g, pkg)
 
     if !(size(coeff_mat) == (n_dof, n_draws))
-        throw(
-            DimensionMismatch(
-                "Coefficients provided must be of size ($n_dof, $n_draws) or ($n_dof,), instead received: " *
-                string(size(coeff_vecormat)),
-            ),
-        )
+        throw(DimensionMismatch("""
+build_function_sample: coefficient matrix has incorrect size.
+
+Expected:
+    size(coeff_matrix) = ($n_dof, $n_draws)  or  ($n_dof,) for a single draw
+
+Got:
+    size(coeff_vecormat) = $(size(coeff_vecormat))
+"""))
     end
 
     # now sample a unit normal and multiply by the coefficients
@@ -264,11 +275,15 @@ function ndims(grfi::GaussianRandomFieldInterface; function_parameter_opt::Abstr
     elseif function_parameter_opt == "constraint"
         return 1
     else
-        throw(
-            ArgumentError(
-                "Keyword options for ndims must be: \"dof\", \"eval\", or \"constraint\". Received $function_parameter_opt ",
-            ),
-        )
+        throw(ArgumentError("""
+Invalid `function_parameter_opt` keyword for ndims.
+
+Expected:
+    "dof", "eval", or "constraint"
+
+Got:
+    "$function_parameter_opt"
+"""))
     end
 end
 

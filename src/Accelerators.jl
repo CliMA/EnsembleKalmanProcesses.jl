@@ -1,7 +1,7 @@
 # included in EnsembleKalmanProcess.jl
 
 export DefaultAccelerator, ConstantNesterovAccelerator, NesterovAccelerator, FirstOrderNesterovAccelerator
-export accelerate!, set_initial_acceleration!
+export accelerate!
 
 """
 $(TYPEDEF)
@@ -14,19 +14,30 @@ struct DefaultAccelerator <: Accelerator end
 """
 $(TYPEDEF)
 
-Accelerator that adapts a variant of Nesterov's momentum method for EKI. In this variant the momentum parameter is a constant value ``λ``, the default of 0.9. 
+Accelerator that adapts a variant of Nesterov's momentum method for EKI. In this variant the momentum parameter is a constant value ``λ``, the default of 0.9.
+
+$(TYPEDFIELDS)
 """
 mutable struct ConstantNesterovAccelerator{FT <: AbstractFloat} <: Accelerator
+    "constant momentum parameter λ ∈ (0, 1)"
     λ::FT
+    "ensemble parameter matrix from the previous iteration, used to compute the momentum update"
     u_prev::Array{FT}
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct a `ConstantNesterovAccelerator` with momentum parameter `λ` and optional initial ensemble state `initial`.
+"""
 function ConstantNesterovAccelerator(λ = 0.9, initial = Float64[])
     return ConstantNesterovAccelerator(λ, initial)
 end
 
 """
-Sets u_prev to the initial parameter values
+$(TYPEDSIGNATURES)
+
+Set the previous-state cache `u_prev` to the initial ensemble matrix `u`.
 """
 function set_ICs!(accelerator::ConstantNesterovAccelerator{FT}, u::MA) where {FT <: AbstractFloat, MA <: AbstractMatrix}
     accelerator.u_prev = u
@@ -36,23 +47,31 @@ end
 """
 $(TYPEDEF)
 
-Accelerator that adapts a variant of Nesterov's momentum method for EKI. In this variant the momentum parameter at iteration ``k``, is given by ``1-\\frac{3}{k+2}``. This variant is a first order repesentation of the desired asymptotic behavior ``1-\\frac{3}{k}- \\mathcal{O}(\\frac{1}{k^2})`` advocated in [(Su, Boyd, Candes, 2014)](https://proceedings.neurips.cc/paper_files/paper/2014/file/f09696910bdd874a99cd74c8f05b5c44-Paper.pdf).
-Stores a previous state value u_prev for computational purposes (note this is distinct from state returned as "ensemble value")
+Accelerator that adapts a variant of Nesterov's momentum method for EKI. In this variant the momentum parameter at iteration ``k`` is given by ``1-\\frac{r}{k+2}``, a first-order representation of the asymptotic schedule ``1-\\frac{r}{k}-\\mathcal{O}(k^{-2})`` advocated in [Su, Boyd, Candes (2014)](https://proceedings.neurips.cc/paper_files/paper/2014/file/f09696910bdd874a99cd74c8f05b5c44-Paper.pdf). Stores a previous ensemble state for momentum computation; this is distinct from the state returned as the ensemble value.
 
 $(TYPEDFIELDS)
 """
 mutable struct FirstOrderNesterovAccelerator{FT <: AbstractFloat} <: Accelerator
+    "decay exponent r controlling the momentum schedule; the momentum coefficient at iteration k is 1 - r/(k+2)"
     r::FT
+    "ensemble parameter matrix from the previous iteration, used to compute the momentum update"
     u_prev::Array{FT}
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct a `FirstOrderNesterovAccelerator` with decay exponent `r` and optional initial ensemble state `initial`.
+"""
 function FirstOrderNesterovAccelerator(r = 3.0, initial = Float64[])
     return FirstOrderNesterovAccelerator(r, initial)
 end
 
 
 """
-Sets u_prev to the initial parameter values
+$(TYPEDSIGNATURES)
+
+Set the previous-state cache `u_prev` to the initial ensemble matrix `u`.
 """
 function set_ICs!(
     accelerator::FirstOrderNesterovAccelerator{FT},
@@ -65,23 +84,31 @@ end
 """
 $(TYPEDEF)
 
-Accelerator that adapts a variant of Nesterov's momentum method for EKI. In this variant the momentum parameter is given by ``\\theta_{k+1}(\\frac{1}{\\theta_{k}} - 1)`` where ``\\theta_{k+1} = \\frac{-\\theta_k^2 + \\sqrt{\\theta_k^4 + 4 \\theta_k^2}}{2}`` and ``\\theta_0 = 1``. This recurrence, also mentioned in [(Su, Boyd, Candes, 2014)](https://proceedings.neurips.cc/paper_files/paper/2014/file/f09696910bdd874a99cd74c8f05b5c44-Paper.pdf), is our recommended variant.
-Stores a previous state value u_prev for computational purposes (note this is distinct from state returned as "ensemble value")
+Accelerator that adapts a variant of Nesterov's momentum method for EKI using the recurrence ``\\theta_{k+1} = \\frac{-\\theta_k^2 + \\sqrt{\\theta_k^4 + 4\\theta_k^2}}{2}`` with ``\\theta_0 = 1``, giving momentum coefficient ``\\theta_{k+1}(\\theta_k^{-1} - 1)`` at each iteration. This recurrence is also described in [Su, Boyd, Candes (2014)](https://proceedings.neurips.cc/paper_files/paper/2014/file/f09696910bdd874a99cd74c8f05b5c44-Paper.pdf) and is the recommended variant. Stores a previous ensemble state for momentum computation; this is distinct from the state returned as the ensemble value.
 
 $(TYPEDFIELDS)
 """
 mutable struct NesterovAccelerator{FT <: AbstractFloat} <: Accelerator
+    "ensemble parameter matrix from the previous iteration, used to compute the momentum update"
     u_prev::Array{FT}
+    "previous value of the Nesterov momentum parameter θ"
     θ_prev::FT
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct a `NesterovAccelerator` with optional initial ensemble state `initial` and initial momentum parameter ``\\theta_0 = 1``.
+"""
 function NesterovAccelerator(initial = Float64[])
     return NesterovAccelerator(initial, 1.0)
 end
 
 
 """
-Sets u_prev to the initial parameter values
+$(TYPEDSIGNATURES)
+
+Set the previous-state cache `u_prev` to the initial ensemble matrix `u`.
 """
 function set_ICs!(accelerator::NesterovAccelerator{FT}, u::MA) where {FT <: AbstractFloat, MA <: AbstractMatrix}
     accelerator.u_prev = u
@@ -89,7 +116,9 @@ end
 
 
 """
-Performs traditional state update with no momentum. 
+$(TYPEDSIGNATURES)
+
+Push ensemble state `u` unchanged into `ekp`, performing no momentum acceleration.
 """
 function accelerate!(
     ekp::EnsembleKalmanProcess{FT, IT, P, LRS, DefaultAccelerator},
@@ -99,8 +128,11 @@ function accelerate!(
 end
 
 """
-Performs state update with Nesterov momentum approach.
-The dependence of the momentum parameter can be found e.g. here "https://www.damtp.cam.ac.uk/user/hf323/M19-OPT/lecture5.pdf"
+$(TYPEDSIGNATURES)
+
+Apply the `NesterovAccelerator` momentum update to ensemble state `u` and push the accelerated state into `ekp`.
+
+The momentum coefficient follows the recurrence described in [`NesterovAccelerator`](@ref); see also the [lecture notes](https://www.damtp.cam.ac.uk/user/hf323/M19-OPT/lecture5.pdf) for background.
 """
 function accelerate!(
     ekp::EnsembleKalmanProcess{FT, IT, P, LRS, NesterovAccelerator{FT}},
@@ -125,9 +157,11 @@ end
 
 
 """
-State update method for UKI with Nesterov Accelerator.
-The dependence of the momentum parameter can be found e.g. here "https://www.damtp.cam.ac.uk/user/hf323/M19-OPT/lecture5.pdf"
-Performs identical update as with other methods, but requires reconstruction of mean and covariance of the accelerated positions prior to saving.
+$(TYPEDSIGNATURES)
+
+Apply the `NesterovAccelerator` momentum update to UKI ensemble state `u` and push the accelerated state into `uki`.
+
+Performs the same momentum step as the generic method, then reconstructs the ensemble mean and covariance of the accelerated sigma points by inverting the UKI prediction transformation, and overwrites the stored `u_mean` and `uu_cov`.
 """
 function accelerate!(
     uki::EnsembleKalmanProcess{FT, IT, P, LRS, NesterovAccelerator{FT}},
@@ -175,7 +209,11 @@ end
 
 
 """
-Performs state update with modified constant Nesterov Accelerator.
+$(TYPEDSIGNATURES)
+
+Apply the `ConstantNesterovAccelerator` momentum update to ensemble state `u` and push the accelerated state into `ekp`.
+
+The momentum coefficient is the constant λ stored in the accelerator.
 """
 function accelerate!(
     ekp::EnsembleKalmanProcess{FT, IT, P, LRS, ConstantNesterovAccelerator{FT}},
@@ -192,8 +230,11 @@ function accelerate!(
 end
 
 """
-State update method for UKI with constant Nesterov Accelerator.
-Performs identical update as with other methods, but requires reconstruction of mean and covariance of the accelerated positions prior to saving.
+$(TYPEDSIGNATURES)
+
+Apply the `ConstantNesterovAccelerator` momentum update to UKI ensemble state `u` and push the accelerated state into `uki`.
+
+Performs the same constant-momentum step as the generic method, then reconstructs the ensemble mean and covariance of the accelerated sigma points by inverting the UKI prediction transformation, and overwrites the stored `u_mean` and `uu_cov`.
 """
 function accelerate!(
     uki::EnsembleKalmanProcess{FT, IT, P, LRS, ConstantNesterovAccelerator{FT}},
@@ -231,7 +272,11 @@ function accelerate!(
 end
 
 """
-Performs state update with modified first-order Nesterov Accelerator.
+$(TYPEDSIGNATURES)
+
+Apply the `FirstOrderNesterovAccelerator` momentum update to ensemble state `u` and push the accelerated state into `ekp`.
+
+The momentum coefficient at iteration k is ``1 - r/(k+2)``, where r is the decay exponent stored in the accelerator.
 """
 function accelerate!(
     ekp::EnsembleKalmanProcess{FT, IT, P, LRS, FirstOrderNesterovAccelerator{FT}},
@@ -250,8 +295,11 @@ end
 
 
 """
-State update method for UKI with first-order Nesterov Accelerator.
-Performs identical update as with other methods, but requires reconstruction of mean and covariance of the accelerated positions prior to saving.
+$(TYPEDSIGNATURES)
+
+Apply the `FirstOrderNesterovAccelerator` momentum update to UKI ensemble state `u` and push the accelerated state into `uki`.
+
+Performs the same iteration-dependent momentum step as the generic method, then reconstructs the ensemble mean and covariance of the accelerated sigma points by inverting the UKI prediction transformation, and overwrites the stored `u_mean` and `uu_cov`.
 """
 function accelerate!(
     uki::EnsembleKalmanProcess{FT, IT, P, LRS, FirstOrderNesterovAccelerator{FT}},

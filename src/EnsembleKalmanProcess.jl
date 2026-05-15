@@ -142,11 +142,15 @@ function default_options_dict(process::P) where {P <: Process}
             "accelerator" => NesterovAccelerator(),
         )
     else
-        throw(
-            ArgumentError(
-                "No defaults found for process $process, please implement these in EnsembleKalmanProcess.jl default_options_dict()",
-            ),
-        )
+        throw(ArgumentError("""
+No default options found for the given process type.
+
+Got:
+    typeof(process) = $(typeof(process))
+
+Suggestion:
+    Implement `default_options_dict(process::$(typeof(process)))` in EnsembleKalmanProcess.jl.
+"""))
     end
 
 end
@@ -1196,7 +1200,20 @@ function multiplicative_inflation!(ekp::EnsembleKalmanProcess; s::FT = 1.0) wher
     scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
-        error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
+        throw(ArgumentError("""
+Scaled time step exceeds the stability bound for multiplicative inflation.
+
+Expected:
+    s * Δt < 1.0
+
+Got:
+    s = $s
+    Δt = $(get_Δt(ekp)[end])
+    s * Δt = $scaled_Δt
+
+Suggestion:
+    Reduce the scaling factor `s` or shorten the EK time step.
+"""))
     end
 
     u = get_u_final(ekp)
@@ -1226,7 +1243,20 @@ function additive_inflation!(
     scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
-        error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
+        throw(ArgumentError("""
+Scaled time step exceeds the stability bound for additive inflation.
+
+Expected:
+    s * Δt < 1.0
+
+Got:
+    s = $s
+    Δt = $(get_Δt(ekp)[end])
+    s * Δt = $scaled_Δt
+
+Suggestion:
+    Reduce the scaling factor `s` or shorten the EK time step.
+"""))
     end
 
     u = get_u_final(ekp)

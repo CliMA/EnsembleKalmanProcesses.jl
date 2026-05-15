@@ -3,9 +3,17 @@
 export get_prior_mean, get_prior_cov, get_impose_prior, get_default_multiplicative_inflation
 
 """
-    Inversion <: Process
+An ensemble Kalman Inversion process.
 
-An ensemble Kalman Inversion process
+$(TYPEDEF)
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 struct Inversion{
     FT <: AbstractFloat,
@@ -25,31 +33,38 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `prior_mean` from the Inversion process 
+Return the stored `prior_mean` from the `Inversion` process.
 """
 get_prior_mean(process::Inversion) = process.prior_mean
 
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `prior_cov` from the Inversion process 
+Return the stored `prior_cov` from the `Inversion` process.
 """
 get_prior_cov(process::Inversion) = process.prior_cov
 
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `impose_prior` from the Inversion process 
+Return the stored `impose_prior` from the `Inversion` process.
 """
 get_impose_prior(process::Inversion) = process.impose_prior
 
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `default_multiplicative_inflation` from the Inversion process 
+Return the stored `default_multiplicative_inflation` from the `Inversion` process.
 """
 get_default_multiplicative_inflation(process::Inversion) = process.default_multiplicative_inflation
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct an `Inversion` process from explicit prior mean and covariance.
+
+Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 1e-3.
+"""
 function Inversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation = 1e-3)
     mp = isa(mean_prior, Real) ? [mean_prior] : mean_prior
     dmi = max(0.0, default_multiplicative_inflation)
@@ -114,15 +129,9 @@ function FailureHandler(process::Inversion, method::SampleSuccGauss)
 end
 
 """
-     eki_update(
-        ekp::EnsembleKalmanProcess{FT, IT, Inversion},
-        u::AbstractMatrix{FT},
-        g::AbstractMatrix{FT},
-        y::AbstractMatrix{FT},
-        obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
-    ) where {FT <: Real, IT, CT <: Real}
+$(TYPEDSIGNATURES)
 
-Returns the updated parameter vectors given their current values and
+Return the updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the inversion algorithm
 from eqns. (4) and (5) of Schillings and Stuart (2017).
 
@@ -185,20 +194,6 @@ function eki_update(
     return u + (cov_ug * tmp) # [N_par × N_ens]  
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Updates the ensemble according to an Inversion process. 
-
-Inputs:
- - `ekp` :: The EnsembleKalmanProcess to update.
- - `g` :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - `process` :: Type of the EKP.
- - `u_idx` :: indices of u to update (see `UpdateGroup`)
- - `g_idx` :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
- - `deterministic_forward_map` :: Whether output `g` comes from a deterministic model.
- - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
-"""
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, II},
     g::AbstractMatrix{FT},

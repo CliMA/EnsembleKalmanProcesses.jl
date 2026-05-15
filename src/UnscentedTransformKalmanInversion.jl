@@ -2,9 +2,14 @@
 
 # Many functions are shared with Unscented Kalman Inversion, and are defined in `src/UnscentedKalmanInversion.jl`
 """
-    TransformUnscented{FT<:AbstractFloat, IT<:Int} <: Process
+A square-root-transform variant of the Unscented Kalman Inversion (UTKI) process.
 
-An unscented Kalman Inversion process.
+`TransformUnscented` replaces the classical UKI analysis step with a computationally
+efficient square-root/Woodbury formulation, reducing the cost of the covariance update
+from O(N_par³) to O(N_ens · N_par²). It shares all constructors with `Unscented`; see
+that type for the full constructor reference.
+
+$(TYPEDEF)
 
 # Fields
 
@@ -12,80 +17,42 @@ $(TYPEDFIELDS)
 
 # Constructors
 
-    TransformUnscented(
-        u0_mean::AbstractVector{FT},
-        uu0_cov::AbstractMatrix{FT};
-        α_reg::FT = 1.0,
-        update_freq::IT = 0,
-        modified_unscented_transform::Bool = true,
-        impose_prior::Bool = false,
-        prior_mean::Any,
-        prior_cov::Any,
-        sigma_points::String = symmetric
-    ) where {FT <: AbstractFloat, IT <: Int}
-
-Construct an TransformUnscented Inversion Process.
-
-Inputs:
-
-  - `u0_mean`: Mean at initialization.
-  - `uu0_cov`: Covariance at initialization.
-  - `α_reg`: Hyperparameter controlling regularization toward the prior mean (0 < `α_reg` ≤ 1), default is 1 (no priorn regularization)
-  - `update_freq`: Set to 0 when the inverse problem is not identifiable, 
-  namely the inverse problem has multiple solutions, the covariance matrix
-  will represent only the sensitivity of the parameters, instead of
-  posterior covariance information; set to 1 (or anything > 0) when
-  the inverse problem is identifiable, and the covariance matrix will
-  converge to a good approximation of the posterior covariance with an
-  uninformative prior.
-  - `modified_unscented_transform`: Modification of the UKI quadrature given
-    in Huang et al (2021).
-  - `impose_prior`: using augmented system (Tikhonov regularization with Kalman inversion in Chada 
-     et al 2020 and Huang et al (2022)) to regularize the inverse problem, which also imposes prior 
-     for posterior estimation. If impose_prior == true, prior mean and prior cov must be provided. 
-     This is recommended to use, especially when the number of observations is smaller than the number 
-     of parameters (ill-posed inverse problems). When this is used, other regularizations are turned off
-     automatically.
-  - `prior_mean`: Prior mean used for regularization.
-  - `prior_cov`: Prior cov used for regularization.
-  - `sigma_points`: String of sigma point type, it can be `symmetric` with `2N_par+1` or `simplex` with `N_par+2` 
-  
 $(METHODLIST)
 """
 mutable struct TransformUnscented{FT <: AbstractFloat, IT <: Int} <: Process
-    "an iterable of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added), note - this is not the same as the ensemble mean of the sigma ensemble as it is taken prior to prediction"
+    "iterable of vectors of length `N_parameters` containing the parameter mean at each UKI iteration; taken prior to the prediction step and therefore not equal to the sigma-ensemble mean"
     u_mean::Any  # ::Iterable{AbtractVector{FT}}
-    "an iterable of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added), note - this is not the same as the ensemble cov of the sigma ensemble as it is taken prior to prediction"
+    "iterable of matrices of size `(N_parameters, N_parameters)` containing the parameter covariance at each UKI iteration; taken prior to the prediction step and therefore not equal to the sigma-ensemble covariance"
     uu_cov::Any  # ::Iterable{AbstractMatrix{FT}}
-    "an iterable of arrays of size `N_y` containing the predicted observation (in each `uki` iteration a new array of predicted observation is added)"
+    "iterable of vectors of length `N_y` containing the predicted observation mean at each UKI iteration"
     obs_pred::Any # ::Iterable{AbstractVector{FT}}
-    "weights in UKI"
+    "sigma-point weights used to shift the mean; vector of length `N_ens` for symmetric sigma points or matrix of size `(N_parameters, N_ens)` for simplex sigma points"
     c_weights::Union{AbstractVector{FT}, AbstractMatrix{FT}}
+    "quadrature weights used to reconstruct the mean from the sigma ensemble"
     mean_weights::AbstractVector{FT}
+    "quadrature weights used to reconstruct the covariance from the sigma ensemble"
     cov_weights::AbstractVector{FT}
-    "number of particles 2N+1 or N+2"
+    "number of sigma particles: `2N_parameters + 1` for symmetric or `N_parameters + 2` for simplex"
     N_ens::IT
-    "covariance of the artificial evolution error"
+    "covariance of the artificial evolution noise added during the prediction step"
     Σ_ω::AbstractMatrix{FT}
-    "covariance of the artificial observation error"
+    "scaling factor for the artificial observation noise covariance"
     Σ_ν_scale::FT
-    "regularization parameter"
+    "regularization parameter controlling shrinkage toward the prior mean (0 < α_reg ≤ 1)"
     α_reg::FT
-    "regularization vector"
+    "regularization reference vector; defaults to the prior mean"
     r::AbstractVector{FT}
-    "update frequency"
+    "frequency at which the evolution covariance `Σ_ω` is updated; 0 disables updates"
     update_freq::IT
-    "using augmented system (Tikhonov regularization with Kalman inversion in Chada 
-    et al 2020 and Huang et al (2022)) to regularize the inverse problem, which also imposes prior 
-    for posterior estimation."
+    "flag to use augmented-system Tikhonov regularization (Chada et al. 2020, Huang et al. 2022), which imposes the prior during inversion"
     impose_prior::Bool
-    "prior mean - defaults to initial mean"
+    "prior mean used for regularization; defaults to the initial mean"
     prior_mean::Any
-    "prior covariance - defaults to initial covariance"
+    "prior covariance used for regularization; defaults to the initial covariance"
     prior_cov::Any
     "current iteration number"
     iter::IT
-    "used to store matrices: buffer[1] = Y' *Γ_inv, buffer[2] = Y' * Γ_inv * Y"
+    "used to store matrices: buffer[1] = Y' * Γ_inv, buffer[2] = Y' * Γ_inv * Y"
     buffer::AbstractVector
 end
 
@@ -95,10 +62,22 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `buffer` from the TransformUnscented process 
+Return the computation buffer stored in the `TransformUnscented` process.
+
+The buffer is a two-element vector: `buffer[1]` holds `Y' * Γ⁻¹`
+and `buffer[2]` holds `Y' * Γ⁻¹ * Y`, both pre-allocated to avoid
+repeated allocation during the analysis step.
 """
 get_buffer(p::TU) where {TU <: TransformUnscented} = p.buffer
 
+"""
+$(TYPEDSIGNATURES)
+
+Return a `FailureHandler` for `TransformUnscented` that ignores failed ensemble members.
+
+All sigma points are passed to the analysis step regardless of failure status; no
+rescaling of weights is performed.
+"""
 function FailureHandler(process::TransformUnscented, method::IgnoreFailures)
     function failsafe_update(uki, u, g, u_idx, g_idx, failed_ens)
         #perform analysis on the model runs
@@ -224,7 +203,20 @@ end
 """
 $(TYPEDSIGNATURES)
 
-UKI analysis step  : g is the predicted observations  `Ny x N_ens` matrix
+Perform the UTKI analysis (mean and covariance update) step in-place.
+
+Uses a Woodbury/square-root formulation: constructs the parameter perturbation
+matrix `X` and observation perturbation matrix `Y` from the sigma ensemble, then
+solves for the updated mean and covariance without forming the full `N_par × N_par`
+gain matrix. When `process.impose_prior` is `true` the system is augmented with the
+prior constraints before the update.
+
+# Arguments
+- `uki`: The `EnsembleKalmanProcess` being updated.
+- `u_p_full`: Full parameter ensemble matrix (`N_par × N_ens`).
+- `g_full`: Full predicted-observation matrix (`N_obs × N_ens`).
+- `u_idx`: Parameter indices belonging to the current `UpdateGroup`.
+- `g_idx`: Observation indices belonging to the current `UpdateGroup`.
 """
 function update_ensemble_analysis!(
     uki::EnsembleKalmanProcess{FT, IT, TU},
@@ -300,21 +292,6 @@ function update_ensemble_analysis!(
 
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Updates the ensemble according to an TransformUnscented process. 
-
-Inputs:
- - `uki`        :: The EnsembleKalmanProcess to update.
- - `g_in`       :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - `process` :: Type of the EKP.
- - `u_idx` :: indices of u to update (see `UpdateGroup`)
- - `g_idx` :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
- - `group_idx` :: the label of the update group (1 is "first update this iteration")
- - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
-    with NaN entries.
-"""
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, TU},
     g::AbstractMatrix{FT},

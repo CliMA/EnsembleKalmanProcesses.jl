@@ -1,9 +1,17 @@
 #Gauss Newton Kalman Inversion: specific structures and function definitions
 
 """
-    GaussNewtonInversion <: Process
+A Gauss-Newton Kalman Inversion process.
 
-A Gauss Newton Kalman Inversion process
+$(TYPEDEF)
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 struct GaussNewtonInversion{VV <: AbstractVector, AMorUS <: Union{AbstractMatrix, UniformScaling}} <: Process
     "Mean of Gaussian parameter prior in unconstrained space"
@@ -13,14 +21,30 @@ struct GaussNewtonInversion{VV <: AbstractVector, AMorUS <: Union{AbstractMatrix
 
 end
 
-# constructors
+"""
+$(TYPEDSIGNATURES)
+
+Construct a `GaussNewtonInversion` process from a `ParameterDistribution`, using its mean
+and covariance (in unconstrained space) as the prior.
+"""
 function GaussNewtonInversion(prior::ParameterDistribution)
     mean_prior = isa(mean(prior), Real) ? [mean(prior)] : Vector(mean(prior))
     cov_prior = Matrix(cov(prior))
     return GaussNewtonInversion(mean_prior, cov_prior)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the stored `prior_mean` from the `GaussNewtonInversion` process.
+"""
 get_prior_mean(process::GaussNewtonInversion) = process.prior_mean
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the stored `prior_cov` from the `GaussNewtonInversion` process.
+"""
 get_prior_cov(process::GaussNewtonInversion) = process.prior_cov
 
 
@@ -53,17 +77,12 @@ function FailureHandler(process::GaussNewtonInversion, method::SampleSuccGauss)
 end
 
 """
-     gnki_update(
-        ekp::EnsembleKalmanProcess{FT, IT, GaussNewtonInversion},
-        u::AbstractMatrix{FT},
-        g::AbstractMatrix{FT},
-        y::AbstractMatrix{FT},
-        scaled_obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
-    ) where {FT <: Real, IT, CT <: Real}
+$(TYPEDSIGNATURES)
 
-Returns the updated parameter vectors given their current values and
-the corresponding forward model evaluations, using the update defined in Algorithm 4.1 of Chada, Chen, Sanz-Alonso (2021), https://doi.org/10.3934/fods.2021011.
-a.k.a Iterated Ensemble Kalman Filter with Statistical Linearization
+Return the updated parameter vectors given their current values and
+the corresponding forward model evaluations, using the update defined in Algorithm 4.1
+of Chada, Chen, Sanz-Alonso (2021), https://doi.org/10.3934/fods.2021011,
+a.k.a Iterated Ensemble Kalman Filter with Statistical Linearization.
 
 Localization is implemented following the `ekp.localizer`.
 """
@@ -118,26 +137,6 @@ end
 
 
 
-"""
-    update_ensemble!(
-        ekp::EnsembleKalmanProcess{FT, IT, GaussNewtonInversion},
-        g::AbstractMatrix{FT},
-        process::GaussNewtonInversion;
-        deterministic_forward_map::Bool = true,
-        failed_ens = nothing,
-    ) where {FT, IT}
-
-Updates the ensemble according to an GaussNewtonInversion process.
-The specific update is given by Algorithm 4.1 of Chada, Chen, Sanz-Alonso (2021), https://doi.org/10.3934/fods.2021011,
-a.k.a Iterated Ensemble Kalman Filter with Statistical Linearization (IEKF-SL)
-
-Inputs:
- - ekp :: The EnsembleKalmanProcess to update.
- - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - process :: Type of the EKP.
- - deterministic_forward_map :: Whether output `g` comes from a deterministic model.
- - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
-"""
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, GNI},
     g::AbstractMatrix{FT},

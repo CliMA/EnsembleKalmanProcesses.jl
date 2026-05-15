@@ -33,7 +33,15 @@ function get_parameter_values(param_dict::Dict, names; return_type = "dict")
     elseif return_type == "array"
         return [param_dict[n]["value"] for n in names]
     else
-        throw(ArgumentError("Unknown `return_type`. Expected \"dict\" or \"array\", got $return_type"))
+        throw(ArgumentError("""
+Unknown return_type for get_parameter_values.
+
+Expected:
+    "dict" or "array"
+
+Got:
+    return_type = $(repr(return_type))
+"""))
     end
 end
 
@@ -105,7 +113,15 @@ Returns a `Constraint`
 """
 function construct_constraint(param_info::Dict)
 
-    @assert(haskey(param_info, "constraint"))
+    haskey(param_info, "constraint") || throw(ArgumentError("""
+Parameter info dict is missing the required "constraint" key.
+
+Got keys:
+    $(collect(keys(param_info)))
+
+Suggestion:
+    Ensure the TOML entry for this parameter includes a `constraint = ...` field.
+"""))
     c = Meta.parse(param_info["constraint"])
 
     if c.args[1] == Symbol("repeat")
@@ -136,7 +152,15 @@ Returns a distribution of type `Parameterized`, `Samples`, or
 """
 function construct_prior(param_info::Dict)
 
-    @assert(haskey(param_info, "prior"))
+    haskey(param_info, "prior") || throw(ArgumentError("""
+Parameter info dict is missing the required "prior" key.
+
+Got keys:
+    $(collect(keys(param_info)))
+
+Suggestion:
+    Ensure the TOML entry for this parameter includes a `prior = ...` field.
+"""))
     d = Meta.parse(param_info["prior"])
 
     if d.args[1] == Symbol("VectorOfParameterized")
@@ -163,7 +187,9 @@ Returns a `VectorOfParameterized`
 """
 function get_vector_of_parameterized(d::Expr)
 
-    @assert(d.args[1] == Symbol("VectorOfParameterized"))
+    d.args[1] == Symbol("VectorOfParameterized") || error(
+        "Internal error: get_vector_of_parameterized called with non-VectorOfParameterized expression (got $(d.args[1]))",
+    )
 
     if d.args[2].args[1] == Symbol("repeat")
         # Distributions are given as a `repeat` expression defining a vector of
@@ -253,7 +279,18 @@ function get_distribution_from_expr(d::Expr)
             for arg in args
                 # Only parse repeats kwarg for now
                 arg.args[1] != :repeats &&
-                    throw(ArgumentError("Keyword argument $(arg.args[1]) can not be parsed from TOML."))
+                    throw(ArgumentError("""
+Unsupported keyword argument in constrained_gaussian TOML entry.
+
+Expected:
+    repeats (the only keyword argument supported by the TOML parser)
+
+Got:
+    $(arg.args[1])
+
+Suggestion:
+    Remove unsupported keyword arguments from the TOML entry, or use the Julia API directly.
+"""))
                 push!(kwargs, arg.args[1] => parse(Int64, string(arg.args[2])))
             end
             return kwargs
@@ -293,7 +330,15 @@ Returns a 2d array of samples constructed from the arguments of `expr`
 """
 function construct_2d_array(arr::Expr)
 
-    @assert(arr.head == Symbol("vcat"))
+    arr.head == Symbol("vcat") || throw(ArgumentError("""
+Samples array expression must represent a 2D matrix (a `vcat` expression).
+
+Got:
+    arr.head = $(arr.head)
+
+Suggestion:
+    Ensure the TOML `samples` field is formatted as a 2D matrix, not a 1D vector.
+"""))
     n_rows = length(arr.args)
     arr_of_rows = [arr.args[i].args for i in 1:n_rows]
 
@@ -398,9 +443,6 @@ function save_parameter_ensemble(
     )
 end
 
-"""
-One can also call this without the iteration level
-"""
 function save_parameter_ensemble(
     param_array::Array{FT, 2},
     param_distribution::ParameterDistribution,
