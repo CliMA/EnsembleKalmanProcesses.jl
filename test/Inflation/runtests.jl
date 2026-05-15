@@ -60,8 +60,8 @@ initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ens)
         # ensure error is thrown when scaled time step >= 1
         idx_vec_in = collect(1:size(initial_ensemble, 1))
         idx_vec_out = collect(1:size(g_ens, 1))
-        @test_throws ErrorException EKP.update_ensemble!(ekiobj, g_ens; multiplicative_inflation = true, s = 3.0)
-        @test_throws ErrorException EKP.update_ensemble!(ekiobj, g_ens; additive_inflation = true, s = 3.0)
+        @test_throws ArgumentError EKP.update_ensemble!(ekiobj, g_ens; multiplicative_inflation = true, s = 3.0)
+        @test_throws ArgumentError EKP.update_ensemble!(ekiobj, g_ens; additive_inflation = true, s = 3.0)
 
         # EKI iterations
         for i in 1:N_iter

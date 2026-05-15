@@ -97,6 +97,9 @@ using EnsembleKalmanProcesses
     @test get_indices(observation_2_4_new) == [id .- maximum(indices[1]) for id in indices[2:4]] # shifted 
     @test get_metadata(observation_2_4_new) == metadatas[2:4]
 
+    # combining non-Observation elements raises ArgumentError
+    @test_throws ArgumentError combine_observations([observation_1, "not_an_observation"])
+
     # 4) via combining Observations
     observation = combine_observations([observation_1, observation_2_4])
     @test get_samples(observation) == samples
@@ -367,6 +370,10 @@ end
         for i in 1:n_minibatches
     ]
     @test batched_epoch == extend_test
+
+    # epoch must contain integer indices
+    float_epoch = collect(1.0:100.0)
+    @test_throws ArgumentError create_new_epoch!(RandomFixedSizeMinibatcher(minibatch_size), float_epoch)
 
 end
 

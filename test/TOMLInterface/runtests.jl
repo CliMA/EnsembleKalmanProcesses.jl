@@ -86,6 +86,23 @@ const EKP = EnsembleKalmanProcesses
     @test_throws ArgumentError get_regularization(bad_param_dict, "uq_param_badL")
     @test_throws ArgumentError get_parameter_distribution(bad_param_dict, "uq_param_bad_constrain_gauss")
 
+    # missing "constraint" key
+    no_constraint_dict = Dict("uq_param" => Dict("prior" => "Parameterized(Normal(0.0, 1.0))"))
+    @test_throws ArgumentError get_parameter_distribution(no_constraint_dict, "uq_param")
+
+    # missing "prior" key
+    no_prior_dict = Dict("uq_param" => Dict("constraint" => "no_constraint()"))
+    @test_throws ArgumentError get_parameter_distribution(no_prior_dict, "uq_param")
+
+    # unsupported keyword argument in constrained_gaussian prior
+    bad_kwarg_cg_dict = Dict(
+        "uq_param" => Dict(
+            "prior" => "constrained_gaussian(uq_param, 0.0, 1.0, 0, Inf; bad_kwarg = 42)",
+            "constraint" => "no_constraint()",
+        ),
+    )
+    @test_throws ArgumentError get_parameter_distribution(bad_kwarg_cg_dict, "uq_param")
+
     for param_name in uq_param_names
         param_dict[param_name]["description"] = param_name * descr
         pd = get_parameter_distribution(param_dict, param_name)
