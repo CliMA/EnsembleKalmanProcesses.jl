@@ -155,6 +155,10 @@ Expected:
 Got:
     $(repr(pn))
 
+Loop context:
+    group_identifiers key being processed: $(repr(key))
+    full parameter name list for this key:  $key_vec
+
 Suggestion:
     Check spelling and ensure the parameter name matches one returned by get_name(prior).
 """))
@@ -173,6 +177,10 @@ Expected:
 
 Got:
     $(repr(obn))
+
+Loop context:
+    group_identifiers key this value belongs to: $(repr(key))
+    full observation name list for this value:   $val_vec
 
 Suggestion:
     Check spelling and ensure the observation name matches one returned by get_names(observation).

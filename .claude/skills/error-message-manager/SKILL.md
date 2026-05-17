@@ -5,11 +5,13 @@ description: >
   actionable diagnostics. Invoke this skill whenever the user mentions: error
   message, improve errors, rewrite @assert, ArgumentError, DimensionMismatch,
   DomainError, vague error, error rewrite, Julia exception, diagnostic, throw,
-  validation, early check, assert to throw, or asks to improve how the code
-  fails. Also use it when reviewing code for user-facing clarity, when a user
-  says errors are confusing or unhelpful, or when auditing a module for
-  low-context exceptions. Use it proactively when you see bare @assert, error("..."),
-  or throw(ErrorException(...)) calls in Julia code you are reading or editing.
+  validation, early check, assert to throw, loop context, catch and rethrow,
+  warn string, or asks to improve how the code fails. Also use it when reviewing
+  code for user-facing clarity, when a user says errors are confusing or
+  unhelpful, or when auditing a module for low-context exceptions. Use it
+  proactively when you see bare @assert, error("..."), throw(ErrorException(...)),
+  @warn string(...), or catch blocks that do not include the original exception
+  in their re-throw in Julia code you are reading or editing.
 ---
 
 # error-message-manager
@@ -79,6 +81,22 @@ Then collect all message-less `@assert` calls:
 rg -n '@assert' src/ | grep -v '"'
 ```
 
+Also flag `@warn` calls that use string concatenation instead of interpolation:
+
+```
+rg -n '@warn\s+string\(' src/
+```
+
+And flag `catch` blocks that discard the original exception when re-throwing:
+
+```
+rg -n 'catch\s' src/
+```
+
+For each `catch` hit, check whether the subsequent `throw` or `error` call
+interpolates the caught variable (e.g. `$e` or `sprint(showerror, e)`). If it
+does not, the original exception type and message are silently lost.
+
 For each hit, record: file, line, the condition being checked, and whether it
 guards user-provided input (API boundary) or an internal invariant.
 
@@ -108,6 +126,52 @@ typed exceptions with actionable messages) from **internal invariant** sites
 (where a bug in the package itself would have to exist — bare `error(...)` with a
 clear note is fine there).
 
+**Loop-body errors**: if the throw is inside a `for` or `while` loop, treat the
+loop index and key per-iteration state as required context. Without this, the user
+sees "matrix is not positive definite" with no idea whether it happened on
+iteration 2 or iteration 200. Always capture `i` (or the loop variable) and the
+state that changed between iterations — the ensemble step count, the parameter
+vector being updated, the ensemble member index, etc. For *nested* loops, include
+both the outer and inner loop variables — the outer variable says which group or
+batch failed; the inner variable says which element within it failed. See the
+loop-context example in the Canonical examples section below.
+
+**`catch e` losing the original exception**: when a Julia exception is caught and
+a new one is thrown, the new message must include the original exception. If it
+does not, the user loses the root cause (e.g. `PosDefException`, `SingularException`)
+and has no way to distinguish a code bug from a numerical issue. Use
+`sprint(showerror, e)` rather than `$e` alone — it formats the exception type and
+message together:
+
+```julia
+# anti-pattern — root cause vanishes
+catch e
+    throw(ArgumentError("Matrix factorization failed."))
+end
+
+# correct — root cause preserved
+catch e
+    throw(ArgumentError("""
+Matrix factorization failed.
+
+Caused by: $(sprint(showerror, e))
+
+Suggestion:
+    ...
+"""))
+end
+```
+
+Only suppress the original exception if it is a well-known internal Julia error
+(e.g. `SingularException`) and you are intentionally providing a higher-level
+fallback — and even then, log it at `@debug` level.
+
+**`@warn string(...)` concatenation**: `@warn string("...", x, "...")` is the
+warning-side equivalent of `error(string(...))` — it's noisy, hard to read, and
+doesn't benefit from Julia's interpolation. Rewrite as `@warn "... $x ..."`.
+`@warn` messages that use structured strings are also easier to grep and suppress
+selectively.
+
 **Double-gated invariants**: if a helper is only ever called after the public API has already
 checked the same condition (e.g., `get_vector_of_parameterized` is called from `construct_prior`
 only when `d.args[1] == Symbol("VectorOfParameterized")` is true), the check inside the helper is
@@ -135,6 +199,10 @@ Expected:
 Got:
     <what was actually received, with interpolated values>
 
+Loop context:
+    iteration  = $iter (of $n_iter)
+    <key per-iteration state variable> = $(summary_of_state)
+
 Context:
     <surrounding state that helps locate the problem>
 
@@ -147,6 +215,12 @@ Section rules:
 - **Summary**: always present; one line; imperative or declarative.
 - **Expected / Got**: strongly preferred for any mismatch check; use `$(expr)`
   interpolation to show actual values.
+- **Loop context**: include whenever the throw is inside a `for` or `while` loop.
+  Always report the loop index and the key state that varies between iterations
+  (e.g., the EKI step number, the ensemble member index, or the parameter being
+  updated). This is what lets the user reproduce the failure without adding
+  `println` debugging. Omit for errors that can only fire at a fixed point in the
+  code (before the loop starts or after it ends).
 - **Context**: include when the same error can arise from multiple call sites and
   naming the calling function or struct helps the user orient.
 - **Suggestion**: include whenever a likely fix exists. Omit rather than write a
@@ -287,6 +361,16 @@ next time."
   helper.
 - **No `@assert` for user-facing validation**. `@assert` is a debugging tool;
   it can be compiled out. Use explicit `throw` instead.
+- **Loop state in Got / Loop context**: when a throw is inside a `for` or `while`
+  loop, always name the iteration index and the key state from that iteration.
+  A "convergence failed" message without the step count forces the user to add
+  `println` debugging to reproduce the failure.
+- **Preserve the original exception in `catch` blocks**: if you catch `e` and
+  throw a new exception, include `$(sprint(showerror, e))` in the new message.
+  Dropping `e` silently discards the root cause.
+- **`@warn` with interpolation, not `string()`**: replace `@warn string("x=", x)`
+  with `@warn "x = $x"`. String concatenation in warnings is harder to read and
+  grep.
 - **Single-line messages are fine** when the failure is unambiguous and no
   Expected/Got context would add clarity.
 
@@ -379,6 +463,100 @@ Got:
     length(mean_weights) = $(length(mean_weights))
 """))
 ```
+
+### Preserve the original exception when catching and re-throwing
+
+```julia
+# Before — PosDefException or SingularException silently discarded
+try
+    cov_chol = cholesky(cov_u)
+catch e
+    error("Covariance matrix factorization failed.")
+end
+
+# After — root cause preserved, matrix state shown
+try
+    cov_chol = cholesky(cov_u)
+catch e
+    throw(ArgumentError("""
+Covariance matrix factorization failed during empirical Gaussian sampling.
+
+Got:
+    size(cov_u)    = $(size(cov_u))
+    isposdef(cov_u) = $(isposdef(cov_u))
+
+Caused by: $(sprint(showerror, e))
+
+Suggestion:
+    The ensemble may have collapsed. Pass a non-zero `inflation` keyword
+    argument to regularise the sample covariance.
+"""))
+end
+```
+
+`sprint(showerror, e)` formats as `"LinearAlgebra.PosDefException: matrix is not
+Hermitian; Cholesky factorization failed."` — far more informative than `string(e)`.
+Only suppress `e` when you are intentionally providing a higher-level fallback (e.g.
+falling back to `pinv`) and still emit it at `@debug` level.
+
+### Rewrite `@warn string(...)` to use interpolation
+
+```julia
+# Before
+@warn string("Sample covariance matrix over ensemble is singular.", "\n Applying variance inflation.")
+
+# After
+@warn "Sample covariance matrix over ensemble is singular — applying variance inflation."
+
+# Before (with values)
+@warn string("More than 50% of runs produced NaNs ($(length(failed_ens))/$(size(g, 2))).", "\nIterating...")
+
+# After
+@warn "More than 50% of forward model evaluations produced NaN ($(length(failed_ens))/$(size(g, 2))). Iterating, but consider improving model stability."
+```
+
+### Add loop context to an error thrown inside an iteration loop
+
+```julia
+# Before — user sees "Cholesky factorization failed" with no idea when
+for i in 1:N_iter
+    try
+        cov_chol = cholesky(C_i)
+    catch e
+        error("Cholesky factorization failed")
+    end
+end
+
+# After — guard before cholesky, expose iteration index and diagnostic state
+for i in 1:N_iter
+    isposdef(C_i) || throw(ArgumentError("""
+Covariance matrix is not positive definite at EKI iteration $i.
+
+Expected:
+    A positive-definite covariance matrix at every iteration.
+
+Got:
+    iteration       = $i / $N_iter
+    size(C_i)       = $(size(C_i))
+    minimum eigval  = $(minimum(eigvals(Symmetric(C_i))))
+
+Suggestion:
+    Ensemble collapse can cause this near iteration $i. Consider adding
+    covariance inflation (`multiplicative_inflation!`) or reducing the step size.
+"""))
+    cov_chol = cholesky(C_i)
+end
+```
+
+Key points:
+- **Move the guard before the failing call** so the message fires with the full
+  iteration state still in scope. Catching a `PosDefException` after the fact and
+  re-throwing loses the iteration index and the matrix state.
+- **Report the loop variable** (`i`, `n`, `iter`) and its upper bound so the user
+  knows whether the failure is early (step 2/200, likely a bad initial state) or
+  late (step 198/200, likely ensemble collapse).
+- **Include one diagnostic scalar** — the minimum eigenvalue, the norm of the
+  update step, the ensemble spread — rather than dumping the full matrix.
 
 ---
 
