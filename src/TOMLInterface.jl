@@ -3,6 +3,7 @@ module TOMLInterface
 # Imports
 using TOML
 using Distributions
+using DocStringExtensions
 using EnsembleKalmanProcesses.ParameterDistributions
 
 # Exports
@@ -16,16 +17,14 @@ export write_log_file
 export save_parameter_samples
 
 """
-    get_parameter_values(param_dict, names)
+$(TYPEDSIGNATURES)
 
-Gets parameter values from a parameter dictionary, indexing by name.
+Return parameter values from `param_dict`, indexed by the names in `names`.
 
-Args:
-`param_dict` - nested dictionary that has parameter names as keys and the
-               corresponding dictionary of parameter information (in particular,
-               the parameters' values)
-`name` - iterable parameter names
-`return_type` - return type, default "dict", otherwise "array"
+# Arguments
+- `param_dict`: nested dictionary mapping parameter names to sub-dictionaries that each contain a `"value"` key.
+- `names`: iterable of parameter names to retrieve.
+- `return_type`: `"dict"` (default) returns a `Dict{name => value}`; `"array"` returns a plain vector.
 """
 function get_parameter_values(param_dict::Dict, names; return_type = "dict")
     if return_type == "dict"
@@ -46,17 +45,13 @@ Got:
 end
 
 """
-    get_parameter_distribution(param_dict, name)
+$(TYPEDSIGNATURES)
 
-Constructs a `ParameterDistribution` for a single parameter
+Construct and return a `ParameterDistribution` for the parameter `name` from `param_dict`.
 
-Args:
-`param_dict` - nested dictionary that has parameter names as keys and the
-               corresponding dictionary of parameter information (in particular,
-               the parameters' prior distributions and constraints) as values
-`name` - parameter name
-
-Returns a `ParameterDistribution`
+# Arguments
+- `param_dict`: nested dictionary mapping parameter names to sub-dictionaries that each contain `"prior"` and `"constraint"` keys.
+- `name`: name of the parameter to build a distribution for.
 """
 function get_parameter_distribution(param_dict::Dict, name::AbstractString)
 
@@ -73,19 +68,6 @@ function get_parameter_distribution(param_dict::Dict, name::AbstractString)
 end
 
 
-"""
-    get_parameter_distribution(param_dict, names)
-
-Constructs a `ParameterDistribution` for an array of parameters
-
-Args:
-`param_dict` - nested dictionary that has parameter names as keys and the
-               corresponding dictionary of parameter information (in particular,
-               the parameters' prior distributions and constraints) as values
-`names` - array of parameter names
-
-Returns a `ParameterDistribution` 
-"""
 function get_parameter_distribution(param_dict::Dict, names::AbstractVector{String})
 
     param_dist_arr = map(names) do name
@@ -100,16 +82,12 @@ end
 
 
 """
-    construct_constraint(param_info)
+$(TYPEDSIGNATURES)
 
-Extracts information on type and arguments of each constraint and uses that
-information to construct a `Constraint`.
+Construct a `Constraint` from the `"constraint"` entry in `param_info`.
 
-Args:
-`param_info` - dictionary with (at least) a key "constraint", whose value is
-               the parameter's constraint(s) (as parsed from TOML file)
-
-Returns a `Constraint`
+# Arguments
+- `param_info`: dictionary containing at least a `"constraint"` key whose value is a constraint expression string as parsed from a TOML file.
 """
 function construct_constraint(param_info::Dict)
 
@@ -138,17 +116,14 @@ end
 
 
 """
-    construct_prior(param_info)
+$(TYPEDSIGNATURES)
 
-Extracts information on type and arguments of the prior distribution and use
-that information to construct an actual `Distribution`
+Construct a prior distribution from the `"prior"` entry in `param_info`.
 
-Args:
-`param_info` - dictionary with (at least) a key "prior", whose value is the
-               parameter's distribution(s) (as parsed from TOML file)
+Returns a distribution of type `Parameterized`, `Samples`, or `VectorOfParameterized`.
 
-Returns a distribution of type `Parameterized`, `Samples`, or
-`VectorOfParameterized`
+# Arguments
+- `param_info`: dictionary containing at least a `"prior"` key whose value is a distribution expression string as parsed from a TOML file.
 """
 function construct_prior(param_info::Dict)
 
@@ -176,14 +151,9 @@ end
 
 
 """
-    get_vector_of_parameterized(d)
+$(TYPEDSIGNATURES)
 
-Parses a distribution of type `VectorOfParameterized`
-
-Args:
-`d`  - expression containing the distribution information
-
-Returns a `VectorOfParameterized`
+Parse a `VectorOfParameterized` distribution from expression `d`.
 """
 function get_vector_of_parameterized(d::Expr)
 
@@ -209,19 +179,14 @@ end
 
 
 """
-    collect_from_expr(e, eltype; repeat=false)
+$(TYPEDSIGNATURES)
 
-Collects distributions or constraints
+Collect distributions or constraints from expression `e`.
 
-Args:
-`e`  - expression containing the distribution or constraint information
-`eltype` - string denoting the type of elements that are collected, "d" for
-           distributions, "c" for constraints
-`repeat` - true if this distribution or constraint is given as a `repeat(...)`
-           expression, false otherwise
-
-Returns an array of distributions / constraints, or a single distribution /
-constraint if only one is present
+# Arguments
+- `e`: expression containing distribution or constraint information.
+- `eltype`: `"d"` for distributions, `"c"` for constraints.
+- `repeat`: `true` if the expression is a `repeat(...)` form.
 """
 function collect_from_expr(e::Expr, eltype::AbstractString; repeat::Bool = false)
 
@@ -246,14 +211,9 @@ end
 
 
 """
-    get_distribution_from_expr(d)
+$(TYPEDSIGNATURES)
 
-Parses a distribution
-
-Args:
-`d`  - expression containing the distribution information
-
-Returns a distribution of type `Parameterized` or `Samples`
+Parse a `Parameterized`, `Samples`, or `constrained_gaussian` distribution from expression `d`.
 """
 function get_distribution_from_expr(d::Expr)
 
@@ -318,14 +278,9 @@ end
 
 
 """
-    construct_2d_array(arr)
+$(TYPEDSIGNATURES)
 
-Reconstructs 2d array of samples
-
-Args:
-`arr`  - expression (has type `Expr`) with head `vcat`.
-
-Returns a 2d array of samples constructed from the arguments of `expr`
+Reconstruct a 2D `Float64` sample matrix from a `vcat` expression `arr`.
 """
 function construct_2d_array(arr::Expr)
 
@@ -346,25 +301,18 @@ end
 
 
 """
-    save_parameter_samples(
-        distribution::ParameterDistribution{Samples},
-        default_param_data,
-        num_samples,
-        save_path;
-        save_file = "parameters.toml",
-        rng = Random.MersenneTwister(1234),
-    )
-Takes samples from the given `distribution` and saves them to individual TOML files
-in the folder specified by `save_path`
+$(TYPEDSIGNATURES)
 
-Arguments:
-- `distribution` - ParameterDistribution{Samples} to sample from
-- `default_param_data` - Dict of default parameters to be combined and saved with
-the parameters in `param_array` into a toml file
-- `save_path` - Folder where the parameters will be saved
-- `save_file` - Name of the toml files to be generated
-- `rng` - Random number generator used in sampling
-- `pad_zeros` - Amount of digits to pad to 
+Sample `num_samples` draws from `distribution` and save each as a separate TOML file under `save_path`.
+
+# Arguments
+- `distribution`: `ParameterDistribution` to sample from.
+- `default_param_data`: `Dict` of default parameters merged with the sampled values before writing.
+- `num_samples`: number of samples to draw and save.
+- `save_path`: directory under which per-sample TOML files are written.
+- `save_file`: filename to use for each TOML file (default `"parameters.toml"`).
+- `rng`: random-number generator (default `MersenneTwister(1234)`).
+- `pad_zeros`: number of digits used for zero-padding ensemble-member indices.
 """
 function save_parameter_samples(
     distribution::ParameterDistribution,
@@ -388,36 +336,23 @@ function save_parameter_samples(
 end
 
 """
-    save_parameter_ensemble(
-        param_array,
-        param_distribution,
-        default_param_data,
-        save_path,
-        save_file,
-        iteration
-        pad_zeros=3,
-    apply_constraints=true
-    )
+$(TYPEDSIGNATURES)
 
-Saves the parameters in the given `param_array` to TOML files. The intended
-use is for saving the ensemble of parameters after each update of an
-ensemble Kalman process.
-Each ensemble member (column of `param_array`) is saved in a separate
-directory "member_<j>" (j=1, ..., N_ens). The name of the saved toml file is
-given by `save_file`; it is the same for all members.
-A directory "iteration_<iter>" is created in `save_path`, which contains all the "member_<j>" subdirectories.
+Save the parameter ensemble in `param_array` to TOML files organised by iteration and ensemble member.
 
-Args:
-`param_array` - array of size N_param x N_ens
-`param_distribution` - the parameter distribution underlying `param_array`
-`apply_constraints` -  apply the constraints in `param_distribution`
-`default_param_data` - dict of default parameters to be combined and saved with
-                       the parameters in `param_array` into a toml file
-`save_path` - path to where the parameters will be saved
-`save_file` - name of the toml files to be generated
-`iteration` - the iteration of the ensemble Kalman process represented by the given
-         `param_array`
-`pad_zeros` - the amount of zero-padding for the ensemble member number
+Creates `<save_path>/iteration_<iter>/member_<j>/` for each member `j` and writes a TOML file
+named `save_file` into each subdirectory. Parameter values are transformed from the unconstrained
+to the constrained space when `apply_constraints` is `true`.
+
+# Arguments
+- `param_array`: `N_param × N_ens` matrix of parameter values in the unconstrained space.
+- `param_distribution`: `ParameterDistribution` describing the parameters in `param_array`.
+- `default_param_data`: `Dict` of default parameters merged with ensemble values before writing.
+- `save_path`: root directory under which iteration and member subdirectories are created.
+- `save_file`: filename for the TOML file written in each member directory.
+- `iteration`: current iteration index, used to name the `iteration_<iter>` subdirectory.
+- `pad_zeros`: number of digits used for zero-padding directory indices.
+- `apply_constraints`: apply constraints in `param_distribution` before saving (default `true`).
 """
 function save_parameter_ensemble(
     param_array::Array{FT, 2},
@@ -495,19 +430,18 @@ function save_parameter_ensemble(
 end
 
 """
-    path_to_ensemble_member(
-        base_path,
-        iteration,
-        member,
-        pad_zeros = 3,
-    )
+$(TYPEDSIGNATURES)
 
-Obtains the file path to a specified ensemble member. The likely form is
-`base_path/iteration_X/member_Y/` with X,Y padded with zeros. The file path can be reconstructed with:
-`base_path` - base path to where EKP parameters are stored
-`member` - number of the ensemble member (without zero padding)
-`iteration` - iteration of ensemble method (if =nothing then only the load path is used)
-`pad_zeros` - amount of digits to pad to
+Return the file-system path to ensemble member `member` at the given `iteration`.
+
+The returned path has the form `<base_path>/iteration_<iter>/member_<j>/`,
+with both indices zero-padded to `pad_zeros` digits.
+
+# Arguments
+- `base_path`: root directory where EKP outputs are stored.
+- `iteration`: iteration index of the ensemble update.
+- `member`: one-based ensemble member index.
+- `pad_zeros`: number of digits used for zero-padding (default `3`).
 """
 function path_to_ensemble_member(base_path::AbstractString, iteration::Int, member::Int; pad_zeros = 3)
 
@@ -516,9 +450,6 @@ function path_to_ensemble_member(base_path::AbstractString, iteration::Int, memb
     return path_to_ensemble_member(base_dir, member, pad_zeros = pad_zeros)
 end
 
-"""
-One can also call this without the iteration level
-"""
 function path_to_ensemble_member(base_path::AbstractString, member::Int; pad_zeros = 3)
     # get the directory of the member
     subdir_name = generate_subdir_names(member, mode = "only", pad_zeros = pad_zeros)
@@ -526,26 +457,17 @@ function path_to_ensemble_member(base_path::AbstractString, member::Int; pad_zer
 end
 
 """
-    assign_values!(
-        member, 
-        param_array, 
-        param_distribution, 
-        param_slices, 
-        param_dict, 
-        names)
+$(TYPEDSIGNATURES)
 
-Updates `param_dict` with the values of the given `member` of the `param_array`
+Update `param_dict` in-place with the values of ensemble member `member` from `param_array`.
 
-Args:
-`member`  - ensemble member (corresponds to column of `param_array`)
-`param_array` - N_par x N_ens array of parameter values
-`param_distribution` - the parameter distribution underlying `param_array`
-`param_slices` - list of contiguous `[collect(1:i), collect(i+1:j),... ]` used
-                 to split parameter arrays by distribution dimensions
-`param_dict` - the dict of parameters to be updated with new parameter values
-`names` - array of parameter names
-
-Returns the updated `param_dict`
+# Arguments
+- `member`: column index of the ensemble member in `param_array`.
+- `param_array`: `N_par × N_ens` array of parameter values.
+- `param_distribution`: `ParameterDistribution` describing the parameters in `param_array`.
+- `param_slices`: contiguous index ranges splitting `param_array` rows by parameter dimension.
+- `param_dict`: parameter dictionary to update in-place.
+- `names`: parameter names corresponding to each slice.
 """
 function assign_values!(
     member::Int,
@@ -568,16 +490,15 @@ end
 
 
 """
-    generate_subdir_names(N; prefix="member", mode="all", pad_zeros=3)
+$(TYPEDSIGNATURES)
 
-Generates `N` directory names "<prefix>_<i>"; i=1, ..., N
+Generate zero-padded subdirectory names of the form `<prefix>_<i>`.
 
-Args:
-`N`  - number of ensemble members (= number of subdirectories) or for `mode=only`, the chosen member
-`prefix` - prefix used for generation of subdirectory names
-`mode`   - default `=all` generates all names, `=only` generates just the `N`th name
-`pad_zeros` - amount of digits to pad to
-Returns a list of directory names
+# Arguments
+- `N`: total number of members (when `mode = "all"`) or the specific member index (when `mode = "only"`).
+- `prefix`: string prefix for directory names (default `"member"`).
+- `mode`: `"all"` returns all names from 1 to `N`; `"only"` returns just the `N`th name.
+- `pad_zeros`: number of digits for zero-padding indices.
 """
 function generate_subdir_names(
     N::Int;
@@ -597,17 +518,15 @@ end
 
 
 """
-    get_admissible_parameters(param_dict)
+$(TYPEDSIGNATURES)
 
-Finds all parameters in `param_dict` that are admissible for calibration.
+Return the names of all parameters in `param_dict` that are admissible for calibration.
 
-Args:
-`param_dict` - nested dictionary that has parameter names as keys and the
-               corresponding dictionaries of parameter information as values
+A parameter is admissible when its sub-dictionary contains a `"prior"` key whose value
+is not `"fixed"`, which allows non-UQ parameters to coexist in the same TOML file.
 
-Returns an array of the names of all admissible parameters in `param_dict`.
-Admissible parameters must have a key "prior" and the value value of this is not
-set to "fixed". This allows for other parameters to be stored within the TOML file.
+# Arguments
+- `param_dict`: nested dictionary mapping parameter names to sub-dictionaries of parameter metadata.
 """
 function get_admissible_parameters(param_dict::Dict)
 
@@ -624,14 +543,13 @@ end
 
 
 """
-    write_log_file(param_dict, file_path)
+$(TYPEDSIGNATURES)
 
-Writes the parameters in `param_dict` into a .toml file
+Write `param_dict` to a TOML file at `file_path`.
 
-Args:
-`param_dict` - nested dictionary that has parameter names as keys and the
-               corresponding dictionaries of parameter information as values
-`file_path` - path of the file where parameters are saved
+# Arguments
+- `param_dict`: nested dictionary mapping parameter names to sub-dictionaries of parameter metadata.
+- `file_path`: path of the TOML file to write.
 """
 function write_log_file(param_dict::Dict, file_path::AbstractString)
     open(file_path, "w") do io
@@ -641,19 +559,16 @@ end
 
 
 """
-    get_regularization(param_dict, name)
+$(TYPEDSIGNATURES)
 
-Returns the regularization information for a single parameter
+Return the regularization type and coefficient for parameter `name` in `param_dict`.
 
-Args:
-`param_dict` - nested dictionary that has parameter names as keys and the
-               corresponding dictionary of parameter information as values
-`name` - parameter name
+Returns a tuple `(type, value)` where `type` is `"L1"` or `"L2"` and `value` is the
+corresponding coefficient. Returns `(nothing, nothing)` when no regularization is specified.
 
-Returns a tuple (<regularization_type>, <regularization_value>), where the
-regularization type is either "L1" or "L2", and the regularization value is
-a float. Returns (nothing, nothing) if parameter has no regularization
-information.
+# Arguments
+- `param_dict`: nested dictionary mapping parameter names to sub-dictionaries of parameter metadata.
+- `name`: name of the parameter to query.
 """
 function get_regularization(param_dict::Dict, name::AbstractString)
 
@@ -673,22 +588,6 @@ function get_regularization(param_dict::Dict, name::AbstractString)
 end
 
 
-"""
-    get_regularization(param_dict, names)
-
-Returns the regularization information for an array of parameters
-
-Args:
-`param_dict` - nested dictionary that has parameter names as keys and the
-               corresponding dictionary of parameter information as values
-`names` - array of parameter names
-
-Returns an arary of tuples (<regularization_type>, <regularization_value>), with the ith tuple corresponding to the parameter `names[i]`. 
-The regularization type is either "L1" or "L2", and the regularization 
-value is a float.
-Returns (nothing, nothing) for parameters that have no regularization
-information.
-"""
 function get_regularization(param_dict::Dict, names::AbstractVector{String})
 
     regularr = []

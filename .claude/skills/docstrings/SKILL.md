@@ -74,6 +74,13 @@ the definition. Produce a prioritised list:
 4. **Incomplete** — prose present but key sections absent (missing `# Arguments`,
    `# Examples`, or field strings not describing semantic role).
 
+**Also scan every function in the file for old-style docstrings**, regardless of
+whether it is exported. An old-style docstring is one that uses an indented
+function-name header (e.g. `    my_func(arg1, arg2)`) and/or an `Args:` /
+`Arguments:` block with the `` `name` - description `` format. Convert these to
+the `$(TYPEDSIGNATURES)` convention in the same editing pass — the whole file
+should end up stylistically uniform.
+
 ### Step 3 — Draft docstrings
 
 For each candidate, write a docstring that matches the detected convention.
@@ -168,8 +175,18 @@ general one — and leave the rest undocumented.
 `update_ensemble!` is a specialised internal update hook called by the framework,
 not by users directly. It must **not** be documented even if it is exported.
 
-Append a `# Method list` section containing `$(METHODLIST)` to the chosen
-docstring so Documenter.jl surfaces all overloads automatically.
+#### Old-style function docstrings (all functions, not just exported)
+
+Convert any docstring that uses an indented function-name header or an `Args:` /
+`Arguments:` section to the `$(TYPEDSIGNATURES)` style, even for internal
+(non-exported) helpers. The canonical old-style markers are:
+
+- First line indented with spaces: `    my_func(arg, ...)` — replace with `$(TYPEDSIGNATURES)`.
+- Argument block labelled `Args:` or `Arguments:` with `` `name` - description `` lines — replace
+  with a `# Arguments` section using `` - `name`: description `` format.
+
+Doing this in the same pass keeps the file stylistically uniform and prevents
+old-style docstrings from persisting as invisible technical debt.
 
 #### General rules
 
@@ -346,9 +363,10 @@ expect. Apply them consistently.
   represents in domain terms (e.g. "mapping of basin ID to forcing timeseries"
   rather than "dictionary of forcing timeseries data objects").
 - **Multiple-dispatch — one docstring per concept**: Document only the primary
-  user-facing overload (the method taking the top-level composite type). End
-  that docstring with a `# Method list` section containing `$(METHODLIST)`. All
-  other dispatch methods remain undocumented.
+  user-facing overload (the method taking the top-level composite type). All
+  other dispatch methods remain undocumented. Do **not** add `$(METHODLIST)` to
+  function docstrings — `$(TYPEDSIGNATURES)` already surfaces all overloads.
+  `$(METHODLIST)` belongs only in struct docstrings (inside `# Constructors`).
 - **`# Arguments` section**: add after the opening prose for any function with
   more than two parameters, or where argument semantics are non-obvious. Format:
   `` - `name`: description [unit] ``.
@@ -490,9 +508,6 @@ $(TYPEDSIGNATURES)
 
 Return the updated parameter vectors using the EKS sampler algorithm
 (Garbuno-Iñigo, Hoffmann, Li, Stuart 2019).
-
-# Method list
-$(METHODLIST)
 """
 function eks_update(ekp, u, g, process::PEKS) where {FT, PEKS <: Sampler{FT, EKS}}
     ...
