@@ -44,16 +44,13 @@
             "Bash(git rm*)"
         ]
     },
-    "env": {
-        "JULIA_NUM_THREADS": "auto"
-    },
     "hooks": {
         "UserPromptSubmit": [
             {
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "printf '\\n---\\nSKILL ROUTING: Review the available skills listed in the system context. If one clearly matches this task, invoke it via the Skill tool before proceeding. If no skill clearly matches, use AskUserQuestion to ask the user: (a) whether they would like to apply any of the listed skills to this task anyway, (b) whether they would like to create a new skill using the skill-creator skill — in which case propose a suggested skill name and one-line description tailored to this task — or (c) proceed without a skill. Also ask the user whether they would like to use subagents (e.g., Explore, Plan, general-purpose) for this task, and if so, how (e.g., for research, parallel work, or isolated execution). Do NOT proceed with the task until the user has answered.\\n'"
+                        "command": "printf '\\n---\\nSKILL ROUTING: Review the available skills listed in the system context. If one clearly matches this task, invoke it via the Skill tool before proceeding. If no skill clearly matches, use AskUserQuestion to ask the user: (a) whether they would like to apply any of the listed skills to this task anyway, (b) whether they would like to create a new skill using the skill-creator skill — in which case propose a suggested skill name and one-line description tailored to this task — or (c) proceed without a skill. Also use AskUserQuestion to ask the user whether they would like to use subagents (e.g., Explore, Plan, general-purpose) for this task, and if so, how (e.g., for research, parallel work, or isolated execution). Do NOT proceed with the task until the user has answered.\\n'"
                     }
                 ]
             }
