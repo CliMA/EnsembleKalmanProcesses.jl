@@ -48,16 +48,19 @@ Audit `<path>` for error-raising patterns. For every `@assert`, `error(`, or
 1. Record: file, line number, exception type (or "bare @assert" / "bare error"),
    and the full message text (including multiline strings).
 2. Classify message quality:
-   - "good"  — has `$(expr)` interpolation showing the actual received value
+   - "good"  — has `$(expr)` interpolation showing the actual received value, and
+     is either short (≤~7 lines) or already in a `_throw_` helper function
+   - "long-inline" — message content is good, but the body exceeds ~8 lines and
+     the throw is written inline (not in a `_throw_` helper)
    - "vague" — missing a received value, or no Expected/Got structure
    - "missing" — bare `@assert` with no message at all
 3. Note whether the site is at an API boundary (user-facing input) or an internal
    invariant (would require a package bug to fire).
 
 Return a markdown table with columns:
-  File | Line | Exception type | Quality | Notes (one-line note on what's wrong if vague/missing)
+  File | Line | Exception type | Quality | Notes (one-line note on what's wrong if vague/missing/long-inline)
 
-Focus only on sites that are "vague" or "missing" — skip "good" ones.
+Focus only on sites that are "vague", "missing", or "long-inline" — skip "good" ones.
 ```
 
 **How to use the result**: treat the returned table as your working inventory for
@@ -184,6 +187,82 @@ d.args[1] == Symbol("VectorOfParameterized") || error(
     "Internal error: get_vector_of_parameterized called with non-VectorOfParameterized expression (got $(d.args[1]))",
 )
 ```
+
+### Step 2.5 — Decide: inline or helper?
+
+Before writing the rewrite, decide whether the error belongs inline or should be
+extracted into a `_throw_<what>(...)` helper function.
+
+**When to extract** — pull the error into a helper when either condition holds:
+
+- **Length** (primary trigger): the message body exceeds ~8 lines. Extract
+  unconditionally — single call site, non-loop context, no surrounding complexity
+  required. A full Expected / Got / Suggestion block almost always crosses this
+  threshold. Even a one-off long block left inline establishes a pattern that makes
+  entire files hard to scan, and accumulates quickly once a few exceptions are made.
+- **Duplication**: the same error shape (same summary line, same Expected / Got /
+  Suggestion skeleton) appears at ≥2 call sites. Extract even when each block is
+  short — the wording drifts silently over time and the call sites collapse to
+  readable one-liners.
+
+Inline is appropriate only for genuinely short messages (≤~7 lines) at a single
+call site. The bar for "short" is strict: a message with a Summary, an Expected
+section, a Got section, and a Suggestion almost certainly exceeds 7 lines and
+belongs in a helper. When in doubt, count — if it doesn't fit in 7 lines, extract.
+
+**Where helpers go**
+
+Default: a `## Error helpers` section at the **bottom of the source file**, above
+`end # module`. Keeping helpers near their callers preserves traceability — the
+reader sees the throw site, jumps to the bottom of the same file, and finds the
+message without switching files.
+
+Promote to a shared `src/ErrorMessages.jl` (or the repo's equivalent top-level
+utility file) only when **≥2 different source files** call the same helper. Discover
+which file to use by reading the top-level module file (e.g. `src/PackageName.jl`)
+for its `include(...)` list — then add `include("ErrorMessages.jl")` as the first
+`include` so every subsequent file sees the helpers without any `using`/`import`.
+
+**Naming convention**
+
+```
+_throw_<what>(positional_required_facts...; kwargs_for_optional_context...)
+```
+
+- Underscore prefix → unexported private helper.
+- Verb prefix `_throw_` → the function unconditionally raises; callers know there
+  is no return value.
+- Suffix describes the failure mode: `_dim_mismatch`, `_missing_keys`,
+  `_bad_obs_type`, `_not_iterable`.
+
+**Signature convention**
+
+Pass the facts that are *always* present as positional arguments (the offending
+value, the expected vs got summary). Pass *optional* context as keyword arguments
+with `nothing` defaults — especially loop context (`index`, `total`, `iter`,
+`phase`). Build optional sections inside the helper by checking `isnothing(...)`.
+This keeps call sites compact and lets the same helper serve both loop and non-loop
+contexts (see the *Helper with optional loop context* canonical example).
+
+**Performance: use `@noinline`**
+
+Prefix every helper with `@noinline`. This prevents Julia from inlining the cold
+error path into the surrounding hot code, keeping numerical kernels unaffected:
+
+```julia
+@noinline function _throw_x_not_iterable(x; where::Symbol)
+    throw(ArgumentError(...))
+end
+```
+
+**What NOT to do**
+
+- Don't create a catch-all `_throw_arg_error(msg::String)` — that just shifts the
+  inline triple-quoted block to another file without any DRY benefit.
+- Don't use macros (`@check_dim(...)`) — they're magical and harder to debug than
+  plain functions.
+- Don't bundle all context into one opaque `context::NamedTuple` — explicit kwargs
+  are clearer to call and easier to extend.
 
 ### Step 3 — Rewrite with the canonical layout
 
@@ -364,7 +443,10 @@ next time."
 - **Loop state in Got / Loop context**: when a throw is inside a `for` or `while`
   loop, always name the iteration index and the key state from that iteration.
   A "convergence failed" message without the step count forces the user to add
-  `println` debugging to reproduce the failure.
+  `println` debugging to reproduce the failure. When the same loop-context check
+  recurs at multiple sites, the loop variables become optional kwargs on a
+  `_throw_<what>` helper — see the *Helper with optional loop context* canonical
+  example.
 - **Preserve the original exception in `catch` blocks**: if you catch `e` and
   throw a new exception, include `$(sprint(showerror, e))` in the new message.
   Dropping `e` silently discards the root cause.
@@ -373,12 +455,33 @@ next time."
   grep.
 - **Single-line messages are fine** when the failure is unambiguous and no
   Expected/Got context would add clarity.
+- **Extract into `_throw_<what>(...)` helpers** whenever the message body exceeds
+  ~8 lines, or when the same Expected / Got / Suggestion skeleton appears at ≥2
+  call sites (even if short). A full Expected / Got / Suggestion block nearly always
+  exceeds 8 lines and must be a helper — inline is only appropriate for ≤~7-line
+  messages at a single call site. Place the helper in a `## Error helpers` section
+  at the bottom of the source file; promote to a shared `src/ErrorMessages.jl` only
+  when ≥2 different source files share the helper. Use `@noinline`, positional args
+  for required facts, and `nothing`-defaulted kwargs for optional context such as
+  loop indices. Render each optional section only when its kwarg is non-`nothing`.
 
 ---
 
 ## Canonical before/after examples
 
+> **Length rule applies to all examples below.** Each example shows the canonical
+> message *format* (Expected / Got / Suggestion sections, interpolation, etc.). When
+> the message body exceeds ~8 lines — which a full Expected + Got + Suggestion block
+> almost always does — the throw must go in a `_throw_<what>(...)` helper per
+> Step 2.5, not inline. The first example below models this explicitly. Subsequent
+> examples show the message body format; apply the same helper extraction whenever
+> the resulting message exceeds 7 lines.
+
 ### Replace a vague `error(string(...))`
+
+The after-message has 10 lines (Summary + Expected + Got×3 + Suggestion×2), so it
+goes into a `_throw_` helper — extract unconditionally at this length even though
+there is only one call site.
 
 ```julia
 # Before
@@ -386,8 +489,8 @@ if scaled_Δt >= 1.0
     error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
 end
 
-# After
-if scaled_Δt >= 1.0
+# After — helper in the ## Error helpers section at the bottom of the file
+@noinline function _throw_scaled_step_too_large(s, Δt, scaled_Δt)
     throw(ArgumentError("""
 Scaled time step exceeds the stability bound.
 
@@ -396,13 +499,16 @@ Expected:
 
 Got:
     s = $s
-    Δt = $(get_Δt(ekp)[end])
+    Δt = $Δt
     s * Δt = $scaled_Δt
 
 Suggestion:
     Reduce the scaling factor `s` or shorten the EK time step.
 """))
 end
+
+# Call site collapses to a single guard line:
+scaled_Δt < 1.0 || _throw_scaled_step_too_large(s, get_Δt(ekp)[end], scaled_Δt)
 ```
 
 ### Replace a bare `@assert` on an API boundary
@@ -558,6 +664,192 @@ Key points:
 - **Include one diagnostic scalar** — the minimum eigenvalue, the norm of the
   update step, the ensemble spread — rather than dumping the full matrix.
 
+When this same loop-context error needs to be thrown at multiple sites, the loop
+variables (`i`, `N_iter`) naturally become optional kwargs on a `_throw_<what>`
+helper. The call site stays a single line and the loop-awareness travels with the
+helper everywhere it is used — see the *Helper with optional loop context* example
+below.
+
+### Extract a duplicated error into a helper
+
+`transform_constrained_to_unconstrained` and `transform_unconstrained_to_constrained`
+in `src/ParameterDistributions.jl` each validate the same two preconditions on their
+iterable argument `x`. Before extraction, byte-for-byte identical 12-line blocks
+appear at both call sites:
+
+```julia
+# Before — same two blocks in both transform functions (×2 each = 4 copies total)
+
+# in transform_constrained_to_unconstrained:
+if !hasmethod(iterate, [typeof(x)])
+    throw(ArgumentError("""
+transform_constrained_to_unconstrained: `x` is not iterable.
+
+Expected:
+    AbstractVecOrMat or an iterable of AbstractVecOrMat elements (one per EK iteration)
+
+Got:
+    $(typeof(x))
+
+Suggestion:
+    Pass a Vector or Matrix, or a collection of Vectors/Matrices.
+"""))
+end
+if !isa(x[1], AbstractVecOrMat)
+    throw(ArgumentError("""
+transform_constrained_to_unconstrained: elements of `x` are not AbstractVecOrMat.
+
+Expected:
+    An iterable whose elements are AbstractVecOrMat
+
+Got:
+    element type = $(typeof(x[1]))
+
+Suggestion:
+    Pass a collection of Vectors or Matrices (one per EK iteration).
+"""))
+end
+
+# in transform_unconstrained_to_constrained: byte-for-byte identical except the
+# summary line reads "transform_unconstrained_to_constrained" instead.
+```
+
+After extraction, both functions call two helpers defined once in a `## Error helpers`
+section at the bottom of the file:
+
+```julia
+# After — helpers at the bottom of src/ParameterDistributions.jl
+
+## Error helpers
+
+@noinline function _throw_x_not_iterable(x; where::Symbol)
+    throw(ArgumentError("""
+$where: `x` is not iterable.
+
+Expected:
+    AbstractVecOrMat or an iterable of AbstractVecOrMat elements (one per EK iteration)
+
+Got:
+    $(typeof(x))
+
+Suggestion:
+    Pass a Vector or Matrix, or a collection of Vectors/Matrices.
+"""))
+end
+
+@noinline function _throw_x_elements_not_vecormat(x; where::Symbol)
+    throw(ArgumentError("""
+$where: elements of `x` are not AbstractVecOrMat.
+
+Expected:
+    An iterable whose elements are AbstractVecOrMat
+
+Got:
+    element type = $(typeof(x[1]))
+
+Suggestion:
+    Pass a collection of Vectors or Matrices (one per EK iteration).
+"""))
+end
+
+# Both call sites now collapse to two readable guard lines each:
+function transform_constrained_to_unconstrained(pd::ParameterDistribution, x)
+    hasmethod(iterate, [typeof(x)]) ||
+        _throw_x_not_iterable(x; where = :transform_constrained_to_unconstrained)
+    isa(x[1], AbstractVecOrMat) ||
+        _throw_x_elements_not_vecormat(x; where = :transform_constrained_to_unconstrained)
+    # ... algorithm body visible immediately ...
+end
+
+function transform_unconstrained_to_constrained(pd::ParameterDistribution, x)
+    hasmethod(iterate, [typeof(x)]) ||
+        _throw_x_not_iterable(x; where = :transform_unconstrained_to_constrained)
+    isa(x[1], AbstractVecOrMat) ||
+        _throw_x_elements_not_vecormat(x; where = :transform_unconstrained_to_constrained)
+    # ... algorithm body visible immediately ...
+end
+```
+
+Key points:
+- The `where::Symbol` kwarg embeds the calling function name in the message so
+  diagnostics stay specific even though the body is shared. Pass a `Symbol` literal
+  (`where = :my_func`) — symbols are cheap and render cleanly with `$where`.
+- Both functions now have two one-line guards instead of two 12-line blocks; the
+  algorithm body is immediately visible.
+- `@noinline` keeps the error path out of the hot function body.
+- The helpers live at the bottom of the same file — one jump away, no new file.
+
+### Helper with optional loop context
+
+The `for pdd in param_dist_dict_array` loop in `src/ParameterDistributions.jl`
+validates each parameter dict but currently reports no position — the user sees
+"missing required keys" with no idea which dict in the array triggered the error.
+Extracting into a helper adds the index and makes the same helper reusable wherever
+that validation appears:
+
+```julia
+# Before — inline block, no loop index in the message
+for pdd in param_dist_dict_array
+    if !all(["distribution", "name", "constraint"] .∈ [collect(keys(pdd))])
+        throw(ArgumentError("""
+Parameter dictionary is missing required keys.
+
+Expected keys:
+    "distribution", "name", "constraint"
+
+Got keys:
+    $(sort(collect(string.(keys(pdd)))))
+
+Suggestion:
+    Ensure each parameter dict contains all three required keys.
+"""))
+    end
+end
+
+# After — helper with optional loop context at the bottom of the file
+
+@noinline function _throw_param_dict_missing_keys(got_keys; index = nothing, total = nothing)
+    loop_ctx = isnothing(index) ? "" : """
+
+Loop context:
+    dict index = $index (of $total)"""
+    throw(ArgumentError("""
+Parameter dictionary is missing required keys.$loop_ctx
+
+Expected keys:
+    "distribution", "name", "constraint"
+
+Got keys:
+    $got_keys
+
+Suggestion:
+    Ensure each parameter dict contains all three required keys.
+"""))
+end
+
+# Call site — loop now reports position:
+for (i, pdd) in enumerate(param_dist_dict_array)
+    all(["distribution", "name", "constraint"] .∈ [collect(keys(pdd))]) ||
+        _throw_param_dict_missing_keys(
+            sort(collect(string.(keys(pdd)))); index = i, total = length(param_dist_dict_array),
+        )
+end
+
+# The same helper works outside a loop — omit the kwargs and the Loop context
+# section is silently suppressed:
+all(["distribution", "name", "constraint"] .∈ [collect(keys(pdd))]) ||
+    _throw_param_dict_missing_keys(sort(collect(string.(keys(pdd)))))
+```
+
+Key points:
+- `index` and `total` default to `nothing`; the `Loop context:` section is
+  rendered only when they are provided. No special-casing at any call site.
+- Switching `for pdd in ...` to `for (i, pdd) in enumerate(...)` is the only
+  loop-side change needed to expose the index.
+- The user now knows *which* dict failed, not just that one of them did.
+- The same helper can be called from a non-loop site (e.g. single-dict validation)
+  with zero kwargs and produces a clean message without a Loop context section.
+
 ---
 
 ## Non-goals
@@ -570,3 +862,7 @@ Key points:
   generic one.
 - Do not expose internal linear algebra variable names or dispatch details when
   domain-level terminology exists.
+- Do not extract truly short errors (≤~7 lines) at a single call site — the
+  inline form is easier to grep and keeps cause and message co-located. A summary
+  plus a single Got line is a natural ceiling for inline: anything that also includes
+  Expected and Suggestion sections almost always exceeds 7 lines and must be a helper.

@@ -334,38 +334,17 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
     #check type
     if !(isa(param_dist_dict, Dict) || eltype(param_dist_dict) <: Dict)
-        throw(ArgumentError("""
-ParameterDistribution: input must be a Dict or an AbstractVector of Dicts.
-
-Expected:
-    Dict or AbstractVector{<:Dict}
-
-Got:
-    $(typeof(param_dist_dict))
-
-Suggestion:
-    Wrap a single parameter dict in a vector, e.g. [my_dict], or pass a Dict directly.
-"""))
+        _throw_pd_bad_input_type(typeof(param_dist_dict))
     end
 
     # make copy as array
     param_dist_dict_array = !isa(param_dist_dict, AbstractVector) ? [param_dist_dict] : param_dist_dict
+    n_dicts = length(param_dist_dict_array)
     # perform checks on the individual distributions
-    for pdd in param_dist_dict_array
+    for (i, pdd) in enumerate(param_dist_dict_array)
         # check all keys are present
         if !all(["distribution", "name", "constraint"] .∈ [collect(keys(pdd))])
-            throw(ArgumentError("""
-Parameter dictionary is missing required keys.
-
-Expected keys:
-    "distribution", "name", "constraint"
-
-Got keys:
-    $(sort(collect(string.(keys(pdd)))))
-
-Suggestion:
-    Ensure each parameter dict contains all three required keys.
-"""))
+            _throw_pd_missing_keys(sort(collect(string.(keys(pdd)))); i = i, n = n_dicts)
         end
 
         distribution = pdd["distribution"]
@@ -374,55 +353,17 @@ Suggestion:
 
         # check key types
         if !isa(distribution, ParameterDistributionType)
-            throw(ArgumentError("""
-Value of "distribution" is not a valid ParameterDistributionType.
-
-Expected:
-    Parameterized, VectorOfParameterized, Samples, or GaussianRandomFieldInterface
-
-Got:
-    $(typeof(distribution))
-
-Suggestion:
-    Wrap your distribution, e.g. Parameterized(Normal(0, 1)).
-"""))
+            _throw_pd_bad_distribution_type(typeof(distribution); i = i, n = n_dicts)
         end
         if !isa(constraint, ConstraintType)
             if !isa(constraint, AbstractVector) #it's not a vector either
-                throw(ArgumentError("""
-Value of "constraint" is not a valid constraint type.
-
-Expected:
-    A ConstraintType or AbstractVector{<:ConstraintType}
-
-Got:
-    $(typeof(constraint))
-
-Suggestion:
-    Use no_constraint(), bounded_below(lb), bounded_above(ub), or bounded(lb, ub).
-"""))
+                _throw_pd_bad_constraint_type(typeof(constraint); i = i, n = n_dicts)
             elseif !(eltype(constraint) <: ConstraintType) #it is a vector, but not of constraint
-                throw(ArgumentError("""
-"constraint" vector contains non-ConstraintType entries.
-
-Expected:
-    All elements to be a ConstraintType
-
-Got:
-    eltype = $(eltype(constraint))
-
-Suggestion:
-    Use a vector of constraint objects, e.g. [no_constraint(), bounded_below(0)].
-"""))
+                _throw_pd_bad_constraint_elements(eltype(constraint); i = i, n = n_dicts)
             end
         end
         if !isa(name, String)
-            throw(ArgumentError("""
-Value of "name" must be a String.
-
-Got:
-    $(typeof(name)) = $(repr(name))
-"""))
+            _throw_pd_bad_name_type(typeof(name), name; i = i, n = n_dicts)
         end
 
         # 1 constraint per dimension check
@@ -430,18 +371,7 @@ Got:
 
         n_parameters = ndims(distribution, function_parameter_opt = "constraint")
         if !(n_parameters == length(constraint_array))
-            throw(DimensionMismatch("""
-Number of constraints does not match the number of parameter dimensions.
-
-Expected:
-    $(n_parameters) constraint(s) — one per dimension, or one total for function distributions
-
-Got:
-    $(length(constraint_array)) constraint(s)
-
-Suggestion:
-    Use no_constraint() for any unconstrained dimension.
-"""))
+            _throw_pd_constraint_count_mismatch(n_parameters, length(constraint_array); i = i, n = n_dicts)
         end
 
     end
@@ -470,36 +400,14 @@ function ParameterDistribution(
 )
 
     if !(typeof(constraint) <: ConstraintType || eltype(constraint) <: ConstraintType) # if it is a vector, but not of constraint
-        throw(ArgumentError("""
-`constraint` is not a valid constraint type.
-
-Expected:
-    A ConstraintType or AbstractVector{<:ConstraintType}
-
-Got:
-    $(typeof(constraint))
-
-Suggestion:
-    Use no_constraint(), bounded_below(lb), bounded_above(ub), or bounded(lb, ub).
-"""))
+        _throw_pd_bad_constraint_type(typeof(constraint))
     end
     # 1 constraint per dimension check
     constraint_vec = isa(constraint, ConstraintType) ? [constraint] : constraint
     n_parameters = ndims(distribution, function_parameter_opt = "constraint")
 
     if !(n_parameters == length(constraint_vec))
-        throw(DimensionMismatch("""
-Number of constraints does not match the number of parameter dimensions.
-
-Expected:
-    $(n_parameters) constraint(s) — one per dimension, or one total for function distributions
-
-Got:
-    $(length(constraint_vec)) constraint(s)
-
-Suggestion:
-    Use no_constraint() for any unconstrained dimension.
-"""))
+        _throw_pd_constraint_count_mismatch(n_parameters, length(constraint_vec))
     end
 
     # flatten the structure
@@ -919,18 +827,7 @@ function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Ab
         xmat = x
     end
     if size(xmat, 1) != nd
-        throw(ArgumentError("""
-transform_constrained_to_unconstrained: input dimension does not match the constrained parameter space.
-
-Expected:
-    size(x, 1) = $nd (parameter dimension)
-
-Got:
-    size(x, 1) = $(size(xmat, 1))
-
-Suggestion:
-    Pass a Matrix of shape (parameter_dimension × n_samples).
-"""))
+        _throw_transform_dim_mismatch(nd, size(xmat, 1); where = :transform_constrained_to_unconstrained)
     end
 
     param_names = get_name(pd)
@@ -975,33 +872,11 @@ Here, `x` is an iterable of parameters sample ensembles for different EKP iterat
 """
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, x)
     if !hasmethod(iterate, [typeof(x)]) # no way of iterating
-        throw(ArgumentError("""
-transform_constrained_to_unconstrained: `x` is not iterable.
-
-Expected:
-    AbstractVecOrMat or an iterable of AbstractVecOrMat elements (one per EK iteration)
-
-Got:
-    $(typeof(x))
-
-Suggestion:
-    Pass a Vector or Matrix, or a collection of Vectors/Matrices.
-"""))
+        _throw_x_not_iterable(x; where = :transform_constrained_to_unconstrained)
     end
 
     if !isa(x[1], AbstractVecOrMat)
-        throw(ArgumentError("""
-transform_constrained_to_unconstrained: elements of `x` are not AbstractVecOrMat.
-
-Expected:
-    An iterable whose elements are AbstractVecOrMat
-
-Got:
-    element type = $(typeof(x[1]))
-
-Suggestion:
-    Pass a collection of Vectors or Matrices (one per EK iteration).
-"""))
+        _throw_x_elements_not_vecormat(x; where = :transform_constrained_to_unconstrained)
     end
 
     transf_x = []
@@ -1053,18 +928,7 @@ function transform_unconstrained_to_constrained(
         xmat = x
     end
     if size(xmat, 1) != nd
-        throw(ArgumentError("""
-transform_unconstrained_to_constrained: input dimension does not match the unconstrained parameter space.
-
-Expected:
-    size(x, 1) = $nd (parameter dimension)
-
-Got:
-    size(x, 1) = $(size(xmat, 1))
-
-Suggestion:
-    Pass a Matrix of shape (parameter_dimension × n_samples).
-"""))
+        _throw_transform_dim_mismatch(nd, size(xmat, 1); where = :transform_unconstrained_to_constrained)
     end
 
     param_names = get_name(pd)
@@ -1129,33 +993,11 @@ function transform_unconstrained_to_constrained(
     x, # iterable{VecOrMat}
 )
     if !hasmethod(iterate, [typeof(x)]) # no way of iterating
-        throw(ArgumentError("""
-transform_unconstrained_to_constrained: `x` is not iterable.
-
-Expected:
-    AbstractVecOrMat or an iterable of AbstractVecOrMat elements (one per EK iteration)
-
-Got:
-    $(typeof(x))
-
-Suggestion:
-    Pass a Vector or Matrix, or a collection of Vectors/Matrices.
-"""))
+        _throw_x_not_iterable(x; where = :transform_unconstrained_to_constrained)
     end
 
     if !isa(x[1], AbstractVecOrMat)
-        throw(ArgumentError("""
-transform_unconstrained_to_constrained: elements of `x` are not AbstractVecOrMat.
-
-Expected:
-    An iterable whose elements are AbstractVecOrMat
-
-Got:
-    element type = $(typeof(x[1]))
-
-Suggestion:
-    Pass a collection of Vectors or Matrices (one per EK iteration).
-"""))
+        _throw_x_elements_not_vecormat(x; where = :transform_unconstrained_to_constrained)
     end
 
     transf_x = []
@@ -1367,6 +1209,182 @@ function _constrained_gaussian(
         @warn "Unable to set constrained std for `$(name)`: target = $(σ_c), got $(s_c)"
     end
     return (μ_u, σ_u)
+end
+
+## Error helpers
+
+# --- ParameterDistribution constructor helpers ---
+
+@noinline function _throw_pd_bad_input_type(T)
+    throw(ArgumentError("""
+ParameterDistribution: input must be a Dict or an AbstractVector of Dicts.
+
+Expected:
+    Dict or AbstractVector{<:Dict}
+
+Got:
+    $T
+
+Suggestion:
+    Wrap a single parameter dict in a vector, e.g. [my_dict], or pass a Dict directly.
+"""))
+end
+
+@noinline function _throw_pd_missing_keys(got_keys; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+Parameter dictionary is missing required keys.$loop_ctx
+
+Expected keys:
+    "distribution", "name", "constraint"
+
+Got keys:
+    $got_keys
+
+Suggestion:
+    Ensure each parameter dict contains all three required keys.
+"""))
+end
+
+@noinline function _throw_pd_bad_distribution_type(T; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+Value of "distribution" is not a valid ParameterDistributionType.$loop_ctx
+
+Expected:
+    Parameterized, VectorOfParameterized, Samples, or GaussianRandomFieldInterface
+
+Got:
+    $T
+
+Suggestion:
+    Wrap your distribution, e.g. Parameterized(Normal(0, 1)).
+"""))
+end
+
+@noinline function _throw_pd_bad_constraint_type(T; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+`constraint` is not a valid constraint type.$loop_ctx
+
+Expected:
+    A ConstraintType or AbstractVector{<:ConstraintType}
+
+Got:
+    $T
+
+Suggestion:
+    Use no_constraint(), bounded_below(lb), bounded_above(ub), or bounded(lb, ub).
+"""))
+end
+
+@noinline function _throw_pd_bad_constraint_elements(T; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+"constraint" vector contains non-ConstraintType entries.$loop_ctx
+
+Expected:
+    All elements to be a ConstraintType
+
+Got:
+    eltype = $T
+
+Suggestion:
+    Use a vector of constraint objects, e.g. [no_constraint(), bounded_below(0)].
+"""))
+end
+
+@noinline function _throw_pd_bad_name_type(T, name_val; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+Value of "name" must be a String.$loop_ctx
+
+Got:
+    $T = $(repr(name_val))
+"""))
+end
+
+@noinline function _throw_pd_constraint_count_mismatch(n_params, n_constraints; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(DimensionMismatch("""
+Number of constraints does not match the number of parameter dimensions.$loop_ctx
+
+Expected:
+    $n_params constraint(s) — one per dimension, or one total for function distributions
+
+Got:
+    $n_constraints constraint(s)
+
+Suggestion:
+    Use no_constraint() for any unconstrained dimension.
+"""))
+end
+
+# --- transform helpers ---
+
+@noinline function _throw_transform_dim_mismatch(nd, actual; where::Symbol)
+    throw(ArgumentError("""
+$where: input dimension does not match the parameter space.
+
+Expected:
+    size(x, 1) = $nd (parameter dimension)
+
+Got:
+    size(x, 1) = $actual
+
+Suggestion:
+    Pass a Matrix of shape (parameter_dimension × n_samples).
+"""))
+end
+
+# --- iterable-overload helpers ---
+
+@noinline function _throw_x_not_iterable(x; where::Symbol)
+    throw(ArgumentError("""
+$where: `x` is not iterable.
+
+Expected:
+    AbstractVecOrMat or an iterable of AbstractVecOrMat elements (one per EK iteration)
+
+Got:
+    $(typeof(x))
+
+Suggestion:
+    Pass a Vector or Matrix, or a collection of Vectors/Matrices.
+"""))
+end
+
+@noinline function _throw_x_elements_not_vecormat(x; where::Symbol)
+    throw(ArgumentError("""
+$where: elements of `x` are not AbstractVecOrMat.
+
+Expected:
+    An iterable whose elements are AbstractVecOrMat
+
+Got:
+    element type = $(typeof(x[1]))
+
+Suggestion:
+    Pass a collection of Vectors or Matrices (one per EK iteration).
+"""))
 end
 
 include("FunctionParameterDistributions.jl")

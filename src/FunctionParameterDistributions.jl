@@ -61,19 +61,7 @@ struct GaussianRandomFieldInterface <: FunctionParameterDistributionType
         n_dof = n_dofs(gaussian_random_field, package)
         ndim = ndims(coefficient_prior)
         if !(ndim == n_dof)
-            throw(DimensionMismatch("""
-GaussianRandomFieldInterface: coefficient prior has wrong number of dimensions.
-
-Expected:
-    ndims(coefficient_prior) = $n_dof  (required by the random field)
-
-Got:
-    ndims(coefficient_prior) = $ndim
-
-Suggestion:
-    Build the prior with the correct number of repeats, e.g.
-    constrained_gaussian("GRF_coefficients", 0.0, 1.0, -Inf, Inf, repeats = $n_dof)
-"""))
+            _throw_grfi_prior_dim_mismatch(n_dof, ndim)
         end
         # create a distribution over which to sample coefficients (degrees of freedom)
 
@@ -282,7 +270,7 @@ Expected:
     "dof", "eval", or "constraint"
 
 Got:
-    "$function_parameter_opt"
+    $(repr(function_parameter_opt))
 """))
     end
 end
@@ -393,4 +381,22 @@ function transform_constrained_to_unconstrained(
 
     return constraint[1].constrained_to_unconstrained.(x)
 
+end
+
+## Error helpers
+
+@noinline function _throw_grfi_prior_dim_mismatch(n_dof, ndim)
+    throw(DimensionMismatch("""
+GaussianRandomFieldInterface: coefficient prior has wrong number of dimensions.
+
+Expected:
+    ndims(coefficient_prior) = $n_dof  (required by the random field)
+
+Got:
+    ndims(coefficient_prior) = $ndim
+
+Suggestion:
+    Build the prior with the correct number of repeats, e.g.
+    constrained_gaussian("GRF_coefficients", 0.0, 1.0, -Inf, Inf, repeats = $n_dof)
+"""))
 end

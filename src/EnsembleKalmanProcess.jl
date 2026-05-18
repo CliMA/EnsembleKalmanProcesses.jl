@@ -1200,20 +1200,7 @@ function multiplicative_inflation!(ekp::EnsembleKalmanProcess; s::FT = 1.0) wher
     scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
-        throw(ArgumentError("""
-Scaled time step exceeds the stability bound for multiplicative inflation.
-
-Expected:
-    s * Δt < 1.0
-
-Got:
-    s = $s
-    Δt = $(get_Δt(ekp)[end])
-    s * Δt = $scaled_Δt
-
-Suggestion:
-    Reduce the scaling factor `s` or shorten the EK time step.
-"""))
+        _throw_inflation_stability_violated(:multiplicative, s, get_Δt(ekp)[end], scaled_Δt)
     end
 
     u = get_u_final(ekp)
@@ -1243,20 +1230,7 @@ function additive_inflation!(
     scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
-        throw(ArgumentError("""
-Scaled time step exceeds the stability bound for additive inflation.
-
-Expected:
-    s * Δt < 1.0
-
-Got:
-    s = $s
-    Δt = $(get_Δt(ekp)[end])
-    s * Δt = $scaled_Δt
-
-Suggestion:
-    Reduce the scaling factor `s` or shorten the EK time step.
-"""))
+        _throw_inflation_stability_violated(:additive, s, get_Δt(ekp)[end], scaled_Δt)
     end
 
     u = get_u_final(ekp)
@@ -1443,6 +1417,25 @@ function update_ensemble!(
 
 end
 
+
+## Error helpers
+
+@noinline function _throw_inflation_stability_violated(inflation_type::Symbol, s, Δt, scaled_Δt)
+    throw(ArgumentError("""
+Scaled time step exceeds the stability bound for $inflation_type inflation.
+
+Expected:
+    s * Δt < 1.0
+
+Got:
+    s = $s
+    Δt = $Δt
+    s * Δt = $scaled_Δt
+
+Suggestion:
+    Reduce the scaling factor `s` or shorten the EK time step.
+"""))
+end
 
 ## include the different types of Processes and their exports:
 

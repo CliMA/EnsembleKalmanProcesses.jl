@@ -146,22 +146,7 @@ function create_update_groups(
         for pn in key_vec
             pi = param_indices[pn .== param_names]
             if length(pi) == 0
-                throw(ArgumentError("""
-Unrecognized parameter name in group_identifiers key.
-
-Expected:
-    a name from the prior's parameter names: $(param_names)
-
-Got:
-    $(repr(pn))
-
-Loop context:
-    group_identifiers key being processed: $(repr(key))
-    full parameter name list for this key:  $key_vec
-
-Suggestion:
-    Check spelling and ensure the parameter name matches one returned by get_name(prior).
-"""))
+                _throw_ug_bad_param_name(pn, param_names, key, key_vec)
             end
 
             push!(u_group, isa(pi, Int) ? [pi] : pi)
@@ -169,22 +154,7 @@ Suggestion:
         for obn in val_vec
             oi = obs_indices[obn .== obs_names]
             if length(oi) == 0
-                throw(ArgumentError("""
-Unrecognized observation name in group_identifiers value.
-
-Expected:
-    a name from the observation's names: $(obs_names)
-
-Got:
-    $(repr(obn))
-
-Loop context:
-    group_identifiers key this value belongs to: $(repr(key))
-    full observation name list for this value:   $val_vec
-
-Suggestion:
-    Check spelling and ensure the observation name matches one returned by get_names(observation).
-"""))
+                _throw_ug_bad_obs_name(obn, obs_names, key, val_vec)
             end
             push!(g_group, isa(oi, Int) ? [oi] : oi)
         end
@@ -199,3 +169,43 @@ end
 ## Overload ==
 Base.:(==)(a::UG1, b::UG2) where {UG1 <: UpdateGroup, UG2 <: UpdateGroup} =
     all([get_u_group(a) == get_u_group(b), get_g_group(a) == get_g_group(b), get_group_id(a) == get_group_id(b)],)
+
+## Error helpers
+
+@noinline function _throw_ug_bad_param_name(pn, param_names, key, key_vec)
+    throw(ArgumentError("""
+Unrecognized parameter name in group_identifiers key.
+
+Expected:
+    a name from the prior's parameter names: $param_names
+
+Got:
+    $(repr(pn))
+
+Loop context:
+    group_identifiers key being processed: $(repr(key))
+    full parameter name list for this key:  $key_vec
+
+Suggestion:
+    Check spelling and ensure the parameter name matches one returned by get_name(prior).
+"""))
+end
+
+@noinline function _throw_ug_bad_obs_name(obn, obs_names, key, val_vec)
+    throw(ArgumentError("""
+Unrecognized observation name in group_identifiers value.
+
+Expected:
+    a name from the observation's names: $obs_names
+
+Got:
+    $(repr(obn))
+
+Loop context:
+    group_identifiers key this value belongs to: $(repr(key))
+    full observation name list for this value:   $val_vec
+
+Suggestion:
+    Check spelling and ensure the observation name matches one returned by get_names(observation).
+"""))
+end

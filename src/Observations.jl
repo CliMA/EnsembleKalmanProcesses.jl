@@ -922,19 +922,7 @@ function create_new_epoch!(
     T = promote_type((typeof(e) for e in epoch_in)...)
     epoch = [convert(T, e) for e in epoch_in] # re-infer type
     if !(eltype(epoch) <: Int)
-        throw(ArgumentError("""
-Epoch vector must contain integer indices.
-
-Expected:
-    eltype(epoch) <: Int
-
-Got:
-    eltype(epoch) = $(eltype(epoch))
-    length(epoch) = $(length(epoch))
-
-Suggestion:
-    Convert the epoch to a Vector{Int}, e.g. `Int.(epoch)`.
-"""))
+        _throw_obs_epoch_bad_eltype(eltype(epoch), length(epoch))
     end
     epoch_size = length(epoch)
     rng = get_rng(m)
@@ -1087,16 +1075,7 @@ function ObservationSeries(
         names = epoch_or_names
         epoch = collect(1:length(obs_vec))
     else
-        throw(ArgumentError("""
-Third argument to ObservationSeries must be a Vector of integers (epoch) or strings (names).
-
-Expected:
-    eltype(epoch_or_names) <: Int  (to define the epoch ordering)
-    eltype(epoch_or_names) <: AbstractString  (to define observation names)
-
-Got:
-    eltype(epoch_or_names) = $(eltype(epoch_or_names))
-"""))
+        _throw_obs_series_bad_third_arg(eltype(epoch_or_names))
     end
 
     return ObservationSeries(obs_vec, minibatcher, names, epoch; kwargs...)
@@ -1567,4 +1546,35 @@ function Base.:(==)(os_a::OS1, os_b::OS2) where {OS1 <: ObservationSeries, OS2 <
         x[i] = (getfield(os_a, Symbol(f)) == getfield(os_b, Symbol(f)))
     end
     return all(x)
+end
+
+## Error helpers
+
+@noinline function _throw_obs_epoch_bad_eltype(T, len)
+    throw(ArgumentError("""
+Epoch vector must contain integer indices.
+
+Expected:
+    eltype(epoch) <: Int
+
+Got:
+    eltype(epoch) = $T
+    length(epoch) = $len
+
+Suggestion:
+    Convert the epoch to a Vector{Int}, e.g. `Int.(epoch)`.
+"""))
+end
+
+@noinline function _throw_obs_series_bad_third_arg(T)
+    throw(ArgumentError("""
+Third argument to ObservationSeries must be a Vector of integers (epoch) or strings (names).
+
+Expected:
+    eltype(epoch_or_names) <: Int  (to define the epoch ordering)
+    eltype(epoch_or_names) <: AbstractString  (to define observation names)
+
+Got:
+    eltype(epoch_or_names) = $T
+"""))
 end

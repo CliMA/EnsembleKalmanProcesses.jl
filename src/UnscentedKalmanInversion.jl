@@ -525,28 +525,12 @@ function construct_mean(
 ) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
 
     if isa(x, AbstractMatrix{FT})
-        size(x, 2) == length(mean_weights) || throw(DimensionMismatch("""
-Ensemble size does not match the number of quadrature mean weights.
-
-Expected:
-    size(x, 2) == length(mean_weights)
-
-Got:
-    size(x, 2) = $(size(x, 2))
-    length(mean_weights) = $(length(mean_weights))
-"""))
+        size(x, 2) == length(mean_weights) ||
+            _throw_uki_mean_dim_mismatch(size(x, 2), length(mean_weights); is_matrix = true)
         return Array((mean_weights' * x')')
     else
-        length(mean_weights) == length(x) || throw(DimensionMismatch("""
-Ensemble size does not match the number of quadrature mean weights.
-
-Expected:
-    length(x) == length(mean_weights)
-
-Got:
-    length(x) = $(length(x))
-    length(mean_weights) = $(length(mean_weights))
-"""))
+        length(mean_weights) == length(x) ||
+            _throw_uki_mean_dim_mismatch(length(x), length(mean_weights); is_matrix = false)
         return mean_weights' * x
     end
 end
@@ -596,19 +580,7 @@ function construct_cov(
     x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
 
     if isa(x, AbstractMatrix{FT})
-        isa(x_mean, AbstractVector{FT}) || throw(ArgumentError("""
-When the ensemble is a matrix, the ensemble mean must be a vector.
-
-Expected:
-    x_mean::AbstractVector{$FT}
-
-Got:
-    typeof(x_mean) = $(typeof(x_mean))
-    size(x) = $(size(x))
-
-Suggestion:
-    Pass x_mean = nothing to compute the mean automatically, or provide a vector of length $(size(x, 1)).
-"""))
+        isa(x_mean, AbstractVector{FT}) || _throw_mean_not_vector(x_mean, x, FT)
         N_x, N_ens = size(x)
         xx_cov = zeros(FT, N_x, N_x)
 
@@ -618,19 +590,7 @@ Suggestion:
 
         add_diagonal_regularization!(xx_cov)
     else
-        isa(x_mean, FT) || throw(ArgumentError("""
-When the ensemble is a vector, the ensemble mean must be a scalar.
-
-Expected:
-    x_mean::$FT
-
-Got:
-    typeof(x_mean) = $(typeof(x_mean))
-    length(x) = $(length(x))
-
-Suggestion:
-    Pass x_mean = nothing to compute the mean automatically, or provide a scalar of type $FT.
-"""))
+        isa(x_mean, FT) || _throw_mean_not_scalar(x_mean, x, FT)
         N_ens = length(x)
         xx_cov = FT(0)
 
@@ -737,37 +697,13 @@ function construct_perturbation(
     x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
 
     if isa(x, AbstractMatrix{FT})
-        isa(x_mean, AbstractVector{FT}) || throw(ArgumentError("""
-When the ensemble is a matrix, the ensemble mean must be a vector.
-
-Expected:
-    x_mean::AbstractVector{$FT}
-
-Got:
-    typeof(x_mean) = $(typeof(x_mean))
-    size(x) = $(size(x))
-
-Suggestion:
-    Pass x_mean = nothing to compute the mean automatically, or provide a vector of length $(size(x, 1)).
-"""))
+        isa(x_mean, AbstractVector{FT}) || _throw_mean_not_vector(x_mean, x, FT)
         xx_pert = zeros(size(x))
         for i in 2:size(xx_pert, 2) # first column always zero (as it is the mean)
             xx_pert[:, i] = sqrt(cov_weights[i]) * (x[:, i] .- x_mean)
         end
     else
-        isa(x_mean, FT) || throw(ArgumentError("""
-When the ensemble is a vector, the ensemble mean must be a scalar.
-
-Expected:
-    x_mean::$FT
-
-Got:
-    typeof(x_mean) = $(typeof(x_mean))
-    length(x) = $(length(x))
-
-Suggestion:
-    Pass x_mean = nothing to compute the mean automatically, or provide a scalar of type $FT.
-"""))
+        isa(x_mean, FT) || _throw_mean_not_scalar(x_mean, x, FT)
         N_ens = length(x)
         xx_pert = zeros(N_ens)
 
@@ -1098,4 +1034,64 @@ function Gaussian_2d(
     end
 
     return xx, yy, Z
+end
+
+## Error helpers
+
+@noinline function _throw_uki_mean_dim_mismatch(x_len, weights_len; is_matrix::Bool)
+    if is_matrix
+        throw(DimensionMismatch("""
+Ensemble size does not match the number of quadrature mean weights.
+
+Expected:
+    size(x, 2) == length(mean_weights)
+
+Got:
+    size(x, 2) = $x_len
+    length(mean_weights) = $weights_len
+"""))
+    else
+        throw(DimensionMismatch("""
+Ensemble size does not match the number of quadrature mean weights.
+
+Expected:
+    length(x) == length(mean_weights)
+
+Got:
+    length(x) = $x_len
+    length(mean_weights) = $weights_len
+"""))
+    end
+end
+
+@noinline function _throw_mean_not_vector(x_mean, x, FT::Type)
+    throw(ArgumentError("""
+When the ensemble is a matrix, the ensemble mean must be a vector.
+
+Expected:
+    x_mean::AbstractVector{$FT}
+
+Got:
+    typeof(x_mean) = $(typeof(x_mean))
+    size(x) = $(size(x))
+
+Suggestion:
+    Pass x_mean = nothing to compute the mean automatically, or provide a vector of length $(size(x, 1)).
+"""))
+end
+
+@noinline function _throw_mean_not_scalar(x_mean, x, FT::Type)
+    throw(ArgumentError("""
+When the ensemble is a vector, the ensemble mean must be a scalar.
+
+Expected:
+    x_mean::$FT
+
+Got:
+    typeof(x_mean) = $(typeof(x_mean))
+    length(x) = $(length(x))
+
+Suggestion:
+    Pass x_mean = nothing to compute the mean automatically, or provide a scalar of type $FT.
+"""))
 end

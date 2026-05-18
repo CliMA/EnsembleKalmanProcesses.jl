@@ -238,18 +238,7 @@ function get_distribution_from_expr(d::Expr)
             kwargs = []
             for arg in args
                 # Only parse repeats kwarg for now
-                arg.args[1] != :repeats && throw(ArgumentError("""
-                       Unsupported keyword argument in constrained_gaussian TOML entry.
-
-                       Expected:
-                           repeats (the only keyword argument supported by the TOML parser)
-
-                       Got:
-                           $(arg.args[1])
-
-                       Suggestion:
-                           Remove unsupported keyword arguments from the TOML entry, or use the Julia API directly.
-                       """))
+                arg.args[1] != :repeats && _throw_toml_unsupported_kwarg(arg.args[1])
                 push!(kwargs, arg.args[1] => parse(Int64, string(arg.args[2])))
             end
             return kwargs
@@ -597,6 +586,23 @@ function get_regularization(param_dict::Dict, names::AbstractVector{String})
     end
 
     return regularr
+end
+
+## Error helpers
+
+@noinline function _throw_toml_unsupported_kwarg(kwarg_name)
+    throw(ArgumentError("""
+Unsupported keyword argument in constrained_gaussian TOML entry.
+
+Expected:
+    repeats (the only keyword argument supported by the TOML parser)
+
+Got:
+    $kwarg_name
+
+Suggestion:
+    Remove unsupported keyword arguments from the TOML entry, or use the Julia API directly.
+"""))
 end
 
 end # module
