@@ -24,6 +24,15 @@ function check_summary(x, typename)
     @test !occursin('\n', s)
 end
 
+# Verify the 2-arg compact show and the MIME compact branch agree.
+function check_compact(x, typename)
+    s2 = sprint(show, x)
+    @test occursin(typename, s2)
+    @test !occursin('\n', s2)
+    s3 = sprint(show, MIME("text/plain"), x; context = :compact => true)
+    @test s2 == s3
+end
+
 @testset "ShowMethods" begin
 
     # ── DataContainers ────────────────────────────────────────────────────────
@@ -32,12 +41,14 @@ end
         dc = DataContainer(rand(3, 5))
         check_show(dc, "DataContainer")
         check_summary(dc, "DataContainer")
+        check_compact(dc, "DataContainer")
     end
 
     @testset "PairedDataContainer" begin
         pdc = PairedDataContainer(rand(2, 4), rand(5, 4))
         check_show(pdc, "PairedDataContainer")
         check_summary(pdc, "PairedDataContainer")
+        check_compact(pdc, "PairedDataContainer")
     end
 
     # ── Covariance helpers ────────────────────────────────────────────────────
@@ -48,6 +59,7 @@ end
         spd = SVDplusD(s, Diagonal(ones(5)))
         check_show(spd, "SVDplusD")
         check_summary(spd, "SVDplusD")
+        check_compact(spd, "SVDplusD")
     end
 
     @testset "DminusTall" begin
@@ -57,6 +69,7 @@ end
         dmt = inv_cov(spd)
         check_show(dmt, "DminusTall")
         check_summary(dmt, "DminusTall")
+        check_compact(dmt, "DminusTall")
     end
 
     # ── Observations ─────────────────────────────────────────────────────────
@@ -65,18 +78,21 @@ end
         obs = Observation(Dict("samples" => [1.0, 2.0], "covariances" => 1.0 * I, "names" => "y"))
         check_show(obs, "Observation")
         check_summary(obs, "Observation")
+        check_compact(obs, "Observation")
     end
 
     @testset "FixedMinibatcher" begin
         mb = FixedMinibatcher([[1, 2], [3, 4]])
         check_show(mb, "FixedMinibatcher")
         check_summary(mb, "FixedMinibatcher")
+        check_compact(mb, "FixedMinibatcher")
     end
 
     @testset "RandomFixedSizeMinibatcher" begin
         mb = RandomFixedSizeMinibatcher(2)
         check_show(mb, "RandomFixedSizeMinibatcher")
         check_summary(mb, "RandomFixedSizeMinibatcher")
+        check_compact(mb, "RandomFixedSizeMinibatcher")
     end
 
     @testset "ObservationSeries" begin
@@ -85,6 +101,7 @@ end
         os = ObservationSeries([obs1, obs2])
         check_show(os, "ObservationSeries")
         check_summary(os, "ObservationSeries")
+        check_compact(os, "ObservationSeries")
     end
 
     # ── ParameterDistributions ────────────────────────────────────────────────
@@ -93,18 +110,21 @@ end
         p = Parameterized(Normal(0, 1))
         check_show(p, "Parameterized")
         check_summary(p, "Parameterized")
+        check_compact(p, "Parameterized")
     end
 
     @testset "Samples" begin
         s = Samples(rand(3, 10))
         check_show(s, "Samples")
         check_summary(s, "Samples")
+        check_compact(s, "Samples")
     end
 
     @testset "VectorOfParameterized" begin
         vop = VectorOfParameterized([Normal(0, 1), Normal(1, 2)])
         check_show(vop, "VectorOfParameterized")
         check_summary(vop, "VectorOfParameterized")
+        check_compact(vop, "VectorOfParameterized")
     end
 
     @testset "ParameterDistribution" begin
@@ -113,15 +133,25 @@ end
         )
         check_show(pd, "ParameterDistribution")
         check_summary(pd, "ParameterDistribution")
+        check_compact(pd, "ParameterDistribution")
     end
 
     @testset "Constraint" begin
         cons = no_constraint()
         check_show(cons, "Constraint")
         check_summary(cons, "Constraint")
+        # Constraint's 2-arg show is a bespoke one-liner that doesn't repeat the type name;
+        # just verify both compact paths agree and produce no newline.
+        s2 = sprint(show, cons)
+        @test !occursin('\n', s2)
+        @test s2 == sprint(show, MIME("text/plain"), cons; context = :compact => true)
+
         cons_lb = bounded_below(0.0)
         check_show(cons_lb, "Constraint")
         check_summary(cons_lb, "Constraint")
+        s2 = sprint(show, cons_lb)
+        @test !occursin('\n', s2)
+        @test s2 == sprint(show, MIME("text/plain"), cons_lb; context = :compact => true)
     end
 
     # ── UpdateGroup ───────────────────────────────────────────────────────────
@@ -130,6 +160,7 @@ end
         ug = UpdateGroup([1, 2], [1, 3])
         check_show(ug, "UpdateGroup")
         check_summary(ug, "UpdateGroup")
+        check_compact(ug, "UpdateGroup")
     end
 
     # ── Accelerators ──────────────────────────────────────────────────────────
@@ -138,18 +169,21 @@ end
         acc = ConstantNesterovAccelerator()
         check_show(acc, "ConstantNesterovAccelerator")
         check_summary(acc, "ConstantNesterovAccelerator")
+        check_compact(acc, "ConstantNesterovAccelerator")
     end
 
     @testset "FirstOrderNesterovAccelerator" begin
         acc = FirstOrderNesterovAccelerator()
         check_show(acc, "FirstOrderNesterovAccelerator")
         check_summary(acc, "FirstOrderNesterovAccelerator")
+        check_compact(acc, "FirstOrderNesterovAccelerator")
     end
 
     @testset "NesterovAccelerator" begin
         acc = NesterovAccelerator()
         check_show(acc, "NesterovAccelerator")
         check_summary(acc, "NesterovAccelerator")
+        check_compact(acc, "NesterovAccelerator")
     end
 
     # ── LearningRateSchedulers ────────────────────────────────────────────────
@@ -158,6 +192,7 @@ end
         dmc = DataMisfitController()
         check_show(dmc, "DataMisfitController")
         check_summary(dmc, "DataMisfitController")
+        check_compact(dmc, "DataMisfitController")
     end
 
     # ── Process types ─────────────────────────────────────────────────────────
@@ -166,12 +201,14 @@ end
         inv = Inversion()
         check_show(inv, "Inversion")
         check_summary(inv, "Inversion")
+        check_compact(inv, "Inversion")
     end
 
     @testset "TransformInversion" begin
         ti = TransformInversion()
         check_show(ti, "TransformInversion")
         check_summary(ti, "TransformInversion")
+        check_compact(ti, "TransformInversion")
     end
 
     @testset "Sampler" begin
@@ -181,6 +218,7 @@ end
         samp = Sampler(prior)
         check_show(samp, "Sampler")
         check_summary(samp, "Sampler")
+        check_compact(samp, "Sampler")
     end
 
     @testset "GaussNewtonInversion" begin
@@ -190,12 +228,14 @@ end
         gni = GaussNewtonInversion(prior)
         check_show(gni, "GaussNewtonInversion")
         check_summary(gni, "GaussNewtonInversion")
+        check_compact(gni, "GaussNewtonInversion")
     end
 
     @testset "SparseInversion" begin
         si = SparseInversion(0.1)
         check_show(si, "SparseInversion")
         check_summary(si, "SparseInversion")
+        check_compact(si, "SparseInversion")
     end
 
     @testset "Unscented" begin
@@ -204,6 +244,7 @@ end
         uki = Unscented(u0_mean, uu0_cov)
         check_show(uki, "Unscented")
         check_summary(uki, "Unscented")
+        check_compact(uki, "Unscented")
     end
 
     @testset "TransformUnscented" begin
@@ -212,6 +253,7 @@ end
         tuki = TransformUnscented(u0_mean, uu0_cov)
         check_show(tuki, "TransformUnscented")
         check_summary(tuki, "TransformUnscented")
+        check_compact(tuki, "TransformUnscented")
     end
 
     # ── EnsembleKalmanProcess ─────────────────────────────────────────────────
@@ -228,6 +270,7 @@ end
         ekpobj = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, Γ, Inversion())
         check_show(ekpobj, "EnsembleKalmanProcess")
         check_summary(ekpobj, "EnsembleKalmanProcess")
+        check_compact(ekpobj, "EnsembleKalmanProcess")
     end
 
 end

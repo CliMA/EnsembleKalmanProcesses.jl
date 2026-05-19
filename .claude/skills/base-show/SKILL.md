@@ -19,10 +19,17 @@ Add concise `Base.show(io::IO, ::MIME"text/plain", x::T)` and `Base.summary(io::
 x::T)` methods to Julia types whose default REPL representation is unhelpful or
 overwhelming. Julia's default show dumps every field recursively; types that hold
 DataFrames, large dictionaries, nested arrays, or many scalar fields produce screens
-of unreadable text at the REPL. `Base.summary` provides the compact one-line
-description that appears when an object is embedded in a container or shown in a
-broader context. This skill produces both methods and accompanying unit tests so that
-interactive use of the package is pleasant without losing key summary information.
+of unreadable text at the REPL.
+
+`Base.show(io, MIME"text/plain", x)` must also handle the `:compact` IOContext key.
+When Julia renders an object as an element inside a container (e.g. printing a
+`Vector{MyType}`), it sets `:compact => true` on `io`. Without a compact branch the
+full multi-line output is repeated for every element, producing an unreadable wall of
+text. The compact branch must produce exactly one line (no newlines), giving the same
+kind of at-a-glance hint as `Base.summary`.
+
+This skill produces both methods and accompanying unit tests so that interactive use
+of the package is pleasant without losing key summary information.
 
 ## Workflow
 
@@ -62,23 +69,44 @@ overwrite existing customization.
 For each noisy type without existing methods, write **both** a `Base.show` and a
 `Base.summary` method.
 
-**`Base.show`** — multi-line detail view used directly at the REPL:
+**`Base.show`** — always write two overloads together:
 
 ```julia
+# 3-arg MIME method: full REPL display, with compact fallback
 function Base.show(io::IO, ::MIME"text/plain", x::T)
-    println(io, "T")
-    println(io, "  field_name : ", summary_value)
-    # ...
+    if get(io, :compact, false)
+        show(io, x)   # delegate to the 2-arg compact method
+    else
+        println(io, "T")
+        println(io, "  field_name : ", summary_value)
+        # ...
+    end
+end
+
+# 2-arg method: single-line compact representation (no newline)
+function Base.show(io::IO, x::T)
+    print(io, "T (key_hint)")
 end
 ```
 
-The method must:
+The 3-arg (MIME) non-compact branch must:
 
 - Print the type name (and any cheap size hints) on the first line.
 - Follow with 1–5 concise summary lines: counts, sizes, or ranges of important fields.
   Never print collection contents.
 - Produce at most 10 lines of output for any valid instance, including edge cases such
   as empty collections or zero-element structs.
+
+The 2-arg method (compact representation) must:
+
+- Produce exactly one line with no trailing newline.
+- Match `Base.summary` style: type name followed by the most essential identifying hint
+  in parentheses — e.g. `"T (N_ens=100, 5 iter)"`.
+- Remain O(1): no loops, no collection materialisation.
+
+Julia calls the 2-arg method when rendering elements inside containers (arrays, dicts,
+etc.), passing `io` with `:compact => true`. The MIME method's compact branch delegates
+to it so both paths produce the same single-line output.
 
 **`Base.summary`** — single-line description used when the object appears inside a
 container or is printed in a broader context (e.g., as an element of a `Vector`):
@@ -109,12 +137,16 @@ type definitions it references.
 
 ### Step 4 — Write unit tests
 
-Write one test block per type, covering both the `show` and `summary` methods. Each
+Write one test block per type, covering `show` (full and compact), and `summary`. Each
 test block must:
 
 - Construct a minimal valid instance of the type.
-- For `show`: capture output with `sprint(show, MIME("text/plain"), instance)` and
+- For full show: capture output with `sprint(show, MIME("text/plain"), instance)` and
   assert that it contains the type name and that line count does not exceed 10.
+- For compact show: capture `out2 = sprint(show, instance)` (2-arg) and assert it
+  contains the type name and has no `'\n'`. Also capture
+  `out3 = sprint(show, MIME("text/plain"), instance; context=:compact => true)` and
+  assert `out2 == out3` — both compact paths must agree.
 - For `summary`: capture output with `sprint(summary, instance)` and assert that it
   contains the type name and produces exactly one line (no `'\n'` in output).
 
@@ -136,19 +168,31 @@ After the tests pass and the REPL output looks good, ask the user: "Would you li
 
 ## Common patterns
 
-### Forward plain show to the MIME method
+### Two-overload pattern (always write both together)
 
-When a type should look the same whether printed inside a container or directly in the
-REPL, add a one-line plain-show forwarder so both display paths converge:
+Always define the 2-arg and 3-arg MIME overloads as a pair. The MIME method's compact
+branch calls the 2-arg method, so both display paths (REPL and in-container) converge
+on the same one-liner without repetition:
 
 ```julia
+function Base.show(io::IO, ::MIME"text/plain", x::MyProcess)
+    if get(io, :compact, false)
+        show(io, x)
+    else
+        println(io, "MyProcess")
+        # ... full multi-line body ...
+    end
+end
+
 function Base.show(io::IO, x::MyProcess)
-    show(io, MIME("text/plain"), x)
+    print(io, "MyProcess (", nameof(typeof(x.process)), ", N_ens=", x.N_ens, ")")
 end
 ```
 
-Without this, `[ekp]` in a Vector will fall back to Julia's default dump while the
-direct REPL display uses your custom method.
+Without the 2-arg method, `[ekp]` in a `Vector` falls back to Julia's default field
+dump. Without the compact branch in the MIME method, the same dump appears whenever
+the object is embedded in a container that happens to call `show(io, MIME"text/plain",
+x)` with `:compact => true`.
 
 ### Truncate long collections with "… and N more"
 
@@ -230,8 +274,9 @@ aligned comment rulers:
 
 | Criterion | Priority | Definition |
 |---|---|---|
-| Coverage | High | Every type classified as noisy in Step 2 has both a `Base.show` and a `Base.summary` method. |
-| Brevity — show | High | Show output is at most 10 lines for any valid instance, including edge cases. |
+| Coverage | High | Every type classified as noisy in Step 2 has a `Base.show` (both overloads) and a `Base.summary` method. |
+| Compact support | High | The 3-arg MIME `show` checks `get(io, :compact, false)` and calls the 2-arg `show(io, x)` in the compact branch. The 2-arg method produces exactly one line with no newline. |
+| Brevity — show | High | Full (non-compact) show output is at most 10 lines for any valid instance, including edge cases. |
 | Brevity — summary | High | Summary output is exactly one line (no newlines) for any valid instance. |
 | Safety | High | Neither method throws on any valid instance. |
 | Allocation-safety | High | All data access is O(1): use `length()`, `size()`, `isempty()`, or `first()` on lazy iterators. Never call `collect()`, `sort()`, `filter()`, or any function that materialises a new collection. |
@@ -240,14 +285,18 @@ aligned comment rulers:
 
 ## Formatting rules
 
-- **show signature**: `Base.show(io::IO, ::MIME"text/plain", x::MyType)`
-- **show first line**: type name via `println(io, "TypeName")`. Cheap size hints may follow on the same line.
-- **show subsequent lines**: indented two spaces for readability.
+- **MIME show signature**: `Base.show(io::IO, ::MIME"text/plain", x::MyType)`
+- **MIME show structure**: always starts with `if get(io, :compact, false); show(io, x); else ... end`.
+- **MIME show full branch — first line**: type name via `println(io, "TypeName")`. Cheap size hints may follow on the same line.
+- **MIME show full branch — subsequent lines**: indented two spaces for readability.
+- **2-arg show signature**: `Base.show(io::IO, x::MyType)`
+- **2-arg show content**: one `print` call (no `println`), type name followed by a parenthesised hint matching `Base.summary` style, e.g. `print(io, "MyType (847 basins)")`.
 - **summary signature**: `Base.summary(io::IO, x::MyType)`
 - **summary content**: one `print` call (no `println`), type name followed by a parenthesised hint, e.g. `print(io, "MyType (847 basins)")`.
 - **No collection contents**: print only counts, sizes, or ranges — never iterate and print elements.
 - **No allocations**: use `length()`, `size()`, `isempty()`, and `first()` on lazy iterators such as `values(dict)`. Do not call `collect()`, `sort()`, or any function that copies a collection.
-- **Tests — show**: use `sprint(show, MIME("text/plain"), x)` to capture output without side effects.
+- **Tests — MIME full show**: use `sprint(show, MIME("text/plain"), x)` to capture output without side effects.
+- **Tests — compact show**: use `sprint(show, MIME("text/plain"), x; context=:compact => true)` to exercise the compact branch, and `sprint(show, x)` to test the 2-arg method directly.
 - **Tests — summary**: use `sprint(summary, x)` to capture the one-line description.
 
 ## Examples
@@ -262,13 +311,23 @@ julia> pdc
 PairedDataContainer{Float64}(inputs=DataContainer{Float64}(data=[...50×100 matrix...]),
   outputs=DataContainer{Float64}(data=[...30×100 matrix...]))
 
-# After — custom show method
+# After — custom show (two overloads)
 function Base.show(io::IO, ::MIME"text/plain", x::PairedDataContainer)
-    m_in,  n_in  = size(x.inputs.data)
+    if get(io, :compact, false)
+        show(io, x)
+    else
+        m_in,  n_in  = size(x.inputs.data)
+        m_out, n_out = size(x.outputs.data)
+        println(io, "PairedDataContainer")
+        println(io, "  inputs : ", m_in,  " × ", n_in,  " params × samples")
+        println(io, "  outputs: ", m_out, " × ", n_out, " obs × samples")
+    end
+end
+
+function Base.show(io::IO, x::PairedDataContainer)
+    m_in, n_in   = size(x.inputs.data)
     m_out, n_out = size(x.outputs.data)
-    println(io, "PairedDataContainer")
-    println(io, "  inputs : ", m_in,  " × ", n_in,  " params × samples")
-    println(io, "  outputs: ", m_out, " × ", n_out, " obs × samples")
+    print(io, "PairedDataContainer (", m_in, "×", n_in, " → ", m_out, "×", n_out, ")")
 end
 
 # julia> pdc
@@ -276,16 +335,17 @@ end
 #   inputs : 50 × 100  params × samples
 #   outputs: 30 × 100  obs × samples
 
-# After — custom summary (arrow notation for a mapping type)
+# julia> [pdc, pdc]
+# 2-element Vector{PairedDataContainer{Float64}}:
+#  PairedDataContainer (50×100 → 30×100)
+#  PairedDataContainer (50×100 → 30×100)
+
+# After — custom summary (arrow notation for a mapping type; matches 2-arg show)
 function Base.summary(io::IO, x::PairedDataContainer)
     m_in, n_in   = size(x.inputs.data)
     m_out, n_out = size(x.outputs.data)
     print(io, "PairedDataContainer (", m_in, "×", n_in, " → ", m_out, "×", n_out, ")")
 end
-
-# julia> [pdc]
-# 1-element Vector{PairedDataContainer{Float64}}:
-#  PairedDataContainer (50×100 → 30×100)
 ```
 
 ### Example 2 — collection-carrying type with truncation
@@ -300,17 +360,26 @@ ParameterDistribution{Parameterized, Constraint{NoConstraint}, String}(
   constraint=[[Constraint{NoConstraint}(bounds=nothing)], ...],
   name=["amplitude", "length_scale", "noise_var", ...])
 
-# After — custom show with truncation
+# After — custom show (two overloads)
 function Base.show(io::IO, ::MIME"text/plain", x::ParameterDistribution)
-    n = length(x.name)
-    println(io, "ParameterDistribution with ", n, " entr", n == 1 ? "y" : "ies")
-    max_show = 8
-    for i in 1:min(n, max_show)
-        n_con = length(batch(x)[i])
-        println(io, "  '", x.name[i], "': ", sprint(summary, x.distribution[i]),
-                " [", n_con, " constraint", n_con == 1 ? "" : "s", "]")
+    if get(io, :compact, false)
+        show(io, x)
+    else
+        n = length(x.name)
+        println(io, "ParameterDistribution with ", n, " entr", n == 1 ? "y" : "ies")
+        max_show = 8
+        for i in 1:min(n, max_show)
+            n_con = length(batch(x)[i])
+            println(io, "  '", x.name[i], "': ", sprint(summary, x.distribution[i]),
+                    " [", n_con, " constraint", n_con == 1 ? "" : "s", "]")
+        end
+        n > max_show && println(io, "  … and ", n - max_show, " more")
     end
-    n > max_show && println(io, "  … and ", n - max_show, " more")
+end
+
+function Base.show(io::IO, x::ParameterDistribution)
+    n = length(x.name)
+    print(io, "ParameterDistribution (", n, " entr", n == 1 ? "y" : "ies", ")")
 end
 
 # julia> prior
@@ -319,7 +388,12 @@ end
 #   'length_scale': Parameterized (LogNormal) [1 constraint]
 #   'noise_var'   : Parameterized (Uniform) [1 constraint]
 
-# After — summary
+# julia> [prior, prior]
+# 2-element Vector{ParameterDistribution{...}}:
+#  ParameterDistribution (3 entries)
+#  ParameterDistribution (3 entries)
+
+# After — summary (matches 2-arg show)
 function Base.summary(io::IO, x::ParameterDistribution)
     n = length(x.name)
     print(io, "ParameterDistribution (", n, " entr", n == 1 ? "y" : "ies", ")")
@@ -336,17 +410,27 @@ julia> ekp
 EnsembleKalmanProcess{Float64, ...}(u=[50×100 matrix, 50×100 matrix, ...],
   g=[...], Δt=[0.5, 0.5], rng=MersenneTwister(...), N_ens=100, ...)
 
-# After — custom show surfacing iteration progress
+# After — custom show (two overloads)
 function Base.show(io::IO, ::MIME"text/plain", x::EnsembleKalmanProcess)
+    if get(io, :compact, false)
+        show(io, x)
+    else
+        n_iter = length(x.u) - 1
+        n_par  = size(x.u[1].data, 1)
+        println(io, "EnsembleKalmanProcess")
+        println(io, "  process    : ", nameof(typeof(x.process)))
+        println(io, "  N_ens      : ", x.N_ens)
+        println(io, "  N_par      : ", n_par)
+        println(io, "  n_iter     : ", n_iter)
+        println(io, "  scheduler  : ", nameof(typeof(x.scheduler)))
+        println(io, "  accelerator: ", nameof(typeof(x.accelerator)))
+    end
+end
+
+function Base.show(io::IO, x::EnsembleKalmanProcess)
     n_iter = length(x.u) - 1
-    n_par  = size(x.u[1].data, 1)
-    println(io, "EnsembleKalmanProcess")
-    println(io, "  process    : ", nameof(typeof(x.process)))
-    println(io, "  N_ens      : ", x.N_ens)
-    println(io, "  N_par      : ", n_par)
-    println(io, "  n_iter     : ", n_iter)
-    println(io, "  scheduler  : ", nameof(typeof(x.scheduler)))
-    println(io, "  accelerator: ", nameof(typeof(x.accelerator)))
+    print(io, "EnsembleKalmanProcess (", nameof(typeof(x.process)),
+          ", N_ens=", x.N_ens, ", ", n_iter, " iter)")
 end
 
 # julia> ekp
@@ -358,16 +442,17 @@ end
 #   scheduler  : DefaultScheduler
 #   accelerator: DefaultAccelerator
 
-# After — summary capturing what matters most at a glance
+# julia> [ekp, ekp]
+# 2-element Vector{EnsembleKalmanProcess{...}}:
+#  EnsembleKalmanProcess (Inversion, N_ens=100, 5 iter)
+#  EnsembleKalmanProcess (Inversion, N_ens=100, 5 iter)
+
+# After — summary (matches 2-arg show)
 function Base.summary(io::IO, x::EnsembleKalmanProcess)
     n_iter = length(x.u) - 1
     print(io, "EnsembleKalmanProcess (", nameof(typeof(x.process)),
           ", N_ens=", x.N_ens, ", ", n_iter, " iter)")
 end
-
-# julia> [ekp]
-# 1-element Vector{EnsembleKalmanProcess{...}}:
-#  EnsembleKalmanProcess (Inversion, N_ens=100, 5 iter)
 ```
 
 ### Unit tests
@@ -378,6 +463,17 @@ end
     out = sprint(show, MIME("text/plain"), pdc)
     @test occursin("PairedDataContainer", out)
     @test count(==('\n'), out) <= 10
+end
+
+@testset "PairedDataContainer show compact" begin
+    pdc = PairedDataContainer(rand(50, 100), rand(30, 100))
+    # exercise via the 2-arg method directly
+    out2 = sprint(show, pdc)
+    @test occursin("PairedDataContainer", out2)
+    @test !occursin('\n', out2)
+    # exercise via the MIME method with compact context
+    out3 = sprint(show, MIME("text/plain"), pdc; context=:compact => true)
+    @test out2 == out3   # both paths must agree
 end
 
 @testset "PairedDataContainer summary" begin
