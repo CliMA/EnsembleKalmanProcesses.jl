@@ -33,6 +33,41 @@ of the package is pleasant without losing key summary information.
 
 ## Workflow
 
+### Step 0 — Audit existing show methods (retrofit mode)
+
+Skip this step if you are adding show methods to types that have none. Apply it when
+the user asks to retrofit existing show methods — e.g. to add the compact branch to
+methods that were written before this protocol existed.
+
+**Find MIME methods that lack the compact branch:**
+
+```
+grep -n 'MIME"text/plain"' src/show.jl
+```
+
+For each match, check whether the function body contains `get(io, :compact`. Any that
+do not are candidates for retrofit.
+
+**Detect the old forwarding anti-pattern (infinite-recursion risk):**
+
+```
+grep -nA2 'function Base\.show(io::IO, x::' src/ | grep 'show(io, MIME'
+```
+
+If this matches, a 2-arg `show(io, x)` is calling the MIME method — the *wrong*
+direction. Once the MIME method gains a compact branch that calls `show(io, x)`, you
+get infinite recursion. Flag every match and reverse the direction: the 2-arg method
+becomes the compact one-liner, and the MIME method calls it via `show(io, x)` in its
+compact branch.
+
+**Identify pre-existing bespoke 2-arg shows:**
+
+A bespoke 2-arg show is one that already exists but does not follow summary style —
+for example, it may omit the type name entirely or use a different format. Check each
+existing `Base.show(io::IO, x::T)` against its paired `Base.summary`. If the outputs
+differ substantially, the 2-arg show is bespoke and needs a custom compact test (see
+Step 4).
+
 ### Step 1 — Enumerate concrete types
 
 List every concrete (non-abstract) struct defined in the package source:
@@ -149,6 +184,17 @@ test block must:
   assert `out2 == out3` — both compact paths must agree.
 - For `summary`: capture output with `sprint(summary, instance)` and assert that it
   contains the type name and produces exactly one line (no `'\n'` in output).
+
+**Bespoke 2-arg shows (retrofit case):** Some types may already have a 2-arg show
+that intentionally does not include the type name or follow summary style — the method
+is doing something custom. Using a shared `check_compact(x, typename)` helper will
+fail the typename assertion for these. Instead, write a hand-rolled compact test:
+
+```julia
+s2 = sprint(show, instance)
+@test !occursin('\n', s2)                                              # no newline
+@test s2 == sprint(show, MIME("text/plain"), instance; context = :compact => true)  # paths agree
+```
 
 Avoid asserting exact strings so that cosmetic changes to the output do not break tests.
 
