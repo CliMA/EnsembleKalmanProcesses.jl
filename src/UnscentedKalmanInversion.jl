@@ -108,15 +108,7 @@ function Unscented(
     elseif sigma_points == "simplex"
         N_ens = size(u0_mean, 1) + 2
     else
-        throw(ArgumentError("""
-Unrecognized sigma_points type.
-
-Expected:
-    "symmetric" or "simplex"
-
-Got:
-    sigma_points = $(repr(sigma_points))
-"""))
+        _throw_uki_sigma_points_unrecognized(sigma_points)
     end
 
     N_par = size(u0_mean, 1)
@@ -1037,6 +1029,18 @@ function Gaussian_2d(
 end
 
 ## Error helpers
+
+@noinline function _throw_uki_sigma_points_unrecognized(sigma_points)
+    throw(ArgumentError("""
+Unrecognized sigma_points type.
+
+Expected:
+    "symmetric" or "simplex"
+
+Got:
+    sigma_points = $(repr(sigma_points))
+"""))
+end
 
 @noinline function _throw_uki_mean_dim_mismatch(x_len, weights_len; is_matrix::Bool)
     if is_matrix

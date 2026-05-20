@@ -32,15 +32,7 @@ function get_parameter_values(param_dict::Dict, names; return_type = "dict")
     elseif return_type == "array"
         return [param_dict[n]["value"] for n in names]
     else
-        throw(ArgumentError("""
-Unknown return_type for get_parameter_values.
-
-Expected:
-    "dict" or "array"
-
-Got:
-    return_type = $(repr(return_type))
-"""))
+        _throw_toml_bad_return_type(return_type)
     end
 end
 
@@ -91,15 +83,7 @@ Construct a `Constraint` from the `"constraint"` entry in `param_info`.
 """
 function construct_constraint(param_info::Dict)
 
-    haskey(param_info, "constraint") || throw(ArgumentError("""
-Parameter info dict is missing the required "constraint" key.
-
-Got keys:
-    $(collect(keys(param_info)))
-
-Suggestion:
-    Ensure the TOML entry for this parameter includes a `constraint = ...` field.
-"""))
+    haskey(param_info, "constraint") || _throw_toml_missing_required_key("constraint", collect(keys(param_info)))
     c = Meta.parse(param_info["constraint"])
 
     if c.args[1] == Symbol("repeat")
@@ -127,15 +111,7 @@ Returns a distribution of type `Parameterized`, `Samples`, or `VectorOfParameter
 """
 function construct_prior(param_info::Dict)
 
-    haskey(param_info, "prior") || throw(ArgumentError("""
-Parameter info dict is missing the required "prior" key.
-
-Got keys:
-    $(collect(keys(param_info)))
-
-Suggestion:
-    Ensure the TOML entry for this parameter includes a `prior = ...` field.
-"""))
+    haskey(param_info, "prior") || _throw_toml_missing_required_key("prior", collect(keys(param_info)))
     d = Meta.parse(param_info["prior"])
 
     if d.args[1] == Symbol("VectorOfParameterized")
@@ -589,6 +565,30 @@ function get_regularization(param_dict::Dict, names::AbstractVector{String})
 end
 
 ## Error helpers
+
+@noinline function _throw_toml_bad_return_type(return_type)
+    throw(ArgumentError("""
+Unknown return_type for get_parameter_values.
+
+Expected:
+    "dict" or "array"
+
+Got:
+    return_type = $(repr(return_type))
+"""))
+end
+
+@noinline function _throw_toml_missing_required_key(key_name, got_keys)
+    throw(ArgumentError("""
+Parameter info dict is missing the required $(repr(key_name)) key.
+
+Got keys:
+    $got_keys
+
+Suggestion:
+    Ensure the TOML entry for this parameter includes a `$key_name = ...` field.
+"""))
+end
 
 @noinline function _throw_toml_unsupported_kwarg(kwarg_name)
     throw(ArgumentError("""

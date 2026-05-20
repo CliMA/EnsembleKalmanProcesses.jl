@@ -180,17 +180,8 @@ function build_function_sample(g, coeff_vecormat::AbstractVecOrMat, n_draws::Int
     n_pts = n_eval_pts(g, pkg)
     n_dof = n_dofs(g, pkg)
 
-    if !(size(coeff_mat) == (n_dof, n_draws))
-        throw(DimensionMismatch("""
-build_function_sample: coefficient matrix has incorrect size.
-
-Expected:
-    size(coeff_matrix) = ($n_dof, $n_draws)  or  ($n_dof,) for a single draw
-
-Got:
-    size(coeff_vecormat) = $(size(coeff_vecormat))
-"""))
-    end
+    size(coeff_mat) == (n_dof, n_draws) ||
+        _throw_bfs_coeff_size_mismatch(size(coeff_vecormat), n_dof, n_draws)
 
     # now sample a unit normal and multiply by the coefficients
     normal_samples = coeff_mat
@@ -263,15 +254,7 @@ function ndims(grfi::GaussianRandomFieldInterface; function_parameter_opt::Abstr
     elseif function_parameter_opt == "constraint"
         return 1
     else
-        throw(ArgumentError("""
-Invalid `function_parameter_opt` keyword for ndims.
-
-Expected:
-    "dof", "eval", or "constraint"
-
-Got:
-    $(repr(function_parameter_opt))
-"""))
+        _throw_grfi_ndims_bad_opt(function_parameter_opt)
     end
 end
 
@@ -384,6 +367,30 @@ function transform_constrained_to_unconstrained(
 end
 
 ## Error helpers
+
+@noinline function _throw_bfs_coeff_size_mismatch(got_size, n_dof, n_draws)
+    throw(DimensionMismatch("""
+build_function_sample: coefficient matrix has incorrect size.
+
+Expected:
+    size(coeff_matrix) = ($n_dof, $n_draws)  or  ($n_dof,) for a single draw
+
+Got:
+    size(coeff_vecormat) = $got_size
+"""))
+end
+
+@noinline function _throw_grfi_ndims_bad_opt(opt)
+    throw(ArgumentError("""
+Invalid `function_parameter_opt` keyword for ndims.
+
+Expected:
+    "dof", "eval", or "constraint"
+
+Got:
+    $(repr(opt))
+"""))
+end
 
 @noinline function _throw_grfi_prior_dim_mismatch(n_dof, ndim)
     throw(DimensionMismatch("""

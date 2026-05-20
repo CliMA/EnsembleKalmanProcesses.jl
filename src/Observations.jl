@@ -57,18 +57,8 @@ struct SVDplusD <: SumOfCovariances
 
     function SVDplusD(s_in::SVD, d_in::Diagonal)
         mat_sizes = (get_cov_size(s_in), get_cov_size(d_in))
-        if !(mat_sizes[2] == mat_sizes[1])
-            throw(ArgumentError("""
-Covariance components must have the same size to be summed.
-
-Expected:
-    size(svd_cov) == size(diag_cov)
-
-Got:
-    size(svd_cov)  = $(mat_sizes[1])
-    size(diag_cov) = $(mat_sizes[2])
-"""))
-        end
+        mat_sizes[2] == mat_sizes[1] ||
+            _throw_obs_cov_size_mismatch(mat_sizes[1], mat_sizes[2])
 
         return new(s_in, d_in)
 
@@ -171,14 +161,7 @@ function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, kwargs...)
 end
 
 function tsvd_mat(X; return_inverse = false, quiet = false, kwargs...)
-    if isa(X, UniformScaling)
-        throw(ArgumentError("""
-Cannot perform a low-rank decomposition on `UniformScaling` without an explicit rank.
-
-Suggestion:
-    Call `tsvd_mat(X, r)` and provide the rank `r` as a second argument.
-"""))
-    end
+    isa(X, UniformScaling) && _throw_obs_tsvd_uniform_scaling()
     return tsvd_mat(X, rank(X); return_inverse = return_inverse, quiet = quiet, kwargs...)
 end
 
@@ -351,17 +334,8 @@ gets the `metadata` field from the `Observation` object
 get_metadata(o::Observation) = o.metadata
 
 function Observation(obs_dict::Dict; metadata = nothing)
-    if !all(["samples", "names", "covariances"] .∈ [collect(keys(obs_dict))])
-        throw(ArgumentError("""
-Observation dict is missing required keys.
-
-Expected keys (required):
-    "samples", "names", "covariances"
-
-Got keys:
-    $(sort(collect(keys(obs_dict))))
-"""))
-    end
+    all(["samples", "names", "covariances"] .∈ [collect(keys(obs_dict))]) ||
+        _throw_obs_dict_missing_keys(sort(collect(keys(obs_dict))))
     samples = obs_dict["samples"]
     covariances = obs_dict["covariances"]
     names = obs_dict["names"]
@@ -429,17 +403,8 @@ Got keys:
         nnew = [convert(T, n) for n in names] # to re-infer eltype
     end
 
-    if !all([length(snew) == length(cnew), length(nnew) == length(cnew), length(icnew) == length(cnew)])
-        throw(ArgumentError("""
-All entries in the Observation dict must have the same number of elements.
-
-Got:
-    samples      = $(length(snew))
-    covariances  = $(length(cnew))
-    inv_covs     = $(length(icnew))
-    names        = $(length(nnew))
-"""))
-    end
+    all([length(snew) == length(cnew), length(nnew) == length(cnew), length(icnew) == length(cnew)]) ||
+        _throw_obs_dict_count_mismatch(length(snew), length(cnew), length(icnew), length(nnew))
     block_sizes = length.(snew)
     n_blocks = length(block_sizes)
     indices = [1:block_sizes[1]]
@@ -500,15 +465,7 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
     mnew = []
     shift = [0] # running shift to add to indexing 
     for obs in obs_vec
-        nameof(typeof(obs)) == :Observation || throw(ArgumentError("""
-All elements of obs_vec must be of type Observation.
-
-Got:
-    typeof(obs) = $(typeof(obs))
-
-Suggestion:
-    Ensure every element of obs_vec is constructed with the `Observation(...)` constructor.
-"""))
+        nameof(typeof(obs)) == :Observation || _throw_obs_vec_bad_type(typeof(obs))
         append!(snew, get_samples(obs))
         append!(cnew, get_covs(obs))
         append!(icnew, get_inv_covs(obs))
@@ -820,15 +777,7 @@ function create_new_epoch!(m::FM, args...; kwargs...) where {FM <: FixedMinibatc
         idx = shuffle(rng, collect(1:length(minibatches)))
         new_epoch = minibatches[idx]
     else
-        throw(ArgumentError("""
-Unrecognized minibatcher method.
-
-Expected:
-    "order" or "random"
-
-Got:
-    method = $(repr(method))
-"""))
+        _throw_obs_minibatcher_bad_method(method)
     end
 
     minibatches[:] = new_epoch # update the internal state
@@ -942,11 +891,7 @@ function create_new_epoch!(
         new_epoch = [indices[((i - 1) * bs + 1):(i * bs)] # bs sized minibatches
                      for i in 1:n_minibatches]
     else
-        throw(
-            ArgumentError(
-                "method must be either \"trim\" (ignore trailing minibatches) or \"extend\" (have a larger final minibatch). Got $(method).",
-            ),
-        )
+        _throw_obs_rfsm_bad_method(method)
     end
 
     minibatches = get_minibatches(m)
@@ -1102,17 +1047,8 @@ end
 
 function ObservationSeries(obs_series_dict::Dict)
 
-    if !("observations" ∈ collect(keys(obs_series_dict)))
-        throw(ArgumentError("""
-ObservationSeries dict is missing the required "observations" key.
-
-Got keys:
-    $(sort(collect(keys(obs_series_dict))))
-
-Suggestion:
-    Add an "observations" entry containing the vector of Observation objects.
-"""))
-    end
+    "observations" ∈ collect(keys(obs_series_dict)) ||
+        _throw_obs_series_missing_key(sort(collect(keys(obs_series_dict))))
 
     # First remove kwarg values   
     if "metadata" ∈ collect(keys(obs_series_dict))
@@ -1151,15 +1087,7 @@ Suggestion:
             metadata = metadata,
         )
     else
-        throw(ArgumentError("""
-ObservationSeries dict contains an unrecognized key combination.
-
-Expected a subset of:
-    ["observations", "minibatcher", "names", "epoch", "metadata"]
-
-Got:
-    $(sort(collect(keys(obs_series_dict))))
-"""))
+        _throw_obs_series_bad_keys(sort(collect(keys(obs_series_dict))))
     end
 end
 
@@ -1549,6 +1477,112 @@ function Base.:(==)(os_a::OS1, os_b::OS2) where {OS1 <: ObservationSeries, OS2 <
 end
 
 ## Error helpers
+
+@noinline function _throw_obs_cov_size_mismatch(svd_size, diag_size)
+    throw(ArgumentError("""
+Covariance components must have the same size to be summed.
+
+Expected:
+    size(svd_cov) == size(diag_cov)
+
+Got:
+    size(svd_cov)  = $svd_size
+    size(diag_cov) = $diag_size
+"""))
+end
+
+@noinline function _throw_obs_tsvd_uniform_scaling()
+    throw(ArgumentError("""
+Cannot perform a low-rank decomposition on `UniformScaling` without an explicit rank.
+
+Suggestion:
+    Call `tsvd_mat(X, r)` and provide the rank `r` as a second argument.
+"""))
+end
+
+@noinline function _throw_obs_dict_missing_keys(got_keys)
+    throw(ArgumentError("""
+Observation dict is missing required keys.
+
+Expected keys (required):
+    "samples", "names", "covariances"
+
+Got keys:
+    $got_keys
+"""))
+end
+
+@noinline function _throw_obs_dict_count_mismatch(n_samp, n_cov, n_icov, n_names)
+    throw(ArgumentError("""
+All entries in the Observation dict must have the same number of elements.
+
+Got:
+    samples      = $n_samp
+    covariances  = $n_cov
+    inv_covs     = $n_icov
+    names        = $n_names
+"""))
+end
+
+@noinline function _throw_obs_vec_bad_type(T)
+    throw(ArgumentError("""
+All elements of obs_vec must be of type Observation.
+
+Got:
+    typeof(obs) = $T
+
+Suggestion:
+    Ensure every element of obs_vec is constructed with the `Observation(...)` constructor.
+"""))
+end
+
+@noinline function _throw_obs_minibatcher_bad_method(method)
+    throw(ArgumentError("""
+Unrecognized minibatcher method.
+
+Expected:
+    "order" or "random"
+
+Got:
+    method = $(repr(method))
+"""))
+end
+
+@noinline function _throw_obs_rfsm_bad_method(method)
+    throw(ArgumentError("""
+Unrecognized RandomFixedSizeMinibatcher method.
+
+Expected:
+    "trim" (ignore trailing minibatches) or "extend" (have a larger final minibatch)
+
+Got:
+    method = $(repr(method))
+"""))
+end
+
+@noinline function _throw_obs_series_missing_key(got_keys)
+    throw(ArgumentError("""
+ObservationSeries dict is missing the required "observations" key.
+
+Got keys:
+    $got_keys
+
+Suggestion:
+    Add an "observations" entry containing the vector of Observation objects.
+"""))
+end
+
+@noinline function _throw_obs_series_bad_keys(got_keys)
+    throw(ArgumentError("""
+ObservationSeries dict contains an unrecognized key combination.
+
+Expected a subset of:
+    ["observations", "minibatcher", "names", "epoch", "metadata"]
+
+Got:
+    $got_keys
+"""))
+end
 
 @noinline function _throw_obs_epoch_bad_eltype(T, len)
     throw(ArgumentError("""

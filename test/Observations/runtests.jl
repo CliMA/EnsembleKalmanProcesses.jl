@@ -97,6 +97,11 @@ using EnsembleKalmanProcesses
     @test get_indices(observation_2_4_new) == [id .- maximum(indices[1]) for id in indices[2:4]] # shifted 
     @test get_metadata(observation_2_4_new) == metadatas[2:4]
 
+    # dict missing required key
+    @test_throws ArgumentError Observation(Dict("samples" => samples[1], "names" => names[1]))
+    # dict entry count mismatch (3 samples, 1 name)
+    @test_throws ArgumentError Observation(Dict("samples" => samples[2:4], "names" => names[1], "covariances" => covariances[2:4]))
+
     # combining non-Observation elements raises ArgumentError
     @test_throws ArgumentError combine_observations([observation_1, "not_an_observation"])
 
@@ -324,6 +329,9 @@ end
     @test get_minibatches(fixed_minibatcher) == shuffled_batches
     @test new_epoch == shuffled_batches
 
+    # unrecognized FixedMinibatcher method
+    @test_throws ArgumentError create_new_epoch!(FixedMinibatcher(given_batches, "bad_method", copy(rng)), given_batches)
+
     # 2) No minibatching - currently just make a Fixed batcher with 1 index
     default = no_minibatcher()
     @test get_minibatches(default) == [[1]]
@@ -370,6 +378,9 @@ end
         for i in 1:n_minibatches
     ]
     @test batched_epoch == extend_test
+
+    # unrecognized RandomFixedSizeMinibatcher method
+    @test_throws ArgumentError create_new_epoch!(RandomFixedSizeMinibatcher(minibatch_size, "bad_method"), collect(1:100))
 
     # epoch must contain integer indices
     float_epoch = collect(1.0:100.0)
@@ -419,6 +430,8 @@ end
         Dict("observations" => obs_vec, "minibatcher" => minibatcher, "names" => series_names, "metadata" => metadata)
     bad_os_dict = Dict("minibatcher" => minibatcher, "names" => series_names, "metadata" => metadata)
     @test_throws ArgumentError ObservationSeries(bad_os_dict)
+    # unrecognized key combination
+    @test_throws ArgumentError ObservationSeries(Dict("observations" => obs_vec, "bad_key" => 1))
     observation_series_from_dict = ObservationSeries(os_dict)
     @test observation_series == observation_series_from_dict
 

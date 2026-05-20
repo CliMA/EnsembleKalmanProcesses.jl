@@ -87,15 +87,7 @@ function update_group_consistency(groups::VV, input_dim::Int, output_dim::Int) w
     u_flat = reduce(vcat, u_groups)
     if !(1:input_dim == sort(u_flat))
         if eltype(sort(u_flat)) == Int
-            throw(ArgumentError("""
-UpdateGroup u_group indices do not form a partition of the input parameter indices.
-
-Expected:
-    union of all u_groups == 1:$(input_dim)
-
-Got:
-    $(sort(u_flat))
-"""))
+            _throw_ug_partition_mismatch(input_dim, sort(u_flat))
         end
     end
 
@@ -103,15 +95,7 @@ Got:
     if eltype(g_flat) == Int
         if any(gf > output_dim for gf in g_flat) || any(gf <= 0 for gf in g_flat)
             bad = filter(gf -> gf > output_dim || gf <= 0, g_flat)
-            throw(ArgumentError("""
-UpdateGroup g_group indices are out of range.
-
-Expected:
-    all values in 1:$(output_dim)
-
-Got:
-    out-of-range values = $(sort(bad))
-"""))
+            _throw_ug_out_of_range(output_dim, sort(bad))
         end
     end
     # pass the tests
@@ -171,6 +155,30 @@ Base.:(==)(a::UG1, b::UG2) where {UG1 <: UpdateGroup, UG2 <: UpdateGroup} =
     all([get_u_group(a) == get_u_group(b), get_g_group(a) == get_g_group(b), get_group_id(a) == get_group_id(b)],)
 
 ## Error helpers
+
+@noinline function _throw_ug_partition_mismatch(input_dim, got_flat)
+    throw(ArgumentError("""
+UpdateGroup u_group indices do not form a partition of the input parameter indices.
+
+Expected:
+    union of all u_groups == 1:$input_dim
+
+Got:
+    $got_flat
+"""))
+end
+
+@noinline function _throw_ug_out_of_range(output_dim, bad_indices)
+    throw(ArgumentError("""
+UpdateGroup g_group indices are out of range.
+
+Expected:
+    all values in 1:$output_dim
+
+Got:
+    out-of-range values = $bad_indices
+"""))
+end
 
 @noinline function _throw_ug_bad_param_name(pn, param_names, key, key_vec)
     throw(ArgumentError("""

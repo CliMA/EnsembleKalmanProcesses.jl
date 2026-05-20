@@ -342,6 +342,7 @@ end
     dmclrs3 = EKP.DataMisfitController(on_terminate = "continue_fixed")
     @test dmclrs3.on_terminate == "continue_fixed"
     @test EKP.DataMisfitController() == EKP.DataMisfitController()
+    @test_throws ArgumentError EKP.DataMisfitController(on_terminate = "bad_value")
 
     # build EKP and eki objects
     # Get an inverse problem

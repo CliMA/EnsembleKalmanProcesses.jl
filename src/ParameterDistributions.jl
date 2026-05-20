@@ -219,15 +219,8 @@ and `x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1)`.
 
 """
 function bounded(lower_bound::Real, upper_bound::Real)
-    if (upper_bound <= lower_bound)
-        throw(
-            DomainError(
-                (lower_bound, upper_bound),
-                "upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
-            ),
-        )
-    end
-    # As far as I know, only way to dispatch method based on isinf() would be to bring in 
+    upper_bound > lower_bound || _throw_pd_bounded_bad_bounds(lower_bound, upper_bound)
+    # As far as I know, only way to dispatch method based on isinf() would be to bring in
     # Traits as another dependency, which would be overkill
     if isinf(lower_bound)
         if isinf(upper_bound)
@@ -629,17 +622,7 @@ logpdf(d::Parameterized, x::FT) where {FT <: Real} = logpdf(d, [x]) # make into 
 
 function logpdf(d::Parameterized, xarray::VV) where {VV <: AbstractVector}
     dimension = ndims(d)
-    if dimension != length(xarray)
-        throw(DimensionMismatch("""
-logpdf: input length does not match distribution dimensionality.
-
-Expected:
-    length(xarray) = $dimension
-
-Got:
-    length(xarray) = $(length(xarray))
-"""))
-    end
+    dimension == length(xarray) || _throw_pd_logpdf_dim_mismatch(dimension, length(xarray))
     if dimension == 1 # if univariate, requires scalar evaluation
         return logpdf(d.distribution, xarray[1])
     else
@@ -674,29 +657,9 @@ $(METHODLIST)
 """
 function logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT <: Real}
     #first check we don't have sampled distribution
-    if any(isa.(pd.distribution, Samples))
-        throw(ArgumentError("""
-logpdf is not defined for Samples distributions.
-
-Got:
-    distribution type(s) containing Samples: $(typeof.(filter(d -> isa(d, Samples), pd.distribution)))
-
-Suggestion:
-    Use a Parameterized or VectorOfParameterized prior to evaluate the log-density.
-"""))
-    end
+    any(isa.(pd.distribution, Samples)) && _throw_pd_logpdf_has_samples(pd.distribution)
     #assert xarray correct dim/length
-    if length(xarray) != ndims(pd)
-        throw(DimensionMismatch("""
-logpdf: input dimension does not match the parameter space.
-
-Expected:
-    length(xarray) = $(ndims(pd))
-
-Got:
-    length(xarray) = $(length(xarray))
-"""))
-    end
+    length(xarray) == ndims(pd) || _throw_pd_logpdf_dim_mismatch(ndims(pd), length(xarray))
 
     # get the index of xarray chunks to give to the different distributions.
     batches = batch(pd)
@@ -1081,22 +1044,8 @@ function constrained_gaussian(
     optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
     optim_kwargs...,
 )
-    if (upper_bound <= lower_bound)
-        throw(
-            DomainError(
-                (lower_bound, upper_bound),
-                "`$(name)`: upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
-            ),
-        )
-    end
-    if (μ_c <= lower_bound) || (μ_c >= upper_bound)
-        throw(
-            DomainError(
-                μ_c,
-                "`$(name)`: target mean μ_c = $(μ_c) is outside the open constraint interval ($(lower_bound), $(upper_bound)); choose μ_c strictly between the bounds.",
-            ),
-        )
-    end
+    upper_bound > lower_bound || _throw_cg_bad_bounds(name, lower_bound, upper_bound)
+    lower_bound < μ_c < upper_bound || _throw_cg_bad_mean(name, lower_bound, upper_bound, μ_c)
 
     if isinf(lower_bound)
         if isinf(upper_bound)
@@ -1111,22 +1060,8 @@ function constrained_gaussian(
             μ_u, σ_u = _inverse_lognormal_mean_std(μ_c - lower_bound, σ_c)
         else
             # finite interval case; need to solve numerically
-            if (μ_c - σ_c <= lower_bound)
-                throw(
-                    DomainError(
-                        σ_c,
-                        "`$(name)`: target std σ_c = $(σ_c) places μ - σ = $(μ_c - σ_c) at or below lower_bound = $(lower_bound); reduce σ_c or move μ_c away from the lower bound.",
-                    ),
-                )
-            end
-            if (μ_c + σ_c >= upper_bound)
-                throw(
-                    DomainError(
-                        σ_c,
-                        "`$(name)`: target std σ_c = $(σ_c) places μ + σ = $(μ_c + σ_c) at or above upper_bound = $(upper_bound); reduce σ_c or move μ_c away from the upper bound.",
-                    ),
-                )
-            end
+            μ_c - σ_c > lower_bound || _throw_cg_std_clips_lower(name, lower_bound, upper_bound, μ_c, σ_c)
+            μ_c + σ_c < upper_bound || _throw_cg_std_clips_upper(name, lower_bound, upper_bound, μ_c, σ_c)
             # 1.2 seems a reasonable tolerance here for solver to converge quickly
             if (μ_c - 1.2 * σ_c <= lower_bound)
                 @warn(
@@ -1212,6 +1147,69 @@ function _constrained_gaussian(
 end
 
 ## Error helpers
+
+# --- bounded / constrained_gaussian helpers ---
+
+@noinline function _throw_pd_bounded_bad_bounds(lower_bound, upper_bound)
+    throw(DomainError(
+        (lower_bound, upper_bound),
+        "upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
+    ))
+end
+
+@noinline function _throw_cg_bad_bounds(name, lower_bound, upper_bound)
+    throw(DomainError(
+        (lower_bound, upper_bound),
+        "`$(name)`: upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
+    ))
+end
+
+@noinline function _throw_cg_bad_mean(name, lower_bound, upper_bound, μ_c)
+    throw(DomainError(
+        μ_c,
+        "`$(name)`: target mean μ_c = $(μ_c) is outside the open constraint interval ($(lower_bound), $(upper_bound)); choose μ_c strictly between the bounds.",
+    ))
+end
+
+@noinline function _throw_cg_std_clips_lower(name, lower_bound, upper_bound, μ_c, σ_c)
+    throw(DomainError(
+        σ_c,
+        "`$(name)`: target std σ_c = $(σ_c) places μ - σ = $(μ_c - σ_c) at or below lower_bound = $(lower_bound); reduce σ_c or move μ_c away from the lower bound.",
+    ))
+end
+
+@noinline function _throw_cg_std_clips_upper(name, lower_bound, upper_bound, μ_c, σ_c)
+    throw(DomainError(
+        σ_c,
+        "`$(name)`: target std σ_c = $(σ_c) places μ + σ = $(μ_c + σ_c) at or above upper_bound = $(upper_bound); reduce σ_c or move μ_c away from the upper bound.",
+    ))
+end
+
+# --- logpdf helpers ---
+
+@noinline function _throw_pd_logpdf_dim_mismatch(expected_len, got_len)
+    throw(DimensionMismatch("""
+logpdf: input length does not match distribution dimensionality.
+
+Expected:
+    length(xarray) = $expected_len
+
+Got:
+    length(xarray) = $got_len
+"""))
+end
+
+@noinline function _throw_pd_logpdf_has_samples(distributions)
+    throw(ArgumentError("""
+logpdf is not defined for Samples distributions.
+
+Got:
+    distribution type(s) containing Samples: $(typeof.(filter(d -> isa(d, Samples), distributions)))
+
+Suggestion:
+    Use a Parameterized or VectorOfParameterized prior to evaluate the log-density.
+"""))
+end
 
 # --- ParameterDistribution constructor helpers ---
 

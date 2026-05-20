@@ -49,8 +49,8 @@ Audit `<path>` for error-raising patterns. For every `@assert`, `error(`, or
    and the full message text (including multiline strings).
 2. Classify message quality:
    - "good"  — has `$(expr)` interpolation showing the actual received value, and
-     is either short (≤~7 lines) or already in a `_throw_` helper function
-   - "long-inline" — message content is good, but the body exceeds ~8 lines and
+     is either short (≤3 lines) or already in a `_throw_` helper function
+   - "long-inline" — message content is good, but the body exceeds 3 lines and
      the throw is written inline (not in a `_throw_` helper)
    - "vague" — missing a received value, or no Expected/Got structure
    - "missing" — bare `@assert` with no message at all
@@ -195,20 +195,19 @@ extracted into a `_throw_<what>(...)` helper function.
 
 **When to extract** — pull the error into a helper when either condition holds:
 
-- **Length** (primary trigger): the message body exceeds ~8 lines. Extract
+- **Length** (primary trigger): the message body exceeds 3 lines. Extract
   unconditionally — single call site, non-loop context, no surrounding complexity
-  required. A full Expected / Got / Suggestion block almost always crosses this
-  threshold. Even a one-off long block left inline establishes a pattern that makes
-  entire files hard to scan, and accumulates quickly once a few exceptions are made.
+  required. A full Expected / Got / Suggestion block always crosses this threshold.
+  Even a one-off long block left inline establishes a pattern that makes entire files
+  hard to scan, and accumulates quickly once a few exceptions are made.
 - **Duplication**: the same error shape (same summary line, same Expected / Got /
   Suggestion skeleton) appears at ≥2 call sites. Extract even when each block is
   short — the wording drifts silently over time and the call sites collapse to
   readable one-liners.
 
-Inline is appropriate only for genuinely short messages (≤~7 lines) at a single
-call site. The bar for "short" is strict: a message with a Summary, an Expected
-section, a Got section, and a Suggestion almost certainly exceeds 7 lines and
-belongs in a helper. When in doubt, count — if it doesn't fit in 7 lines, extract.
+Inline is appropriate only for genuinely short messages (≤3 lines) at a single
+call site. A single summary line, or a summary plus one Got line, is the ceiling
+for inline. When in doubt, count — if it doesn't fit in 3 lines, extract.
 
 **Where helpers go**
 
@@ -456,9 +455,9 @@ next time."
 - **Single-line messages are fine** when the failure is unambiguous and no
   Expected/Got context would add clarity.
 - **Extract into `_throw_<what>(...)` helpers** whenever the message body exceeds
-  ~8 lines, or when the same Expected / Got / Suggestion skeleton appears at ≥2
-  call sites (even if short). A full Expected / Got / Suggestion block nearly always
-  exceeds 8 lines and must be a helper — inline is only appropriate for ≤~7-line
+  3 lines, or when the same Expected / Got / Suggestion skeleton appears at ≥2
+  call sites (even if short). A full Expected / Got / Suggestion block always
+  exceeds 3 lines and must be a helper — inline is only appropriate for ≤3-line
   messages at a single call site. Place the helper in a `## Error helpers` section
   at the bottom of the source file; promote to a shared `src/ErrorMessages.jl` only
   when ≥2 different source files share the helper. Use `@noinline`, positional args
@@ -471,17 +470,17 @@ next time."
 
 > **Length rule applies to all examples below.** Each example shows the canonical
 > message *format* (Expected / Got / Suggestion sections, interpolation, etc.). When
-> the message body exceeds ~8 lines — which a full Expected + Got + Suggestion block
-> almost always does — the throw must go in a `_throw_<what>(...)` helper per
+> the message body exceeds 3 lines — which any structured block with Expected / Got /
+> Suggestion sections does — the throw must go in a `_throw_<what>(...)` helper per
 > Step 2.5, not inline. The first example below models this explicitly. Subsequent
 > examples show the message body format; apply the same helper extraction whenever
-> the resulting message exceeds 7 lines.
+> the resulting message exceeds 3 lines.
 
 ### Replace a vague `error(string(...))`
 
-The after-message has 10 lines (Summary + Expected + Got×3 + Suggestion×2), so it
-goes into a `_throw_` helper — extract unconditionally at this length even though
-there is only one call site.
+The after-message has 10 lines (well above the 3-line threshold), so it goes into
+a `_throw_` helper — extract unconditionally at this length even though there is
+only one call site.
 
 ```julia
 # Before
@@ -862,7 +861,6 @@ Key points:
   generic one.
 - Do not expose internal linear algebra variable names or dispatch details when
   domain-level terminology exists.
-- Do not extract truly short errors (≤~7 lines) at a single call site — the
-  inline form is easier to grep and keeps cause and message co-located. A summary
-  plus a single Got line is a natural ceiling for inline: anything that also includes
-  Expected and Suggestion sections almost always exceeds 7 lines and must be a helper.
+- Do not extract truly short errors (≤3 lines) at a single call site — the
+  inline form is easier to grep and keeps cause and message co-located. A single
+  summary line, or a summary plus one Got line, is the ceiling for inline.

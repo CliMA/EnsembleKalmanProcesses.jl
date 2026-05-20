@@ -90,13 +90,8 @@ struct PairedDataContainer{FT <: Real}
         end
 
         sample_dim = data_are_columns ? 2 : 1
-        if !(size(in, sample_dim) == size(out, sample_dim))
-            throw(
-                DimensionMismatch(
-                    "There must be the same number of samples of both inputs and outputs. Got $(size(in, sample_dim)) input samples and $(size(out, sample_dim)) output samples.",
-                ),
-            )
-        end
+        size(in, sample_dim) == size(out, sample_dim) ||
+            _throw_pdc_sample_count_mismatch(size(in, sample_dim), size(out, sample_dim))
 
         FT = promote_type(eltype(in), eltype(out))
         if !(FT == eltype(in)) || !(FT == eltype(out))
@@ -113,11 +108,7 @@ struct PairedDataContainer{FT <: Real}
     function PairedDataContainer(inputs::DataContainer, outputs::DataContainer)
 
         if !(size(inputs, 2) == size(outputs, 2))
-            throw(
-                DimensionMismatch(
-                    "There must be the same number of samples of both inputs and outputs. Got $(size(inputs, 2)) input samples and $(size(outputs, 2)) output samples.",
-                ),
-            )
+            _throw_pdc_sample_count_mismatch(size(inputs, 2), size(outputs, 2))
         else
 
             FT = promote_type(eltype(get_data(inputs)), eltype(get_data(outputs)))
@@ -183,6 +174,19 @@ Base.:(==)(dc_a::DataContainer, dc_b::DataContainer) = get_data(dc_a) == get_dat
 Base.:(==)(pdc_a::PairedDataContainer, pdc_b::PairedDataContainer) =
     get_inputs(pdc_a) == get_inputs(pdc_b) && get_outputs(pdc_a) == get_outputs(pdc_b)
 
+## Error helpers
 
+@noinline function _throw_pdc_sample_count_mismatch(n_in, n_out)
+    throw(DimensionMismatch("""
+PairedDataContainer: input and output must have the same number of samples.
+
+Expected:
+    n_input_samples == n_output_samples
+
+Got:
+    n_input_samples  = $n_in
+    n_output_samples = $n_out
+"""))
+end
 
 end # module

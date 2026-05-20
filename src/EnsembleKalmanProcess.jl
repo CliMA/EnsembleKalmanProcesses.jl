@@ -142,15 +142,7 @@ function default_options_dict(process::P) where {P <: Process}
             "accelerator" => NesterovAccelerator(),
         )
     else
-        throw(ArgumentError("""
-No default options found for the given process type.
-
-Got:
-    typeof(process) = $(typeof(process))
-
-Suggestion:
-    Implement `default_options_dict(process::$(typeof(process)))` in EnsembleKalmanProcess.jl.
-"""))
+        _throw_ekp_no_default_options(process)
     end
 
 end
@@ -1419,6 +1411,18 @@ end
 
 
 ## Error helpers
+
+@noinline function _throw_ekp_no_default_options(process)
+    throw(ArgumentError("""
+No default options found for the given process type.
+
+Got:
+    typeof(process) = $(typeof(process))
+
+Suggestion:
+    Implement `default_options_dict(process::$(typeof(process)))` in EnsembleKalmanProcess.jl.
+"""))
+end
 
 @noinline function _throw_inflation_stability_violated(inflation_type::Symbol, s, Δt, scaled_Δt)
     throw(ArgumentError("""
