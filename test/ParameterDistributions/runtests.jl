@@ -58,7 +58,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
         d_wide_pos = GaussianRandomFieldInterface(grf, pkg, wide_pos_prior)
         @test get_distribution(d_wide_pos) == wide_pos_prior
         err_prior = constrained_gaussian("GRF_coefficients_wide_pos", 0.0, 5.0, -5.0, Inf, repeats = dofs + 1) # wrong num dofs
-        @test_throws ArgumentError GaussianRandomFieldInterface(grf, pkg, err_prior)
+        @test_throws DimensionMismatch GaussianRandomFieldInterface(grf, pkg, err_prior)
 
 
         #function-based utils
@@ -506,7 +506,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
         #Test for logpdf
         seed = 2046
-        @test_throws ErrorException logpdf(u, zeros(ndims(u)))
+        @test_throws ArgumentError logpdf(u, zeros(ndims(u)))
         x_in_bd = [0.5, 0.5, 0.5]
         Random.seed!(seed)
         # for VectorOfParameterized
@@ -724,6 +724,12 @@ using EnsembleKalmanProcesses.ParameterDistributions
         # check error for misshape
         @test_throws ArgumentError transform_unconstrained_to_constrained(u1, x_unbd[1:4, :]')
         @test_throws ArgumentError transform_constrained_to_unconstrained(u1, x_real_constrained1')
+
+        # check errors for non-iterable and wrong element type in iterable overloads
+        @test_throws ArgumentError transform_unconstrained_to_constrained(u1, 42)
+        @test_throws ArgumentError transform_constrained_to_unconstrained(u1, 42)
+        @test_throws ArgumentError transform_unconstrained_to_constrained(u1, [42, 43])
+        @test_throws ArgumentError transform_constrained_to_unconstrained(u1, [42, 43])
 
 
         # vector inputs, for multidim

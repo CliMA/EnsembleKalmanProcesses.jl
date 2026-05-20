@@ -142,11 +142,7 @@ function default_options_dict(process::P) where {P <: Process}
             "accelerator" => NesterovAccelerator(),
         )
     else
-        throw(
-            ArgumentError(
-                "No defaults found for process $process, please implement these in EnsembleKalmanProcess.jl default_options_dict()",
-            ),
-        )
+        _throw_ekp_no_default_options(process)
     end
 
 end
@@ -1196,7 +1192,7 @@ function multiplicative_inflation!(ekp::EnsembleKalmanProcess; s::FT = 1.0) wher
     scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
-        error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
+        _throw_inflation_stability_violated(:multiplicative, s, get_Δt(ekp)[end], scaled_Δt)
     end
 
     u = get_u_final(ekp)
@@ -1226,7 +1222,7 @@ function additive_inflation!(
     scaled_Δt = s * get_Δt(ekp)[end]
 
     if scaled_Δt >= 1.0
-        error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
+        _throw_inflation_stability_violated(:additive, s, get_Δt(ekp)[end], scaled_Δt)
     end
 
     u = get_u_final(ekp)
@@ -1413,6 +1409,37 @@ function update_ensemble!(
 
 end
 
+
+## Error helpers
+
+@noinline function _throw_ekp_no_default_options(process)
+    throw(ArgumentError("""
+No default options found for the given process type.
+
+Got:
+    typeof(process) = $(typeof(process))
+
+Suggestion:
+    Implement `default_options_dict(process::$(typeof(process)))` in EnsembleKalmanProcess.jl.
+"""))
+end
+
+@noinline function _throw_inflation_stability_violated(inflation_type::Symbol, s, Δt, scaled_Δt)
+    throw(ArgumentError("""
+Scaled time step exceeds the stability bound for $inflation_type inflation.
+
+Expected:
+    s * Δt < 1.0
+
+Got:
+    s = $s
+    Δt = $Δt
+    s * Δt = $scaled_Δt
+
+Suggestion:
+    Reduce the scaling factor `s` or shorten the EK time step.
+"""))
+end
 
 ## include the different types of Processes and their exports:
 

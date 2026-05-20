@@ -4,8 +4,6 @@ using RecipesBase
 using Random
 using ..ParameterDistributions
 
-export plot_marginal_hist
-
 @recipe function plot(pd::ParameterDistribution; constrained = true, n_sample = 1e4, rng = Random.GLOBAL_RNG)
     samples = sample(rng, pd, Int(n_sample))
     if constrained

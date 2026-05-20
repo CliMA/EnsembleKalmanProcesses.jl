@@ -6,6 +6,8 @@ CurrentModule = EnsembleKalmanProcesses
 
 ```@docs
 Unscented
+TransformUnscented
+Gaussian_2d
 construct_sigma_ensemble
 construct_mean
 construct_cov

@@ -5,9 +5,9 @@ using SparseArrays
 const MOI = MathOptInterface
 
 """
-    SparseInversion <: Process
+A sparse ensemble Kalman Inversion process.
 
-A sparse ensemble Kalman Inversion process
+$(TYPEDEF)
 
 # Fields
 
@@ -28,6 +28,17 @@ Base.@kwdef struct SparseInversion{FT <: AbstractFloat} <: Process
     reg::FT = FT(0)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct a `SparseInversion` process with sparsity parameter `γ`.
+
+# Arguments
+- `γ`: upper limit of the ℓ₁-norm constraint on the parameters.
+- `threshold_value`: parameters with absolute value below this threshold are set to zero after each update.
+- `uc_idx`: indices of parameters included in the ℓ₁-norm evaluation; defaults to all parameters.
+- `reg`: small regularization added to the convex optimization for robustness.
+"""
 function SparseInversion(
     γ::FT;
     threshold_value::FT = FT(0),
@@ -37,7 +48,18 @@ function SparseInversion(
     return SparseInversion{FT}(γ, threshold_value, uc_idx, reg)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return `nothing`; `SparseInversion` does not store a prior mean.
+"""
 get_prior_mean(process::SparseInversion) = nothing
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `nothing`; `SparseInversion` does not store a prior covariance.
+"""
 get_prior_cov(process::SparseInversion) = nothing
 
 
@@ -68,17 +90,10 @@ function FailureHandler(process::SparseInversion, method::SampleSuccGauss)
 end
 
 """
-    sparse_qp(
-        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
-        v_j::Vector{FT},
-        cov_vv_inv::AbstractMatrix{FT},
-        H_u::SparseArrays.SparseMatrixCSC{FT},
-        H_g::SparseArrays.SparseMatrixCSC{FT},
-        y_j::Vector{FT};
-        H_uc::SparseArrays.SparseMatrixCSC{FT} = H_u,
-    ) where {FT, IT}
+$(TYPEDSIGNATURES)
 
-Solving quadratic programming problem with sparsity constraint.
+Solve the per-ensemble-member quadratic programme with ℓ₁-norm sparsity constraint
+and return the updated parameter vector for ensemble member `j`.
 """
 function sparse_qp(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
@@ -114,15 +129,9 @@ function sparse_qp(
 end
 
 """
-     sparse_eki_update(
-        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
-        u::AbstractMatrix{FT},
-        g::AbstractMatrix{FT},
-        y::AbstractMatrix{FT},
-        obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
-    ) where {FT <: Real, CT <: Real, IT}
+$(TYPEDSIGNATURES)
 
-Returns the sparse updated parameter vectors given their current values and
+Return the sparse updated parameter vectors given their current values and
 the corresponding forward model evaluations, using the inversion algorithm
 from eqns. (3.7) and (3.14) of Schneider et al. (2021).
 
@@ -178,27 +187,6 @@ function sparse_eki_update(
     return u
 end
 
-"""
-    update_ensemble!(
-        ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
-        g::AbstractMatrix{FT},
-        process::SparseInversion{FT};
-        deterministic_forward_map = true,
-        failed_ens = nothing,
-    ) where {FT, IT}
-
-Updates the ensemble according to a SparseInversion process. 
-
-Inputs:
- - `ekp` :: The EnsembleKalmanProcess to update.
- - `g` :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - `process` :: Type of the EKP.
- - `u_idx` :: indices of u to update (see `UpdateGroup`)
- - `g_idx` :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
- - `deterministic_forward_map` :: Whether output `g` comes from a deterministic model.
- - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
-    with NaN entries.
-"""
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, SparseInversion{FT}},
     g::AbstractMatrix{FT},

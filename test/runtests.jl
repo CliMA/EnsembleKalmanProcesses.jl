@@ -36,6 +36,7 @@ end
         "SparseInversion",
         "Inflation",
         "Visualize",
+        "ShowMethods",
     ]
         if all_tests || has_submodule(submodule) || "EnsembleKalmanProcesses" in ARGS
             include_test(submodule)

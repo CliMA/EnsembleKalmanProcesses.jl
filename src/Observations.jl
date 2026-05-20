@@ -57,13 +57,7 @@ struct SVDplusD <: SumOfCovariances
 
     function SVDplusD(s_in::SVD, d_in::Diagonal)
         mat_sizes = (get_cov_size(s_in), get_cov_size(d_in))
-        if !(mat_sizes[2] == mat_sizes[1])
-            throw(
-                ArgumentError(
-                    "all covariances provided must have the same size (as they are to be summed), instead recieved different sizes: $(mat_sizes)",
-                ),
-            )
-        end
+        mat_sizes[2] == mat_sizes[1] || _throw_obs_cov_size_mismatch(mat_sizes[1], mat_sizes[2])
 
         return new(s_in, d_in)
 
@@ -166,13 +160,7 @@ function tsvd_mat(X, r::Int; return_inverse = false, quiet = false, kwargs...)
 end
 
 function tsvd_mat(X; return_inverse = false, quiet = false, kwargs...)
-    if isa(X, UniformScaling)
-        throw(
-            ArgumentError(
-                "Cannot perform a low rank decomposition on `UniformScaling` type without providing a rank in the second argument.",
-            ),
-        )
-    end
+    isa(X, UniformScaling) && _throw_obs_tsvd_uniform_scaling()
     return tsvd_mat(X, rank(X); return_inverse = return_inverse, quiet = quiet, kwargs...)
 end
 
@@ -345,13 +333,8 @@ gets the `metadata` field from the `Observation` object
 get_metadata(o::Observation) = o.metadata
 
 function Observation(obs_dict::Dict; metadata = nothing)
-    if !all(["samples", "names", "covariances"] .∈ [collect(keys(obs_dict))])
-        throw(
-            ArgumentError(
-                "input dictionaries must contain the keys: \"samples\", \"names\", \"covariances\", and optionally: \"inv_covariances\". Got $(keys(obs_dict))",
-            ),
-        )
-    end
+    all(["samples", "names", "covariances"] .∈ [collect(keys(obs_dict))]) ||
+        _throw_obs_dict_missing_keys(sort(collect(keys(obs_dict))))
     samples = obs_dict["samples"]
     covariances = obs_dict["covariances"]
     names = obs_dict["names"]
@@ -419,13 +402,8 @@ function Observation(obs_dict::Dict; metadata = nothing)
         nnew = [convert(T, n) for n in names] # to re-infer eltype
     end
 
-    if !all([length(snew) == length(cnew), length(nnew) == length(cnew), length(icnew) == length(cnew)])
-        throw(
-            ArgumentError(
-                "input dictionaries must contain the same number of objects. Got $(length(snew)) samples, $(length(cnew)) covs,  $(length(icnew)) inv_covs, and $(length(nnew)) names.",
-            ),
-        )
-    end
+    all([length(snew) == length(cnew), length(nnew) == length(cnew), length(icnew) == length(cnew)]) ||
+        _throw_obs_dict_count_mismatch(length(snew), length(cnew), length(icnew), length(nnew))
     block_sizes = length.(snew)
     n_blocks = length(block_sizes)
     indices = [1:block_sizes[1]]
@@ -486,7 +464,7 @@ function combine_observations(obs_vec::AV) where {AV <: AbstractVector}
     mnew = []
     shift = [0] # running shift to add to indexing 
     for obs in obs_vec
-        @assert(nameof(typeof(obs)) == :Observation) # check it's a vector of Observations
+        nameof(typeof(obs)) == :Observation || _throw_obs_vec_bad_type(typeof(obs))
         append!(snew, get_samples(obs))
         append!(cnew, get_covs(obs))
         append!(icnew, get_inv_covs(obs))
@@ -673,6 +651,12 @@ end
 #####
 # Batching methods for multiple observations
 #####
+"""
+Abstract supertype for all minibatching strategies used with `ObservationSeries`.
+
+Concrete subtypes (`FixedMinibatcher`, `RandomFixedSizeMinibatcher`) implement
+`create_new_epoch!` to produce a new ordering of observation batches at each epoch.
+"""
 abstract type Minibatcher end
 
 create_new_epoch(mb::M, args...; kwargs...) where {M <: Minibatcher} = throw(
@@ -792,11 +776,7 @@ function create_new_epoch!(m::FM, args...; kwargs...) where {FM <: FixedMinibatc
         idx = shuffle(rng, collect(1:length(minibatches)))
         new_epoch = minibatches[idx]
     else
-        throw(
-            ArgumentError(
-                "method must be either \"order\" to select in order, or \"random\" to generate a random selector. Got $(method).",
-            ),
-        )
+        _throw_obs_minibatcher_bad_method(method)
     end
 
     minibatches[:] = new_epoch # update the internal state
@@ -890,7 +870,7 @@ function create_new_epoch!(
     T = promote_type((typeof(e) for e in epoch_in)...)
     epoch = [convert(T, e) for e in epoch_in] # re-infer type
     if !(eltype(epoch) <: Int)
-        throw(ArgumentError("the epoch must be a Vector{Int}, got eltype $(eltype(epoch))"))
+        _throw_obs_epoch_bad_eltype(eltype(epoch), length(epoch))
     end
     epoch_size = length(epoch)
     rng = get_rng(m)
@@ -910,11 +890,7 @@ function create_new_epoch!(
         new_epoch = [indices[((i - 1) * bs + 1):(i * bs)] # bs sized minibatches
                      for i in 1:n_minibatches]
     else
-        throw(
-            ArgumentError(
-                "method must be either \"trim\" (ignore trailing minibatches) or \"extend\" (have a larger final minibatch). Got $(method).",
-            ),
-        )
+        _throw_obs_rfsm_bad_method(method)
     end
 
     minibatches = get_minibatches(m)
@@ -1043,11 +1019,7 @@ function ObservationSeries(
         names = epoch_or_names
         epoch = collect(1:length(obs_vec))
     else
-        throw(
-            ArgumentError(
-                "the third argument must be a Vector of Int's (if defining the epoch) or Strings (if defining the names of the observations. Got Vector of $(eltype(epoch_or_names))",
-            ),
-        )
+        _throw_obs_series_bad_third_arg(eltype(epoch_or_names))
     end
 
     return ObservationSeries(obs_vec, minibatcher, names, epoch; kwargs...)
@@ -1074,13 +1046,8 @@ end
 
 function ObservationSeries(obs_series_dict::Dict)
 
-    if !("observations" ∈ collect(keys(obs_series_dict)))
-        throw(
-            ArgumentError(
-                "input dictionaries must contain the key: \"observations\". Got $(collect(keys(obs_series_dict)))",
-            ),
-        )
-    end
+    "observations" ∈ collect(keys(obs_series_dict)) ||
+        _throw_obs_series_missing_key(sort(collect(keys(obs_series_dict))))
 
     # First remove kwarg values   
     if "metadata" ∈ collect(keys(obs_series_dict))
@@ -1119,11 +1086,7 @@ function ObservationSeries(obs_series_dict::Dict)
             metadata = metadata,
         )
     else
-        throw(
-            ArgumentError(
-                "input dictionaries must contain a subset of keys: [\"observations\", \"minibatcher\", \"names\", \"epoch\", \"metadata\"]. Got $(keys(obs_series_dict))",
-            ),
-        )
+        _throw_obs_series_bad_keys(sort(collect(keys(obs_series_dict))))
     end
 end
 
@@ -1510,4 +1473,141 @@ function Base.:(==)(os_a::OS1, os_b::OS2) where {OS1 <: ObservationSeries, OS2 <
         x[i] = (getfield(os_a, Symbol(f)) == getfield(os_b, Symbol(f)))
     end
     return all(x)
+end
+
+## Error helpers
+
+@noinline function _throw_obs_cov_size_mismatch(svd_size, diag_size)
+    throw(ArgumentError("""
+Covariance components must have the same size to be summed.
+
+Expected:
+    size(svd_cov) == size(diag_cov)
+
+Got:
+    size(svd_cov)  = $svd_size
+    size(diag_cov) = $diag_size
+"""))
+end
+
+@noinline function _throw_obs_tsvd_uniform_scaling()
+    throw(ArgumentError("""
+Cannot perform a low-rank decomposition on `UniformScaling` without an explicit rank.
+
+Suggestion:
+    Call `tsvd_mat(X, r)` and provide the rank `r` as a second argument.
+"""))
+end
+
+@noinline function _throw_obs_dict_missing_keys(got_keys)
+    throw(ArgumentError("""
+Observation dict is missing required keys.
+
+Expected keys (required):
+    "samples", "names", "covariances"
+
+Got keys:
+    $got_keys
+"""))
+end
+
+@noinline function _throw_obs_dict_count_mismatch(n_samp, n_cov, n_icov, n_names)
+    throw(ArgumentError("""
+All entries in the Observation dict must have the same number of elements.
+
+Got:
+    samples      = $n_samp
+    covariances  = $n_cov
+    inv_covs     = $n_icov
+    names        = $n_names
+"""))
+end
+
+@noinline function _throw_obs_vec_bad_type(T)
+    throw(ArgumentError("""
+All elements of obs_vec must be of type Observation.
+
+Got:
+    typeof(obs) = $T
+
+Suggestion:
+    Ensure every element of obs_vec is constructed with the `Observation(...)` constructor.
+"""))
+end
+
+@noinline function _throw_obs_minibatcher_bad_method(method)
+    throw(ArgumentError("""
+Unrecognized minibatcher method.
+
+Expected:
+    "order" or "random"
+
+Got:
+    method = $(repr(method))
+"""))
+end
+
+@noinline function _throw_obs_rfsm_bad_method(method)
+    throw(ArgumentError("""
+Unrecognized RandomFixedSizeMinibatcher method.
+
+Expected:
+    "trim" (ignore trailing minibatches) or "extend" (have a larger final minibatch)
+
+Got:
+    method = $(repr(method))
+"""))
+end
+
+@noinline function _throw_obs_series_missing_key(got_keys)
+    throw(ArgumentError("""
+ObservationSeries dict is missing the required "observations" key.
+
+Got keys:
+    $got_keys
+
+Suggestion:
+    Add an "observations" entry containing the vector of Observation objects.
+"""))
+end
+
+@noinline function _throw_obs_series_bad_keys(got_keys)
+    throw(ArgumentError("""
+ObservationSeries dict contains an unrecognized key combination.
+
+Expected a subset of:
+    ["observations", "minibatcher", "names", "epoch", "metadata"]
+
+Got:
+    $got_keys
+"""))
+end
+
+@noinline function _throw_obs_epoch_bad_eltype(T, len)
+    throw(ArgumentError("""
+Epoch vector must contain integer indices.
+
+Expected:
+    eltype(epoch) <: Int
+
+Got:
+    eltype(epoch) = $T
+    length(epoch) = $len
+
+Suggestion:
+    Convert the epoch to a Vector{Int}, e.g. `Int.(epoch)`.
+"""))
+end
+
+@noinline function _throw_obs_series_bad_third_arg(T)
+    throw(ArgumentError("""
+Third argument to ObservationSeries must be a Vector of integers (epoch) or strings (names).
+
+Expected:
+    eltype(epoch_or_names) <: Int  (to define the epoch ordering)
+    eltype(epoch_or_names) <: AbstractString  (to define observation names)
+
+Got:
+    eltype(epoch_or_names) = $T
+"""))
 end

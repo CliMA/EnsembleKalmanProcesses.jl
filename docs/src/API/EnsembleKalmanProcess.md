@@ -29,7 +29,9 @@ get_u_mean
 get_u_cov
 get_g_mean
 get_ϕ_mean
+get_u_prior
 get_u_mean_final
+get_u_cov_prior
 get_u_cov_final
 get_g_mean_final
 get_ϕ_mean_final
@@ -40,12 +42,15 @@ get_scheduler
 get_process
 get_rng
 get_Δt
+get_algorithm_time
+get_observation_series
 get_failure_handler
 get_localizer
 get_localizer_type
 get_nan_tolerance
 get_nan_row_values
 list_update_groups_over_minibatch
+get_cov_blocks
 ```
 ## [Error metrics](@id errors_api)
 
@@ -72,6 +77,7 @@ MutableScheduler
 EKSStableScheduler
 DataMisfitController
 calculate_timestep!
+posdef_correct
 ```
 ## Failure and NaN handling 
 
@@ -91,4 +97,25 @@ get_prior_cov
 get_impose_prior
 get_buffer
 get_default_multiplicative_inflation
+```
+
+## Update Groups
+
+```@docs
+UpdateGroup
+get_u_group
+get_g_group
+get_group_id
+update_group_consistency
+create_update_groups
+```
+
+## Accelerators
+
+```@docs
+DefaultAccelerator
+ConstantNesterovAccelerator
+NesterovAccelerator
+FirstOrderNesterovAccelerator
+accelerate!
 ```

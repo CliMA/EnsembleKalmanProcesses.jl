@@ -142,13 +142,7 @@ function DataMisfitController(; terminate_at = 1.0, on_terminate = "stop")
         ta = FT(1.0) # has a notion of posterior
     end
 
-    if on_terminate ∉ ["continue", "continue_fixed", "stop"]
-        throw(
-            ArgumentError(
-                "Unknown keyword option for `on_terminate`, expected \"continue\", \"continue_fixed\", or \"stop\". User provided $(on_terminate)",
-            ),
-        )
-    end
+    on_terminate ∈ ["continue", "continue_fixed", "stop"] || _throw_lrs_bad_on_terminate(on_terminate)
 
     return DataMisfitController{FT, typeof(on_terminate)}(iteration, ta, on_terminate)
 end
@@ -328,6 +322,20 @@ function calculate_timestep!(
         @info "Termination condition of scheduler `DataMisfitController` will be exceeded during the next iteration."
     end
     nothing
+end
+
+## Error helpers
+
+@noinline function _throw_lrs_bad_on_terminate(on_terminate)
+    throw(ArgumentError("""
+Unknown keyword option for `on_terminate`.
+
+Expected:
+    "continue", "continue_fixed", or "stop"
+
+Got:
+    on_terminate = $(repr(on_terminate))
+"""))
 end
 
 # overload ==

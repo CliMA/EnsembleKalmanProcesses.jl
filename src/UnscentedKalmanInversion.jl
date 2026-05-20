@@ -1,9 +1,9 @@
 #Unscented Kalman Inversion: specific structures and function definitions
 
 """
-    Unscented{FT<:AbstractFloat, IT<:Int} <: Process
+An Unscented Kalman Inversion process.
 
-An unscented Kalman Inversion process.
+$(TYPEDEF)
 
 # Fields
 
@@ -11,83 +11,67 @@ $(TYPEDFIELDS)
 
 # Constructors
 
-    Unscented(
-        u0_mean::AbstractVector{FT},
-        uu0_cov::AbstractMatrix{FT};
-        α_reg::FT = 1.0,
-        update_freq::IT = 0,
-        modified_unscented_transform::Bool = true,
-        impose_prior::Bool = false,
-        prior_mean::Any,
-        prior_cov::Any,
-        sigma_points::String = symmetric
-    ) where {FT <: AbstractFloat, IT <: Int}
-
-Construct an Unscented Inversion Process.
-
-Inputs:
-
-  - `u0_mean`: Mean at initialization.
-  - `uu0_cov`: Covariance at initialization.
-  - `α_reg`: Hyperparameter controlling regularization toward the prior mean (0 < `α_reg` ≤ 1),
-  default should be 1, without regulariazion.
-  - `update_freq`: Set to 0 when the inverse problem is not identifiable, 
-  namely the inverse problem has multiple solutions, the covariance matrix
-  will represent only the sensitivity of the parameters, instead of
-  posterior covariance information; set to 1 (or anything > 0) when
-  the inverse problem is identifiable, and the covariance matrix will
-  converge to a good approximation of the posterior covariance with an
-  uninformative prior.
-  - `modified_unscented_transform`: Modification of the UKI quadrature given
-    in Huang et al (2021).
-  - `impose_prior`: using augmented system (Tikhonov regularization with Kalman inversion in Chada 
-     et al 2020 and Huang et al (2022)) to regularize the inverse problem, which also imposes prior 
-     for posterior estimation. If impose_prior == true, prior mean and prior cov must be provided. 
-     This is recommended to use, especially when the number of observations is smaller than the number 
-     of parameters (ill-posed inverse problems). When this is used, other regularizations are turned off
-     automatically.
-  - `prior_mean`: Prior mean used for regularization.
-  - `prior_cov`: Prior cov used for regularization.
-  - `sigma_points`: String of sigma point type, it can be `symmetric` with `2N_par+1` 
-     ensemble members or `simplex` with `N_par+2` ensemble members.
-  
 $(METHODLIST)
 """
 mutable struct Unscented{FT <: AbstractFloat, IT <: Int} <: Process
-    "an interable of arrays of size `N_parameters` containing the mean of the parameters (in each `uki` iteration a new array of mean is added), note - this is not the same as the ensemble mean of the sigma ensemble as it is taken prior to prediction"
+    "iterable of vectors of length `N_parameters` containing the parameter mean at each UKI iteration; taken prior to the prediction step and therefore not equal to the sigma-ensemble mean"
     u_mean::Any  # ::Iterable{AbtractVector{FT}}
-    "an iterable of arrays of size (`N_parameters x N_parameters`) containing the covariance of the parameters (in each `uki` iteration a new array of `cov` is added), note - this is not the same as the ensemble cov of the sigma ensemble as it is taken prior to prediction"
+    "iterable of matrices of size `(N_parameters, N_parameters)` containing the parameter covariance at each UKI iteration; taken prior to the prediction step and therefore not equal to the sigma-ensemble covariance"
     uu_cov::Any  # ::Iterable{AbstractMatrix{FT}}
-    "an iterable of arrays of size `N_y` containing the predicted observation (in each `uki` iteration a new array of predicted observation is added)"
+    "iterable of vectors of length `N_y` containing the predicted observation mean at each UKI iteration"
     obs_pred::Any # ::Iterable{AbstractVector{FT}}
-    "weights in UKI"
+    "sigma-point weights used to shift the mean; vector of length `N_ens` for symmetric sigma points or matrix of size `(N_parameters, N_ens)` for simplex sigma points"
     c_weights::Union{AbstractVector{FT}, AbstractMatrix{FT}}
+    "quadrature weights used to reconstruct the mean from the sigma ensemble"
     mean_weights::AbstractVector{FT}
+    "quadrature weights used to reconstruct the covariance from the sigma ensemble"
     cov_weights::AbstractVector{FT}
-    "number of particles 2N+1 or N+2"
+    "number of sigma particles: `2N_parameters + 1` for symmetric or `N_parameters + 2` for simplex"
     N_ens::IT
-    "covariance of the artificial evolution error"
+    "covariance of the artificial evolution noise added during the prediction step"
     Σ_ω::AbstractMatrix{FT}
-    "covariance of the artificial observation error"
+    "scaling factor for the artificial observation noise covariance"
     Σ_ν_scale::FT
-    "regularization parameter"
+    "regularization parameter controlling shrinkage toward the prior mean (0 < α_reg ≤ 1)"
     α_reg::FT
-    "regularization vector"
+    "regularization reference vector; defaults to the prior mean"
     r::AbstractVector{FT}
-    "update frequency"
+    "frequency at which the evolution covariance `Σ_ω` is updated; 0 disables updates"
     update_freq::IT
-    "using augmented system (Tikhonov regularization with Kalman inversion in Chada 
-    et al 2020 and Huang et al (2022)) to regularize the inverse problem, which also imposes prior 
-    for posterior estimation."
+    "flag to use augmented-system Tikhonov regularization (Chada et al. 2020, Huang et al. 2022), which imposes the prior during inversion"
     impose_prior::Bool
-    "prior mean - defaults to initial mean"
+    "prior mean used for regularization; defaults to the initial mean"
     prior_mean::Any
-    "prior covariance - defaults to initial covariance"
+    "prior covariance used for regularization; defaults to the initial covariance"
     prior_cov::Any
     "current iteration number"
     iter::IT
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct an `Unscented` process from an initial mean and covariance.
+
+# Arguments
+- `u0_mean`: initial parameter mean vector.
+- `uu0_cov`: initial parameter covariance matrix.
+- `α_reg`: regularization parameter controlling shrinkage toward the prior mean
+  (0 < `α_reg` ≤ 1); default `1.0` disables regularization.
+- `update_freq`: frequency at which the evolution covariance is updated; set to `0`
+  for non-identifiable (ill-posed) problems where the covariance tracks parameter
+  sensitivity rather than posterior uncertainty, or to `1` (or any positive integer)
+  for identifiable problems where the covariance converges to the posterior covariance.
+- `modified_unscented_transform`: if `true`, applies the modified UKI quadrature
+  from Huang et al. (2021).
+- `impose_prior`: if `true`, uses the augmented-system Tikhonov regularization
+  (Chada et al. 2020, Huang et al. 2022), which imposes the prior and is recommended
+  for ill-posed problems; disables other regularization automatically.
+- `prior_mean`: prior mean for regularization; defaults to `u0_mean` when `impose_prior=true`.
+- `prior_cov`: prior covariance for regularization; defaults to `uu0_cov` when `impose_prior=true`.
+- `sigma_points`: sigma-point scheme; `"symmetric"` uses `2N_par+1` particles,
+  `"simplex"` uses `N_par+2` particles.
+"""
 function Unscented(
     u0_mean::VV,
     uu0_cov::MM;
@@ -124,7 +108,7 @@ function Unscented(
     elseif sigma_points == "simplex"
         N_ens = size(u0_mean, 1) + 2
     else
-        throw(ArgumentError("sigma_points type is not recognized. Select from \"symmetric\" or \"simplex\". "))
+        _throw_uki_sigma_points_unrecognized(sigma_points)
     end
 
     N_par = size(u0_mean, 1)
@@ -207,6 +191,12 @@ function Unscented(
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct an `Unscented` process from a `ParameterDistribution`, using its mean and
+covariance (in unconstrained space) as initial state and as the default prior.
+"""
 function Unscented(prior::ParameterDistribution; kwargs...)
 
     u0_mean = isa(mean(prior), AbstractVector) ? Vector(mean(prior)) : [mean(prior)] # mean of unconstrained distribution
@@ -218,6 +208,12 @@ end
 
 # Constructors for TransformUnscented are based off the above, and so are placed here
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct a `TransformUnscented` process by copying all fields from an existing `Unscented`
+process, adding an empty buffer required by the transform update.
+"""
 function TransformUnscented(process::UU) where {UU <: Unscented}
     return TransformUnscented(
         process.u_mean,
@@ -240,11 +236,24 @@ function TransformUnscented(process::UU) where {UU <: Unscented}
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct a `TransformUnscented` process from an initial mean and covariance.
+
+Accepts the same keyword arguments as `Unscented(u0_mean, uu0_cov; ...)`.
+"""
 function TransformUnscented(u0_mean::VV, uu0_cov::MM; kwargs...) where {VV <: AbstractVector, MM <: AbstractMatrix}
     process = Unscented(u0_mean, uu0_cov; kwargs...) # use UKI constructor
     return TransformUnscented(process)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct a `TransformUnscented` process from a `ParameterDistribution`, using its mean
+and covariance (in unconstrained space) as the initial state and default prior.
+"""
 function TransformUnscented(prior::ParameterDistribution; kwargs...)
     process = Unscented(prior; kwargs...) # use UKI constructor
     return TransformUnscented(process)
@@ -253,6 +262,15 @@ end
 #
 
 # Special constructor for UKI Object
+"""
+$(TYPEDSIGNATURES)
+
+Construct an `EnsembleKalmanProcess` for an `Unscented` or `TransformUnscented` process
+from an `ObservationSeries`.
+
+The initial sigma ensemble is generated internally from the mean and covariance stored in
+`process`; do not pass a pre-built ensemble.
+"""
 function EnsembleKalmanProcess(
     observation_series::OS,
     process::UorTU;
@@ -264,6 +282,15 @@ function EnsembleKalmanProcess(
     return EnsembleKalmanProcess(init_params, observation_series, process; kwargs...)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct an `EnsembleKalmanProcess` for an `Unscented` or `TransformUnscented` process
+from a single `Observation`.
+
+The initial sigma ensemble is generated internally from the mean and covariance stored in
+`process`; do not pass a pre-built ensemble.
+"""
 function EnsembleKalmanProcess(
     observation::OB,
     process::UorTU;
@@ -274,7 +301,20 @@ function EnsembleKalmanProcess(
     return EnsembleKalmanProcess(observation_series, process; kwargs...)
 end
 
+"""
+$(TYPEDSIGNATURES)
 
+Construct an `EnsembleKalmanProcess` for an `Unscented` or `TransformUnscented` process
+from a raw observation mean vector and noise covariance.
+
+The initial sigma ensemble is generated internally from the mean and covariance stored in
+`process`; do not pass a pre-built ensemble.
+
+# Arguments
+- `obs_mean`: observed data vector.
+- `obs_noise_cov`: observation noise covariance matrix or uniform scaling.
+- `process`: an `Unscented` or `TransformUnscented` process.
+"""
 function EnsembleKalmanProcess(
     obs_mean::AbstractVector{FT},
     obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
@@ -286,16 +326,32 @@ function EnsembleKalmanProcess(
     return EnsembleKalmanProcess(observation, process; kwargs...)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the prior mean stored in an `Unscented` or `TransformUnscented` process.
+"""
 get_prior_mean(process::UorTU) where {UorTU <: Union{Unscented, TransformUnscented}} = process.prior_mean
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the prior covariance stored in an `Unscented` or `TransformUnscented` process.
+"""
 get_prior_cov(process::UorTU) where {UorTU <: Union{Unscented, TransformUnscented}} = process.prior_cov
 
 
 """
 $(TYPEDSIGNATURES)
 
-Constructs the initial ensemble for the `Unscented` or `TransformUnscented process.  Returned with parameters as columns in unconstrained space by default (constrain by setting `constrained=true`)
+Return the initial sigma ensemble for an `Unscented` or `TransformUnscented` process.
 
-NOTE: This function is created just to see what the initial `sigma_ensemble` will be without constructing the EKP object. Do not pass the initial ensemble into the `EnsembleKalmanProcess` object.
+Parameters are returned as columns in unconstrained space by default; pass
+`constrained=true` to transform to constrained space via `prior`.
+
+Note: this function exists to inspect the initial sigma ensemble without constructing
+an `EnsembleKalmanProcess` object. Do not pass the returned ensemble into
+`EnsembleKalmanProcess` — the constructor generates it internally.
 """
 function construct_initial_ensemble(
     prior::ParameterDistribution,
@@ -313,6 +369,12 @@ function construct_initial_ensemble(
 end
 
 
+"""
+$(TYPEDSIGNATURES)
+
+Return a `FailureHandler` for an `Unscented` process that ignores ensemble failures by
+proceeding with the analysis and prediction steps on all particles, including failed ones.
+"""
 function FailureHandler(process::Unscented, method::IgnoreFailures)
     function failsafe_update(uki, u, g, u_idx, g_idx, failed_ens)
         #perform analysis on the model runs
@@ -325,12 +387,13 @@ function FailureHandler(process::Unscented, method::IgnoreFailures)
 end
 
 """
-    FailureHandler(process::Unscented, method::SampleSuccGauss)
+$(TYPEDSIGNATURES)
 
-Provides a failsafe update that
- - computes all means and covariances over the successful sigma points,
- - rescales the mean weights and the off-center covariance weights of the
-    successful particles to sum to the same value as the original weight sums.
+Return a `FailureHandler` for an `Unscented` process that handles failures by sampling
+from the empirical Gaussian defined by successful sigma points.
+
+The update rescales the mean weights and the off-center covariance weights of the
+successful particles so that their sums match those of the original full weight sets.
 """
 function FailureHandler(process::Unscented, method::SampleSuccGauss)
     function succ_gauss_analysis!(uki, u_p_full, g_full, u_idx, g_idx, failed_ens)
@@ -390,13 +453,14 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
 end
 
 """
-    construct_sigma_ensemble(
-        process::Unscented,
-        x_mean::Array{FT},
-        x_cov::AbstractMatrix{FT},
-    ) where {FT <: AbstractFloat, IT <: Int}
+$(TYPEDSIGNATURES)
 
-Construct the sigma ensemble based on the mean `x_mean` and covariance `x_cov`.
+Return the sigma-point ensemble matrix of size `(N_x, N_ens)` built from mean `x_mean`
+and covariance `x_cov`.
+
+The layout and number of sigma points depend on the `sigma_points` scheme stored in
+`process` (`"symmetric"` or `"simplex"`). When Cholesky factorization of `x_cov` fails,
+an SVD-based fallback is used.
 """
 function construct_sigma_ensemble(
     process::UorTU,
@@ -439,12 +503,12 @@ end
 
 
 """
-    construct_mean(
-        uki::EnsembleKalmanProcess{FT, IT, Unscented},
-        x::AbstractVecOrMat{FT};
-        mean_weights = uki.process.mean_weights,
-    ) where {FT <: AbstractFloat, IT <: Int}
-constructs mean `x_mean` from an ensemble `x`.
+$(TYPEDSIGNATURES)
+
+Return the weighted mean of an ensemble `x` using the UKI quadrature weights.
+
+When `x` is a matrix, each column is treated as one ensemble member and the result
+is a vector. When `x` is a vector, the result is a scalar.
 """
 function construct_mean(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -453,25 +517,25 @@ function construct_mean(
 ) where {FT <: AbstractFloat, IT <: Int, UorTU <: Union{Unscented, TransformUnscented}}
 
     if isa(x, AbstractMatrix{FT})
-        @assert size(x, 2) == length(mean_weights)
+        size(x, 2) == length(mean_weights) ||
+            _throw_uki_mean_dim_mismatch(size(x, 2), length(mean_weights); is_matrix = true)
         return Array((mean_weights' * x')')
     else
-        @assert length(mean_weights) == length(x)
+        length(mean_weights) == length(x) ||
+            _throw_uki_mean_dim_mismatch(length(x), length(mean_weights); is_matrix = false)
         return mean_weights' * x
     end
 end
 
 """
-    construct_successful_mean(
-        uki::EnsembleKalmanProcess{FT, IT, Unscented},
-        x::AbstractVecOrMat{FT},
-        successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
-    ) where {FT <: AbstractFloat, IT <: Int}
+$(TYPEDSIGNATURES)
 
-Constructs mean over successful particles by rescaling the quadrature
-weights over the successful particles. If the central particle fails
-in a modified unscented transform, the mean is computed as the
-ensemble mean over all successful particles.
+Return the weighted mean of ensemble `x` restricted to `successful_indices`, rescaling
+the quadrature weights so that their sum over the surviving particles matches the
+original total.
+
+If the central (first) particle has failed under the modified unscented transform, the
+mean reverts to the uniform average over all successful particles.
 """
 function construct_successful_mean(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -491,14 +555,12 @@ function construct_successful_mean(
 end
 
 """
-    construct_cov(
-        uki::EnsembleKalmanProcess{FT, IT, Unscented},
-        x::AbstractVecOrMat{FT},
-        x_mean::Union{FT, AbstractVector{FT}, Nothing} = nothing;
-        cov_weights = uki.process.cov_weights,
-    ) where {FT <: AbstractFloat, IT <: Int}
+$(TYPEDSIGNATURES)
 
-Constructs covariance `xx_cov` from ensemble `x` and mean `x_mean`.
+Return the weighted covariance of ensemble `x` with respect to mean `x_mean`.
+
+When `x_mean` is `nothing` it is computed via `construct_mean`. When `x` is a matrix
+the result is a matrix; when `x` is a vector the result is a scalar.
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -510,7 +572,7 @@ function construct_cov(
     x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
 
     if isa(x, AbstractMatrix{FT})
-        @assert isa(x_mean, AbstractVector{FT})
+        isa(x_mean, AbstractVector{FT}) || _throw_mean_not_vector(x_mean, x, FT)
         N_x, N_ens = size(x)
         xx_cov = zeros(FT, N_x, N_x)
 
@@ -520,7 +582,7 @@ function construct_cov(
 
         add_diagonal_regularization!(xx_cov)
     else
-        @assert isa(x_mean, FT)
+        isa(x_mean, FT) || _throw_mean_not_scalar(x_mean, x, FT)
         N_ens = length(x)
         xx_cov = FT(0)
 
@@ -532,15 +594,10 @@ function construct_cov(
 end
 
 """
-    construct_successful_cov(
-        uki::EnsembleKalmanProcess{FT, IT, Unscented},
-        x::AbstractVecOrMat{FT},
-        x_mean::Union{AbstractVector{FT}, FT},
-        successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
-    ) where {FT <: AbstractFloat, IT <: Int}
+$(TYPEDSIGNATURES)
 
-Constructs variance of `x` over successful particles by rescaling the
-off-center weights over the successful off-center particles.
+Return the weighted covariance of ensemble `x` restricted to `successful_indices`,
+rescaling the off-center quadrature weights so that their sum matches the original.
 """
 function construct_successful_cov(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -562,16 +619,10 @@ function construct_successful_cov(
 end
 
 """
-    construct_cov(
-        uki::EnsembleKalmanProcess{FT, IT, Unscented},
-        x::AbstractMatrix{FT},
-        x_mean::AbstractVector{FT},
-        obs_mean::AbstractMatrix{FT},
-        y_mean::AbstractVector{FT};
-        cov_weights = uki.process.cov_weights,
-    ) where {FT <: AbstractFloat, IT <: Int, P <: Process}
+$(TYPEDSIGNATURES)
 
-Constructs covariance `xy_cov` from ensemble x and mean `x_mean`, ensemble `obs_mean` and mean `y_mean`.
+Return the weighted cross-covariance between ensemble `x` (with mean `x_mean`) and
+ensemble `obs_mean` (with mean `y_mean`).
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -594,17 +645,11 @@ function construct_cov(
 end
 
 """
-    construct_successful_cov(
-        uki::EnsembleKalmanProcess{FT, IT, Unscented},
-        x::AbstractMatrix{FT},
-        x_mean::AbstractArray{FT},
-        obs_mean::AbstractMatrix{FT},
-        y_mean::AbstractArray{FT},
-        successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
-    ) where {FT <: AbstractFloat, IT <: Int}
+$(TYPEDSIGNATURES)
 
-Constructs covariance of `x` and `obs_mean - y_mean` over successful particles by rescaling
-the off-center weights over the successful off-center particles.
+Return the weighted cross-covariance between ensemble `x` (with mean `x_mean`) and
+ensemble `obs_mean` (with mean `y_mean`) restricted to `successful_indices`, rescaling
+the off-center quadrature weights so that their sum matches the original.
 """
 function construct_successful_cov(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -644,13 +689,13 @@ function construct_perturbation(
     x_mean = isnothing(x_mean) ? construct_mean(uki, x) : x_mean
 
     if isa(x, AbstractMatrix{FT})
-        @assert isa(x_mean, AbstractVector{FT})
+        isa(x_mean, AbstractVector{FT}) || _throw_mean_not_vector(x_mean, x, FT)
         xx_pert = zeros(size(x))
         for i in 2:size(xx_pert, 2) # first column always zero (as it is the mean)
             xx_pert[:, i] = sqrt(cov_weights[i]) * (x[:, i] .- x_mean)
         end
     else
-        @assert isa(x_mean, FT)
+        isa(x_mean, FT) || _throw_mean_not_scalar(x_mean, x, FT)
         N_ens = length(x)
         xx_pert = zeros(N_ens)
 
@@ -689,9 +734,15 @@ end
 
 
 """
-    update_ensemble_prediction!(process::Unscented, Δt::FT) where {FT <: AbstractFloat}
+$(TYPEDSIGNATURES)
 
-UKI prediction step : generate sigma points.
+Perform the UKI prediction step for parameter indices `u_idx` and return the new sigma
+ensemble as a matrix of size `(N_parameters, N_ens)`.
+
+The predicted mean and covariance are propagated by the regularized evolution model
+(`α_reg`, `r`, `Σ_ω`). If `update_freq > 0` and the current iteration is a multiple of
+`update_freq`, the evolution covariance `Σ_ω` is updated from the current parameter
+covariance.
 """
 function update_ensemble_prediction!(
     process::UorTU,
@@ -730,13 +781,14 @@ update_ensemble_prediction!(
     update_ensemble_prediction!(process, Δt, collect(1:length(process.u_mean[end])))
 
 """
-    update_ensemble_analysis!(
-        uki::EnsembleKalmanProcess{FT, IT, Unscented},
-        u_p::AbstractMatrix{FT},
-        g::AbstractMatrix{FT},
-    ) where {FT <: AbstractFloat, IT <: Int}
+$(TYPEDSIGNATURES)
 
-UKI analysis step  : g is the predicted observations  `Ny x N_ens` matrix
+Perform the UKI analysis step for an `Unscented` process, updating the stored parameter
+mean, covariance, and predicted observations in-place.
+
+`g_full` is the full `(N_obs, N_ens)` matrix of predicted observations; only the rows in
+`g_idx` and the parameter dimensions in `u_idx` are updated. When `impose_prior=true`,
+uses the augmented-system formulation.
 """
 function update_ensemble_analysis!(
     uki::EnsembleKalmanProcess{FT, IT, U},
@@ -791,26 +843,6 @@ function update_ensemble_analysis!(
 
 end
 
-"""
-    update_ensemble!(
-        uki::EnsembleKalmanProcess{FT, IT, Unscented},
-        g_in::AbstractMatrix{FT},
-        process::Unscented;
-        failed_ens = nothing,
-    ) where {FT <: AbstractFloat, IT <: Int}
-
-Updates the ensemble according to an Unscented process. 
-
-Inputs:
- - `uki`        :: The EnsembleKalmanProcess to update.
- - `g_in`       :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - `process` :: Type of the EKP.
- - `u_idx` :: indices of u to update (see `UpdateGroup`)
- - `g_idx` :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
- - `group_idx` :: the label of the update group (1 is "first update this iteration")
- - `failed_ens` :: Indices of failed particles. If nothing, failures are computed as columns of `g`
-    with NaN entries.
-"""
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, U},
     g::AbstractMatrix{FT},
@@ -845,9 +877,9 @@ function update_ensemble!(
 end
 
 """
-    get_u_mean(uki::EnsembleKalmanProcess{FT, IT, Unscented}, iteration::IT)
+$(TYPEDSIGNATURES)
 
-Returns the mean unconstrained parameter at the requested iteration.
+Return the mean unconstrained parameter vector at the given `iteration`.
 """
 function get_u_mean(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -857,9 +889,9 @@ function get_u_mean(
 end
 
 """
-    get_u_cov(uki::EnsembleKalmanProcess{FT, IT, Unscented}, iteration::IT)
+$(TYPEDSIGNATURES)
 
-Returns the unconstrained parameter covariance at the requested iteration.
+Return the unconstrained parameter covariance matrix at the given `iteration`.
 """
 function get_u_cov(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -921,7 +953,11 @@ function compute_crps(
 end
 
 """
-For Unscented processes it doesn't make sense to average RMSE at sigma points, so it is evaluated at the mean only, where it is exactly equal to `sqrt(compute_loss_at_mean(uki))`
+$(TYPEDSIGNATURES)
+
+Return the RMSE for an `Unscented` process evaluated at the mean, equal to `sqrt(compute_loss_at_mean(uki))`.
+
+For Unscented processes, averaging RMSE at individual sigma points is not meaningful.
 """
 function compute_average_rmse(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -930,7 +966,11 @@ function compute_average_rmse(
 end
 
 """
-For Unscented processes it doesn't make sense to average unweighted RMSE at sigma points, so it is evaluated at the mean only, where it is exactly equal to `sqrt(compute_unweighted_loss_at_mean(uki))`
+$(TYPEDSIGNATURES)
+
+Return the unweighted RMSE for an `Unscented` process evaluated at the mean, equal to `sqrt(compute_unweighted_loss_at_mean(uki))`.
+
+For Unscented processes, averaging RMSE at individual sigma points is not meaningful.
 """
 function compute_average_unweighted_rmse(
     uki::EnsembleKalmanProcess{FT, IT, UorTU},
@@ -941,6 +981,21 @@ end
 
 
 
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate a 2-dimensional Gaussian density on a regular grid and return the grid arrays and density values.
+
+# Arguments
+- `u_mean`: mean of the 2-d Gaussian (length-2 vector).
+- `uu_cov`: 2×2 covariance matrix.
+- `Nx`: number of grid points along the first dimension.
+- `Ny`: number of grid points along the second dimension.
+- `xx`: optional custom grid along the first dimension; computed from `u_mean` and `uu_cov` if `nothing`.
+- `yy`: optional custom grid along the second dimension; computed from `u_mean` and `uu_cov` if `nothing`.
+
+Returns `(xx, yy, Z)` where `xx` and `yy` are the 1-d grid vectors and `Z` is the `Nx × Ny` density matrix.
+"""
 function Gaussian_2d(
     u_mean::AbstractVector{FT},
     uu_cov::AbstractMatrix{FT},
@@ -971,4 +1026,76 @@ function Gaussian_2d(
     end
 
     return xx, yy, Z
+end
+
+## Error helpers
+
+@noinline function _throw_uki_sigma_points_unrecognized(sigma_points)
+    throw(ArgumentError("""
+Unrecognized sigma_points type.
+
+Expected:
+    "symmetric" or "simplex"
+
+Got:
+    sigma_points = $(repr(sigma_points))
+"""))
+end
+
+@noinline function _throw_uki_mean_dim_mismatch(x_len, weights_len; is_matrix::Bool)
+    if is_matrix
+        throw(DimensionMismatch("""
+Ensemble size does not match the number of quadrature mean weights.
+
+Expected:
+    size(x, 2) == length(mean_weights)
+
+Got:
+    size(x, 2) = $x_len
+    length(mean_weights) = $weights_len
+"""))
+    else
+        throw(DimensionMismatch("""
+Ensemble size does not match the number of quadrature mean weights.
+
+Expected:
+    length(x) == length(mean_weights)
+
+Got:
+    length(x) = $x_len
+    length(mean_weights) = $weights_len
+"""))
+    end
+end
+
+@noinline function _throw_mean_not_vector(x_mean, x, FT::Type)
+    throw(ArgumentError("""
+When the ensemble is a matrix, the ensemble mean must be a vector.
+
+Expected:
+    x_mean::AbstractVector{$FT}
+
+Got:
+    typeof(x_mean) = $(typeof(x_mean))
+    size(x) = $(size(x))
+
+Suggestion:
+    Pass x_mean = nothing to compute the mean automatically, or provide a vector of length $(size(x, 1)).
+"""))
+end
+
+@noinline function _throw_mean_not_scalar(x_mean, x, FT::Type)
+    throw(ArgumentError("""
+When the ensemble is a vector, the ensemble mean must be a scalar.
+
+Expected:
+    x_mean::$FT
+
+Got:
+    typeof(x_mean) = $(typeof(x_mean))
+    length(x) = $(length(x))
+
+Suggestion:
+    Pass x_mean = nothing to compute the mean automatically, or provide a scalar of type $FT.
+"""))
 end

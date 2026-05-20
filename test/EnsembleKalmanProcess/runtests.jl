@@ -6,7 +6,7 @@ using Plots
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 using EnsembleKalmanProcesses.Localizers
-import EnsembleKalmanProcesses: construct_mean, construct_cov, construct_sigma_ensemble
+import EnsembleKalmanProcesses: construct_mean, construct_cov, construct_perturbation, construct_sigma_ensemble
 const EKP = EnsembleKalmanProcesses
 
 
@@ -342,6 +342,7 @@ end
     dmclrs3 = EKP.DataMisfitController(on_terminate = "continue_fixed")
     @test dmclrs3.on_terminate == "continue_fixed"
     @test EKP.DataMisfitController() == EKP.DataMisfitController()
+    @test_throws ArgumentError EKP.DataMisfitController(on_terminate = "bad_value")
 
     # build EKP and eki objects
     # Get an inverse problem
@@ -1038,6 +1039,16 @@ end
             @test isa(construct_mean(ekpobj, rand(rng, 5, 2 * n_par + 1)), Vector{Float64})
             @test isa(construct_cov(ekpobj, rand(rng, 2 * n_par + 1)), Float64)
             @test isa(construct_cov(ekpobj, rand(rng, 5, 2 * n_par + 1)), Matrix{Float64})
+
+            # wrong ensemble size → DimensionMismatch
+            @test_throws DimensionMismatch construct_mean(ekpobj, rand(rng, 2 * n_par + 2))
+            @test_throws DimensionMismatch construct_mean(ekpobj, rand(rng, 5, 2 * n_par + 2))
+
+            # inconsistent x / x_mean types → ArgumentError
+            @test_throws ArgumentError construct_cov(ekpobj, rand(rng, 5, 2 * n_par + 1), 0.0)
+            @test_throws ArgumentError construct_cov(ekpobj, rand(rng, 2 * n_par + 1), rand(rng, 5))
+            @test_throws ArgumentError construct_perturbation(ekpobj, rand(rng, 5, 2 * n_par + 1), 0.0)
+            @test_throws ArgumentError construct_perturbation(ekpobj, rand(rng, 2 * n_par + 1), rand(rng, 5))
             @test isposdef(
                 construct_cov(ekpobj, construct_sigma_ensemble(get_process(ekpobj), [0.0; 0.0], [1.0 0; 0 0])),
             )

@@ -27,6 +27,7 @@ size(c::CType) where {CType <: ConstraintType}
 ```@docs
 ParameterDistribution
 constrained_gaussian
+combine_distributions
 n_samples
 get_name
 get_dimensions

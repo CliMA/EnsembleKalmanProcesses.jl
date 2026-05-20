@@ -35,6 +35,15 @@ export constrained_gaussian
 
 ## Objects
 # for the Distribution
+"""
+$(TYPEDEF)
+
+Abstract supertype for all parameter distribution representations.
+
+Subtypes define how a distribution is stored: as a parameterized formula
+([`Parameterized`](@ref)), a collection of samples ([`Samples`](@ref)), or a
+vector of parameterized distributions ([`VectorOfParameterized`](@ref)).
+"""
 abstract type ParameterDistributionType end
 
 """
@@ -88,10 +97,43 @@ end
 
 
 # For the transforms
+"""
+$(TYPEDEF)
+
+Abstract supertype for all constraint types applied to parameters.
+
+A constraint defines a bijection between a constrained parameter domain and the
+unconstrained real line. Concrete constraint families: [`NoConstraint`](@ref),
+[`BoundedBelow`](@ref), [`BoundedAbove`](@ref), and [`Bounded`](@ref).
+"""
 abstract type ConstraintType end
+
+"""
+$(TYPEDEF)
+
+Constraint family with no restriction on parameter values; the identity map is applied.
+"""
 abstract type NoConstraint <: ConstraintType end
+
+"""
+$(TYPEDEF)
+
+Constraint family for parameters bounded from below, mapping `(lower_bound, Inf)` to the real line.
+"""
 abstract type BoundedBelow <: ConstraintType end
+
+"""
+$(TYPEDEF)
+
+Constraint family for parameters bounded from above, mapping `(-Inf, upper_bound)` to the real line.
+"""
 abstract type BoundedAbove <: ConstraintType end
+
+"""
+$(TYPEDEF)
+
+Constraint family for parameters bounded both below and above, mapping `(lower_bound, upper_bound)` to the real line.
+"""
 abstract type Bounded <: ConstraintType end
 BasicConstraints = Union{BoundedBelow, BoundedAbove, Bounded, NoConstraint}
 
@@ -119,23 +161,6 @@ struct Constraint{T} <: ConstraintType
     unconstrained_to_constrained::Function
     "Dictionary of values used to build the Constraint (e.g. \"lower_bound\" or \"upper_bound\")"
     bounds::Union{Dict, Nothing}
-end
-
-function Base.show(io::IO, ::MIME"text/plain", cons::Constraint{T}) where {T <: BasicConstraints}  # verbose
-    bounds = isnothing(cons.bounds) ? Dict() : cons.bounds
-    lb = get(bounds, "lower_bound", "-∞")
-    ub = get(bounds, "upper_bound", "∞")
-    print(io, "Constraint{$(T)} with bounds ($(lb), $(ub))")
-end
-function Base.show(io::IO, cons::Constraint{T}) where {T}
-    suffix = isnothing(cons.bounds) ? "" : " with characterization $(tuple(cons.bounds...))"
-    print(io, "Constraint{$(T)}" * suffix)
-end
-function Base.show(io::IO, cons::Constraint{<:BasicConstraints})  # shorthand, e.g. in parameter distributions
-    bounds = isnothing(cons.bounds) ? Dict() : cons.bounds
-    lb = get(bounds, "lower_bound", "-∞")
-    ub = get(bounds, "upper_bound", "∞")
-    print(io, "Bounds: ($(lb), $(ub))")
 end
 
 """
@@ -194,11 +219,8 @@ and `x -> (upper_bound * exp(x) + lower_bound) / (exp(x) + 1)`.
 
 """
 function bounded(lower_bound::Real, upper_bound::Real)
-    if (upper_bound <= lower_bound)
-        throw(DomainError("Upper bound must be greater than lower bound (got [$(lower_bound), $(upper_bound)])"))
-
-    end
-    # As far as I know, only way to dispatch method based on isinf() would be to bring in 
+    upper_bound > lower_bound || _throw_pd_bounded_bad_bounds(lower_bound, upper_bound)
+    # As far as I know, only way to dispatch method based on isinf() would be to bring in
     # Traits as another dependency, which would be overkill
     if isinf(lower_bound)
         if isinf(upper_bound)
@@ -250,11 +272,6 @@ A constraint has size 1.
 """
 size(c::CType) where {CType <: ConstraintType} = size([c])
 
-"""
-$(TYPEDSIGNATURES)
-
-The number of dimensions of the parameter space
-"""
 ndims(d::Parameterized; kwargs...) = length(d.distribution)
 
 ndims(d::Samples; kwargs...) = size(d.distribution_samples, 1)
@@ -310,20 +327,17 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
     #check type
     if !(isa(param_dist_dict, Dict) || eltype(param_dist_dict) <: Dict)
-        throw(ArgumentError("input argument must be a Dict, or <:AbstractVector{Dict}. Got $(typeof(param_dist_dict))"))
+        _throw_pd_bad_input_type(typeof(param_dist_dict))
     end
 
     # make copy as array
     param_dist_dict_array = !isa(param_dist_dict, AbstractVector) ? [param_dist_dict] : param_dist_dict
+    n_dicts = length(param_dist_dict_array)
     # perform checks on the individual distributions
-    for pdd in param_dist_dict_array
+    for (i, pdd) in enumerate(param_dist_dict_array)
         # check all keys are present
         if !all(["distribution", "name", "constraint"] .∈ [collect(keys(pdd))])
-            throw(
-                ArgumentError(
-                    "input dictionaries must contain the keys: \"distribution\", \"name\", \"constraint\". Got $(keys(pdd))",
-                ),
-            )
+            _throw_pd_missing_keys(sort(collect(string.(keys(pdd)))); i = i, n = n_dicts)
         end
 
         distribution = pdd["distribution"]
@@ -332,29 +346,17 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
         # check key types
         if !isa(distribution, ParameterDistributionType)
-            throw(
-                ArgumentError(
-                    "Value of \"distribution\" must be a valid ParameterDistributionType object: Parameterized, VectorOfParameterized, Samples, FunctionParameterDistribution. Got $(typeof(distribution))",
-                ),
-            )
+            _throw_pd_bad_distribution_type(typeof(distribution); i = i, n = n_dicts)
         end
         if !isa(constraint, ConstraintType)
             if !isa(constraint, AbstractVector) #it's not a vector either
-                throw(
-                    ArgumentError(
-                        "Value of \"constraint\" must be a ConstraintType, or <:AbstractVector(ConstraintType). Got $(typeof(constraint))",
-                    ),
-                )
+                _throw_pd_bad_constraint_type(typeof(constraint); i = i, n = n_dicts)
             elseif !(eltype(constraint) <: ConstraintType) #it is a vector, but not of constraint
-                throw(
-                    ArgumentError(
-                        "\"constraint\" vector must contain a ConstraintType in all entries. Got eltype $(eltype(constraint))",
-                    ),
-                )
+                _throw_pd_bad_constraint_elements(eltype(constraint); i = i, n = n_dicts)
             end
         end
         if !isa(name, String)
-            throw(ArgumentError("Value of \"name\" must be a String. Got $(typeof(name))"))
+            _throw_pd_bad_name_type(typeof(name), name; i = i, n = n_dicts)
         end
 
         # 1 constraint per dimension check
@@ -362,11 +364,7 @@ function ParameterDistribution(param_dist_dict::Union{Dict, AbstractVector})
 
         n_parameters = ndims(distribution, function_parameter_opt = "constraint")
         if !(n_parameters == length(constraint_array))
-            throw(
-                DimensionMismatch(
-                    "There must be one constraint per dimension in a parameter distribution, or one constraint (total) in a function parameter distribution. Required $(n_parameters) contraints, got $(length(constraint_array)). \n Use no_constraint() object if no constraint is required in a dimension",
-                ),
-            )
+            _throw_pd_constraint_count_mismatch(n_parameters, length(constraint_array); i = i, n = n_dicts)
         end
 
     end
@@ -395,22 +393,14 @@ function ParameterDistribution(
 )
 
     if !(typeof(constraint) <: ConstraintType || eltype(constraint) <: ConstraintType) # if it is a vector, but not of constraint
-        throw(
-            ArgumentError(
-                "`constraint` must be a ConstraintType, or Vector of ConstraintType's. Got $(typeof(constraint))",
-            ),
-        )
+        _throw_pd_bad_constraint_type(typeof(constraint))
     end
     # 1 constraint per dimension check
     constraint_vec = isa(constraint, ConstraintType) ? [constraint] : constraint
     n_parameters = ndims(distribution, function_parameter_opt = "constraint")
 
     if !(n_parameters == length(constraint_vec))
-        throw(
-            DimensionMismatch(
-                "There must be one constraint per dimension in a parameter distribution, or one constraint (total) in a function parameter distribution. Required $(n_parameters) contraints, got $(length(constraint_vec)). \n Use no_constraint() object if no constraint is required in a dimension",
-            ),
-        )
+        _throw_pd_constraint_count_mismatch(n_parameters, length(constraint_vec))
     end
 
     # flatten the structure
@@ -435,19 +425,6 @@ function ParameterDistribution(
 )
     distribution = Samples(distribution_samples, params_are_columns = params_are_columns)
     return ParameterDistribution(distribution, constraint, name)
-end
-
-function Base.show(io::IO, distributions::ParameterDistribution)
-    n = length(distributions.name)
-    out = "ParameterDistribution with $n entries: \n"
-    for (i, inds) in enumerate(batch(distributions, function_parameter_opt = "constraint"))
-        dist = distributions.distribution[i]
-        dist_string = replace("$dist", "\n" => " ")  # hack to remove `\n` from `Parameterized(FullNormal(...))`
-        cons = distributions.constraint[inds]
-        nam = distributions.name[i]
-        out *= "'$(nam)' with $(cons) over distribution $dist_string \n"
-    end
-    print(io, out)
 end
 
 ## Functions
@@ -493,6 +470,14 @@ function get_dimensions(d::VectorOfParameterized; kwargs...)
     return [length(dd) for dd in d.distribution]
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the total number of dimensions of the parameter space of `pd`.
+
+# Method list
+$(METHODLIST)
+"""
 function ndims(pd::ParameterDistribution; function_parameter_opt::AbstractString = "dof")
     return sum(get_dimensions(pd, function_parameter_opt = function_parameter_opt))
 end
@@ -575,9 +560,12 @@ Base.:(==)(pd_a::ParameterDistribution, pd_b::ParameterDistribution) =
 """
 $(TYPEDSIGNATURES)
 
-Draws `n_draws` samples from the parameter distributions `pd`. Returns an array, with 
-parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
-optional and defaults to 1. Performed in computational space.
+Draw `n_draws` samples from the parameter distribution `pd` and return them as a matrix
+with parameters as rows and samples as columns. `rng` defaults to `Random.GLOBAL_RNG`;
+`n_draws` defaults to 1. Sampling is performed in the unconstrained (computational) space.
+
+# Method list
+$(METHODLIST)
 """
 function sample(rng::AbstractRNG, pd::ParameterDistribution, n_draws::IT) where {IT <: Integer}
     return reduce(vcat, sample.(rng, pd.distribution, n_draws))
@@ -588,13 +576,6 @@ sample(pd::ParameterDistribution, n_draws::IT) where {IT <: Integer} = sample(Ra
 sample(rng::AbstractRNG, pd::ParameterDistribution) = sample(rng, pd, 1)
 sample(pd::ParameterDistribution) = sample(Random.GLOBAL_RNG, pd, 1)
 
-"""
-$(TYPEDSIGNATURES)
-
-Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
-parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
-optional and defaults to 1. Performed in computational space.
-"""
 function sample(rng::AbstractRNG, d::Samples, n_draws::IT) where {IT <: Integer}
     n_stored_samples = n_samples(d)
     samples_idx = sample(rng, collect(1:n_stored_samples), n_draws)
@@ -610,13 +591,6 @@ sample(d::Samples, n_draws::IT) where {IT <: Integer} = sample(Random.GLOBAL_RNG
 sample(rng::AbstractRNG, d::Samples) = sample(rng, d, 1)
 sample(d::Samples) = sample(Random.GLOBAL_RNG, d, 1)
 
-"""
-$(TYPEDSIGNATURES)
-
-Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
-parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
-optional and defaults to 1. Performed in computational space.
-"""
 function sample(rng::AbstractRNG, d::Parameterized, n_draws::IT) where {IT <: Integer}
     if ndims(d) == 1
         return reshape(rand(rng, d.distribution, n_draws), :, n_draws) #columns are parameters
@@ -630,13 +604,6 @@ sample(d::Parameterized, n_draws::IT) where {IT <: Integer} = sample(Random.GLOB
 sample(rng::AbstractRNG, d::Parameterized) = sample(rng, d, 1)
 sample(d::Parameterized) = sample(Random.GLOBAL_RNG, d, 1)
 
-"""
-$(TYPEDSIGNATURES)
-
-Draws `n_draws` samples from the parameter distributions `d`. Returns an array, with 
-parameters as columns. `rng` is optional and defaults to `Random.GLOBAL_RNG`. `n_draws` is 
-optional and defaults to 1. Performed in computational space.
-"""
 function sample(rng::AbstractRNG, d::VectorOfParameterized, n_draws::IT) where {IT <: Integer}
     samples = zeros(ndims(d), n_draws)
     batches = batch(d)
@@ -651,21 +618,11 @@ sample(d::VectorOfParameterized, n_draws::IT) where {IT <: Integer} = sample(Ran
 sample(rng::AbstractRNG, d::VectorOfParameterized) = sample(rng, d, 1)
 sample(d::VectorOfParameterized) = sample(Random.GLOBAL_RNG, d, 1)
 
-"""
-$(TYPEDSIGNATURES)
-
-Obtains the independent logpdfs of the parameter distributions at `xarray`
-(non-Samples Distributions only), and returns their sum.
-"""
 logpdf(d::Parameterized, x::FT) where {FT <: Real} = logpdf(d, [x]) # make into 1D array
 
 function logpdf(d::Parameterized, xarray::VV) where {VV <: AbstractVector}
     dimension = ndims(d)
-    if dimension != length(xarray)
-        throw(
-            DimensionMismatch("cannot evaluate logpdf with distribution $dimension on array length $(length(xarray))"),
-        )
-    end
+    dimension == length(xarray) || _throw_pd_logpdf_dim_mismatch(dimension, length(xarray))
     if dimension == 1 # if univariate, requires scalar evaluation
         return logpdf(d.distribution, xarray[1])
     else
@@ -689,23 +646,20 @@ function logpdf(d::VectorOfParameterized, xarray::VV) where {VV <: AbstractVecto
     return lpdfsum
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Obtains the sum of log-pdfs of each sub-distribution in `pd` evaluated at the
+corresponding subvector of `xarray`. Only supported for non-[`Samples`](@ref) distributions.
+
+# Method list
+$(METHODLIST)
+"""
 function logpdf(pd::ParameterDistribution, xarray::AbstractVector{FT}) where {FT <: Real}
     #first check we don't have sampled distribution
-    if any(isa.(pd.distribution, Samples))
-        throw(
-            ErrorException(
-                "No implementation of logpdf of Samples distributions. Consider using a Parameterized type for your prior.",
-            ),
-        )
-    end
+    any(isa.(pd.distribution, Samples)) && _throw_pd_logpdf_has_samples(pd.distribution)
     #assert xarray correct dim/length
-    if length(xarray) != ndims(pd)
-        throw(
-            DimensionMismatch(
-                "xarray must have dimension equal to the parameter space. Expected $(ndims(pd)), got $(size(xarray)[1])",
-            ),
-        )
-    end
+    length(xarray) == ndims(pd) || _throw_pd_logpdf_dim_mismatch(ndims(pd), length(xarray))
 
     # get the index of xarray chunks to give to the different distributions.
     batches = batch(pd)
@@ -717,11 +671,6 @@ end
 logpdf(pd::ParameterDistribution, x::FT) where {FT <: Real} = logpdf(pd, [x])
 
 #extending StatsBase cov,var
-"""
-$(TYPEDSIGNATURES)
-
-Returns a flattened variance of the distributions
-"""
 var(d::Parameterized) = var(d.distribution)
 var(d::Samples) = var(d.distribution_samples, dims = 2)
 function var(d::VectorOfParameterized)
@@ -729,17 +678,20 @@ function var(d::VectorOfParameterized)
     return reduce(vcat, block_var)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the concatenated, flattened variance vector of all sub-distributions in `pd`.
+
+# Method list
+$(METHODLIST)
+"""
 function var(pd::ParameterDistribution)
     block_var = var.(pd.distribution)
     return reduce(vcat, block_var) #build the flattened vector
 end
 
 
-"""
-$(TYPEDSIGNATURES)
-
-Returns a dense blocked (co)variance of the distributions.
-"""
 cov(d::Parameterized) = cov(d.distribution)
 function cov(d::Samples)
     cov_samples = cov(d.distribution_samples, dims = 2) #parameters are columns
@@ -762,6 +714,14 @@ function cov(d::VectorOfParameterized)
 
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the block-diagonal covariance matrix of all sub-distributions in `pd`, assembled as a dense matrix.
+
+# Method list
+$(METHODLIST)
+"""
 function cov(pd::ParameterDistribution)
     d_dims = get_dimensions(pd)
 
@@ -780,14 +740,17 @@ function cov(pd::ParameterDistribution)
 end
 
 #extending mean
-"""
-$(TYPEDSIGNATURES)
-
-Returns a concatenated mean of the parameter distributions. 
-"""
 mean(d::Parameterized) = mean(d.distribution)
 mean(d::Samples) = mean(d.distribution_samples, dims = 2)
 mean(d::VectorOfParameterized) = reduce(vcat, mean.(d.distribution))
+"""
+$(TYPEDSIGNATURES)
+
+Return the concatenated mean of all sub-distributions in `pd`.
+
+# Method list
+$(METHODLIST)
+"""
 mean(pd::ParameterDistribution) = reduce(vcat, mean.(pd.distribution))
 
 #apply transforms
@@ -827,11 +790,7 @@ function transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Ab
         xmat = x
     end
     if size(xmat, 1) != nd
-        throw(
-            ArgumentError(
-                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape (parameter dimension, sample size)",
-            ),
-        )
+        _throw_transform_dim_mismatch(nd, size(xmat, 1); where = :transform_constrained_to_unconstrained)
     end
 
     param_names = get_name(pd)
@@ -876,19 +835,11 @@ Here, `x` is an iterable of parameters sample ensembles for different EKP iterat
 """
 function transform_constrained_to_unconstrained(pd::ParameterDistribution, x)
     if !hasmethod(iterate, [typeof(x)]) # no way of iterating
-        throw(
-            ArgumentError(
-                "transformations can be applied to `VecOrMat` or `Iterable{VecOrMat}` types only. Got $(typeof(x)).",
-            ),
-        )
+        _throw_x_not_iterable(x; where = :transform_constrained_to_unconstrained)
     end
 
     if !isa(x[1], AbstractVecOrMat)
-        throw(
-            ArgumentError(
-                "transformations can be applied to `VecOrMat` or `Iterable{VecOrMat}` types only. Got $(typeof(x)).",
-            ),
-        )
+        _throw_x_elements_not_vecormat(x; where = :transform_constrained_to_unconstrained)
     end
 
     transf_x = []
@@ -940,11 +891,7 @@ function transform_unconstrained_to_constrained(
         xmat = x
     end
     if size(xmat, 1) != nd
-        throw(
-            ArgumentError(
-                "the dimension of the parameter space in unconstrained space is $(nd). Got input of dimension $(size(xmat,1)). \n For clarity, use a `Matrix` input with shape (parameter dimension, sample size)",
-            ),
-        )
+        _throw_transform_dim_mismatch(nd, size(xmat, 1); where = :transform_unconstrained_to_constrained)
     end
 
     param_names = get_name(pd)
@@ -1009,19 +956,11 @@ function transform_unconstrained_to_constrained(
     x, # iterable{VecOrMat}
 )
     if !hasmethod(iterate, [typeof(x)]) # no way of iterating
-        throw(
-            ArgumentError(
-                "transformations can be applied to `VecOrMat` or `Iterable{VecOrMat}` types only. Got $(typeof(x)).",
-            ),
-        )
+        _throw_x_not_iterable(x; where = :transform_unconstrained_to_constrained)
     end
 
     if !isa(x[1], AbstractVecOrMat)
-        throw(
-            ArgumentError(
-                "transformations can be applied to `VecOrMat` or `Iterable{VecOrMat}` types only. Got $(typeof(x)).",
-            ),
-        )
+        _throw_x_elements_not_vecormat(x; where = :transform_unconstrained_to_constrained)
     end
 
     transf_x = []
@@ -1105,16 +1044,8 @@ function constrained_gaussian(
     optim_algorithm::Optim.AbstractOptimizer = NelderMead(),
     optim_kwargs...,
 )
-    if (upper_bound <= lower_bound)
-        throw(
-            DomainError(
-                "`$(name)`: Upper bound must be greater than lower bound (got [$(lower_bound), $(upper_bound)])",
-            ),
-        )
-    end
-    if (μ_c <= lower_bound) || (μ_c >= upper_bound)
-        throw(DomainError("`$(name)`: Target mean $(μ_c) must be within constraint [$(lower_bound), $(upper_bound)]"))
-    end
+    upper_bound > lower_bound || _throw_cg_bad_bounds(name, lower_bound, upper_bound)
+    lower_bound < μ_c < upper_bound || _throw_cg_bad_mean(name, lower_bound, upper_bound, μ_c)
 
     if isinf(lower_bound)
         if isinf(upper_bound)
@@ -1129,12 +1060,8 @@ function constrained_gaussian(
             μ_u, σ_u = _inverse_lognormal_mean_std(μ_c - lower_bound, σ_c)
         else
             # finite interval case; need to solve numerically
-            if (μ_c - σ_c <= lower_bound)
-                throw(DomainError("`$(name)`: Target std $(σ_c) puts μ - σ too close to lower bound $(lower_bound)"))
-            end
-            if (μ_c + σ_c >= upper_bound)
-                throw(DomainError("`$(name)`: Target std $(σ_c) puts μ + σ too close to upper bound $(upper_bound)"))
-            end
+            μ_c - σ_c > lower_bound || _throw_cg_std_clips_lower(name, lower_bound, upper_bound, μ_c, σ_c)
+            μ_c + σ_c < upper_bound || _throw_cg_std_clips_upper(name, lower_bound, upper_bound, μ_c, σ_c)
             # 1.2 seems a reasonable tolerance here for solver to converge quickly
             if (μ_c - 1.2 * σ_c <= lower_bound)
                 @warn(
@@ -1217,6 +1144,255 @@ function _constrained_gaussian(
         @warn "Unable to set constrained std for `$(name)`: target = $(σ_c), got $(s_c)"
     end
     return (μ_u, σ_u)
+end
+
+## Error helpers
+
+# --- bounded / constrained_gaussian helpers ---
+
+@noinline function _throw_pd_bounded_bad_bounds(lower_bound, upper_bound)
+    throw(
+        DomainError(
+            (lower_bound, upper_bound),
+            "upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
+        ),
+    )
+end
+
+@noinline function _throw_cg_bad_bounds(name, lower_bound, upper_bound)
+    throw(
+        DomainError(
+            (lower_bound, upper_bound),
+            "`$(name)`: upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
+        ),
+    )
+end
+
+@noinline function _throw_cg_bad_mean(name, lower_bound, upper_bound, μ_c)
+    throw(
+        DomainError(
+            μ_c,
+            "`$(name)`: target mean μ_c = $(μ_c) is outside the open constraint interval ($(lower_bound), $(upper_bound)); choose μ_c strictly between the bounds.",
+        ),
+    )
+end
+
+@noinline function _throw_cg_std_clips_lower(name, lower_bound, upper_bound, μ_c, σ_c)
+    throw(
+        DomainError(
+            σ_c,
+            "`$(name)`: target std σ_c = $(σ_c) places μ - σ = $(μ_c - σ_c) at or below lower_bound = $(lower_bound); reduce σ_c or move μ_c away from the lower bound.",
+        ),
+    )
+end
+
+@noinline function _throw_cg_std_clips_upper(name, lower_bound, upper_bound, μ_c, σ_c)
+    throw(
+        DomainError(
+            σ_c,
+            "`$(name)`: target std σ_c = $(σ_c) places μ + σ = $(μ_c + σ_c) at or above upper_bound = $(upper_bound); reduce σ_c or move μ_c away from the upper bound.",
+        ),
+    )
+end
+
+# --- logpdf helpers ---
+
+@noinline function _throw_pd_logpdf_dim_mismatch(expected_len, got_len)
+    throw(DimensionMismatch("""
+logpdf: input length does not match distribution dimensionality.
+
+Expected:
+    length(xarray) = $expected_len
+
+Got:
+    length(xarray) = $got_len
+"""))
+end
+
+@noinline function _throw_pd_logpdf_has_samples(distributions)
+    throw(ArgumentError("""
+logpdf is not defined for Samples distributions.
+
+Got:
+    distribution type(s) containing Samples: $(typeof.(filter(d -> isa(d, Samples), distributions)))
+
+Suggestion:
+    Use a Parameterized or VectorOfParameterized prior to evaluate the log-density.
+"""))
+end
+
+# --- ParameterDistribution constructor helpers ---
+
+@noinline function _throw_pd_bad_input_type(T)
+    throw(ArgumentError("""
+ParameterDistribution: input must be a Dict or an AbstractVector of Dicts.
+
+Expected:
+    Dict or AbstractVector{<:Dict}
+
+Got:
+    $T
+
+Suggestion:
+    Wrap a single parameter dict in a vector, e.g. [my_dict], or pass a Dict directly.
+"""))
+end
+
+@noinline function _throw_pd_missing_keys(got_keys; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+Parameter dictionary is missing required keys.$loop_ctx
+
+Expected keys:
+    "distribution", "name", "constraint"
+
+Got keys:
+    $got_keys
+
+Suggestion:
+    Ensure each parameter dict contains all three required keys.
+"""))
+end
+
+@noinline function _throw_pd_bad_distribution_type(T; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+Value of "distribution" is not a valid ParameterDistributionType.$loop_ctx
+
+Expected:
+    Parameterized, VectorOfParameterized, Samples, or GaussianRandomFieldInterface
+
+Got:
+    $T
+
+Suggestion:
+    Wrap your distribution, e.g. Parameterized(Normal(0, 1)).
+"""))
+end
+
+@noinline function _throw_pd_bad_constraint_type(T; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+`constraint` is not a valid constraint type.$loop_ctx
+
+Expected:
+    A ConstraintType or AbstractVector{<:ConstraintType}
+
+Got:
+    $T
+
+Suggestion:
+    Use no_constraint(), bounded_below(lb), bounded_above(ub), or bounded(lb, ub).
+"""))
+end
+
+@noinline function _throw_pd_bad_constraint_elements(T; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+"constraint" vector contains non-ConstraintType entries.$loop_ctx
+
+Expected:
+    All elements to be a ConstraintType
+
+Got:
+    eltype = $T
+
+Suggestion:
+    Use a vector of constraint objects, e.g. [no_constraint(), bounded_below(0)].
+"""))
+end
+
+@noinline function _throw_pd_bad_name_type(T, name_val; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(ArgumentError("""
+Value of "name" must be a String.$loop_ctx
+
+Got:
+    $T = $(repr(name_val))
+"""))
+end
+
+@noinline function _throw_pd_constraint_count_mismatch(n_params, n_constraints; i = nothing, n = nothing)
+    loop_ctx = isnothing(i) ? "" : """
+
+Loop context:
+    dict index = $i (of $n)"""
+    throw(DimensionMismatch("""
+Number of constraints does not match the number of parameter dimensions.$loop_ctx
+
+Expected:
+    $n_params constraint(s) — one per dimension, or one total for function distributions
+
+Got:
+    $n_constraints constraint(s)
+
+Suggestion:
+    Use no_constraint() for any unconstrained dimension.
+"""))
+end
+
+# --- transform helpers ---
+
+@noinline function _throw_transform_dim_mismatch(nd, actual; where::Symbol)
+    throw(ArgumentError("""
+$where: input dimension does not match the parameter space.
+
+Expected:
+    size(x, 1) = $nd (parameter dimension)
+
+Got:
+    size(x, 1) = $actual
+
+Suggestion:
+    Pass a Matrix of shape (parameter_dimension × n_samples).
+"""))
+end
+
+# --- iterable-overload helpers ---
+
+@noinline function _throw_x_not_iterable(x; where::Symbol)
+    throw(ArgumentError("""
+$where: `x` is not iterable.
+
+Expected:
+    AbstractVecOrMat or an iterable of AbstractVecOrMat elements (one per EK iteration)
+
+Got:
+    $(typeof(x))
+
+Suggestion:
+    Pass a Vector or Matrix, or a collection of Vectors/Matrices.
+"""))
+end
+
+@noinline function _throw_x_elements_not_vecormat(x; where::Symbol)
+    throw(ArgumentError("""
+$where: elements of `x` are not AbstractVecOrMat.
+
+Expected:
+    An iterable whose elements are AbstractVecOrMat
+
+Got:
+    element type = $(typeof(x[1]))
+
+Suggestion:
+    Pass a collection of Vectors or Matrices (one per EK iteration).
+"""))
 end
 
 include("FunctionParameterDistributions.jl")

@@ -3,13 +3,17 @@
 export get_prior_mean, get_prior_cov, get_impose_prior, get_buffer, get_default_multiplicative_inflation
 
 """
-    TransformInversion <: Process
-
 An ensemble transform Kalman inversion process.
+
+$(TYPEDEF)
 
 # Fields
 
 $(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 struct TransformInversion{
     FT <: AbstractFloat,
@@ -31,38 +35,45 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `prior_mean` from the TransformInversion process 
+Return the stored `prior_mean` from the `TransformInversion` process.
 """
 get_prior_mean(process::TransformInversion) = process.prior_mean
 
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `prior_cov` from the TransformInversion process 
+Return the stored `prior_cov` from the `TransformInversion` process.
 """
 get_prior_cov(process::TransformInversion) = process.prior_cov
 
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `impose_prior` from the TransformInversion process 
+Return the stored `impose_prior` from the `TransformInversion` process.
 """
 get_impose_prior(process::TransformInversion) = process.impose_prior
 
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `buffer` from the TransformInversion process 
+Return the stored `buffer` from the `TransformInversion` process.
 """
 get_buffer(p::TI) where {TI <: TransformInversion} = p.buffer
 
 """
 $(TYPEDSIGNATURES)
 
-Returns the stored `default_multiplicative_inflation` from the TransformInversion process 
+Return the stored `default_multiplicative_inflation` from the `TransformInversion` process.
 """
 get_default_multiplicative_inflation(p::TI) where {TI <: TransformInversion} = p.default_multiplicative_inflation
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct a `TransformInversion` process from explicit prior mean and covariance.
+
+Constructor for prior-enforcing process, (unless `impose_prior` is set false), and `default_multiplicative_inflation` is set to 0.0.
+"""
 function TransformInversion(mean_prior, cov_prior; impose_prior = true, default_multiplicative_inflation = 0.0)
     mp = isa(mean_prior, Real) ? [mean_prior] : mean_prior
     dmi = max(0.0, default_multiplicative_inflation)
@@ -191,24 +202,6 @@ function etki_update(
 
 end
 
-"""
-    update_ensemble!(
-        ekp::EnsembleKalmanProcess{FT, IT, TransformInversion},
-        g::AbstractMatrix{FT},
-        process::TransformInversion;
-        failed_ens = nothing,
-    ) where {FT, IT}
-
-Updates the ensemble according to a TransformInversion process. 
-
-Inputs:
- - ekp :: The EnsembleKalmanProcess to update.
- - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - process :: Type of the EKP.
- - u_idx :: indices of u to update (see `UpdateGroup`)
- - g_idx :: indices of g,y,Γ with which to update u (see `UpdateGroup`)
- - failed_ens :: Indices of failed particles. If nothing, failures are computed as columns of `g` with NaN entries.
-"""
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, TI},
     g::AbstractMatrix{FT},

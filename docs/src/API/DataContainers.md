@@ -8,5 +8,8 @@ CurrentModule = EnsembleKalmanProcesses.DataContainers
 DataContainer
 PairedDataContainer
 size
+get_data
+get_inputs
+get_outputs
 ```
 

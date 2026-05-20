@@ -1,0 +1,69 @@
+{
+    "$schema": "https://json.schemastore.org/claude-code-settings.json",
+    "permissions": {
+        "allow": [
+            "Bash(julia --project *)",
+            "Read(*)",
+            "FileWrite(src/*, test/*, docs/*, examples/*, ai/*)",
+            "Edit(src/*)",
+            "Write(src/*)",
+            "Bash(git log*)",
+            "Bash(git diff*)",
+            "Bash(git status*)",
+            "Bash(git show*)",
+            "Bash(git blame*)",
+            "Bash(git ls-files*)",
+            "Bash(git rev-parse*)",
+            "Bash(git describe*)",
+            "Bash(git shortlog*)",
+            "Bash(git tag -l*)",
+            "Bash(git tag --list*)",
+            "Bash(git stash list*)",
+            "Bash(git stash show*)",
+            "Bash(git remote -v*)",
+            "Bash(git remote show*)",
+            "Bash(git branch -l*)",
+            "Bash(git branch --list*)",
+            "Bash(git branch -a*)",
+            "Bash(git branch -r*)"
+        ],
+        "deny": [
+            "Read(./.env)",
+            "Bash(git commit*)",
+            "Bash(git add*)",
+            "Bash(git push*)",
+            "Bash(git pull*)",
+            "Bash(git merge*)",
+            "Bash(git rebase*)",
+            "Bash(git checkout*)",
+            "Bash(git switch*)",
+            "Bash(git restore*)",
+            "Bash(git reset*)",
+            "Bash(git cherry-pick*)",
+            "Bash(git clean*)",
+            "Bash(git rm*)"
+        ]
+    },
+    "hooks": {
+        "UserPromptSubmit": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "printf '\\n---\\nSKILL ROUTING: Review the available skills listed in the system context. If one clearly matches this task, invoke it via the Skill tool before proceeding. If no skill clearly matches, use AskUserQuestion to ask the user: (a) whether they would like to apply any of the listed skills to this task anyway, (b) whether they would like to create a new skill using the skill-creator skill — in which case propose a suggested skill name and one-line description tailored to this task — or (c) proceed without a skill. Also use AskUserQuestion to ask the user whether they would like to use subagents (e.g., Explore, Plan, general-purpose) for this task, and if so, how (e.g., for research, parallel work, or isolated execution). Do NOT proceed with the task until the user has answered.\\n'"
+                    }
+                ]
+            }
+        ],
+        "Stop": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "julia --project=.dev .dev/climaformat.jl . 2>/dev/null || echo 'Formatting skipped as error encountered when calling `julia --project=.dev .dev/climaformat.jl`'"
+                    }
+                ]
+            }
+        ]
+    }
+}
