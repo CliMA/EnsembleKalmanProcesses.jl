@@ -100,7 +100,9 @@ using EnsembleKalmanProcesses
     # dict missing required key
     @test_throws ArgumentError Observation(Dict("samples" => samples[1], "names" => names[1]))
     # dict entry count mismatch (3 samples, 1 name)
-    @test_throws ArgumentError Observation(Dict("samples" => samples[2:4], "names" => names[1], "covariances" => covariances[2:4]))
+    @test_throws ArgumentError Observation(
+        Dict("samples" => samples[2:4], "names" => names[1], "covariances" => covariances[2:4]),
+    )
 
     # combining non-Observation elements raises ArgumentError
     @test_throws ArgumentError combine_observations([observation_1, "not_an_observation"])
@@ -330,7 +332,10 @@ end
     @test new_epoch == shuffled_batches
 
     # unrecognized FixedMinibatcher method
-    @test_throws ArgumentError create_new_epoch!(FixedMinibatcher(given_batches, "bad_method", copy(rng)), given_batches)
+    @test_throws ArgumentError create_new_epoch!(
+        FixedMinibatcher(given_batches, "bad_method", copy(rng)),
+        given_batches,
+    )
 
     # 2) No minibatching - currently just make a Fixed batcher with 1 index
     default = no_minibatcher()
@@ -380,7 +385,10 @@ end
     @test batched_epoch == extend_test
 
     # unrecognized RandomFixedSizeMinibatcher method
-    @test_throws ArgumentError create_new_epoch!(RandomFixedSizeMinibatcher(minibatch_size, "bad_method"), collect(1:100))
+    @test_throws ArgumentError create_new_epoch!(
+        RandomFixedSizeMinibatcher(minibatch_size, "bad_method"),
+        collect(1:100),
+    )
 
     # epoch must contain integer indices
     float_epoch = collect(1.0:100.0)

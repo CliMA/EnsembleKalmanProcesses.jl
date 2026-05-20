@@ -57,8 +57,7 @@ struct SVDplusD <: SumOfCovariances
 
     function SVDplusD(s_in::SVD, d_in::Diagonal)
         mat_sizes = (get_cov_size(s_in), get_cov_size(d_in))
-        mat_sizes[2] == mat_sizes[1] ||
-            _throw_obs_cov_size_mismatch(mat_sizes[1], mat_sizes[2])
+        mat_sizes[2] == mat_sizes[1] || _throw_obs_cov_size_mismatch(mat_sizes[1], mat_sizes[2])
 
         return new(s_in, d_in)
 

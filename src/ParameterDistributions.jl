@@ -1151,38 +1151,48 @@ end
 # --- bounded / constrained_gaussian helpers ---
 
 @noinline function _throw_pd_bounded_bad_bounds(lower_bound, upper_bound)
-    throw(DomainError(
-        (lower_bound, upper_bound),
-        "upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
-    ))
+    throw(
+        DomainError(
+            (lower_bound, upper_bound),
+            "upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
+        ),
+    )
 end
 
 @noinline function _throw_cg_bad_bounds(name, lower_bound, upper_bound)
-    throw(DomainError(
-        (lower_bound, upper_bound),
-        "`$(name)`: upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
-    ))
+    throw(
+        DomainError(
+            (lower_bound, upper_bound),
+            "`$(name)`: upper_bound must be greater than lower_bound; got lower_bound = $(lower_bound), upper_bound = $(upper_bound).",
+        ),
+    )
 end
 
 @noinline function _throw_cg_bad_mean(name, lower_bound, upper_bound, μ_c)
-    throw(DomainError(
-        μ_c,
-        "`$(name)`: target mean μ_c = $(μ_c) is outside the open constraint interval ($(lower_bound), $(upper_bound)); choose μ_c strictly between the bounds.",
-    ))
+    throw(
+        DomainError(
+            μ_c,
+            "`$(name)`: target mean μ_c = $(μ_c) is outside the open constraint interval ($(lower_bound), $(upper_bound)); choose μ_c strictly between the bounds.",
+        ),
+    )
 end
 
 @noinline function _throw_cg_std_clips_lower(name, lower_bound, upper_bound, μ_c, σ_c)
-    throw(DomainError(
-        σ_c,
-        "`$(name)`: target std σ_c = $(σ_c) places μ - σ = $(μ_c - σ_c) at or below lower_bound = $(lower_bound); reduce σ_c or move μ_c away from the lower bound.",
-    ))
+    throw(
+        DomainError(
+            σ_c,
+            "`$(name)`: target std σ_c = $(σ_c) places μ - σ = $(μ_c - σ_c) at or below lower_bound = $(lower_bound); reduce σ_c or move μ_c away from the lower bound.",
+        ),
+    )
 end
 
 @noinline function _throw_cg_std_clips_upper(name, lower_bound, upper_bound, μ_c, σ_c)
-    throw(DomainError(
-        σ_c,
-        "`$(name)`: target std σ_c = $(σ_c) places μ + σ = $(μ_c + σ_c) at or above upper_bound = $(upper_bound); reduce σ_c or move μ_c away from the upper bound.",
-    ))
+    throw(
+        DomainError(
+            σ_c,
+            "`$(name)`: target std σ_c = $(σ_c) places μ + σ = $(μ_c + σ_c) at or above upper_bound = $(upper_bound); reduce σ_c or move μ_c away from the upper bound.",
+        ),
+    )
 end
 
 # --- logpdf helpers ---

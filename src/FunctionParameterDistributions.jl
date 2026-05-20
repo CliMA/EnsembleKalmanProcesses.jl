@@ -180,8 +180,7 @@ function build_function_sample(g, coeff_vecormat::AbstractVecOrMat, n_draws::Int
     n_pts = n_eval_pts(g, pkg)
     n_dof = n_dofs(g, pkg)
 
-    size(coeff_mat) == (n_dof, n_draws) ||
-        _throw_bfs_coeff_size_mismatch(size(coeff_vecormat), n_dof, n_draws)
+    size(coeff_mat) == (n_dof, n_draws) || _throw_bfs_coeff_size_mismatch(size(coeff_vecormat), n_dof, n_draws)
 
     # now sample a unit normal and multiply by the coefficients
     normal_samples = coeff_mat
