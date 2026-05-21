@@ -290,7 +290,26 @@ end
     tall = Dinv * U * S * cholT.L
     @test norm(get_diag_cov(DmT) - Dinv) < 1e-12
     @test norm(get_tall_cov(DmT) - tall) < 1e-12
+end
 
+@testset "tsvd_cov_from_samples monotonic error vs. rank" begin
+    rng = Random.MersenneTwister(42)
+    X = randn(rng, 80, 30)
+    Σ = cov(X; dims = 2)
+    σ = svd((X .- mean(X, dims = 2)) ./ sqrt(size(X, 2) - 1)).S
+    full_rank = length(σ)
+
+    errs_fro = Float64[]
+    for r in 1:full_rank
+        cov_r = Matrix(tsvd_cov_from_samples(X, r))
+        push!(errs_fro, norm(Σ - cov_r))
+        @test isapprox(errs_fro[end], sqrt(sum(σ[(r + 1):end] .^ 4)); atol = 1e-10)
+    end
+    # Monotonic non-increase
+    @test all(diff(errs_fro) .<= 1e-12)
+    # Strict decrease where the discarded singular value is nonzero
+    nontrivial = findall(>(1e-8), σ[2:end])
+    @test all(errs_fro[nontrivial] .> errs_fro[nontrivial .+ 1])
 end
 
 
