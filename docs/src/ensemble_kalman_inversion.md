@@ -38,14 +38,14 @@ See how these behave [here](@ref finite-vs-infinite-time)
 Denoting the parameter vector of the ``j``-th ensemble member at the ``n``-th iteration as ``\theta^{(j)}_n``, its update equation from ``n`` to ``n+1`` under EKI is
 
 ```math
-\tag{2} \theta_{j+1}^{(n)} = \theta_j^{(n)} + \Delta t C^{\theta\mathcal{G}}_j(\Gamma_y + \Delta t C_j^{\mathcal{GG}})^{-1}(y - \mathcal{G}(\theta_j^{(n)})).
+\tag{2} \theta_{n+1}^{(j)} = \theta_n^{(j)} + \Delta t C^{\theta\mathcal{G}}_n(\Gamma_y + \Delta t C_n^{\mathcal{GG}})^{-1}(y - \mathcal{G}(\theta_n^{(j)})).
 ```
 Where the notations for means and covariances are given as
 ```math
 \begin{aligned}
-    C^{\theta\mathcal{G}}_j &= \frac{1}{N}\sum_{n=1}^N \left[ (\theta^{(n)}_j - \overline{\theta_j})\otimes(\mathcal{G}(\theta^{(n)}_j) - \overline{ \mathcal{G}(\theta)}_j) \right],\\
-    C^{\mathcal{GG}}_j &= \frac{1}{N}\sum_{n=1}^N \left[(\mathcal{G}(\theta^{(n)}_j) - \overline{ \mathcal{G}(\theta)}_j)\otimes(\mathcal{G}(\theta^{(n)}_j) - \overline{ \mathcal{G}(\theta)}_j) \right],\\
-    \overline{\theta}_j &= \frac{1}{N}\sum_{n=1}^N \theta^{(n)}_j,\qquad \overline{\mathcal{G}(\theta)}_j = \frac{1}{N} \sum_{n=1}^N\mathcal{G}(\theta^{(n)}_j),\\
+    C^{\theta\mathcal{G}}_n &= \frac{1}{J}\sum_{j=1}^J \left[ (\theta^{(j)}_n - \overline{\theta_n})\otimes(\mathcal{G}(\theta^{(j)}_n) - \overline{ \mathcal{G}(\theta)}_n) \right],\\
+    C^{\mathcal{GG}}_n &= \frac{1}{J}\sum_{j=1}^J \left[(\mathcal{G}(\theta^{(j)}_n) - \overline{ \mathcal{G}(\theta)}_n)\otimes(\mathcal{G}(\theta^{(j)}_n) - \overline{ \mathcal{G}(\theta)}_n) \right],\\
+    \overline{\theta}_n &= \frac{1}{J}\sum_{j=1}^J \theta^{(j)}_n,\qquad \overline{\mathcal{G}(\theta)}_n = \frac{1}{J} \sum_{j=1}^J\mathcal{G}(\theta^{(j)}_n),\\
 \end{aligned}
 ```
 
@@ -56,7 +56,7 @@ The final estimate ``\bar{\theta}_{N_{\rm it}}`` is taken to be the ensemble
 mean at the final iteration, 
 
 ```math
-\bar{\theta}_{N_{\rm it}} = \dfrac{1}{J}\sum_{k=1}^J\theta_{N_{\rm it}}^{(k)}.
+\bar{\theta}_{N_{\rm it}} = \dfrac{1}{J}\sum_{j=1}^J\theta_{N_{\rm it}}^{(j)}.
 ```
 
 For typical applications, a near-optimal solution ``\theta`` can be found after as few as 10 iterations of the algorithm, or ``10\cdot J`` evaluations of the forward model ``\mathcal{G}``. The rules of thumb of choosing ``J`` are see [here](@ref ens-size), and to reduce errors when ``J \ll p`` , we have sampling-error-correction (localization) approaches [here](@ref localization). 
