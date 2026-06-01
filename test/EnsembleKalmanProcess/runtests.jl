@@ -1412,6 +1412,16 @@ end
     end
     @test_logs (:warn, r"More than 50% of runs produced NaNs") match_mode = :any split_indices_by_success(g)
 
+    # All-NaN g must throw rather than hang
+    g_all_nan = fill(NaN, n_obs, N_ens)
+    @test_throws ArgumentError split_indices_by_success(g_all_nan)
+    ekp_for_nan_test = EKP.EnsembleKalmanProcess(
+        EKP.construct_initial_ensemble(Random.MersenneTwister(0), prior, N_ens),
+        zeros(n_obs),
+        Matrix(1.0 * I, n_obs, n_obs),
+        Inversion(),
+    )
+    @test_throws ArgumentError EKP.update_ensemble!(ekp_for_nan_test, g_all_nan)
 
     rng = Random.MersenneTwister(rng_seed)
 
