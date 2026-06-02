@@ -48,6 +48,9 @@ ukiobj = EnsembleKalmanProcess(
 
 The user determines if a ensemble member has failed and replace the output (column) of ``\mathcal{G}(\theta)`` with `NaN`s. The `FailureHandler` takes care of the rest.
 
+!!! info "Minimum number of successful particles = 2"
+    `update_ensemble!` requires a minimum of 2 successful particles to perform an update. Below this will always throw an error. 
+    
 ### Partial particle failure (a.k.a Imputation)
 
 If there is a partial failure within an output then the user sets only failed entries within a particle to `NaN`. The user can then use two keywords to determine the imputation approach, given to `EnsembleKalmanProcess`.
