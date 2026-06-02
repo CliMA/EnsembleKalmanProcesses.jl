@@ -1156,7 +1156,7 @@ Failures are defined for particles containing at least one NaN output element.
 function split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
     failed_ens = [i for i = 1:size(g, 2) if any(isnan.(g[:, i]))]
     successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
-    length(successful_ens) >= 3 || _throw_too_few_successful_members(length(successful_ens), size(g, 2))
+    length(successful_ens) >= 2 || _throw_too_few_successful_members(length(successful_ens), size(g, 2))
     if length(failed_ens) > length(successful_ens)
         @warn string(
             "More than 50% of runs produced NaNs ($(length(failed_ens))/$(size(g, 2))).",
@@ -1430,13 +1430,13 @@ end
 Too few successful ensemble members to continue the algorithm.
 
 Expected:
-    At least 3 ensemble members with finite (non-NaN) outputs.
+    At least 2 ensemble members with finite (non-NaN) outputs.
 
 Got:
     $n_successful successful out of $n_total total ensemble members.
 
 Suggestion:
-    Check the forward model for numerical instabilities. Ensure at least 3
+    Check the forward model for numerical instabilities. Ensure at least 2
     ensemble members produce finite outputs before calling update_ensemble!.
 """))
 end
