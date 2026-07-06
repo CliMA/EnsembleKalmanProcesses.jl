@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Minimization Loss · EnsembleKalmanProcesses.jl</title><meta name="title" content="Minimization Loss · EnsembleKalmanProcesses.jl"/><meta property="og:title" content="Minimization Loss · EnsembleKalmanProcesses.jl"/><meta property="twitter:title" content="Minimization Loss · EnsembleKalmanProcesses.jl"/><meta name="description" content="Documentation for EnsembleKalmanProcesses.jl."/><meta property="og:description" content="Documentation for EnsembleKalmanProcesses.jl."/><meta property="twitter:description" content="Documentation for EnsembleKalmanProcesses.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="EnsembleKalmanProcesses.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">EnsembleKalmanProcesses.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../installation_instructions/">Installation instructions</a></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../sinusoid_example/">Simple example</a></li><li><a class="tocitem" href="../../examples/Cloudy_example/">Cloudy</a></li><li><a class="tocitem" href="../../examples/lorenz_example/">Lorenz</a></li><li class="is-active"><a class="tocitem" href>Minimization Loss</a><ul class="internal"><li><a class="tocitem" href="#Loss-function-with-single-minimum"><span>Loss function with single minimum</span></a></li><li><a class="tocitem" href="#Loss-function-with-two-minima"><span>Loss function with two minima</span></a></li></ul></li><li><a class="tocitem" href="../loss_minimization_sparse_eki/">Sparse Minimization Loss</a></li><li><a class="tocitem" href="../aerosol_activation/">Aerosol activation</a></li><li><a class="tocitem" href="../../examples/darcy/">Darcy flow</a></li><li><a class="tocitem" href="../../examples/sinusoid_example_toml/">TOML interface</a></li><li><a class="tocitem" href="../../examples/ClimateMachine_example/">HPC interfacing example: ClimateMachine</a></li><li><a class="tocitem" href="../../examples/template_example/">Template</a></li></ul></li><li><a class="tocitem" href="../../defaults/">List of default configurations</a></li><li><a class="tocitem" href="../../ensemble_kalman_inversion/">Ensemble Kalman Inversion</a></li><li><a class="tocitem" href="../../gauss_newton_kalman_inversion/">Gauss Newton Kalman Inversion</a></li><li><a class="tocitem" href="../../ensemble_kalman_sampler/">Ensemble Kalman Sampler</a></li><li><a class="tocitem" href="../../unscented_kalman_inversion/">Unscented Kalman Inversion</a></li><li><a class="tocitem" href="../../learning_rate_scheduler/">Learning rate schedulers</a></li><li><a class="tocitem" href="../../parameter_distributions/">Prior distributions</a></li><li><a class="tocitem" href="../../observations/">Observations and Minibatching</a></li><li><a class="tocitem" href="../../update_groups/">Update Groups</a></li><li><a class="tocitem" href="../../localization/">Localization and SEC</a></li><li><a class="tocitem" href="../../accelerators/">Accelerators</a></li><li><a class="tocitem" href="../../inflation/">Inflation</a></li><li><a class="tocitem" href="../../parallel_hpc/">Parallelism and HPC</a></li><li><a class="tocitem" href="../../internal_data_representation/">Internal data representation</a></li><li><a class="tocitem" href="../../troubleshooting/">Troubleshooting</a></li><li><input class="collapse-toggle" id="menuitem-19" type="checkbox"/><label class="tocitem" for="menuitem-19"><span class="docs-label">API</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../API/ParameterDistributions/">ParameterDistributions</a></li><li><a class="tocitem" href="../../API/Observations/">Observations</a></li><li><a class="tocitem" href="../../API/DataContainers/">DataContainers</a></li><li><a class="tocitem" href="../../API/EnsembleKalmanProcess/">EnsembleKalmanProcess</a></li><li><a class="tocitem" href="../../API/Inversion/">Inversion</a></li><li><a class="tocitem" href="../../API/Unscented/">Unscented</a></li><li><a class="tocitem" href="../../API/Sampler/">Sampler</a></li><li><a class="tocitem" href="../../API/SparseInversion/">SparseInversion</a></li><li><a class="tocitem" href="../../API/TOMLInterface/">TOML Interface</a></li><li><a class="tocitem" href="../../API/Localizers/">Localizers</a></li></ul></li><li><a class="tocitem" href="../../contributing/">Contributing</a></li><li><a class="tocitem" href="../../glossary/">Glossary</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Minimization Loss</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Minimization Loss</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/CliMA/EnsembleKalmanProcesses.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/LossMinimization/loss_minimization.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Minimization-of-simple-loss-functions"><a class="docs-heading-anchor" href="#Minimization-of-simple-loss-functions">Minimization of simple loss functions</a><a id="Minimization-of-simple-loss-functions-1"></a><a class="docs-heading-anchor-permalink" href="#Minimization-of-simple-loss-functions" title="Permalink"></a></h1><div class="admonition is-info"><header class="admonition-header">How do I run this code?</header><div class="admonition-body"><p>The full code is found in the <a href="https://github.com/CliMA/EnsembleKalmanProcesses.jl/tree/main/examples"><code>examples/</code></a> directory of the github repository</p></div></div><p>First we load the required packages.</p><pre><code class="language-julia hljs">using Distributions, LinearAlgebra, Random, Plots
+
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+
+const EKP = EnsembleKalmanProcesses</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">EnsembleKalmanProcesses</code></pre><h2 id="Loss-function-with-single-minimum"><a class="docs-heading-anchor" href="#Loss-function-with-single-minimum">Loss function with single minimum</a><a id="Loss-function-with-single-minimum-1"></a><a class="docs-heading-anchor-permalink" href="#Loss-function-with-single-minimum" title="Permalink"></a></h2><p>Here, we minimize the loss function</p><p class="math-container">\[G₁(u) = \|u - u_*\| ,\]</p><p>where <span>$u$</span> is a 2-vector of parameters and <span>$u_*$</span> is given; here <span>$u_* = (-1, 1)$</span>.</p><pre><code class="language-julia hljs">u★ = [1, -1]
+G₁(u) = [sqrt((u[1] - u★[1])^2 + (u[2] - u★[2])^2)]</code></pre><p>We set the seed for pseudo-random number generator for reproducibility.</p><pre><code class="language-julia hljs">rng_seed = 41
+rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)</code></pre><p>We set a stabilization level, which can aid the algorithm convergence</p><pre><code class="language-julia hljs">dim_output = 1
+stabilization_level = 1e-3
+Γ_stabilization = stabilization_level * Matrix(I, dim_output, dim_output)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1×1 Matrix{Float64}:
+ 0.001</code></pre><p>The functional is positive so to minimize it we may set the target to be 0,</p><pre><code class="language-julia hljs">G_target = [0]</code></pre><h3 id="Prior-distributions"><a class="docs-heading-anchor" href="#Prior-distributions">Prior distributions</a><a id="Prior-distributions-1"></a><a class="docs-heading-anchor-permalink" href="#Prior-distributions" title="Permalink"></a></h3><p>As we work with a Bayesian method, we define a prior. This will behave like an &quot;initial guess&quot; for the likely region of parameter space we expect the solution to live in. Here we define <span>$Normal(0,1)$</span> distributions with no constraints</p><pre><code class="language-julia hljs">prior_u1 = constrained_gaussian(&quot;u1&quot;, 0, 1, -Inf, Inf)
+prior_u2 = constrained_gaussian(&quot;u1&quot;, 0, 1, -Inf, Inf)
+prior = combine_distributions([prior_u1, prior_u2])</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>In this example there are no constraints, therefore no parameter transformations.</p></div></div><h3 id="Calibration"><a class="docs-heading-anchor" href="#Calibration">Calibration</a><a id="Calibration-1"></a><a class="docs-heading-anchor-permalink" href="#Calibration" title="Permalink"></a></h3><p>We choose the number of ensemble members and the number of iterations of the algorithm</p><pre><code class="language-julia hljs">N_ensemble = 20
+N_iterations = 10</code></pre><p>The initial ensemble is constructed by sampling the prior</p><pre><code class="language-julia hljs">initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×20 Matrix{Float64}:
+ -1.50205   0.950787  -2.13389     1.77371  …  0.994771  0.797202  -1.15774
+  1.83923  -0.556855   0.0995651  -2.24101     1.25459   0.487004  -1.40943</code></pre><p>We then initialize the Ensemble Kalman Process algorithm, with the initial ensemble, the target, the stabilization and the process type (for EKI this is <code>Inversion</code>, initialized with <code>Inversion()</code>). We also remove the cutting-edge defaults and instead use the vanilla options.</p><pre><code class="language-julia hljs">ensemble_kalman_process = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    G_target,
+    Γ_stabilization,
+    Inversion(),
+    scheduler = DefaultScheduler(1),
+    accelerator = DefaultAccelerator(),
+    localization_method = EnsembleKalmanProcesses.Localizers.NoLocalization(),
+)</code></pre><p>Then we calibrate by <em>(i)</em> obtaining the parameters, <em>(ii)</em> calculate the loss function on the parameters (and concatenate), and last <em>(iii)</em> generate a new set of parameters using the model outputs:</p><pre><code class="language-julia hljs">for i in 1:N_iterations
+    params_i = get_u_final(ensemble_kalman_process)
+
+    g_ens = hcat([G₁(params_i[:, i]) for i in 1:N_ensemble]...)
+
+    EKP.update_ensemble!(ensemble_kalman_process, g_ens)
+end</code></pre><p>and visualize the results:</p><pre><code class="language-julia hljs">u_init = get_u_prior(ensemble_kalman_process)
+
+anim_unique_minimum = @animate for i in 1:N_iterations
+    u_i = get_u(ensemble_kalman_process, i)
+
+    plot(
+        [u★[1]],
+        [u★[2]],
+        seriestype = :scatter,
+        markershape = :star5,
+        markersize = 11,
+        markercolor = :red,
+        label = &quot;optimum u⋆&quot;,
+    )
+
+    plot!(
+        u_i[1, :],
+        u_i[2, :],
+        seriestype = :scatter,
+        xlims = extrema(u_init[1, :]),
+        ylims = extrema(u_init[2, :]),
+        xlabel = &quot;u₁&quot;,
+        ylabel = &quot;u₂&quot;,
+        markersize = 5,
+        markeralpha = 0.6,
+        markercolor = :blue,
+        label = &quot;particles&quot;,
+        title = &quot;EKI iteration = &quot; * string(i),
+    )
+end</code></pre><p>The results show that the minimizer of <span>$G_1$</span> is <span>$u=u_*$</span>.</p><img src="86bcd97a.gif" alt="Example block output"/><h2 id="Loss-function-with-two-minima"><a class="docs-heading-anchor" href="#Loss-function-with-two-minima">Loss function with two minima</a><a id="Loss-function-with-two-minima-1"></a><a class="docs-heading-anchor-permalink" href="#Loss-function-with-two-minima" title="Permalink"></a></h2><p>Now let&#39;s do an example in which the loss function has two minima. We minimize the loss function</p><p class="math-container">\[G₂(u) = \|u - v_{*}\| \|u - w_{*}\| ,\]</p><p>where again <span>$u$</span> is a 2-vector, and <span>$v_{*}$</span> and <span>$w_{*}$</span> are given 2-vectors. Here, we take <span>$v_{*} = (1, -1)$</span> and <span>$w_{*} = (-1, -1)$</span>.</p><pre><code class="language-julia hljs">v★ = [1, -1]
+w★ = [-1, -1]
+G₂(u) = [sqrt(((u[1] - v★[1])^2 + (u[2] - v★[2])^2) * ((u[1] - w★[1])^2 + (u[2] - w★[2])^2))]</code></pre><p>The procedure is same as the single-minimum example above.</p><p>We set the seed for pseudo-random number generator for reproducibility,</p><pre><code class="language-julia hljs">rng_seed = 10
+rng = Random.seed!(Random.GLOBAL_RNG, rng_seed)</code></pre><p>A positive function can be minimized with a target of 0,</p><pre><code class="language-julia hljs">G_target = [0]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element Vector{Int64}:
+ 0</code></pre><p>We choose the stabilization as in the single-minimum example</p><h3 id="Prior-distributions-2"><a class="docs-heading-anchor" href="#Prior-distributions-2">Prior distributions</a><a class="docs-heading-anchor-permalink" href="#Prior-distributions-2" title="Permalink"></a></h3><p>We define the prior. We can place prior information on e.g., <span>$u₁$</span>, demonstrating a belief that <span>$u₁$</span> is more likely to be negative. This can be implemented by setting a bias in the mean of its prior distribution to e.g., <span>$-0.5$</span>:</p><pre><code class="language-julia hljs">prior_u1 = constrained_gaussian(&quot;u1&quot;, -0.5, sqrt(2), -Inf, Inf)
+prior_u2 = constrained_gaussian(&quot;u1&quot;, 0, sqrt(2), -Inf, Inf)
+prior = combine_distributions([prior_u1, prior_u2])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ParameterDistribution with 2 entries: 
+&#39;u1&#39; with EnsembleKalmanProcesses.ParameterDistributions.Constraint{EnsembleKalmanProcesses.ParameterDistributions.NoConstraint}[Bounds: (-∞, ∞)] over distribution EnsembleKalmanProcesses.ParameterDistributions.Parameterized(Distributions.Normal{Float64}(μ=-0.5, σ=1.4142135623730951)) 
+&#39;u1&#39; with EnsembleKalmanProcesses.ParameterDistributions.Constraint{EnsembleKalmanProcesses.ParameterDistributions.NoConstraint}[Bounds: (-∞, ∞)] over distribution EnsembleKalmanProcesses.ParameterDistributions.Parameterized(Distributions.Normal{Float64}(μ=0.0, σ=1.4142135623730951)) 
+</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>In this example there are no constraints, therefore no parameter transformations.</p></div></div><h3 id="Calibration-2"><a class="docs-heading-anchor" href="#Calibration-2">Calibration</a><a class="docs-heading-anchor-permalink" href="#Calibration-2" title="Permalink"></a></h3><p>We choose the number of ensemble members, the number of EKI iterations, construct our initial ensemble and the EKI with the <code>Inversion()</code> constructor (exactly as in the single-minimum example):</p><pre><code class="language-julia hljs">N_ensemble = 20
+N_iterations = 20
+
+initial_ensemble = EKP.construct_initial_ensemble(rng, prior, N_ensemble)
+
+ensemble_kalman_process = EKP.EnsembleKalmanProcess(
+    initial_ensemble,
+    G_target,
+    Γ_stabilization,
+    Inversion(),
+    scheduler = DefaultScheduler(1),
+    accelerator = DefaultAccelerator(),
+    localization_method = EnsembleKalmanProcesses.Localizers.NoLocalization(),
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">EnsembleKalmanProcess{Float64, Int64, Inversion, DefaultScheduler{Float64}, DefaultAccelerator, Vector{UpdateGroup}}(EnsembleKalmanProcesses.DataContainers.DataContainer{Float64}[EnsembleKalmanProcesses.DataContainers.DataContainer{Float64}([1.3038688926394002 -1.6648606223940248 … -1.7919523047219428 -0.9144972962661588; -0.8300747913927171 0.2203806880175726 … 1.5593414673043817 0.17301324738700036])], ObservationSeries{Vector{Observation{Vector{Vector{Int64}}, Vector{Matrix{Float64}}, Vector{Matrix{Float64}}, Vector{String}, Vector{UnitRange{Int64}}}}, FixedMinibatcher{Vector{Vector{Int64}}, String, Random.TaskLocalRNG}, Vector{String}, Vector{Vector{Vector{Int64}}}}(Observation{Vector{Vector{Int64}}, Vector{Matrix{Float64}}, Vector{Matrix{Float64}}, Vector{String}, Vector{UnitRange{Int64}}}[Observation{Vector{Vector{Int64}}, Vector{Matrix{Float64}}, Vector{Matrix{Float64}}, Vector{String}, Vector{UnitRange{Int64}}}([[0]], [[0.001;;]], [[1000.0;;]], [&quot;observation&quot;], UnitRange{Int64}[1:1])], FixedMinibatcher{Vector{Vector{Int64}}, String, Random.TaskLocalRNG}([[1]], &quot;order&quot;, Random.TaskLocalRNG()), [&quot;series_1&quot;], Dict(&quot;minibatch&quot; =&gt; 1, &quot;epoch&quot; =&gt; 1), [[[1]]]), 20, EnsembleKalmanProcesses.DataContainers.DataContainer{Float64}[], Float64[], DefaultScheduler{Float64}(1.0), DefaultAccelerator(), Float64[], UpdateGroup[UpdateGroup([1, 2], [1], Dict(&quot;[1,...,2]&quot; =&gt; &quot;[1,...,1]&quot;))], Inversion(), Random.TaskLocalRNG(), FailureHandler{Inversion, SampleSuccGauss}(EnsembleKalmanProcesses.var&quot;#failsafe_update#137&quot;()), EnsembleKalmanProcesses.Localizers.Localizer{EnsembleKalmanProcesses.Localizers.NoLocalization, Float64}(EnsembleKalmanProcesses.Localizers.var&quot;#1#2&quot;()), false)</code></pre><p>We calibrate by <em>(i)</em> obtaining the parameters, <em>(ii)</em> calculating the loss function on the parameters (and concatenate), and last <em>(iii)</em> generate a new set of parameters using the model outputs:</p><pre><code class="language-julia hljs">for i in 1:N_iterations
+    params_i = get_u_final(ensemble_kalman_process)
+
+    g_ens = hcat([G₂(params_i[:, i]) for i in 1:N_ensemble]...)
+
+    EKP.update_ensemble!(ensemble_kalman_process, g_ens)
+end</code></pre><p>and visualize the results:</p><pre><code class="language-julia hljs">u_init = get_u_prior(ensemble_kalman_process)
+
+anim_two_minima = @animate for i in 1:N_iterations
+    u_i = get_u(ensemble_kalman_process, i)
+
+    plot(
+        [v★[1]],
+        [v★[2]],
+        seriestype = :scatter,
+        markershape = :star5,
+        markersize = 11,
+        markercolor = :red,
+        label = &quot;optimum v⋆&quot;,
+    )
+
+    plot!(
+        [w★[1]],
+        [w★[2]],
+        seriestype = :scatter,
+        markershape = :star5,
+        markersize = 11,
+        markercolor = :green,
+        label = &quot;optimum w⋆&quot;,
+    )
+
+    plot!(
+        u_i[1, :],
+        u_i[2, :],
+        seriestype = :scatter,
+        xlims = extrema(u_init[1, :]),
+        ylims = extrema(u_init[2, :]),
+        xlabel = &quot;u₁&quot;,
+        ylabel = &quot;u₂&quot;,
+        markersize = 5,
+        markeralpha = 0.6,
+        markercolor = :blue,
+        label = &quot;particles&quot;,
+        title = &quot;EKI iteration = &quot; * string(i),
+    )
+end</code></pre><p>Our bias in the prior shifts the initial ensemble into the negative <span>$u_1$</span> direction, and thus increases the likelihood (over different instances of the random number generator) of finding the minimizer <span>$u=w_*$</span>.</p><img src="fcc46094.gif" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../examples/lorenz_example/">« Lorenz</a><a class="docs-footer-nextpage" href="../loss_minimization_sparse_eki/">Sparse Minimization Loss »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.1 on <span class="colophon-date" title="Thursday 6 March 2025 17:06">Thursday 6 March 2025</span>. Using Julia version 1.11.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
