@@ -6,7 +6,6 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 |----------------------------------:|:-------------------------------------------------|
 | **License**                       | [![license][license-img]][license-url]           |
 | **DOI**                           | [![DOI][zenodo-img]][zenodo-latest-url]          |
-| **Docs Build**                    | [![docs build][docs-bld-img]][docs-bld-url]      |
 | **Unit tests**                    | [![unit tests][unit-tests-img]][unit-tests-url]  |
 | **Code Coverage**                 | [![codecov][codecov-img]][codecov-url]           |
 | **JOSS**                          | [![status][joss-img]][joss-url]                  |
@@ -23,9 +22,6 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 
 [license-img]: https://img.shields.io/badge/license-Apache%202.0-blue.svg
 [license-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/LICENSE
-
-[docs-bld-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Docs.yml/badge.svg
-[docs-bld-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Docs.yml
 
 [unit-tests-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Tests.yml/badge.svg
 [unit-tests-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Tests.yml
