@@ -2,10 +2,10 @@
 Implements optimization and approximate uncertainty quantification algorithms, Ensemble Kalman Inversion, and other Ensemble Kalman Processes.
 
 
-| **Documentation**                 | [![dev][docs-latest-img]][docs-latest-url]       |
-|-----------------------------------|--------------------------------------------------|
+| **Documentation**                 | [![stable][docs-stable-img]][docs-stable-url] [![dev][docs-latest-img]][docs-latest-url] |
+|----------------------------------:|:-------------------------------------------------|
+| **License**                       | [![license][license-img]][license-url]           |
 | **DOI**                           | [![DOI][zenodo-img]][zenodo-latest-url]          |
-| **Docs Build**                    | [![docs build][docs-bld-img]][docs-bld-url]      |
 | **Unit tests**                    | [![unit tests][unit-tests-img]][unit-tests-url]  |
 | **Code Coverage**                 | [![codecov][codecov-img]][codecov-url]           |
 | **JOSS**                          | [![status][joss-img]][joss-url]                  |
@@ -14,11 +14,14 @@ Implements optimization and approximate uncertainty quantification algorithms, E
 [zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6382967.svg
 [zenodo-latest-url]: https://doi.org/10.5281/zenodo.6382967
 
-[docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
+[docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
+[docs-stable-url]: https://CliMA.github.io/EnsembleKalmanProcesses.jl/stable/
+
+[docs-latest-img]: https://img.shields.io/badge/docs-dev-blue.svg
 [docs-latest-url]: https://CliMA.github.io/EnsembleKalmanProcesses.jl/dev/
 
-[docs-bld-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Docs.yml/badge.svg
-[docs-bld-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Docs.yml
+[license-img]: https://img.shields.io/badge/license-Apache%202.0-blue.svg
+[license-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/LICENSE
 
 [unit-tests-img]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Tests.yml/badge.svg
 [unit-tests-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/actions/workflows/Tests.yml
