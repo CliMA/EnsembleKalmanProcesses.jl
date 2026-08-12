@@ -991,7 +991,8 @@ end
 function _mean_std(μ::Real, σ::Real, c::Constraint)
     d = Normal(μ, σ)
     m = [_moment(k, d, c) for k in 1:2]
-    return (m[1], sqrt(m[2] - m[1]^2))
+    # guard against sqrt of a tiny negative value from floating-point cancellation in near-singular integrals
+    return (m[1], sqrt(max(m[2] - m[1]^2, 0.0)))
 end
 function _lognormal_mean_std(μ_u::Real, σ_u::Real)
     # known analytic solution for lognormal distribution
@@ -1063,15 +1064,12 @@ function constrained_gaussian(
             # finite interval case; need to solve numerically
             μ_c - σ_c > lower_bound || _throw_cg_std_clips_lower(name, lower_bound, upper_bound, μ_c, σ_c)
             μ_c + σ_c < upper_bound || _throw_cg_std_clips_upper(name, lower_bound, upper_bound, μ_c, σ_c)
-            # 1.2 seems a reasonable tolerance here for solver to converge quickly
-            if (μ_c - 1.2 * σ_c <= lower_bound)
+            # Solver slowdown comes from a *combined* squeeze (both bounds tight at once, pushing
+            # the target toward filling the whole interval), not either bound alone; 1.1 is where
+            # iteration counts start climbing empirically.
+            if (μ_c - 1.1 * σ_c <= lower_bound) && (μ_c + 1.1 * σ_c >= upper_bound)
                 @warn(
-                    "`$(name)`: Target std $(σ_c) puts μ - σ very close to lower bound $(lower_bound), \n The solver may need more iterations to converge, consider decreasing σ"
-                )
-            end
-            if (μ_c + 1.2 * σ_c >= upper_bound)
-                @warn(
-                    "`$(name)`: Target std $(σ_c) puts μ + σ very close to upper bound $(upper_bound), \n The solver may need more iterations to converge, consider decreasing σ"
+                    "`$(name)`: Target std $(σ_c) leaves little room on either side of the mean $(μ_c) within the constraint interval ($(lower_bound), $(upper_bound)); \n The solver may need more iterations to converge, consider decreasing σ"
                 )
             end
             μ_u, σ_u = _constrained_gaussian(
