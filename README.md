@@ -113,6 +113,29 @@ display(p)
 
 See a similar working example [here!](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/literated/sinusoid_example/). Check out our many example scripts above in `examples/`
 
+## Claude integration
+
+This repository ships [Claude Code](https://claude.com/claude-code) skills in `.claude/skills/` that automate common maintenance tasks. If you're developing `EnsembleKalmanProcesses.jl` with Claude Code, these trigger automatically when your prompt matches their purpose — no need to invoke them by name.
+
+### Skills for package developers
+
+| Skill | What it does | Example prompt |
+|-------|---------------|-----------------|
+| `math-auditor` | Runs an adversarial mathematical-accuracy review of `src/` and `test/`, producing a dated report plus self-contained fix prompts for a follow-up session. | "Review the math in src/ and test/ for correctness — construct an adversarial code review as markdown." |
+| `docstrings` | Adds or normalises docstrings on exported symbols so the public API is self-documenting and `Documenter.jl`'s `checkdocs` passes, then syncs the `docs/src/API/` pages. | "Add docstrings to the exported functions in src/Localizers.jl and make sure they show up on the API page." |
+| `error-message-manager` | Rewrites vague or low-context Julia error messages (bare `@assert`, generic `ArgumentError`/`DimensionMismatch`, unhelpful `throw`s) into structured, actionable diagnostics. | "The DimensionMismatch error you get from a bad prior/observation size mismatch is really unhelpful — can you improve it?" |
+| `base-show` | Adds concise `Base.show`/`Base.summary` methods to Julia types whose default REPL representation is unhelpful or overwhelming. | "The REPL output for `EnsembleKalmanProcess` is way too verbose — can you make it print something more useful?" |
+
+### Skills for package users — coming soon
+
+<!-- coming-soon -->
+The following skills are aimed at people *using* `EnsembleKalmanProcesses.jl` in their own projects, not at developers of this package, so they aren't installed automatically in your own repository.
+
+- `slurm-pipeline-manager` — scaffolds and maintains a SLURM/HPC job-dependency tree for an EKP calibration pipeline (forward-model ensemble jobs, aggregation, and update steps wired together with `sbatch` dependencies).
+
+Until these are published as a standalone install, copy the skill folder you want from this repo's [`.claude/skills/`](.claude/skills/) directory into the `.claude/skills/` directory of your own project to use it with Claude Code.
+<!-- /coming-soon -->
+
 # Quick links!
 
 - [How do I build prior distributions?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/parameter_distributions/)
@@ -126,6 +149,7 @@ See a similar working example [here!](https://clima.github.io/EnsembleKalmanProc
 - [What is going on in my own code?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/troubleshooting/)
 - [What is this error/warning/message?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/troubleshooting/)
 - [Where can I walk through a simple example?](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/literated/sinusoid_example/)
+- [How can Claude Code help maintain or use this package?](#claude-integration)
 
 
 ## Citing us
