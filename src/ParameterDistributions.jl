@@ -1024,10 +1024,10 @@ d = combine_distributions([d1,d2])
 ```
 
 !!! note
-    The intended use case is defining priors set from user expertise for use in inference 
+    The intended use case is defining priors set from user expertise for use in inference
     with adequate data, so for the sake of performance we only require that the optimization
-    reproduce `μ_c`, `σ_c` to a loose tolerance (1e-5). Warnings are logged when the optimization
-    fails.
+    reproduce `μ_c`, `σ_c` to a loose tolerance (1% of `σ_c`). Warnings are logged when the
+    optimization fails.
 
 !!! note
     The distribution may be bimodal for `σ_c` large relative to the width of the bound interval.
@@ -1046,6 +1046,7 @@ function constrained_gaussian(
 )
     upper_bound > lower_bound || _throw_cg_bad_bounds(name, lower_bound, upper_bound)
     lower_bound < μ_c < upper_bound || _throw_cg_bad_mean(name, lower_bound, upper_bound, μ_c)
+    σ_c > 0 || _throw_cg_bad_std(name, σ_c)
 
     if isinf(lower_bound)
         if isinf(upper_bound)
@@ -1125,11 +1126,12 @@ function _constrained_gaussian(
 
     # Optimize parameters; by default this is done in a quick-and-dirty way, without gradient
     # info (simplex method), since we only optimize 2 parameters.
-    # Optimization is finicky since problem becomes singular for large |μ_u|, σ_u: the 
+    # Optimization is finicky since problem becomes singular for large |μ_u|, σ_u: the
     # distribution becomes collapsed against the bounds of the interval.
+    # Residuals are normalized by σ_c so the (dimensionless) loss behaves consistently across scales.
     function _optim_fn(μlogσ::Vector{Float64})
         m, s = _mean_std(μlogσ[1], exp(μlogσ[2]), cons)
-        return (m - μ_c)^2 + (s - σ_c)^2
+        return ((m - μ_c) / σ_c)^2 + ((s - σ_c) / σ_c)^2
     end
 
     opt = optimize(_optim_fn, [init_μ_u, init_logσ_u], optim_algorithm, optim_opts)
@@ -1137,10 +1139,13 @@ function _constrained_gaussian(
     σ_u = exp(Optim.minimizer(opt)[2])
 
     m_c, s_c = _mean_std(μ_u, σ_u, cons)
-    if ~isapprox(μ_c, m_c, atol = 1e-3, rtol = 1e-2)
+    # tolerances are expressed as a fraction of σ_c, the natural scale of the problem, rather than
+    # an absolute value, so small (or large) target moments are checked on equal footing.
+    rel_tol = 1e-2
+    if abs(m_c - μ_c) > rel_tol * σ_c
         @warn "Unable to set constrained mean for `$(name)`: target = $(μ_c), got $(m_c)"
     end
-    if ~isapprox(σ_c, s_c, atol = 1e-3, rtol = 1e-2)
+    if abs(s_c - σ_c) > rel_tol * σ_c
         @warn "Unable to set constrained std for `$(name)`: target = $(σ_c), got $(s_c)"
     end
     return (μ_u, σ_u)
@@ -1175,6 +1180,10 @@ end
             "`$(name)`: target mean μ_c = $(μ_c) is outside the open constraint interval ($(lower_bound), $(upper_bound)); choose μ_c strictly between the bounds.",
         ),
     )
+end
+
+@noinline function _throw_cg_bad_std(name, σ_c)
+    throw(DomainError(σ_c, "`$(name)`: target std σ_c = $(σ_c) must be strictly positive."))
 end
 
 @noinline function _throw_cg_std_clips_lower(name, lower_bound, upper_bound, μ_c, σ_c)
