@@ -812,9 +812,13 @@ using EnsembleKalmanProcesses.ParameterDistributions
             @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1.0, 1000.0)
             @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1000.0, 1.0)
             @test_throws DomainError constrained_gaussian("test", 0.0, 10.0, -1.0, 1.0)
-            # σ near boundary throws warning
-            @test_logs (:warn,) constrained_gaussian("test", 0.54, 0.4, 0, 1) # 0.54 + 1.2*0.4 > 1
-            @test_logs (:warn,) constrained_gaussian("test", 0.46, 0.4, 0, 1) # 0.46 - 1.2*0.4 < 1
+            # σ squeezing both bounds at once (slow solver convergence) throws warning
+            @test_logs (:warn,) constrained_gaussian("test", 0.5, 0.46, 0, 1) # 0.5 ± 1.1*0.46 clips both bounds
+            # σ close to only one (far-apart) bound does not warn: solver is not slowed down
+            @test_logs constrained_gaussian("test", 0.3, 0.28, 0, 10) # 0.3 - 1.1*0.28 <= 0, but upper bound is far
+            # σ_c must be strictly positive
+            @test_throws DomainError constrained_gaussian("test", 0.0, 0.0, -5.0, 5.0)
+            @test_throws DomainError constrained_gaussian("test", 0.0, -1.0, -5.0, 5.0)
 
 
         end
@@ -905,6 +909,17 @@ using EnsembleKalmanProcesses.ParameterDistributions
             @test isapprox(s_c, σ_c, atol = 1e-4, rtol = 1e-3)
             @test isapprox(-1.5047670627292984, mean(d), atol = 1e-4, rtol = 1e-3)
             @test isapprox(0.6474290829043071, std(d), atol = 1e-4, rtol = 1e-3)
+
+            # small-scale μ_c, σ_c: tolerance (checked in `_constrained_gaussian`) is set relative
+            # to σ_c, so it should still be achieved (and not warn) even when σ_c is tiny
+            μ_c = 1.8e-4
+            σ_c = 0.6e-4
+            pd = @test_nowarn constrained_gaussian("q", μ_c, σ_c, 0.0, 1e-3)
+            d = pd.distribution[1].distribution
+            c = pd.constraint[1]
+            m_c, s_c = ParameterDistributions._mean_std(mean(d), std(d), c)
+            @test isapprox(m_c, μ_c, atol = 1e-2 * σ_c)
+            @test isapprox(s_c, σ_c, atol = 1e-2 * σ_c)
         end
     end
 end
