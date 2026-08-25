@@ -114,9 +114,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g_full, 2)))
 
         # update group index of y,g,u
-        prior_mean = process.prior_mean[u_idx]
         verbose = uki.verbose
-        prior_cov_inv = safe_linear_solve(process.prior_cov[u_idx, u_idx], I(length(u_idx)); verbose) # take idx later
         u_p = u_p_full[u_idx, :]
         y = get_obs(uki)[g_idx]
         g = g_full[g_idx, :]
@@ -126,6 +124,8 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
 
         ## extend the state (NB obs_noise_cov_inv already extended)
         if process.impose_prior
+            prior_mean = get_prior_mean(process)[u_idx]
+            prior_cov_inv = safe_linear_solve(get_prior_cov(process)[u_idx, u_idx], I(length(u_idx)); verbose) # take idx later
             # extend y and G
             g_ext = [g; u_p]
             g_mean_ext = [g_mean; u_p_mean]
@@ -151,7 +151,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
 
         if process.impose_prior
             lmul_obs_noise_cov_inv!(view(tmp[1]', 1:size(g, 1), 1:ys2), uki, Y[1:size(g, 1), :], g_idx) # store in transpose, with view helping reduce allocations
-            view(tmp[1]', (size(g, 1) + 1):ys1, 1:ys2) .= process.Σ_ν_scale * prior_cov_inv * Y[(size(g, 1) + 1):end, :]
+            view(tmp[1]', (size(g, 1) + 1):ys1, 1:ys2) .= prior_cov_inv * Y[(size(g, 1) + 1):end, :] # inv_noise_scaling below applies uniformly to data and prior rows
         else
             lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, g_idx) # store in transpose, with view helping reduce allocations
         end
@@ -170,7 +170,7 @@ function FailureHandler(process::TransformUnscented, method::SampleSuccGauss)
         for i in 1:ys2
             tmp[2][i, i] += 1.0
         end
-        add_diagonal_regularization!(tmp[2][1:ys2, 1:ys2])
+        add_diagonal_regularization!(view(tmp[2], 1:ys2, 1:ys2))
 
         Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2); verbose) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y      
         u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext)) #  mean update = Ω * Y' * Γ_inv * (y .- g_mean))
@@ -231,9 +231,7 @@ function update_ensemble_analysis!(
     inv_noise_scaling = get_Δt(uki)[end] / process.Σ_ν_scale #   multiplies the inverse Σ_ν
 
     # update group index of y,g,u
-    prior_mean = process.prior_mean[u_idx]
     verbose = uki.verbose
-    prior_cov_inv = safe_linear_solve(process.prior_cov[u_idx, u_idx], I(length(u_idx)); verbose) # take idx later
     u_p = u_p_full[u_idx, :]
     y = get_obs(uki)[g_idx]
     g = g_full[g_idx, :]
@@ -242,6 +240,8 @@ function update_ensemble_analysis!(
     g_mean = construct_mean(uki, g)
 
     if process.impose_prior
+        prior_mean = get_prior_mean(process)[u_idx]
+        prior_cov_inv = safe_linear_solve(get_prior_cov(process)[u_idx, u_idx], I(length(u_idx)); verbose) # take idx later
         # extend y and G
         g_ext = [g; u_p]
         g_mean_ext = [g_mean; u_p_mean]
@@ -270,7 +270,7 @@ function update_ensemble_analysis!(
 
     if process.impose_prior
         lmul_obs_noise_cov_inv!(view(tmp[1]', 1:size(g, 1), 1:ys2), uki, Y[1:size(g, 1), :], g_idx) # store in transpose, with view helping reduce allocations
-        view(tmp[1]', (size(g, 1) + 1):ys1, 1:ys2) .= process.Σ_ν_scale * prior_cov_inv * Y[(size(g, 1) + 1):end, :] # 1/Σ_ν_scale is in inv_noise_scaling below, so this will cancel it for this term
+        view(tmp[1]', (size(g, 1) + 1):ys1, 1:ys2) .= prior_cov_inv * Y[(size(g, 1) + 1):end, :] # inv_noise_scaling below applies uniformly to data and prior rows
     else
         lmul_obs_noise_cov_inv!(view(tmp[1]', :, 1:ys2), uki, Y, g_idx) # store in transpose, with view helping reduce allocations
     end
@@ -280,7 +280,7 @@ function update_ensemble_analysis!(
     for i in 1:ys2
         tmp[2][i, i] += 1.0
     end
-    add_diagonal_regularization!(tmp[2][1:ys2, 1:ys2])
+    add_diagonal_regularization!(view(tmp[2], 1:ys2, 1:ys2))
     Ω = safe_linear_solve(tmp[2][1:ys2, 1:ys2], I(ys2); verbose) # Ω = (I + Y' * Γ_inv * Y)^-1 = I - Y' (Y Y' + Γ_inv)^-1 Y
     u_mean = u_p_mean + X * FT.(Ω * tmp[1][1:ys2, 1:ys1] * (y_ext .- g_mean_ext))
     uu_cov = X * Ω * X' # cov update 
