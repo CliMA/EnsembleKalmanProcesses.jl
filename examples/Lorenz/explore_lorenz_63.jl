@@ -85,14 +85,13 @@ p_short = plot(
     xlabel = "x",
     ylabel = "y",
     zlabel = "z",
-    title = "Trajectories: $(round(T_short / lyapunov_time, digits = 2)) τ_λ",
-    legend = :outertopright,
+    legend = :best,
     size = (1200, 900),
     dpi = 300,
-    titlefontsize = 20,
-    guidefontsize = 16,
-    tickfontsize = 12,
-    legendfontsize = 14,
+    guidefontsize = 24,
+    tickfontsize = 18,
+    legendfontsize = 21,
+    grid = false,
 )
 for (i, xn) in enumerate(short_trajectories)
     plot!(p_short, xn[1, :], xn[2, :], xn[3, :], color = colors[i], label = group_labels[i], linewidth = 3)
@@ -124,16 +123,37 @@ butterfly_plots = [
         xn[3, :],
         color = colors[i],
         label = false,
-        title = labels_long[i],
-        xlabel = "x",
-        ylabel = "y",
-        zlabel = "z",
-        linewidth = 0.8,
+        xlabel = "",
+        ylabel = "",
+        zlabel = "",
+        xticks = false,
+        yticks = false,
+        zticks = false,
+        grid = false,
+        linewidth = 0.6,
     ) for (i, xn) in enumerate(long_trajectories)
 ]
 n_butterfly_cols = 3
 butterfly_indices = vcat(1:n_butterfly_cols, (n_runs + 1):(n_runs + n_butterfly_cols))
-grid_plot = plot(butterfly_plots[butterfly_indices]..., layout = (2, n_butterfly_cols), size = (400 * n_butterfly_cols, 800))
+legend_strip = plot(
+    [NaN], [NaN],
+    color = :steelblue,
+    label = "different IC",
+    linewidth = 3,
+    legend = :top,
+    legendfontsize = 21,
+    legend_column = 2,
+    framestyle = :none,
+    grid = false,
+)
+plot!(legend_strip, [NaN], [NaN], color = :orangered, label = "different parameters", linewidth = 3)
+grid_layout = @layout [a{0.08h}; grid(2, 3)]
+grid_plot = plot(
+    legend_strip,
+    butterfly_plots[butterfly_indices]...,
+    layout = grid_layout,
+    size = (400 * n_butterfly_cols, 860),
+)
 savefig(grid_plot, joinpath(figure_save_directory, "l63_long_time_butterflies.png"))
 
 function energy_integral(xn, dt)
@@ -163,7 +183,8 @@ energy_plot = scatter(
     xlims = (0.5, 3.5),
     xlabel = "Trajectory length",
     ylabel = "Average size of trajectory",
-    title = "Convergence of statistics",
+    grid = false,
+    legend = false,
 )
 scatter!(energy_plot, fill(1 + dodge, n_runs), E_param_by_duration[1], color = :orangered, markersize = 8, markerstrokewidth = 0, label = "Parameters")
 for k in 2:3
@@ -188,12 +209,17 @@ separation_plot = plot(
     xlabel = "Time (Lyapunov times)",
     ylabel = "Separation from reference trajectory",
     yscale = :log10,
-    title = "Separation growth",
-    legend = :outertopright,
+    legend = false,
+    size = (1280, 800),
+    grid = false,
+    guidefontsize = 24,
+    tickfontsize = 18,
+    left_margin = 20Plots.mm,
+    bottom_margin = 20Plots.mm,
 )
 for (i, xn) in enumerate(growth_trajectories)
     sep_t = clamp.([norm(xn[:, k] .- reference_trajectory[:, k]) for k in 1:size(xn, 2)], 1e-12, Inf)
-    plot!(separation_plot, t_axis, sep_t, color = colors[i], label = group_labels[i], linewidth = 1.5)
+    plot!(separation_plot, t_axis, sep_t, color = colors[i], label = false, linewidth = 3)
 end
 vline!(separation_plot, [T_short / lyapunov_time], linestyle = :dash, linecolor = :black, label = false)
 savefig(separation_plot, joinpath(figure_save_directory, "l63_separation_growth.png"))
@@ -231,13 +257,12 @@ loss_plot = surface(
     xlabel = "ρ",
     ylabel = "β",
     zlabel = "loss",
-    title = "Loss landscape: |E(θ) - E_true|",
     size = (1200, 900),
     dpi = 300,
     legend = false,
-    titlefontsize = 20,
-    guidefontsize = 16,
-    tickfontsize = 12,
+    guidefontsize = 24,
+    tickfontsize = 18,
+    grid = false,
 )
 scatter!(loss_plot, [rho_true], [beta_true], [0.0], color = :white, markershape = :star5, markersize = 16, markerstrokecolor = :black, label = false)
 savefig(loss_plot, joinpath(figure_save_directory, "l63_loss_landscape.png"))
@@ -256,13 +281,12 @@ if make_long_loss_plot
         xlabel = "ρ",
         ylabel = "β",
         zlabel = "loss",
-        title = "Loss landscape (100τ_λ): |E(θ) - E_true|",
         size = (1200, 900),
         dpi = 300,
         legend = false,
-        titlefontsize = 20,
-        guidefontsize = 16,
-        tickfontsize = 12,
+        guidefontsize = 24,
+        tickfontsize = 18,
+        grid = false,
     )
     scatter!(
         loss_plot_long,

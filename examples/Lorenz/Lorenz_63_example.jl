@@ -216,20 +216,26 @@ println("LM final estimate: " * string(lm_history[end]) * ", true: " * string(pa
 ###
 ###  Plot: error convergence
 ###
-gr(size = (600, 600))
+gr()
 err_plot = plot(
     1:length(err),
     err,
     xlabel = "Iteration",
     ylabel = "Error",
-    title = "Calibration error",
-    legend = :topright,
-    linewidth = 2,
+    legend = :right,
+    linewidth = 4,
     marker = :circle,
     color = :black,
     label = "EKI",
+    size = (1280, 800),
+    grid = false,
+    guidefontsize = 24,
+    tickfontsize = 18,
+    legendfontsize = 21,
+    left_margin = 10Plots.mm,
+    bottom_margin = 10Plots.mm,
 )
-plot!(err_plot, 1:length(lm_err), lm_err, linewidth = 2, marker = :diamond, color = :magenta, label = "LM")
+plot!(err_plot, 1:length(lm_err), lm_err, linewidth = 4, marker = :diamond, color = :magenta, label = "LM")
 savefig(err_plot, joinpath(figure_save_directory, "l63_error_convergence.png"))
 
 ###
@@ -261,13 +267,14 @@ convergence_plot = scatter(
     markerstrokewidth = 0,
     xlabel = "ρ",
     ylabel = "β",
-    title = "EKI ensemble convergence",
     legend = false,
     size = (900, 700),
     dpi = 300,
-    titlefontsize = 20,
-    guidefontsize = 16,
-    tickfontsize = 12,
+    guidefontsize = 24,
+    tickfontsize = 18,
+    grid = false,
+    left_margin = 10Plots.mm,
+    bottom_margin = 10Plots.mm,
 )
 scatter!(
     convergence_plot,
