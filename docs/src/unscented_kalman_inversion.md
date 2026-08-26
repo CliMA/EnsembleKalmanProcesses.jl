@@ -1,6 +1,6 @@
 # [Unscented Kalman Inversion](@id uki)
 
-One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the unscented Kalman inversion ([Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)). The unscented Kalman inversion (UKI) is a derivative-free method for approximate Bayesian inference. This page additionally documents an output-scalable variant, the [unscented transform Kalman inversion](@ref utki) (UTKI).
+One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the unscented Kalman inversion [Huang22a](@citep). The unscented Kalman inversion (UKI) is a derivative-free method for approximate Bayesian inference. This page additionally documents an output-scalable variant, the [unscented transform Kalman inversion](@ref utki) (UTKI).
 
 We seek to find the posterior parameter distribution ``\theta \in \mathbb{R}^p`` from the inverse problem
 ```math
@@ -22,6 +22,7 @@ The UKI applies the unscented Kalman filter to the following stochastic dynamica
 \end{aligned}
 ```
 The free parameters in the UKI are ``\alpha, r, \Sigma_{\nu}, \Sigma_{\omega}``.
+In the implementation, the noise covariances are scaled by the timestep ``\Delta t_n`` from the [learning rate scheduler](@ref learning-rate-schedulers) (that is, ``\Sigma_{\omega} \Delta t_n`` and ``\Sigma_{\nu} / \Delta t_n`` are used in place of ``\Sigma_{\omega}`` and ``\Sigma_{\nu}``); by default UKI uses the scheduler `DataMisfitController(terminate_at = 1)`.
 The UKI updates both the mean ``m_n`` and covariance ``C_n`` estimations of the parameter vector ``\theta`` as following
 
 * Prediction step :
@@ -37,8 +38,8 @@ For the `sigma_points = symmetric` quadrature option, the ensemble is generated 
 ```math    
 \begin{aligned}
     &\hat{\theta}_{n+1}^0 = \hat{m}_{n+1} \\
-    &\hat{\theta}_{n+1}^j = \hat{m}_{n+1} + c_j [\sqrt{\hat{C}_{n+1}}]_j \quad (1\leq j\leq J)\\ 
-    &\hat{\theta}_{n+1}^{j+J} = \hat{m}_{n+1} - c_j [\sqrt{\hat{C}_{n+1}}]_j\quad (1\leq j\leq J)
+    &\hat{\theta}_{n+1}^j = \hat{m}_{n+1} + c_j [\sqrt{\hat{C}_{n+1}}]_j \quad (1\leq j\leq p)\\ 
+    &\hat{\theta}_{n+1}^{j+p} = \hat{m}_{n+1} - c_j [\sqrt{\hat{C}_{n+1}}]_j\quad (1\leq j\leq p)
 \end{aligned}
 ```
 where ``[\sqrt{C}]_j`` is the ``j``-th column of the Cholesky factor of ``C``. 
@@ -47,9 +48,9 @@ where ``[\sqrt{C}]_j`` is the ``j``-th column of the Cholesky factor of ``C``.
 ```math
    \begin{aligned}
         &\hat{y}^j_{n+1} = \mathcal{G}(\hat{\theta}^j_{n+1}) \qquad \hat{y}_{n+1} = \hat{y}^0_{n+1}\\
-         &\hat{C}^{\theta p}_{n+1} = \sum_{j=1}^{2J}W_j^{c}
+         &\hat{C}^{\theta p}_{n+1} = \sum_{j=1}^{2p}W_j^{c}
         (\hat{\theta}^j_{n+1} - \hat{m}_{n+1} )(\hat{y}^j_{n+1} - \hat{y}_{n+1})^T \\
-        &\hat{C}^{pp}_{n+1} = \sum_{j=1}^{2J}W_j^{c}
+        &\hat{C}^{pp}_{n+1} = \sum_{j=1}^{2p}W_j^{c}
         (\hat{y}^j_{n+1} - \hat{y}_{n+1} )(\hat{y}^j_{n+1} - \hat{y}_{n+1})^T + \Sigma_{\nu}\\
         &m_{n+1} = \hat{m}_{n+1} + \hat{C}^{\theta p}_{n+1}(\hat{C}^{pp}_{n+1})^{-1}(y - \hat{y}_{n+1})\\
         &C_{n+1} = \hat{C}_{n+1} - \hat{C}^{\theta p}_{n+1}(\hat{C}^{pp}_{n+1})^{-1}{\hat{C}^{\theta p}_{n+1}}{}^{T}\\
@@ -59,13 +60,13 @@ where ``[\sqrt{C}]_j`` is the ``j``-th column of the Cholesky factor of ``C``.
 Where the coefficients ``c_j, W^c_j`` are given by
 ```math
     \begin{aligned}
-    &c_j = a\sqrt{J}, \qquad W_j^{c} = \frac{1}{2a^2J}~(j=1,\cdots,2N_{\theta}), \qquad  a=\min\{\sqrt{\frac{4}{J}},  1\} 
+    &c_j = a\sqrt{p}, \qquad W_j^{c} = \frac{1}{2a^2p}~(j=1,\cdots,2p), \qquad  a=\min\{\sqrt{\frac{4}{p}},  1\} 
     \end{aligned}
 ``` 
 
 
 ## Choice of free parameters
-The free parameters in the unscented Kalman inversion are ``\alpha, r, \Sigma_{\nu}, \Sigma_{\omega}``, which are chosen based on theorems developed in [Huang et al, 2021](https://doi.org/10.1016/j.jcp.2022.111262)
+The free parameters in the unscented Kalman inversion are ``\alpha, r, \Sigma_{\nu}, \Sigma_{\omega}``, which are chosen based on theorems developed in [Huang22a](@cite)
 
 * the vector ``r`` is set to be the prior mean
 
@@ -85,7 +86,7 @@ The free parameters in the unscented Kalman inversion are ``\alpha, r, \Sigma_{\
 In short, users only need to change the ``\alpha`` (`α_reg`), and the frequency to update the ``\Lambda`` to the current covariance (`update_freq`). The user can first try `α_reg = 1.0` and `update_freq = 0` (corresponding to ``\Lambda = C_0``).
 
 !!! note "Preventing ensemble divergence"
-    If UKI suffers divergence (for example when inverse problems are not well-posed), one can prevent it by using prior regularization (see [Huang, Schneider, Stuart, 2022](https://doi.org/10.1016/j.jcp.2022.111262)). It is used by setting the `impose_prior = true` flag. In this mode, the free parameters are fixed to `α_reg = 1.0`, `update_freq = 1`. 
+    If UKI suffers divergence (for example when inverse problems are not well-posed), one can prevent it by using prior regularization (see [Huang22a](@cite)). It is used by setting the `impose_prior = true` flag. In this mode, the free parameters are fixed to `α_reg = 1.0`, `update_freq = 1`. 
 
 ## Implementation
 
@@ -109,7 +110,7 @@ Some other hyperparameters can also be set, (a full list can be seen with `?Unsc
 # update_freq 1 : approximate posterior covariance matrix with an uninformative prior
 #             0 : weighted average between posterior covariance matrix with an uninformative prior and prior
 update_freq = 0
-impose_prior=true : additional prior regularization for stability and convergence to MAP estimator
+impose_prior = true  # additional prior regularization for stability and convergence to MAP estimator
 
 # One can also use the prior mean and covariance
 using Statistics
@@ -139,9 +140,9 @@ Once the unscented Kalman inversion object `UKIobj` has been initialized, any nu
 
 A call to the inversion algorithm can be performed with the `update_ensemble!` function. This function takes as arguments the `UKIobj` and the evaluations of the forward map at each element of the current ensemble. The `update_ensemble!` function then stores the new updated ensemble and the inputted forward map evaluations in `UKIobj`.
 
-The forward map ``\mathcal{G}`` maps the space of unconstrained parameters ``\theta`` to the outputs ``y \in \mathbb{R}^d``. In practice, the user may not have access to such a map directly. And the map is a composition of several functions. The `update_ensemble!` uses only the evalutaions `g_ens` but not the forward map  
+The forward map ``\mathcal{G}`` maps the space of unconstrained parameters ``\theta`` to the outputs ``y \in \mathbb{R}^d``. In practice, the user may not have access to such a map directly, and the map is a composition of several functions. The `update_ensemble!` uses only the evaluations `g_ens` but not the forward map.
 
-For implementational reasons, the `update_ensemble` is performed by computing analysis stage first, followed by a calculation of the next sigma ensemble. The first sigma ensemble is created in the initialization.
+For implementational reasons, the `update_ensemble!` is performed by computing the analysis stage first, followed by a calculation of the next sigma ensemble. The first sigma ensemble is created in the initialization.
 
 ```julia
 # Given:
@@ -153,7 +154,7 @@ N_iter = 20 # Number of steps of the algorithm
  
 for n in 1:N_iter
     ϕ_n = get_ϕ_final(prior, ukiobj) # Get current ensemble in constrained "ϕ"-space
-    G_n = [H(Ψ(ϕ_n[:, i])) for i in 1:J]  # Evaluate forward map
+    G_n = [H(Ψ(ϕ_n[:, i])) for i in 1:get_N_ens(ukiobj)]  # Evaluate forward map
     g_ens = hcat(G_n...)  # Reformat into `d x N_ens` matrix
     EnsembleKalmanProcesses.update_ensemble!(ukiobj, g_ens) # Update ensemble
 end
@@ -161,7 +162,7 @@ end
 
 ## Solution
 
-The solution of the unscented Kalman inversion algorithm is a Gaussian distribution whose mean and covariance can be extracted from the ''last ensemble'' (i.e., the ensemble after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter (`θ_optim`) for the given calibration problem. These statistics can be accessed as follows: 
+The solution of the unscented Kalman inversion algorithm is a Gaussian distribution whose mean and covariance can be extracted from the "last ensemble" (i.e., the ensemble after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter (`θ_optim`) for the given calibration problem. These statistics can be accessed as follows: 
 
 ```julia
 # mean of the Gaussian distribution, also the optimal parameter for the calibration problem
@@ -174,9 +175,9 @@ There are two examples: [Lorenz96](@ref Lorenz-example) and [Cloudy](@ref Cloudy
 
 # [Output-scalable variant: Unscented Transform Kalman Inversion](@id utki)
 
-Unscented transform Kalman inversion (UTKI) is a variant of UKI based on applying the woodbury formula used in the ensemble transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)) to UKI update. It is a form of square-root inversion for UKI is that it has better scalability as the observation dimension grows: while the naive implementation of UKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, UTKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. UTKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
+Unscented transform Kalman inversion (UTKI) is a variant of UKI based on applying the Woodbury formula used in the ensemble transform Kalman filter [Bishop01a](@citep) to the UKI update. It is a form of square-root inversion for UKI with better scalability as the observation dimension grows: while the naive implementation of UKI scales as ``\mathcal{O}(d^3)`` in the observation dimension ``d``, UTKI scales as ``\mathcal{O}(d)``. This, however, refers to the online cost. UTKI may have an offline cost of ``\mathcal{O}(d^3)`` if ``\Gamma`` is not easily invertible; see below.
 
-UTKI requires the inverse observation noise covariance, ``\Gamma^{-1}``. In typical applications, when ``\Gamma`` is diagonal, this will be cheap to compute; however, if ``p`` is very large and ``\Gamma`` has non-trivial cross-covariance structure, computing the inverse may be prohibitively expensive.
+UTKI requires the inverse observation noise covariance, ``\Gamma^{-1}``. In typical applications, when ``\Gamma`` is diagonal, this will be cheap to compute; however, if ``d`` is very large and ``\Gamma`` has non-trivial cross-covariance structure, computing the inverse may be prohibitively expensive.
 
 !!! note "Creating scalable observational covariances"
     UTKI requires storing and inverting the observation noise covariance, ``\Gamma^{-1}``. Without care, this can be prohibitively expensive. To this end, we have tools and an API for creating and using scalable or compact representations of covariances that are necessary for scalability. See [here](@ref building-covariances) for details and examples. 

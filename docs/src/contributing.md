@@ -52,7 +52,7 @@ $ git checkout -b <branchname>
 ### Develop your feature
 
 Make sure you add tests for your code in `test/` and appropriate documentation in the code and/or
-in `docs/`. Before committing your changes, you can verify their behavior by running the tests, the examples, and building the documentation [locally](https://clima.github.io/EnsembleKalmanProcesses.jl/previews/PR157/installation_instructions/). In addition, make sure your feature follows the formatting guidelines by running
+in `docs/`. Before committing your changes, you can verify their behavior by running the tests, the examples, and building the documentation [locally](https://clima.github.io/EnsembleKalmanProcesses.jl/stable/installation_instructions/). In addition, make sure your feature follows the formatting guidelines by running
 ```
 julia --project=.dev .dev/climaformat.jl .
 ```
@@ -133,7 +133,7 @@ the local commit history.
 $ git push -uf origin <name_of_local_branch>
 ```
 
-You can find more information about squashing [here](https://github.com/edx/edx-platform/wiki/How-to-Rebase-a-Pull-Request#squash-your-changes).
+You can find more information about squashing [here](https://github.com/openedx/edx-platform/wiki/How-to-Rebase-a-Pull-Request#squash-your-changes).
 
 ### Unit testing
 
@@ -142,18 +142,18 @@ Currently a number of checks are run per commit for a given PR.
 - `JuliaFormatter` checks if the PR is formatted with `.dev/climaformat.jl`.
 - `Documentation` rebuilds the documentation for the PR and checks if the docs
   are consistent and generate valid output.
-- `Unit Tests` run subsets of the unit tests defined in `tests/`, using `Pkg.test()`.
+- `Unit Tests` run subsets of the unit tests defined in `test/`, using `Pkg.test()`.
   The tests are run in parallel to ensure that they finish in a reasonable time.
-  The tests only run the latest commit for a PR, branch and will kill any stale jobs on push.
+  Tests run only against the latest commit of a PR branch; stale jobs are cancelled on push.
   These tests are only run on linux (Ubuntu LTS).
 
-Unit tests are run against every new commit for a given PR,
-the status of the unit-tests are not checked during the merge
-process but act as a sanity check for developers and reviewers.
+Unit tests are run against every new commit for a given PR.
+They act as a sanity check for developers and reviewers, and
+must pass before the PR can be merged.
 Depending on the content changed in the PR, some CI checks that
 are not necessary will be skipped.  For example doc only changes
 do not require the unit tests to be run.
 
 ### The merge process
 
-If you're a collaborator and have the necessary permissions, and if you have both approved code-review and the (necessary) integration tests passing, then you may merge the pull-request into `main`. Our preferred method is the to click the `Squash and Merge` button set as default on the pull request.
+If you're a collaborator and have the necessary permissions, and if you have both approved code-review and the (necessary) integration tests passing, then you may merge the pull-request into `main`. Our preferred method is to click the `Squash and Merge` button set as default on the pull request.

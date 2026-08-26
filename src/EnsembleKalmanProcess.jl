@@ -150,46 +150,46 @@ end
 ## begin general constructor and function definitions
 
 """
-    EnsembleKalmanProcess{FT <: AbstractFloat, IT <: Int, P <: Process}
+The structure at the heart of every ensemble Kalman calibration: it stores the parameter
+ensemble, the observation(s), and the configuration (process type, timestep scheduler,
+accelerator, localization, and failure handling) used to evolve the ensemble with
+[`update_ensemble!`](@ref).
 
-Structure that is used in Ensemble Kalman processes.
+$(TYPEDEF)
 
 # Fields
 
 $(TYPEDFIELDS)
 
-# Generic constructor
+# Constructors
 
-    EnsembleKalmanProcess(
-        params::AbstractMatrix{FT},
-        observation_series::OS,
-        obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
-        process::P;
-        scheduler = DefaultScheduler(1),
-        Δt = FT(1),
-        rng::AbstractRNG = Random.GLOBAL_RNG,
-        failure_handler_method::FM = IgnoreFailures(),
-        nan_tolerance = 0.1,
-        nan_row_values = nothing,
-        localization_method::LM = NoLocalization(),
-        verbose::Bool = false,
-    ) where {FT <: AbstractFloat, P <: Process, FM <: FailureHandlingMethod, LM <: LocalizationMethod, OS <: ObservationSeries}
+Typical construction is from an initial parameter ensemble, observation(s), and a process:
 
-Inputs:
+```julia
+ekp = EnsembleKalmanProcess(params, y, obs_noise_cov, process; <keyword arguments>)
+ekp = EnsembleKalmanProcess(params, observation_series, process; <keyword arguments>)
+```
 
- - `params`                 :: Initial parameter ensemble
- - `observation_series`     :: Container for observations (and possible minibatching)
- - `process`                :: Algorithm used to evolve the ensemble
- - `scheduler`              :: Adaptive timestep calculator 
- - `Δt`                     :: Initial time step or learning rate
- - `rng`                    :: Random number generator
- - `failure_handler_method` :: Method used to handle particle failures
- - `nan_tolerance`          :: Fraction of allowable NaNs in ensemble member before considered failure (0.1 by default)
- - `nan_row_values`         :: Default-value vector to impute over entire-NaN rows of data (`get_obs(ekp)` used if value `nothing`)
- - `localization_method`    :: Method used to localize sample covariances
- - `verbose`                :: Whether to print diagnostic information
+# Arguments
+- `params`: initial parameter ensemble, of size `N_par × N_ens` (parameters as columns).
+- `y`, `obs_noise_cov`: observed data vector and observational noise covariance;
+  alternatively provide an `ObservationSeries` (which also enables minibatching).
+- `process`: algorithm used to evolve the ensemble ([`Inversion`](@ref), [`TransformInversion`](@ref),
+  [`Sampler`](@ref), [`Unscented`](@ref), [`GaussNewtonInversion`](@ref), [`SparseInversion`](@ref), ...).
 
-# Other constructors:
+# Keyword Arguments
+- `scheduler`: adaptive-timestep calculator; if not provided, a `process`-dependent
+  default is used (see [Defaults](@ref defaults)).
+- `accelerator`: momentum-type acceleration of updates; `process`-dependent default.
+- `failure_handler_method`: method used to handle failed ensemble members; `process`-dependent default.
+- `localization_method`: method used to localize sample covariances; `process`-dependent default.
+- `rng = Random.GLOBAL_RNG`: random number generator used for sampling and noise.
+- `nan_tolerance = 0.1`: fraction of allowable `NaN`s in a member's output before it is
+  treated as failed.
+- `nan_row_values = nothing`: default-value vector to impute over entire-`NaN` rows of
+  data (`get_obs(ekp)` used if `nothing`).
+- `update_groups = nothing`: user-defined pairings of parameters and data for blocked updates.
+- `verbose = false`: whether to print diagnostic information at each iteration.
 
 $(METHODLIST)
 """
@@ -420,27 +420,27 @@ end
 include("LearningRateSchedulers.jl")
 
 """
-    get_u(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
+$(TYPEDSIGNATURES)
 
-Returns the unconstrained parameters at the given iteration. Returns a DataContainer object unless `return_array` is true.
+Return the unconstrained parameters at the given iteration. Returns a `DataContainer` object unless `return_array` is true.
 """
 function get_u(ekp::EnsembleKalmanProcess, iteration::IT; return_array = true) where {IT <: Integer}
     return return_array ? get_data(ekp.u[iteration]) : ekp.u[iteration]
 end
 
 """
-    get_g(ekp::EnsembleKalmanProcess, iteration::IT; return_array=true) where {IT <: Integer}
+$(TYPEDSIGNATURES)
 
-Returns the forward model evaluations at the given iteration. Returns a `DataContainer` object unless `return_array` is true.
+Return the forward model evaluations at the given iteration. Returns a `DataContainer` object unless `return_array` is true.
 """
 function get_g(ekp::EnsembleKalmanProcess, iteration::IT; return_array = true) where {IT <: Integer}
     return return_array ? get_data(ekp.g[iteration]) : ekp.g[iteration]
 end
 
 """
-    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT; return_array=true)
+$(TYPEDSIGNATURES)
 
-Returns the constrained parameters at the given iteration.
+Return the constrained parameters at the given iteration.
 """
 function get_ϕ(
     prior::ParameterDistribution,
@@ -452,9 +452,9 @@ function get_ϕ(
 end
 
 """
-    get_u(ekp::EnsembleKalmanProcess; return_array=true)
+$(TYPEDSIGNATURES)
 
-Returns the unconstrained parameters from all iterations. The outer dimension is given by the number of iterations,
+Return the unconstrained parameters from all iterations. The outer dimension is given by the number of iterations,
 and the inner objects are `DataContainer` objects unless `return_array` is true.
 """
 function get_u(ekp::EnsembleKalmanProcess; return_array = true)
@@ -463,9 +463,9 @@ function get_u(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_g(ekp::EnsembleKalmanProcess; return_array=true)
+$(TYPEDSIGNATURES)
 
-Returns the forward model evaluations from all iterations. The outer dimension is given by the number of iterations,
+Return the forward model evaluations from all iterations. The outer dimension is given by the number of iterations,
 and the inner objects are `DataContainer` objects unless `return_array` is true.
 """
 function get_g(ekp::EnsembleKalmanProcess; return_array = true)
@@ -474,36 +474,36 @@ function get_g(ekp::EnsembleKalmanProcess; return_array = true)
 end
 
 """
-    get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess; return_array=true)
+$(TYPEDSIGNATURES)
 
-Returns the constrained parameters from all iterations. The outer dimension is given by the number of iterations,
+Return the constrained parameters from all iterations. The outer dimension is given by the number of iterations,
 and the inner objects are `DataContainer` objects unless `return_array` is true.
 """
 get_ϕ(prior::ParameterDistribution, ekp::EnsembleKalmanProcess; return_array = true) =
     transform_unconstrained_to_constrained(prior, get_u(ekp, return_array = return_array))
 
 """
-    get_u_mean(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
+$(TYPEDSIGNATURES)
 
-Returns the mean unconstrained parameter at the given iteration.
+Return the mean unconstrained parameter at the given iteration.
 """
 function get_u_mean(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
     return vec(mean(get_data(ekp.u[iteration]), dims = 2))
 end
 
 """
-    get_ϕ_mean(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT)
+$(TYPEDSIGNATURES)
 
-Returns the constrained transform of the mean unconstrained parameter at the given iteration.
+Return the constrained transform of the mean unconstrained parameter at the given iteration.
 """
 function get_ϕ_mean(prior::ParameterDistribution, ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
     return transform_unconstrained_to_constrained(prior, get_u_mean(ekp, iteration))
 end
 
 """
-    get_u_cov(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
+$(TYPEDSIGNATURES)
 
-Returns the unconstrained parameter sample covariance at the given iteration.
+Return the unconstrained parameter sample covariance at the given iteration.
 """
 function get_u_cov(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
     u = get_data(ekp.u[iteration])
@@ -513,9 +513,9 @@ function get_u_cov(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integ
 end
 
 """
-    get_u_cov_prior(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
-Returns the unconstrained parameter sample covariance for the initial ensemble.
+Return the unconstrained parameter sample covariance for the initial ensemble.
 """
 function get_u_cov_prior(ekp::EnsembleKalmanProcess)
     cov_u_prior = cov(get_u_prior(ekp), dims = 2)
@@ -524,58 +524,59 @@ function get_u_cov_prior(ekp::EnsembleKalmanProcess)
 end
 
 """
-    get_g_mean(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
+$(TYPEDSIGNATURES)
 
-Returns the mean forward map evaluation at the given iteration.
+Return the mean forward map evaluation at the given iteration.
 """
 function get_g_mean(ekp::EnsembleKalmanProcess, iteration::IT) where {IT <: Integer}
     return vec(mean(get_data(ekp.g[iteration]), dims = 2))
 end
 
 """
-    get_u_final(ekp::EnsembleKalmanProcess; return_array=true)
+$(TYPEDSIGNATURES)
 
-Get the unconstrained parameters at the last iteration, returning a `DataContainer` Object if `return_array` is false.
+Get the unconstrained parameters at the last iteration, returning a `DataContainer` object if `return_array` is false.
 """
 function get_u_final(ekp::EnsembleKalmanProcess; return_array = true)
     return return_array ? get_u(ekp, size(ekp.u, 1)) : ekp.u[end]
 end
 
 """
-    get_u_prior(ekp::EnsembleKalmanProcess; return_array=true)
+$(TYPEDSIGNATURES)
 
-Get the unconstrained parameters as drawn from the prior, returning a `DataContainer` Object if `return_array` is false.
+Get the unconstrained parameters as drawn from the prior, returning a `DataContainer` object if `return_array` is false.
 """
 function get_u_prior(ekp::EnsembleKalmanProcess; return_array = true)
     return return_array ? get_u(ekp, 1) : ekp.u[1]
 end
 
 """
-    get_g_final(ekp::EnsembleKalmanProcess; return_array=true)
+$(TYPEDSIGNATURES)
 
-Get forward model outputs at the last iteration, returns a `DataContainer` Object if `return_array` is false.
+Get the forward model outputs at the last iteration, returning a `DataContainer` object if `return_array` is false.
 """
 function get_g_final(ekp::EnsembleKalmanProcess; return_array = true)
     return return_array ? get_g(ekp, size(ekp.g, 1)) : ekp.g[end]
 end
 
 """
-    get_ϕ_final(ekp::EnsembleKalmanProcess; return_array=true)
+$(TYPEDSIGNATURES)
 
-Get the constrained parameters at the last iteration.
+Get the constrained parameters at the last iteration, transformed with the constraints
+in `prior`. Returns a matrix if `return_array` is true, and a `DataContainer` object otherwise.
 """
 get_ϕ_final(prior::ParameterDistribution, ekp::EnsembleKalmanProcess; return_array = true) =
     transform_unconstrained_to_constrained(prior, get_u_final(ekp, return_array = return_array))
 
 """
-    get_u_mean_final(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
 Get the mean unconstrained parameter at the last iteration.
 """
 get_u_mean_final(ekp::EnsembleKalmanProcess) = get_u_mean(ekp, size(ekp.u, 1))
 
 """
-    get_ϕ_mean_final(prior::ParameterDistribution, ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
 Get the constrained transform of the mean unconstrained parameter at the last iteration.
 """
@@ -583,23 +584,23 @@ get_ϕ_mean_final(prior::ParameterDistribution, ekp::EnsembleKalmanProcess) =
     transform_unconstrained_to_constrained(prior, get_u_mean_final(ekp))
 
 """
-    get_u_cov_final(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
-Get the mean unconstrained parameter covariance at the last iteration.
+Get the unconstrained parameter sample covariance at the last iteration.
 """
 get_u_cov_final(ekp::EnsembleKalmanProcess) = get_u_cov(ekp, size(ekp.u, 1))
 
 """
-    get_g_mean_final(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
 Get the mean forward model evaluation at the last iteration.
 """
 get_g_mean_final(ekp::EnsembleKalmanProcess) = get_g_mean(ekp, size(ekp.g, 1))
 
 """
-    get_N_iterations(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
-Get number of times update has been called (equals `size(g)`, or `size(u)-1`).
+Get the number of times the update has been called (equals `size(g)`, or `size(u)-1`).
 """
 function get_N_iterations(ekp::EnsembleKalmanProcess)
     return size(ekp.u, 1) - 1
@@ -607,57 +608,63 @@ end
 
 # basic getters
 """
-    get_N_ens(ekp::EnsembleKalmanProcess)
-Return `N_ens` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `N_ens` field of the `EnsembleKalmanProcess`.
 """
 function get_N_ens(ekp::EnsembleKalmanProcess)
     return ekp.N_ens
 end
 
 """
-    get_Δt(ekp::EnsembleKalmanProcess)
-Return `Δt` field of EnsembleKalmanProcess. 
+$(TYPEDSIGNATURES)
+
+Return the `Δt` field of the `EnsembleKalmanProcess`.
 """
 function get_Δt(ekp::EnsembleKalmanProcess)
     return ekp.Δt
 end
 
 """
-$(TYPEDSIGNATURES) 
+$(TYPEDSIGNATURES)
 
-Get the accumulated Δt over iterations, also known as algorithm- or pseudo-time.
+Get the accumulated `Δt` over iterations, also known as algorithm- or pseudo-time.
 """
 function get_algorithm_time(ekp::EnsembleKalmanProcess)
     return accumulate(+, get_Δt(ekp))
 end
 
 """
-    get_failure_handler(ekp::EnsembleKalmanProcess)
-Return `failure_handler` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `failure_handler` field of the `EnsembleKalmanProcess`.
 """
 function get_failure_handler(ekp::EnsembleKalmanProcess)
     return ekp.failure_handler
 end
 
 """
-    get_nan_tolerance(ekp::EnsembleKalmanProcess)
-Return `nan_tolerance` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `nan_tolerance` field of the `EnsembleKalmanProcess`.
 """
 function get_nan_tolerance(ekp::EnsembleKalmanProcess)
     return ekp.nan_tolerance
 end
 
 """
-    get_nan_row_values(ekp::EnsembleKalmanProcess)
-Return `nan_row_values` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `nan_row_values` field of the `EnsembleKalmanProcess`.
 """
 function get_nan_row_values(ekp::EnsembleKalmanProcess)
     return ekp.nan_row_values
 end
 
 """
-    get_update_groups(ekp::EnsembleKalmanProcess)
-Return update_groups type of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `update_groups` field of the `EnsembleKalmanProcess`.
 """
 function get_update_groups(ekp::EnsembleKalmanProcess)
     return ekp.update_groups
@@ -685,56 +692,63 @@ end
 
 
 """
-    get_process(ekp::EnsembleKalmanProcess)
-Return `process` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `process` field of the `EnsembleKalmanProcess`.
 """
 function get_process(ekp::EnsembleKalmanProcess)
     return ekp.process
 end
 
 """
-    get_localizer(ekp::EnsembleKalmanProcess)
-Return `localizer` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `localizer` field of the `EnsembleKalmanProcess`.
 """
 function get_localizer(ekp::EnsembleKalmanProcess)
     return ekp.localizer
 end
 
 """
-    get_localizer_type(ekp::EnsembleKalmanProcess)
-Return first parametric type of the `localizer` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the first parametric type of the `localizer` field of the `EnsembleKalmanProcess`.
 """
 function get_localizer_type(ekp::EnsembleKalmanProcess)
     return Localizers.get_localizer(get_localizer(ekp))
 end
 
 """
-    get_scheduler(ekp::EnsembleKalmanProcess)
-Return `scheduler` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `scheduler` field of the `EnsembleKalmanProcess`.
 """
 function get_scheduler(ekp::EnsembleKalmanProcess)
     return ekp.scheduler
 end
 
 """
-    get_accelerator(ekp::EnsembleKalmanProcess)
-Return `accelerator` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `accelerator` field of the `EnsembleKalmanProcess`.
 """
 function get_accelerator(ekp::EnsembleKalmanProcess)
     return ekp.accelerator
 end
 
 """
-    get_rng(ekp::EnsembleKalmanProcess)
-Return `rng` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `rng` field of the `EnsembleKalmanProcess`.
 """
 function get_rng(ekp::EnsembleKalmanProcess)
     return ekp.rng
 end
 
 """
-    get_observation_series(ekp::EnsembleKalmanProcess)
-Return `observation_series` field of EnsembleKalmanProcess.
+$(TYPEDSIGNATURES)
+
+Return the `observation_series` field of the `EnsembleKalmanProcess`.
 """
 function get_observation_series(ekp::EnsembleKalmanProcess)
     return ekp.observation_series
@@ -743,9 +757,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Get the `obs_noise_cov` from the current batch in `ObservationSeries`
-build=false:, returns a vector of blocks,
-build=true: returns a block matrix,
+Return the `obs_noise_cov` from the current batch in the `ObservationSeries`.
+If `build = false`, returns a vector of blocks; if `build = true`, returns a block matrix.
 """
 function get_obs_noise_cov(ekp::EnsembleKalmanProcess; build = true)
     return get_obs_noise_cov(get_observation_series(ekp); build = build)
@@ -754,9 +767,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Get the `obs_noise_cov` for `iteration` from the `ObservationSeries`
-build=false:, returns a vector of blocks,
-build=true: returns a block matrix,
+Return the `obs_noise_cov` for `iteration` from the `ObservationSeries`.
+If `build = false`, returns a vector of blocks; if `build = true`, returns a block matrix.
 """
 function get_obs_noise_cov(ekp::EnsembleKalmanProcess, iteration; build = true)
     return get_obs_noise_cov(get_observation_series(ekp), iteration; build = build)
@@ -765,9 +777,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Get the `obs_noise_cov` inverse from the current batch in `ObservationSeries`
-build=false:, returns a vector of blocks,
-build=true: returns a block matrix,
+Return the inverse of the `obs_noise_cov` from the current batch in the `ObservationSeries`.
+If `build = false`, returns a vector of blocks; if `build = true`, returns a block matrix.
 """
 function get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess; build = true)
     return get_obs_noise_cov_inv(get_observation_series(ekp); build = build)
@@ -776,9 +787,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Get the obs_noise_cov inverse for `iteration` from the `ObservationSeries`
-build=false:, returns a vector of blocks,
-build=true: returns a block matrix,
+Return the inverse of the `obs_noise_cov` for `iteration` from the `ObservationSeries`.
+If `build = false`, returns a vector of blocks; if `build = true`, returns a block matrix.
 """
 function get_obs_noise_cov_inv(ekp::EnsembleKalmanProcess, iteration; build = true)
     return get_obs_noise_cov_inv(get_observation_series(ekp), iteration; build = build)
@@ -840,9 +850,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Get the observation from the current batch in `ObservationSeries`
-build=false: returns a vector of vectors,
-build=true: returns a concatenated vector,
+Return the observation from the current batch in the `ObservationSeries`.
+If `build = false`, returns a vector of vectors; if `build = true`, returns a concatenated vector.
 """
 function get_obs(ekp::EnsembleKalmanProcess; build = true)
     return get_obs(get_observation_series(ekp); build = build)
@@ -851,9 +860,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Get the observation for `iteration` from the `ObservationSeries`
-build=false: returns a vector of vectors,
-build=true: returns a concatenated vector,
+Return the observation for `iteration` from the `ObservationSeries`.
+If `build = false`, returns a vector of vectors; if `build = true`, returns a concatenated vector.
 """
 function get_obs(ekp::EnsembleKalmanProcess, iteration; build = true)
     return get_obs(get_observation_series(ekp), iteration; build = build)
@@ -1084,16 +1092,16 @@ function compute_error!(ekp::EnsembleKalmanProcess)
 end
 
 """
-    get_error_metrics(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
-Returns the stored `error_metrics`, created with `compute_error!`
+Return the stored `error_metrics`, created with `compute_error!`.
 """
 get_error_metrics(ekp::EnsembleKalmanProcess) = ekp.error_metrics
 
 """
-    get_error(ekp::EnsembleKalmanProcess)
+$(TYPEDSIGNATURES)
 
-[For back compatability] Returns the relevant loss function that is minimized over EKP iterations.
+Return the relevant loss function that is minimized over EKP iterations (retained for backward compatibility).
 - If prior provided to the process:     `get_error_metrics(ekp)["bayes_loss"]`, the loss computed with `compute_bayes_loss_at_mean(ekp)`
 - If prior not provided to the process: `get_error_metrics(ekp)["loss"]`, the loss computed with `compute_loss_at_mean(ekp)`
 """
@@ -1168,9 +1176,9 @@ function split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
 end
 
 """
-    get_cov_blocks(cov::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <: Integer}
+$(TYPEDSIGNATURES)
 
-Given a covariance matrix `cov` and number of parameters `p`, returns the matrix blocks corresponding to the u–u
+Given a covariance matrix `cov` and number of parameters `p`, return the matrix blocks corresponding to the u–u
 covariance, the u–G(u) covariance, and the G(u)–G(u) covariance.
 """
 function get_cov_blocks(cov::AbstractMatrix{FT}, p::IT) where {FT <: Real, IT <: Integer}
@@ -1183,10 +1191,14 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Applies multiplicative noise to particles, and is aware of the current Δt (see Docs page for details). 
-Inputs:
-    - ekp :: The EnsembleKalmanProcess to update.
-    - s :: Scaling factor for time step in multiplicative perturbation.
+Apply multiplicative noise to the particles, scaled with the current Δt (see the
+Inflation documentation page for details). Requires `s * Δt < 1`.
+
+# Arguments
+- `ekp`: the `EnsembleKalmanProcess` to update.
+
+# Keyword Arguments
+- `s = 1.0`: scaling factor for the time step in the multiplicative perturbation.
 """
 function multiplicative_inflation!(ekp::EnsembleKalmanProcess; s::FT = 1.0) where {FT <: Real}
 
@@ -1207,12 +1219,16 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Applies additive Gaussian noise to particles. Noise is drawn from normal distribution with 0 mean
-and scaled parameter covariance, and accounting for the current Δt . The original parameter covariance is a provided matrix, assumed positive semi-definite.
-Inputs:
-    - ekp :: The EnsembleKalmanProcess to update.
-    - s :: Scaling factor for time step in additive perturbation.
-    - inflation_cov :: AbstractMatrix provide a N_par x N_par matrix to use.
+Apply additive Gaussian noise to the particles. Noise is drawn from a normal distribution
+with zero mean and the provided covariance, scaled with the current Δt. Requires `s * Δt < 1`.
+
+# Arguments
+- `ekp`: the `EnsembleKalmanProcess` to update.
+- `inflation_cov`: an `N_par × N_par` covariance matrix for the perturbation, assumed
+  positive semi-definite.
+
+# Keyword Arguments
+- `s = 1.0`: scaling factor for the time step in the additive perturbation.
 """
 function additive_inflation!(
     ekp::EnsembleKalmanProcess,
@@ -1318,16 +1334,27 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Updates the ensemble according to an Inversion process.
-Inputs:
- - ekp :: The EnsembleKalmanProcess to update.
- - g :: Model outputs, they need to be stored as a `N_obs × N_ens` array (i.e data are columms).
- - multiplicative_inflation :: Flag indicating whether to use multiplicative inflation.
- - additive_inflation :: Flag indicating whether to use additive inflation.
- - additive_inflation_cov ::  specifying an additive inflation matrix (default is the prior covariance) assumed positive semi-definite
-        If false (default), parameter covariance from the current iteration is used.
- - s :: Scaling factor for time step in inflation step.
- - ekp_kwargs :: Keyword arguments to pass to standard ekp update_ensemble!.
+Update the ensemble with the model outputs `g_in`, according to the process stored in `ekp`.
+
+# Arguments
+- `ekp`: the `EnsembleKalmanProcess` to update.
+- `g_in`: model outputs, stored as an `N_obs × N_ens` array (i.e., data are columns).
+
+# Keyword Arguments
+- `multiplicative_inflation = false`: whether to apply multiplicative inflation (requires `s > 0`).
+- `additive_inflation = false`: whether to apply additive inflation (requires `s > 0`).
+- `additive_inflation_cov`: covariance of the additive inflation, assumed positive
+  semi-definite (default: the prior covariance).
+- `s = 0.0`: scaling factor for the time step in the inflation step; no user-specified
+  inflation is applied when `s = 0`.
+- `Δt_new = nothing`: override of the scheduler timestep for this update (only for
+  schedulers that permit it).
+- `ekp_kwargs...`: keyword arguments passed on to the process-specific update.
+
+# Returns
+`nothing` after a successful update; a non-`nothing` termination flag when the scheduler's
+termination condition is met (e.g., `DataMisfitController` reaching its terminate time),
+in which case the ensemble is not updated.
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess,

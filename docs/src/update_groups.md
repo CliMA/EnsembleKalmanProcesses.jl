@@ -1,6 +1,6 @@
-# [Update Groups] (@id update-groups)
+# [Update Groups](@id update-groups)
 
-The `UpdateGroup` object facilitates blocked EKP updates, based on a provided updating a series user-defined pairs of parameters and data. This allows users to enforce any *known* (in)dependences between different groups of parameters during the update. For example, 
+The `UpdateGroup` object facilitates blocked EKP updates based on user-defined pairings of parameters and data. This allows users to enforce any *known* (in)dependences between different groups of parameters during the update. For example, 
 ```julia
 # update parameter 1 with data 1 and 2
 # update parameters 2 and 3 jointly with data 2, 3, and 4
@@ -12,7 +12,7 @@ Dict(
 Construction and passing of this into the EnsembleKalmanProcesses is detailed below.
 
 !!! note "This improves scaling at the cost of user-imposed structure"
-    As many of the `Process` updates scale say with ``d^\alpha``, in the data dimension ``d`` and ``\alpha > 1`` (super-linearly),  update groups with ``K`` groups of equal size will improving this scaling to ``K (\frac{d}{K})^\alpha``.
+    As many of the `Process` updates scale with ``d^\alpha``, in the data dimension ``d`` and ``\alpha > 1`` (super-linearly),  update groups with ``K`` groups of equal size will improve this scaling to ``K (\frac{d}{K})^\alpha``.
 
 ##  Recommended construction - shown by example
 
@@ -73,7 +73,7 @@ group_identifiers = Dict(
 ```
 We then create the update groups with our convenient constructor
 ```julia
-update_groups = create_update_groups(prior, observation, group_identifiers)
+update_groups = create_update_groups(priors, observation, group_identifiers)
 ```
 and this can then be entered into the `EnsembleKalmanProcess` object as a keyword argument
 ```julia
@@ -88,7 +88,7 @@ ekiobj = EnsembleKalmanProcess(
 
 ## What happens internally?
 
-We simply perform an independent `update_ensemble!` for each provided pairing and combine model output and updated parameters afterwards. Note that even without specifying an update group, by default EKP will always be construct one under-the-hood.
+We simply perform an independent `update_ensemble!` for each provided pairing and combine model output and updated parameters afterwards. Note that even without specifying an update group, by default EKP will always construct one under the hood.
 
 
 

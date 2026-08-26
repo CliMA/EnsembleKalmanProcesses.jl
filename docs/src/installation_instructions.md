@@ -1,13 +1,12 @@
 # Installation
 
-EnsembleKalmanProcesses.jl is a registered Julia package. You can install the latest version
+EnsembleKalmanProcesses.jl is a registered Julia package. It is compatible with Julia 1.5 or newer (we recommend the latest LTS release or newer). You can install the latest version
 of EnsembleKalmanProcesses.jl through the built-in package manager. Press `]` in the Julia REPL
 command prompt and
 
 ```julia
 julia> ]
 pkg> add EnsembleKalmanProcesses
-pkg> instantiate
 ```
 
 This will install the latest tagged release of the package.
@@ -18,7 +17,6 @@ This will install the latest tagged release of the package.
     ```julia
     julia> ]
     pkg> add EnsembleKalmanProcesses#main
-    pkg> instantiate
     ```
     
 You can run the tests via the package manager by:
@@ -28,21 +26,22 @@ julia> ]
 pkg> test EnsembleKalmanProcesses
 ```
 
-### Cloning the repository
+## Cloning the repository
 
 If you are interested in getting your hands dirty and modifying the code then, you can also
 clone the repository and then instantiate, e.g.,
 
 ```
+> git clone https://github.com/CliMA/EnsembleKalmanProcesses.jl.git
 > cd EnsembleKalmanProcesses.jl
 > julia --project -e 'using Pkg; Pkg.instantiate()'
 ```
 
 !!! info "Do I need to clone the repository?"
-    Most times, cloning the repository in not necessary. If you only want to use the package's
+    Most times, cloning the repository is not necessary. If you only want to use the package's
     functionality, adding the packages as a dependency on your project is enough.
 
-### Running the test suite
+## Running the test suite
 
 You can run the package's tests:
 
@@ -56,7 +55,7 @@ julia> ]
 (EnsembleKalmanProcesses) pkg> test
 ```
 
-### Building the documentation locally
+## Building the documentation locally
 
 Once the project is built, you can build the project documentation under the `docs/` sub-project:
 
@@ -67,7 +66,7 @@ Once the project is built, you can build the project documentation under the `do
 
 The locally rendered HTML documentation can be viewed at `docs/build/index.html`
 
-### Running repository examples
+## Running repository examples
 
 We have a selection of examples, found within the `examples/` directory to demonstrate different use of our toolbox.
 Each example directory contains a `Project.toml`
@@ -82,10 +81,9 @@ If you wish to run a local modified version of `EnsembleKalmanProcesses.jl` then
 ```
 > cd examples/example-name/
 > julia --project 
-> julia> ]
-> (example-name)> rm EnsembleKalmanProcesses.jl
-> (example-name)> dev ../..
-> (example-name)> instantiate
+julia> ]
+(example-name)> rm EnsembleKalmanProcesses
+(example-name)> dev ../..
 ```
 followed by
 ```

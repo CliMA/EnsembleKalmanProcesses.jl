@@ -17,7 +17,7 @@ on GitHub.
 | Number of iterations  | ``N_{\rm it}``  | `N_iter` |
 | Observation vector, Observations, Data vector  | ``y``  | `y` |
 | Observation vector size, Data vector size  | ``d``  | `N_obs` |
-| Observational noise | ``\eta``  | obs_noise |
+| Observational noise | ``\eta``  | `obs_noise` |
 | Observational noise covariance | ``\Gamma_y``  | `obs_noise_cov` |
 | Hilbert space inner product | ``\langle \phi , \Gamma^{-1} \psi \rangle`` | |
 | Forward map | ``\mathcal{G}``  | `G` |

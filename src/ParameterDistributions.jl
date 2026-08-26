@@ -244,14 +244,14 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Gets the bounds field from the Constraint.
+Return the `bounds` field of the `Constraint`.
 """
 get_bounds(c::C) where {C <: Constraint} = c.bounds
 
 """
 $(TYPEDSIGNATURES)
 
-Gets the parametric type T.
+Return the parametric type `T` of the `Constraint`.
 """
 get_constraint_type(c::Constraint{T}) where {T} = T
 
@@ -454,14 +454,14 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns a list of ParameterDistribution names.
+Return the list of `ParameterDistribution` names.
 """
 get_name(pd::ParameterDistribution) = pd.name
 
 """
 $(TYPEDSIGNATURES)
 
-The number of dimensions of the parameter space. (Also represents other dimensions of interest for `FunctionParameterDistributionType`s with keyword argument)
+Return the number of dimensions of the parameter space. (Also represents other dimensions of interest for `FunctionParameterDistributionType`s with the keyword argument.)
 """
 function get_dimensions(pd::ParameterDistribution; function_parameter_opt::AbstractString = "dof")
     return [ndims(d, function_parameter_opt = function_parameter_opt) for d in pd.distribution]
@@ -485,7 +485,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-The number of samples in a Samples distribution
+Return the number of samples in a `Samples` distribution.
 """
 function get_n_samples(pd::ParameterDistribution)
     return Dict{String, Any}(pd.name[i] => n_samples(d) for (i, d) in enumerate(pd.distribution))
@@ -494,7 +494,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the (flattened) array of constraints of the parameter distribution. or as a dictionary ("param_name" => constraints)
+Return the flattened array of constraints of the parameter distribution, or a dictionary (`"param_name" => constraints`) if `return_dict = true`.
 """
 function get_all_constraints(pd::ParameterDistribution; return_dict = false)
     if return_dict
@@ -531,7 +531,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns a `Dict` of `ParameterDistribution` distributions, with the parameter names
+Return a `Dict` of `ParameterDistribution` distributions, with the parameter names
 as dictionary keys. For parameters represented by `Samples`, the samples are returned
 as a 2D (`parameter_dimension x n_samples`) array.
 """
@@ -1007,21 +1007,23 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Constructor for a 1D ParameterDistribution consisting of a transformed Gaussian, constrained
-to have support on [`lower_bound`, `upper_bound`], with first two moments `μ_c` and `σ_c^2`. The 
-moment integrals can't be done in closed form, so we set the parameters of the distribution
-with numerical optimization.
+Construct a 1D `ParameterDistribution` consisting of a transformed Gaussian, constrained
+to have support on [`lower_bound`, `upper_bound`], with first two moments `μ_c` and `σ_c^2`. The
+moment integrals can't be done in closed form, so the parameters of the distribution are
+set with numerical optimization.
 
-kwargs:
-=======
- - `repeats=1` : K-dimensional distribution by stacking `K` independent copies of the defined univariate distribution by setting `repeats = K`.
+# Keyword Arguments
+- `repeats = 1`: build a `K`-dimensional distribution by stacking `K` independent copies
+  of the defined univariate distribution, by setting `repeats = K`.
+- `optim_algorithm = NelderMead()`: `Optim.jl` algorithm used for the moment-matching optimization.
+- `optim_kwargs...`: further keyword arguments passed to the `Optim.Options` of the optimization.
 
-Example usage:
-```
+# Examples
+```julia
 d1 = constrained_gaussian("mean2-sd1-positive", 2.0, 1.0, 0, Inf)
 d2 = constrained_gaussian("4-dim-mean0-sd10", 0.0, 4.0, -Inf, Inf, repeats=4)
 # combine with:
-d = combine_distributions([d1,d2])
+d = combine_distributions([d1, d2])
 ```
 
 !!! note
