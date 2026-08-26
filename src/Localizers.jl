@@ -215,9 +215,10 @@ Function that performs sampling error correction as per Lee (2021).
 The input is assumed to be a covariance matrix, hence square.
 """
 function sec(cov, α, r_0)
-    v = sqrt.(diag(cov))
+    v = sqrt.(max.(diag(cov), 0))
+    v_safe = map(x -> x > 0 ? x : one(x), v) # zero-variance rows: correlation treated as 0
     V = Diagonal(v)
-    V_inv = inv(V)
+    V_inv = Diagonal(1 ./ v_safe)
     R = V_inv * cov * V_inv
     R_sec = R .* (abs.(R) .^ α)
     # Apply cutoff
@@ -238,9 +239,10 @@ function sec_fisher(cov, N_ens)
     # Decompose covariance matrix C = V*R*V, where R is the
     # correlation matrix and V is a diagonal matrix holding the
     # standard deviations.
-    v = sqrt.(diag(cov))
+    v = sqrt.(max.(diag(cov), 0))
+    v_safe = map(x -> x > 0 ? x : one(x), v) # zero-variance rows: correlation treated as 0
     V = Diagonal(v)
-    V_inv = inv(V)
+    V_inv = Diagonal(1 ./ v_safe)
     R = V_inv * cov * V_inv
     bd_tol = 1e8 * eps()
     clamp!(R, -1 + bd_tol, 1 - bd_tol)
@@ -272,15 +274,16 @@ end
 
 """
 Function that performs sampling error correction as per Vishny, Morzfeld, et al. (2024).
-The input is assumed to be a covariance matrix, hence square. The standard deviation for a correlation `corr` with `N_ens` samples is internally estimated simply by `std_corrs = (1 .- corr)/sqrt(N_ens)`. This requires no precomputation and appears sufficiently accurate.
+The input is assumed to be a covariance matrix, hence square. The standard deviation for a correlation `corr` with `N_ens` samples is internally estimated simply by `std_corrs = (1 .- corr.^2)/sqrt(N_ens)`. This requires no precomputation and appears sufficiently accurate.
 
 """
 function sec_nice(cov, δ_ug, δ_gg, N_ens, p, d)
     bd_tol = 1e8 * eps()
 
-    v = sqrt.(diag(cov))
+    v = sqrt.(max.(diag(cov), 0))
+    v_safe = map(x -> x > 0 ? x : one(x), v) # zero-variance rows: correlation treated as 0
     V = Diagonal(v) #stds
-    V_inv = inv(V)
+    V_inv = Diagonal(1 ./ v_safe)
     corr = clamp.(V_inv * cov * V_inv, -1 + bd_tol, 1 - bd_tol) # full corr
 
     # parameter sweep over the exponents
@@ -298,7 +301,7 @@ function sec_nice(cov, δ_ug, δ_gg, N_ens, p, d)
 
         # Find the variability in the corr coeff matrix entries
         # Below has no precomputation and is surprisingly fine accuracy! (~10^-4 error to empirical at N_ens=20)
-        std_corrs = (1 .- corr_tmp) / sqrt(N_ens)
+        std_corrs = (1 .- corr_tmp .^ 2) / sqrt(N_ens)
 
         std_tol = sqrt(sum(std_corrs .^ 2))
         γ_min_exceeded = max_exponent
