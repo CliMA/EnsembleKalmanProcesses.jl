@@ -5,6 +5,7 @@ CurrentModule = EnsembleKalmanProcesses.Localizers
 ```
 
 ```@docs
+LocalizationMethod
 Localizer
 RBF
 BernoulliDropout

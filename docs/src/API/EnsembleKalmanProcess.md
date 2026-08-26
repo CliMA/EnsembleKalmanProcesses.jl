@@ -119,3 +119,10 @@ NesterovAccelerator
 FirstOrderNesterovAccelerator
 accelerate!
 ```
+## Linear solvers
+
+```@docs
+safe_linear_solve
+safe_linear_solve!
+add_diagonal_regularization!
+```

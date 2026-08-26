@@ -3,15 +3,14 @@ using LinearAlgebra
 export safe_linear_solve, safe_linear_solve!, add_diagonal_regularization!
 
 """
-    safe_linear_solve(A, b; warn_on_singular=true)
+    safe_linear_solve(A, b; verbose=true)
 
-Solves the linear system Ax = b with robust handling of ill-conditioned matrices.
+Solve the linear system Ax = b with robust handling of ill-conditioned matrices.
 
 # Arguments
-- `A`: Coefficient matrix
-- `b`: Right-hand side vector or matrix  
-- `verbose`: Whether to issue warnings when ill-conditioned matrices are detected
-
+- `A`: Coefficient matrix.
+- `b`: Right-hand side vector or matrix.
+- `verbose`: Whether to issue warnings when ill-conditioned matrices are detected.
 """
 function safe_linear_solve(A::AbstractMatrix, b::AbstractVecOrMat; verbose = true)
     try
@@ -44,10 +43,10 @@ end
 """
     add_diagonal_regularization!(cov_matrix; regularization_factor=sqrt(eps(eltype(cov_matrix))))
 
-Adds diagonal regularization to a covariance matrix to prevent singular matrix issues.
+Add diagonal regularization to a covariance matrix to prevent singular matrix issues.
 
 # Arguments
-- `cov_matrix`: The covariance matrix to regularize (modified in-place)
+- `cov_matrix`: The covariance matrix to regularize (modified in-place).
 - `regularization_factor`: Regularization amount.
 """
 function add_diagonal_regularization!(

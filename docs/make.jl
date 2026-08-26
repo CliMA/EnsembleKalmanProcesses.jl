@@ -1,7 +1,6 @@
-# reference in tree version of CalibrateEmulateSample
-
 using EnsembleKalmanProcesses,
     Documenter,
+    DocumenterCitations,
     Plots,  # so that Literate.jl does not capture precompilation output
     CairoMakie,
     Literate
@@ -20,6 +19,7 @@ examples_for_literation = [
     "Sinusoid/sinusoid_example.jl",
     "LossMinimization/loss_minimization.jl",
     "SparseLossMinimization/loss_minimization_sparse_eki.jl",
+    "Darcy/darcy.jl",
 ]
 
 if isempty(get(ENV, "CI", ""))
@@ -59,56 +59,74 @@ api = [
     "Visualize" => "API/Visualize.md",
 ]
 
+# Navigation follows the Diátaxis framework (https://diataxis.fr/): tutorials (Examples),
+# explanation (Methods), how-to guides (User guides), and reference (API, glossary)
+
 examples = [
     "Simple example" => "literated/sinusoid_example.md",
     "Minimization Loss" => "literated/loss_minimization.md",
-    "Darcy flow" => "examples/darcy.md",
+    "Darcy flow" => "literated/darcy.md",
     "Lorenz" => "examples/lorenz_example.md",
     "Cloudy" => "examples/Cloudy_example.md",
     "TOML interface" => "examples/sinusoid_example_toml.md",
-    "HPC interfacing example: ClimateMachine" => "examples/ClimateMachine_example.md",
     "Sparse Minimization Loss" => "literated/loss_minimization_sparse_eki.md",
 ]
 
-pages = [
-    "Home" => "index.md",
-    "Installation instructions" => "installation_instructions.md",
-    "Examples" => examples,
-    "List of default configurations" => "defaults.md",
+methods = [
     "Ensemble Kalman Inversion" => "ensemble_kalman_inversion.md",
     "Gauss Newton Kalman Inversion" => "gauss_newton_kalman_inversion.md",
     "Ensemble Kalman Sampler" => "ensemble_kalman_sampler.md",
     "Unscented Kalman Inversion" => "unscented_kalman_inversion.md",
-    "Learning rate schedulers" => "learning_rate_scheduler.md",
+]
+
+user_guides = [
+    "List of default configurations" => "defaults.md",
     "Prior distributions" => "parameter_distributions.md",
     "Observations and Minibatching" => "observations.md",
+    "Learning rate schedulers" => "learning_rate_scheduler.md",
     "Update Groups" => "update_groups.md",
     "Localization and SEC" => "localization.md",
     "Accelerators" => "accelerators.md",
     "Inflation" => "inflation.md",
     "Failure handling" => "failure_handling.md",
     "Parallelism and HPC" => "parallel_hpc.md",
-    "Internal data representation" => "internal_data_representation.md",
     "Visualization" => "visualization.md",
-    "Troubleshooting" => "troubleshooting.md",
+]
+
+reference = [
     "API" => api,
-    "Contributing" => "contributing.md",
+    "Internal data representation" => "internal_data_representation.md",
     "Glossary" => "glossary.md",
+    "References" => "references.md",
+]
+
+pages = [
+    "Home" => "index.md",
+    "Installation instructions" => "installation_instructions.md",
+    "Examples" => examples,
+    "Methods" => methods,
+    "User guides" => user_guides,
+    "Troubleshooting" => "troubleshooting.md",
+    "Reference" => reference,
+    "Contributing" => "contributing.md",
 ]
 
 #----------
 
 format = Documenter.HTML(collapselevel = 1, prettyurls = !isempty(get(ENV, "CI", "")))
 
+bib = CitationBibliography(joinpath(@__DIR__, "src", "bibliography.bib"), style = :authoryear)
+
 makedocs(
+    plugins = [bib],
     sitename = "EnsembleKalmanProcesses.jl",
     authors = "CliMA Contributors",
     format = format,
     pages = pages,
-    modules = [EnsembleKalmanProcesses, Base.get_extension(EnsembleKalmanProcesses, :EnsembleKalmanProcessesMakieExt)],
+    modules = [EnsembleKalmanProcesses],
     doctest = true,
     clean = true,
-    checkdocs = :none,
+    checkdocs = :exports,
 )
 
 if !isempty(get(ENV, "CI", ""))

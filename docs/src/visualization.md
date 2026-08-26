@@ -56,8 +56,8 @@ true_u = [3, 1, 2]
 y = G(true_u)
 Γ = (0.1)^2 * I
 
-prior_u1 = constrained_gaussian("positive_with_mean_1", 2, 1, 0, Inf)
-prior_u2 = constrained_gaussian("two_with_spread_2", 0, 5, -Inf, Inf, repeats = 2)
+prior_u1 = constrained_gaussian("positive_with_mean_2", 2, 1, 0, Inf)
+prior_u2 = constrained_gaussian("two_with_spread_5", 0, 5, -Inf, Inf, repeats = 2)
 prior = combine_distributions([prior_u1, prior_u2])
 
 N_ensemble = 30
@@ -100,7 +100,7 @@ or time respectively. All keyword arguments supported by
 by these functions too.
 
 Any of the stored error metrics, computed by EnsembleKalmanProcess can be
-plotted by the `error_metric="metric-name"` keyword argument, . See
+plotted by the `error_metric="metric-name"` keyword argument. See
 [`compute_error!`](@ref) for a list of the computed error metrics and their
 names.
 
@@ -113,7 +113,7 @@ fig_errors = CairoMakie.Figure(size = (300 * 2, 300 * 1))
 viz.plot_error_over_iters(fig_errors[1, 1], ekp, color = :tomato)
 # Error plotting functions support plotting different errors through the
 # error_metric keyword argument
-ax1 = CairoMakie.Axis(fig_errors[1, 2], title = "Average RMSE over iterations", yscale = Makie.pseudolog10)
+ax1 = CairoMakie.Axis(fig_errors[1, 2], title = "Average RMSE over time", yscale = Makie.pseudolog10)
 viz.plot_error_over_time!(
     ax1,
     ekp,
@@ -136,7 +136,7 @@ supported by these functions too.
 Furthermore, there are also `plot_ϕ_mean_over_iters` and `plot_ϕ_mean_over_time`
 and the mutating versions can be used to plot the mean parameter (dimension)
 over the number of iterations or time respectively. All keyword arguments
-supported by [`Makie.Scatter`](https://docs.makie.org/dev/reference/plots/lines)
+supported by [`Makie.Lines`](https://docs.makie.org/stable/reference/plots/lines)
 are supported by these functions too. Furthermore, there is the keyword argument
 `plot_std = true` which can be used to also plot the standard deviation as well.
 To support plotting both mean and standard deviation, there are also the keyword
@@ -183,13 +183,13 @@ viz.plot_ϕ_over_time(
     [fig_ϕ[1, 1], fig_ϕ[1, 2]],
     ekp,
     prior,
-    "two_with_spread_2",
+    "two_with_spread_5",
     markersize = 8)
 viz.plot_ϕ_mean_over_time(
     [fig_ϕ[2, 1], fig_ϕ[2, 2]],
     ekp,
     prior,
-    "two_with_spread_2",
+    "two_with_spread_5",
     linewidth = 3.0)
 fig_ϕ
 ```
