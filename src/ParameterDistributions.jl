@@ -670,12 +670,18 @@ end
 
 logpdf(pd::ParameterDistribution, x::FT) where {FT <: Real} = logpdf(pd, [x])
 
+# a per-block moment (mean/var) may come back as a Real (univariate Parameterized) or an array
+# (Samples, multivariate Parameterized); flatten it to a Vector before concatenating blocks so
+# mean(pd)/var(pd) always return a Vector, regardless of block count/type/composition
+_flatten_moment(x::AbstractArray) = vec(x)
+_flatten_moment(x::Real) = [x]
+
 #extending StatsBase cov,var
 var(d::Parameterized) = var(d.distribution)
-var(d::Samples) = var(d.distribution_samples, dims = 2)
+var(d::Samples) = vec(var(d.distribution_samples, dims = 2))
 function var(d::VectorOfParameterized)
     block_var = var.(d.distribution)
-    return reduce(vcat, block_var)
+    return reduce(vcat, _flatten_moment.(block_var))
 end
 
 """
@@ -688,7 +694,7 @@ $(METHODLIST)
 """
 function var(pd::ParameterDistribution)
     block_var = var.(pd.distribution)
-    return reduce(vcat, block_var) #build the flattened vector
+    return reduce(vcat, _flatten_moment.(block_var)) #build the flattened vector
 end
 
 
@@ -741,8 +747,8 @@ end
 
 #extending mean
 mean(d::Parameterized) = mean(d.distribution)
-mean(d::Samples) = mean(d.distribution_samples, dims = 2)
-mean(d::VectorOfParameterized) = reduce(vcat, mean.(d.distribution))
+mean(d::Samples) = vec(mean(d.distribution_samples, dims = 2))
+mean(d::VectorOfParameterized) = reduce(vcat, _flatten_moment.(mean.(d.distribution)))
 """
 $(TYPEDSIGNATURES)
 
@@ -751,7 +757,7 @@ Return the concatenated mean of all sub-distributions in `pd`.
 # Method list
 $(METHODLIST)
 """
-mean(pd::ParameterDistribution) = reduce(vcat, mean.(pd.distribution))
+mean(pd::ParameterDistribution) = reduce(vcat, _flatten_moment.(mean.(pd.distribution)))
 
 #apply transforms
 function transform_constrained_to_unconstrained(
