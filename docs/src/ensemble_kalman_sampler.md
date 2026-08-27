@@ -5,6 +5,9 @@ The Ensemble Kalman Sampler (EKS) [Garbuno-Inigo20a, Cleary21a](@citep) and its 
 
 EKS can be viewed as an affine-invariant system of interacting particles [Garbuno-Inigo20b](@citep); ALDI differs from EKS by a finite-sample correction. Both variants are provided through the `Sampler` process; by default the toolbox constructs the improved ALDI variant.
 
+!!! note "Defaults"
+    By default, EKS (`Sampler(prior)`) is constructed with the `EKSStableScheduler()` scheduler and the `IgnoreFailures()` failure handler, with no accelerator or localization; see the [defaults](@ref defaults) page.
+
 While there are noisy variants of the standard EKI, EKS differs from them in its noise structure (as its noise is added in parameter space, not in data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization).  The approximation of the posterior through EKS typically needs more iterations than EKI to converge to a suitable solution, and to help we provide an adaptive learning rate scheduler `EKSStableScheduler()` and a semi-implicit formulation to help maintain a stable interacting particle system. However, the posterior approximation through EKS is obtained with far less computational effort than a typical Markov Chain Monte Carlo (MCMC) like Metropolis-Hastings, though it will provide Gaussian-like uncertainty.
 
 ### Problem Formulation

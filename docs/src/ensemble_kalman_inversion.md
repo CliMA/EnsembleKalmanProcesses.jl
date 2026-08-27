@@ -2,6 +2,9 @@ This page documents ensemble Kalman inversion (EKI), as well as two variants, [e
 
 # [Ensemble Kalman Inversion](@id eki)
 
+!!! note "Defaults"
+    By default, EKI (`Inversion()`) is constructed with the `NesterovAccelerator()` accelerator, `SECNice()` localization, and the `DataMisfitController(terminate_at = 1)` scheduler; see the [defaults](@ref defaults) page.
+
 ## What we optimize, and types of solution
 One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is ensemble
 Kalman inversion [Iglesias13a](@citep).
@@ -200,6 +203,9 @@ Ensemble transform Kalman inversion (ETKI) is a variant of EKI based on the ense
 
 The major disadvantage of ETKI is that it cannot be used with localization or sampling error correction. 
 
+!!! note "Defaults"
+    By default, ETKI (`TransformInversion()`) is constructed with the `DataMisfitController(terminate_at = 1)` scheduler, and with no accelerator or localization; see the [defaults](@ref defaults) page.
+
 !!! note "Creating scalable observational covariances"
     ETKI requires storing and inverting the observation noise covariance, ``\Gamma^{-1}``. Without care, this can be prohibitively expensive. To this end, we have tools and an API for creating and using scalable or compact representations of covariances that are necessary for scalability. See [here](@ref building-covariances) for details and examples. 
 ## Using ETKI
@@ -222,6 +228,9 @@ The rest of the inversion process is the same as for regular EKI.
 # [Sparsity-Inducing Ensemble Kalman Inversion](@id seki)
 
 We include Sparsity-inducing Ensemble Kalman Inversion (SEKI) to add approximate ``L^0`` and ``L^1`` penalization to the EKI [Schneider22v](@citep).
+
+!!! note "Defaults"
+    By default, SEKI (`SparseInversion(γ)`) is constructed with the `DefaultScheduler()` and `SECNice()` localization, with no accelerator; see the [defaults](@ref defaults) page.
 
 A SEKI object is created by passing the `SparseInversion` process to the `EnsembleKalmanProcess` constructor:
 ```julia

@@ -2,6 +2,9 @@
 
 One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is the unscented Kalman inversion [Huang22a](@citep). The unscented Kalman inversion (UKI) is a derivative-free method for approximate Bayesian inference. This page additionally documents an output-scalable variant, the [unscented transform Kalman inversion](@ref utki) (UTKI).
 
+!!! note "Defaults"
+    By default, UKI (`Unscented(prior)`) is constructed with the `DataMisfitController(terminate_at = 1)` scheduler, with no accelerator or localization; see the [defaults](@ref defaults) page.
+
 We seek to find the posterior parameter distribution ``\theta \in \mathbb{R}^p`` from the inverse problem
 ```math
  y = \mathcal{G}(\theta) + \eta
@@ -176,6 +179,9 @@ There are two examples: [Lorenz96](@ref Lorenz-example) and [Cloudy](@ref Cloudy
 # [Output-scalable variant: Unscented Transform Kalman Inversion](@id utki)
 
 Unscented transform Kalman inversion (UTKI) is a variant of UKI based on applying the Woodbury formula used in the ensemble transform Kalman filter [Bishop01a](@citep) to the UKI update. It is a form of square-root inversion for UKI with better scalability as the observation dimension grows: while the naive implementation of UKI scales as ``\mathcal{O}(d^3)`` in the observation dimension ``d``, UTKI scales as ``\mathcal{O}(d)``. This, however, refers to the online cost. UTKI may have an offline cost of ``\mathcal{O}(d^3)`` if ``\Gamma`` is not easily invertible; see below.
+
+!!! note "Defaults"
+    By default, UTKI (`TransformUnscented(prior)`) is constructed with the `DataMisfitController(terminate_at = 1)` scheduler, with no accelerator or localization; see the [defaults](@ref defaults) page.
 
 UTKI requires the inverse observation noise covariance, ``\Gamma^{-1}``. In typical applications, when ``\Gamma`` is diagonal, this will be cheap to compute; however, if ``d`` is very large and ``\Gamma`` has non-trivial cross-covariance structure, computing the inverse may be prohibitively expensive.
 

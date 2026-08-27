@@ -3,6 +3,9 @@
 ### What Is It and What Does It Do?
 Gauss Newton Kalman Inversion (GNKI) [Chada21a, Chen13c](@citep), also known as the Iterative Ensemble Kalman Filter with Statistical Linearization, is a derivative-free ensemble optimization method based on the Gauss Newton optimization update and the Iterative Extended Kalman Filter (IExKF) [Jazwinski70a](@citep).  In the linear case and continuous limit, GNKI recovers the true posterior mean and covariance.  Empirically, GNKI performs well as an optimization algorithm in the nonlinear case.  
 
+!!! note "Defaults"
+    By default, GNKI is constructed with the `NesterovAccelerator()` accelerator, `SECNice()` localization, and the `DefaultScheduler()`; see the [defaults](@ref defaults) page.
+
 ### Problem Formulation
 
 The data ``y`` and parameter vector ``\theta`` are assumed to be related according to:
@@ -55,9 +58,6 @@ Using the ensemble covariance matrices, the update equation from ``n`` to ``n+1`
 ```
 
 where ``y_n^{(j)} \sim \mathcal{N}(y, 2\alpha^{-1}\Gamma_y)`` and ``m_n^{(j)} \sim \mathcal{N}(m, 2\alpha^{-1}\Gamma_{\theta})``, and where ``\alpha = \Delta t_n`` is the timestep from the [learning rate scheduler](@ref learning-rate-schedulers).
-
-!!! note "Defaults"
-    By default, GNKI is constructed with the `NesterovAccelerator()` accelerator, `SECNice()` localization, and the `DefaultScheduler()`; see the [defaults](@ref defaults) page.
 
 ## Creating the GNKI Object
 
