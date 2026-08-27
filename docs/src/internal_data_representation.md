@@ -1,4 +1,4 @@
-# Wrapping up data
+# Internal data representation
 
 To provide a consistent form for data (such as observations, parameter ensembles, model evaluations) across the package, we store the data in simple wrappers internally.
 
@@ -14,7 +14,7 @@ A `DataContainer` is constructed initially by copying and perhaps transposing ma
 dc = DataContainer(abstract_matrix; data_are_columns = true)
 ```
 !!! note
-    Providing an n-vector will be interpreted as a [1xn] matrix
+    Providing an n-vector will be interpreted as a `1 × n` matrix, and a warning is raised in this case
 
 The flag `data_are_columns` indicates whether the provided data is stored column- or row-wise. The data is retrieved with
 ```julia

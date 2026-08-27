@@ -7,6 +7,17 @@ using Interpolations
 
 export NoLocalization, Delta, RBF, BernoulliDropout, SEC, SECFisher, SECNice
 export LocalizationMethod, Localizer
+"""
+$(TYPEDEF)
+
+Abstract supertype for methods that localize or correct sample covariances in ensemble
+Kalman updates.
+
+Subtypes:
+- [`NoLocalization`](@ref): no localization or correction.
+- [`Delta`](@ref), [`RBF`](@ref), [`BernoulliDropout`](@ref): localizing kernels.
+- [`SEC`](@ref), [`SECFisher`](@ref), [`SECNice`](@ref): sampling-error-correction methods.
+"""
 abstract type LocalizationMethod end
 
 "Idempotent localization method."
@@ -342,8 +353,9 @@ end
 
 # utilities
 """
-    get_localizer(loc::Localizer)
-Return localizer type.
+$(TYPEDSIGNATURES)
+
+Return the localizer type of `loc`.
 """
 function get_localizer(loc::Localizer{T1, T2}) where {T1, T2}
     return T1

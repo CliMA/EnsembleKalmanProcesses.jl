@@ -23,13 +23,20 @@ tsvd_mat
 tsvd_cov_from_samples
 SVDplusD
 DminusTall
+inv_cov(a::AM) where {AM <: AbstractMatrix}
+lmul_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
+get_svd_cov(spd::SpD) where {SpD <: SVDplusD}
+get_diag_cov(spd::SpD) where {SpD <: SVDplusD}
+get_tall_cov(dmt::DmT) where {DmT <: DminusTall}
+get_cov_size(spd::SpD) where {SpD <: SVDplusD}
 ```
 
 ## Minibatcher
 ```@docs
+Minibatcher
 FixedMinibatcher
 no_minibatcher
-create_new_epoch!(m::FM) where {FM <: FixedMinibatcher}
+create_new_epoch!
 get_minibatches(m::FM) where {FM <: FixedMinibatcher}
 get_method(m::FM) where {FM <: FixedMinibatcher}
 get_rng(m::FM) where {FM <: FixedMinibatcher}
@@ -53,6 +60,7 @@ get_current_minibatch_index(os::OS) where {OS <: ObservationSeries}
 get_minibatcher(os::OS) where {OS <: ObservationSeries}
 get_metadata(os::OS) where {OS <: ObservationSeries}
 update_minibatch!(os::OS) where {OS <: ObservationSeries}
+update_minibatch!(ekp::EnsembleKalmanProcess)
 get_minibatch
 get_current_minibatch(os::OS) where {OS <: ObservationSeries}
 get_obs(os::OS) where {OS <: ObservationSeries}

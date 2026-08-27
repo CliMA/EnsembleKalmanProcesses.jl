@@ -2,9 +2,12 @@ This page documents ensemble Kalman inversion (EKI), as well as two variants, [e
 
 # [Ensemble Kalman Inversion](@id eki)
 
+!!! note "Defaults"
+    By default, EKI (`Inversion()`) is constructed with the `NesterovAccelerator()` accelerator, `SECNice()` localization, and the `DataMisfitController(terminate_at = 1)` scheduler; see the [defaults](@ref defaults) page.
+
 ## What we optimize, and types of solution
 One of the ensemble Kalman processes implemented in `EnsembleKalmanProcesses.jl` is ensemble
-Kalman inversion ([Iglesias et al, 2013](http://dx.doi.org/10.1088/0266-5611/29/4/045001)).
+Kalman inversion [Iglesias13a](@citep).
 Ensemble Kalman inversion (EKI) is a derivative-free ensemble optimization method that seeks
 to find the optimal parameters ``\theta \in \mathbb{R}^p`` in the inverse problem defined by the data-model relation
 
@@ -21,13 +24,13 @@ The optimal parameters ``\theta^* \in \mathbb{R}^p`` (Maximum Likelihood Estimat
 \mathcal{L}(\theta, y) = \frac{1}{2} \left(y - \mathcal{G}(\theta)\right)^{\top} \Gamma_y^{-1} \left(y - \mathcal{G}(\theta) \right),
 ```
 which can be interpreted as the negative log-likelihood given a Gaussian likelihood.
-- This is acheived using process `Inversion()` and stepping to algorithm time ``T=\infty``. This form uses the prior like an initial condition.
+- This is achieved using process `Inversion()` and stepping to algorithm time ``T=\infty``. This form uses the prior like an initial condition.
 
-If we using a prior to seek a Bayesian solution to our problem, (not just as initialization) then the optimal parameters ``\theta^* \in \mathbb{R}^p`` (Maximum A Posteriori estimation) given relation (1) minimize the loss 
+If we use a prior to seek a Bayesian solution to our problem (not just as initialization) then the optimal parameters ``\theta^* \in \mathbb{R}^p`` (Maximum A Posteriori estimation) given relation (1) minimize the loss 
 ```math
 \mathcal{L}(\theta, y) = \frac{1}{2} \left(y - \mathcal{G}(\theta)\right)^{\top} \Gamma_y^{-1} \left(y - \mathcal{G}(\theta) \right) + \frac{1}{2}(\theta - m)^{\top} C^{-1}(\theta-m)
 ```
-which can be interpreted as the negative log-likelihood given a Gaussian likelihood and Gaussian prior ``N(m,C)``. This is acheived in two ways:
+which can be interpreted as the negative log-likelihood given a Gaussian likelihood and Gaussian prior ``N(m,C)``. This is achieved in two ways:
 - using process `Inversion()` and terminating the iterations at algorithm time ``T=1`` (default), "finite-time variant"
 - using process `Inversion(prior)` and stepping to ``T=\infty``.  "infinite-time variant"
 
@@ -40,6 +43,8 @@ Denoting the parameter vector of the ``j``-th ensemble member at the ``n``-th it
 ```math
 \tag{2} \theta_{n+1}^{(j)} = \theta_n^{(j)} + \Delta t C^{\theta\mathcal{G}}_n(\Gamma_y + \Delta t C_n^{\mathcal{GG}})^{-1}(y - \mathcal{G}(\theta_n^{(j)})).
 ```
+Note that, by default (the `deterministic_forward_map = true` keyword argument of `update_ensemble!`), the implementation replaces ``y`` in (2) with an observation that is perturbed at each update by additive Gaussian noise with covariance ``\Gamma_y`` scaled by the timestep, as is standard for deterministic forward maps.
+
 Where the notations for means and covariances are given as
 ```math
 \begin{aligned}
@@ -49,7 +54,7 @@ Where the notations for means and covariances are given as
 \end{aligned}
 ```
 
-There is no difference between the `Inversion()` and `Inversion(prior)` updates, but the latter works with an augmented state (see [here](@ref finite-vs-infinite-time)). The algorithmic timestep (a.k.a learning rate) ``\Delta t`` is usually taken to be adaptive with a schedule, as described [here](@ref learning-rate-schedulers).
+There is no difference between the `Inversion()` and `Inversion(prior)` updates, but the latter works with an augmented state (see [here](@ref finite-vs-infinite-time)). In addition, `Inversion(prior)` sets a small default multiplicative inflation (`default_multiplicative_inflation = 1e-3`) that is applied at each update. The algorithmic timestep (a.k.a learning rate) ``\Delta t`` is usually taken to be adaptive with a schedule, as described [here](@ref learning-rate-schedulers).
 
 
 The final estimate ``\bar{\theta}_{N_{\rm it}}`` is taken to be the ensemble
@@ -59,7 +64,7 @@ mean at the final iteration,
 \bar{\theta}_{N_{\rm it}} = \dfrac{1}{J}\sum_{j=1}^J\theta_{N_{\rm it}}^{(j)}.
 ```
 
-For typical applications, a near-optimal solution ``\theta`` can be found after as few as 10 iterations of the algorithm, or ``10\cdot J`` evaluations of the forward model ``\mathcal{G}``. The rules of thumb of choosing ``J`` are see [here](@ref ens-size), and to reduce errors when ``J \ll p`` , we have sampling-error-correction (localization) approaches [here](@ref localization). 
+For typical applications, a near-optimal solution ``\theta`` can be found after as few as 10 iterations of the algorithm, or ``10\cdot J`` evaluations of the forward model ``\mathcal{G}``. The rules of thumb of choosing ``J`` are given [here](@ref ens-size), and to reduce errors when ``J \ll p``, we have sampling-error-correction (localization) approaches [here](@ref localization). 
 
 ## Constructing the Forward Map
 
@@ -75,8 +80,9 @@ where ``\mathcal{H}: \mathbb{R}^o \rightarrow \mathbb{R}^d`` is the observation 
 
 An ensemble Kalman inversion object can be created using the `EnsembleKalmanProcess` constructor by specifying the `Inversion()` process type.
 
-The `EnsembleKalmanProcess` then is built with and initial ensemble, observation and the process. The following utilities describe this
+The `EnsembleKalmanProcess` then is built with an initial ensemble, observation and the process. The following utilities describe this
 ```julia
+using LinearAlgebra # for `I`
 using EnsembleKalmanProcesses # for `construct_initial_ensemble`, `Inversion`, `Observation`
 using EnsembleKalmanProcesses.ParameterDistributions # for `constrained_gaussian`
 
@@ -88,7 +94,7 @@ initial_ensemble = construct_initial_ensemble(prior, J) # Initialize ensemble fr
 # data
 ydim = 5
 y = ones(ydim)
-cov_y = 0.01*I
+obs_noise_cov = 0.01*I
 
 # basic EKI, finite-time
 ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion())
@@ -97,9 +103,9 @@ ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion())
 y_obs = Observation(
     Dict(
         "samples" => y,
-        "covariances" => cov_y,
+        "covariances" => obs_noise_cov,
         "names" => "descriptive_name",
-        "metadata" => "some imporant information"
+        "metadata" => "some important information"
     ),
 )
 
@@ -152,7 +158,7 @@ To obtain the optimal value in the constrained space, we use the getter with the
 # [`Inversion()` vs `Inversion(prior)`](@id finite-vs-infinite-time)
 
 !!! note "Finite-time vs infinite-time"
-    Deeper description of these algorithms is discussed in detail in, for example, Section 4.5 of [Calvello, Reich, Stuart](https://arxiv.org/pdf/2209.11371)). Finite-time algorithms have also been called "transport" algorithms, and infinite-time algorithms are also known as prior-enforcing, or Tikhonov EKI [Chada, Stuart, Tong](https://doi.org/10.1137/19M1242331).
+    Deeper description of these algorithms is discussed in detail in, for example, Section 4.5 of [Calvello25a](@cite). Finite-time algorithms have also been called "transport" algorithms, and infinite-time algorithms are also known as prior-enforcing, or Tikhonov EKI [Chada20x](@citep).
 
 Thus far, we have presented the finite-time algorithm `Inversion()`. The infinite-time variant `Inversion(prior)` algorithm has two key practical distinctions.
 1. The initial distribution does not need to come from the prior. 
@@ -171,7 +177,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
 J = 50  # number of ensemble members
 initial_dist = constrained_gaussian("not-the-prior", 0, 1, -Inf, Inf, repeats=3)
-initial_ensemble = construct_initial_ensemble(inital_dist, J) # Initialize ensemble from prior
+initial_ensemble = construct_initial_ensemble(initial_dist, J) # Initialize ensemble from a distribution that is not the prior
 
 ekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, Inversion(prior))
 ```
@@ -183,19 +189,22 @@ One can see this in-action with the finite- vs infinite-time comparison example 
 <img src="../assets/animations/animated_inversion-finite.gif" width="300"> <img src="../assets/animations/animated_inversion-infinite.gif" width="300"> 
 ```
 Comparative behaviour. 
-1. **Initialization:** `Inversion()` must be initialized from the prior, `Inversion(prior)` can still find the posterior when initialized off-prior. This might be useful when the prior is very broad and can enter, for example, regions of instability of the users forward model
+1. **Initialization:** `Inversion()` must be initialized from the prior, `Inversion(prior)` can still find the posterior when initialized off-prior. This might be useful when the prior is very broad and can enter, for example, regions of instability of the user's forward model
 2. **Prior information:** `Inversion()` only contains prior information due to its initialization, `Inversion(prior)` enforces the prior at every iteration.
 3. **Solution**: `Inversion()` terminated at ``T=1`` (implemented by default) obtains an accurate MAP estimate, the ensemble spread at exactly ``T=1`` can represent a snapshot of the true (Gaussian-approximated) uncertainty. `Inversion(prior)` obtains this in the limit ``T\to\infty``, and undergoes collapse providing no uncertainty information.
-4. **Trust in prior** `Inversion()`, when iterated beyond ``T=1`` will lose prior information and thus move to find the MLE (minimize the data-misfit only) at ``T\to\infty``, this behaviour might be useful if the prior information is missprecified.  
-5. **Efficiency**: `Inversion()` is more efficient that `Inversion(prior)` as enforcing the prior in the infinite-time algorithm is performed via extending the linear systems to be solved. Performance is also impacted (positively or negatively) by the choice of initial distribution in the `Inversion(prior)`
+4. **Trust in prior**: `Inversion()`, when iterated beyond ``T=1`` will lose prior information and thus move to find the MLE (minimize the data-misfit only) at ``T\to\infty``, this behaviour might be useful if the prior information is misspecified.  
+5. **Efficiency**: `Inversion()` is more efficient than `Inversion(prior)` as enforcing the prior in the infinite-time algorithm is performed via extending the linear systems to be solved. Performance is also impacted (positively or negatively) by the choice of initial distribution in the `Inversion(prior)`
 
 One can learn more about the early termination for finite-time algorithms [here](@ref early-terminate).
 
 # [Output-scalable variant: Ensemble Transform Kalman Inversion](@id etki)
 
-Ensemble transform Kalman inversion (ETKI) is a variant of EKI based on the ensemble transform Kalman filter ([Bishop et al., 2001](http://doi.org/10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2)). It is a form of ensemble square-root inversion, and an implementation can be found in [Huang et al., 2022](http://doi.org/10.1088/1361-6420/ac99fa). The main advantage of ETKI over EKI is that it has better scalability as the observation dimension grows: while the naive implementation of EKI scales as ``\mathcal{O}(p^3)`` in the observation dimension ``p``, ETKI scales as ``\mathcal{O}(p)``. This, however, refers to the online cost. ETKI may have an offline cost of ``\mathcal{O}(p^3)`` if ``\Gamma`` is not easily invertible; see below.
+Ensemble transform Kalman inversion (ETKI) is a variant of EKI based on the ensemble transform Kalman filter [Bishop01a](@citep). It is a form of ensemble square-root inversion, and an implementation can be found in [Huang22b](@cite). The main advantage of ETKI over EKI is that it has better scalability as the observation dimension grows: while the naive implementation of EKI scales as ``\mathcal{O}(d^3)`` in the observation dimension ``d``, ETKI scales as ``\mathcal{O}(d)``. This, however, refers to the online cost. ETKI may have an offline cost of ``\mathcal{O}(d^3)`` if ``\Gamma`` is not easily invertible; see below.
 
 The major disadvantage of ETKI is that it cannot be used with localization or sampling error correction. 
+
+!!! note "Defaults"
+    By default, ETKI (`TransformInversion()`) is constructed with the `DataMisfitController(terminate_at = 1)` scheduler, and with no accelerator or localization; see the [defaults](@ref defaults) page.
 
 !!! note "Creating scalable observational covariances"
     ETKI requires storing and inverting the observation noise covariance, ``\Gamma^{-1}``. Without care, this can be prohibitively expensive. To this end, we have tools and an API for creating and using scalable or compact representations of covariances that are necessary for scalability. See [here](@ref building-covariances) for details and examples. 
@@ -218,7 +227,19 @@ The rest of the inversion process is the same as for regular EKI.
 
 # [Sparsity-Inducing Ensemble Kalman Inversion](@id seki)
 
-We include Sparsity-inducing Ensemble Kalman Inversion (SEKI) to add approximate ``L^0`` and ``L^1`` penalization to the EKI ([Schneider, Stuart, Wu, 2020](https://doi.org/10.48550/arXiv.2007.06175)).
+We include Sparsity-inducing Ensemble Kalman Inversion (SEKI) to add approximate ``L^0`` and ``L^1`` penalization to the EKI [Schneider22v](@citep).
+
+!!! note "Defaults"
+    By default, SEKI (`SparseInversion(γ)`) is constructed with the `DefaultScheduler()` and `SECNice()` localization, with no accelerator; see the [defaults](@ref defaults) page.
+
+A SEKI object is created by passing the `SparseInversion` process to the `EnsembleKalmanProcess` constructor:
+```julia
+γ = 1.0 # sparsity-inducing regularization parameter (upper limit of the L¹-norm constraint)
+process = SparseInversion(γ)
+
+sekiobj = EnsembleKalmanProcess(initial_ensemble, y, obs_noise_cov, process)
+```
+Further keyword arguments of `SparseInversion` are `threshold_value` (parameters with absolute value below this threshold are pruned to zero after each update), `uc_idx` (indices of parameters included in the ``L^1``-norm constraint), and `reg` (a small regularization value to enhance robustness of the convex optimization).
 
 !!! warning
     The algorithm suffers from robustness issues, and therefore we urge caution in using the tool

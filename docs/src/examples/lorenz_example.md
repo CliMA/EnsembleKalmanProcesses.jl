@@ -13,7 +13,7 @@ The output statistics which are used for learning are the finite time-averaged v
 ## Lorenz 96 equations
 
 The standard single-scale L96 equations are implemented.
-The Lorenz 96 system ([Lorenz, 1996](http://www.raidl.cz/file/18/lorenz-1996-_predictability_partly_solved.pdf)) is given by 
+The Lorenz 96 system [Lorenz96a](@citep) is given by 
 ```math
 \frac{d x_i}{d t} = (x_{i+1} - x_{i-2}) x_{i-1} - x_i + F,
 ```
@@ -22,7 +22,7 @@ The boundary conditions are given by
 ```math
 x_{-1} = x_{N-1}, \ x_0 = x_N, \ x_{N+1} = x_1.
 ```
-The time scaling is such that the characteristic time is 5 days ([Lorenz, 1996](http://www.raidl.cz/file/18/lorenz-1996-_predictability_partly_solved.pdf)). 
+The time scaling is such that the characteristic time is 5 days [Lorenz96a](@citep). 
 For very small values of ``F``, the solutions $x_i$ decay to $F$ after the initial transient feature.
 For moderate values of ``F``, the solutions are periodic, and for larger values of ``F``, the system is chaotic.
 The solution variance is a function of the forcing magnitude.

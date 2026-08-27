@@ -1,11 +1,14 @@
 # [Ensemble Kalman Sampling](@id eks)
 
 ### What Is It and What Does It Do?
-The Ensemble Kalman Sampler (EKS) ([Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1251655), [Cleary et al, 2020](https://doi.org/10.1016/j.jcp.2020.109716), and it's variant Affine-invariant interacting Langevin Dynamics (ALDI) [Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1304891)) are derivative-free tools for approximate Bayesian inference. They does so by approximately sampling from the posterior distribution. That is, EKS provides both point estimation (through the mean of the final ensemble) and uncertainty quantification (through the covariance of the final ensemble), this is in contrast to EKI, which only provides point estimation. 
+The Ensemble Kalman Sampler (EKS) [Garbuno-Inigo20a, Cleary21a](@citep) and its variant Affine-invariant interacting Langevin Dynamics (ALDI) [Garbuno-Inigo20b](@citep) are derivative-free tools for approximate Bayesian inference. They do so by approximately sampling from the posterior distribution. That is, EKS provides both point estimation (through the mean of the final ensemble) and uncertainty quantification (through the covariance of the final ensemble), this is in contrast to EKI, which only provides point estimation. 
 
-The EKS algorithm, viewed affine invariant system of interacting particles ([Garbuno-Inigo et al, 2020](https://doi.org/10.1137/19M1304891)) and ALDI differs from EKS by a finite-sample correction is introduced to overcome its computational finite-sample implementation. Both of these variants are provided through the `Sampler` process in our the toolbox - by default we construct this improved ALDI variant.
+EKS can be viewed as an affine-invariant system of interacting particles [Garbuno-Inigo20b](@citep); ALDI differs from EKS by a finite-sample correction. Both variants are provided through the `Sampler` process; by default the toolbox constructs the improved ALDI variant.
 
-While there are noisy variants of the standard EKI, EKS differs from them in its noise structure (as its noise is added in parameter space, not in  data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization).  The approximatiom of the posterior through EKS typically needs more iterations than EKI to converge to a suitable solution, and to help we provide an adaptive learning rate scheduler `EKSStableScheduler()` and a semi-implicit formulation to help maintain a stable interacting particle system. However, the posterior approximation through EKS is obtained with far less computational effort than a typical Markov Chain Monte Carlo (MCMC) like Metropolis-Hastings, though it will provide Gaussian-like uncertainty.
+!!! note "Defaults"
+    By default, EKS (`Sampler(prior)`) is constructed with the `EKSStableScheduler()` scheduler and the `IgnoreFailures()` failure handler, with no accelerator or localization; see the [defaults](@ref defaults) page.
+
+While there are noisy variants of the standard EKI, EKS differs from them in its noise structure (as its noise is added in parameter space, not in data space), and its update rule explicitly accounts for the prior (rather than having it enter through initialization).  The approximation of the posterior through EKS typically needs more iterations than EKI to converge to a suitable solution, and to help we provide an adaptive learning rate scheduler `EKSStableScheduler()` and a semi-implicit formulation to help maintain a stable interacting particle system. However, the posterior approximation through EKS is obtained with far less computational effort than a typical Markov Chain Monte Carlo (MCMC) like Metropolis-Hastings, though it will provide Gaussian-like uncertainty.
 
 ### Problem Formulation
 
@@ -26,12 +29,12 @@ The EKS is based on the following update equation for the parameter vector ``\th
 
 ```math
 \begin{aligned}
-\theta_{n+1}^{(*, j)} &= \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)} + \frac{d+1}{J} \left(\theta_{n}^{(j)} - \bar \theta_n \right) - \Delta t_n \mathsf{C}(\Theta_n) \Gamma_{\theta}^{-1} \theta_{n + 1}^{(*, j)} \,, \\
+\theta_{n+1}^{(*, j)} &= \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J\langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n, \Gamma_y^{-1}(\mathcal{G}(\theta_n^{(j)}) - y) \rangle \theta_{n}^{(k)} + \Delta t_n \frac{p+1}{J} \left(\theta_{n}^{(j)} - \bar \theta_n \right) - \Delta t_n \mathsf{C}(\Theta_n) \Gamma_{\theta}^{-1} \left( \theta_{n + 1}^{(*, j)} - m \right) \,, \\
 \theta_{n + 1}^{j} &= \theta_{n+1}^{(*, j)} + \sqrt{2 \Delta t_n \mathsf{C}(\Theta_n)} \xi_n^{j} \,,
 \end{aligned}
 ```
 
-where the subscript ``n=1, \dots, N_{\text{it}}`` indicates the iteration, ``J`` is the ensemble size (i.e., the number of particles in the ensemble), ``\Delta t_n`` is an internal adaptive time step (thus no need for the user to specify), ``\Gamma_{\theta}`` is the prior covariance, and ``\xi_n^{(j)} \sim \mathcal{N}(0, \mathrm{I}_p)``. ``\bar{\mathcal{G}}_n`` is the ensemble mean of the forward map ``\mathcal{G}(\theta)``,
+where the subscript ``n=1, \dots, N_{\text{it}}`` indicates the iteration, ``J`` is the ensemble size (i.e., the number of particles in the ensemble), ``p`` is the parameter dimension, ``\Delta t_n`` is an internal adaptive time step (thus no need for the user to specify), ``m`` and ``\Gamma_{\theta}`` are the prior mean and covariance, and ``\xi_n^{(j)} \sim \mathcal{N}(0, \mathrm{I}_p)``. The finite-sample correction term ``\Delta t_n \frac{p+1}{J} (\theta_{n}^{(j)} - \bar \theta_n)`` is applied only in the ALDI variant (the default); it is absent in the original EKS variant. ``\bar{\mathcal{G}}_n`` is the ensemble mean of the forward map ``\mathcal{G}(\theta)``,
 
 ```math
 \bar{\mathcal{G}}_n = \dfrac{1}{J}\sum_{k=1}^J\mathcal{G}(\theta_n^{(k)})\,.
@@ -100,7 +103,7 @@ N_iter = 100 # Number of iterations
 
 for n in 1:N_iter
     ϕ_n = get_ϕ_final(prior, eksobj) # Get current ensemble in constrained "ϕ"-space
-    G_n = [H(Ψ(ϕ_n[:, i])) for i in 1:J]  # Evaluate forward map
+    G_n = [H(Ψ(ϕ_n[:, i])) for i in 1:N_ens]  # Evaluate forward map
     g_ens = hcat(G_n...)  # Reformat into `d x N_ens` matrix
     update_ensemble!(eksobj, g_ens) # Update ensemble
 end
@@ -108,7 +111,7 @@ end
 
 ### Solution
 
-The solution of the EKS algorithm is an approximate Gaussian distribution whose mean (`u_post`) and covariance (`Γ_post`) can be extracted from the ''final ensemble'' (i.e., after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter (`u_optim`) for the given calibration problem. These statistics can be accessed as follows:
+The solution of the EKS algorithm is an approximate Gaussian distribution whose mean (`u_post`) and covariance (`Γ_post`) can be extracted from the "final ensemble" (i.e., after the last iteration). The sample mean of the last ensemble is also the "optimal" parameter (`u_post`) for the given calibration problem. These statistics can be accessed as follows:
 
 ```julia
 # mean of the Gaussian distribution, the optimal parameter in computational u-space
@@ -128,7 +131,7 @@ ten_post_samples_phys = transform_unconstrained_to_constrained(prior, ten_post_s
 ```
 ## Quick comparison of samplers
 
-From `examples/LossMinimization/loss_minimization_finite_vs_infinite_ekp.jl`. Quick comparison between three samplers ALDI, EKS, and [GNKI](@ref gnki), taken attheir current defaults. We also plot of error vs spread over the iterations
+From `examples/LossMinimization/loss_minimization_finite_vs_infinite_ekp.jl`. Quick comparison between three samplers ALDI, EKS, and [GNKI](@ref gnki), taken at their current defaults. We also plot error vs spread over the iterations
 
 ```@raw html
 <img src="../assets/samplers/animated_sampler.gif" width="300"> <img src="../assets/samplers/animated_sampler-eks.gif" width="300"> <img src="../assets/samplers/animated_gauss-newton.gif" width="300">  <img src="../assets/samplers/mean_over_iteration.png" width="300"> 
