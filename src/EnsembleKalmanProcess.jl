@@ -982,7 +982,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Computes the bayes loss of the mean of the forward model output, normalized by dimensions `(1/dim(y)*dim(u)) * [(ḡ - y)' * Γ⁻¹ * (ḡ - y) + (̄u - m)' * C⁻¹ * (̄u - m)]`.
+Computes the bayes loss of the mean of the forward model output, as the data misfit and prior misfit each independently normalized by their own dimension: `(1/dim(y)) * (ḡ - y)' * Γ⁻¹ * (ḡ - y) + (1/dim(u)) * (̄u - m)' * C⁻¹ * (̄u - m)`.
 If the prior is not provided to the process on creation of EKP, then `m` and `C` are estimated from the initial ensemble.
 
 The error is retrievable as `get_error_metrics(ekp)["bayes_loss"]` or returned from `get_error(ekp)` if a prior is provided to the process
@@ -991,7 +991,6 @@ function compute_bayes_loss_at_mean(ekp::EnsembleKalmanProcess)
     process = get_process(ekp)
     prior_mean = get_prior_mean(process)
     prior_cov = get_prior_cov(process)
-    g = get_g_final(ekp)
     misfit_at_mean = compute_loss_at_mean(ekp)
 
     # estimate from initial ensemble if we do not have access to them
@@ -1011,8 +1010,8 @@ function compute_bayes_loss_at_mean(ekp::EnsembleKalmanProcess)
     u = get_u_mean_final(ekp)
     udiff = reshape(u - prior_mean, :, 1)
     prior_misfit_at_mean = 1.0 / length(u) * dot(udiff, inv(prior_cov) * udiff)
-    # indep of input and output size
-    return (1.0 / length(u)) * misfit_at_mean + (1.0 / size(g, 1)) * prior_misfit_at_mean
+    # each term independently normalized by its own dimension, so bayes_loss -> loss as the prior becomes uninformative
+    return misfit_at_mean + prior_misfit_at_mean
 
 end
 
@@ -1020,6 +1019,11 @@ end
 $(TYPEDSIGNATURES)
 
 Computes a Gaussian approximation of CRPS (continuous rank probability score) of the ensemble with the observation (performing through a whitening by C^GG, see e.g., Zheng, Sun, 2025, https://arxiv.org/abs/2410.09133).
+
+Bias components orthogonal to the ensemble-spanned subspace (relevant whenever `N_ens ≤ dim(y)`)
+are not detected by this metric, since the whitening only acts within that subspace. For a fully
+collapsed ensemble (rank 0), this falls back to the exact CRPS of a deterministic forecast,
+`mean(abs.(diff))`.
 """
 function compute_crps(ekp::EnsembleKalmanProcess)
     g = get_g_final(ekp)
@@ -1030,11 +1034,10 @@ function compute_crps(ekp::EnsembleKalmanProcess)
 
     # get svd of the perturbations from samples
     g_svd = tsvd_cov_from_samples(g_ens, quiet = true) # Note from this function, .S are evals of cov-g
-    if size(g_svd.U, 1) == size(g_svd.U, 2) # then work with Vt
-        white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.Vt * diff # ~N(0,I)
-    else
-        white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.U' * diff # ~N(0,I)
+    if isempty(g_svd.S) # fully collapsed ensemble: no spread to whiten by
+        return mean(abs.(diff))
     end
+    white_diff = 1 ./ sqrt.(g_svd.S) .* g_svd.U' * diff # ~N(0,I); g_svd.Vt == g_svd.U' by construction
     dist = Normal(0, 1)
     indep_crps = white_diff .* (2 .* cdf.(dist, white_diff) .- 1) .+ 2 * pdf.(dist, white_diff) .- 1 ./ sqrt(π)
     avg_crps = 1 ./ length(g_svd.S) * sum(sqrt.(g_svd.S) .* indep_crps)
