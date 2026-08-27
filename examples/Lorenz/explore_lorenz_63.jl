@@ -8,6 +8,7 @@ using Statistics
 gr()
 
 make_long_loss_plot = false # the 100τ_λ loss landscape (Plot 5) is expensive; toggle on to regenerate it
+make_gif = true # animates Plot 1 + Plot 3 together; takes a little time, toggle off to skip
 
 homedir = pwd()
 println(homedir)
@@ -27,7 +28,7 @@ dt = 0.01
 lyapunov_exponent = 0.9056
 lyapunov_time = 1.0 / lyapunov_exponent
 
-rng = MersenneTwister(23)
+rng = MersenneTwister(2399) # was 23
 x_spinup = lorenz_solve(classical_params, [1.0, 1.0, 1.0], LorenzConfig(dt, 100.0))
 x0_attractor = x_spinup[:, end]
 
@@ -101,7 +102,9 @@ reference_short = lorenz_solve(classical_params, x0_attractor, short_config)
 plot!(p_short, reference_short[1, :], reference_short[2, :], reference_short[3, :], color = :black, label = "Reference", linewidth = 3)
 scatter!(p_short, [reference_short[1, 1]], [reference_short[2, 1]], [reference_short[3, 1]], color = :black, markershape = :circle, markersize = 8, label = false)
 scatter!(p_short, [reference_short[1, end]], [reference_short[2, end]], [reference_short[3, end]], color = :black, markershape = :utriangle, markersize = 8, label = false)
-savefig(p_short, joinpath(figure_save_directory, "l63_short_time_trajectories.png"))
+p_short_path = joinpath(figure_save_directory, "l63_short_time_trajectories.png")
+savefig(p_short, p_short_path)
+@info "Saved short-time trajectories figure to $(p_short_path)"
 
 # Plot 2: long-time butterflies and energy -- unrelated ICs leave the statistic unchanged, perturbed params shift it.
 T_energy_short = 1.0 * lyapunov_time
@@ -154,7 +157,9 @@ grid_plot = plot(
     layout = grid_layout,
     size = (400 * n_butterfly_cols, 860),
 )
-savefig(grid_plot, joinpath(figure_save_directory, "l63_long_time_butterflies.png"))
+grid_plot_path = joinpath(figure_save_directory, "l63_long_time_butterflies.png")
+savefig(grid_plot, grid_plot_path)
+@info "Saved long-time butterflies figure to $(grid_plot_path)"
 
 function energy_integral(xn, dt)
     T = dt * (size(xn, 2) - 1)
@@ -191,7 +196,9 @@ for k in 2:3
     scatter!(energy_plot, fill(k - dodge, n_runs), E_ic_by_duration[k], color = :steelblue, markersize = 8, markerstrokewidth = 0, label = false)
     scatter!(energy_plot, fill(k + dodge, n_runs), E_param_by_duration[k], color = :orangered, markersize = 8, markerstrokewidth = 0, label = false)
 end
-savefig(energy_plot, joinpath(figure_save_directory, "l63_long_time_energy.png"))
+energy_plot_path = joinpath(figure_save_directory, "l63_long_time_energy.png")
+savefig(energy_plot, energy_plot_path)
+@info "Saved long-time energy figure to $(energy_plot_path)"
 
 println("Energy values (different initial conditions, classical params): ", E_values[1:n_runs])
 println("Energy values (parameter perturbations): ", E_values[(n_runs + 1):(2 * n_runs)])
@@ -222,7 +229,82 @@ for (i, xn) in enumerate(growth_trajectories)
     plot!(separation_plot, t_axis, sep_t, color = colors[i], label = false, linewidth = 3)
 end
 vline!(separation_plot, [T_short / lyapunov_time], linestyle = :dash, linecolor = :black, label = false)
-savefig(separation_plot, joinpath(figure_save_directory, "l63_separation_growth.png"))
+separation_plot_path = joinpath(figure_save_directory, "l63_separation_growth.png")
+savefig(separation_plot, separation_plot_path)
+@info "Saved separation growth figure to $(separation_plot_path)"
+
+# Animation: Plot 1's trajectories (left) and Plot 3's separation growth (right) unfolding together,
+# both run out over the full T_growth window so the two panels stay in sync throughout.
+# This takes a little time to render; toggle off with make_gif = false to skip it.
+if make_gif
+    long_trajectories_p1 = [lorenz_solve(p, x0, growth_config) for (x0, p) in runs]
+
+    sep_curves = [
+        clamp.([norm(xn[:, k] .- reference_trajectory[:, k]) for k in 1:size(xn, 2)], 1e-12, Inf) for
+        xn in growth_trajectories
+    ]
+    sep_ceil = 10^ceil(log10(maximum(reduce(vcat, sep_curves))))
+    sep_ylims = (1e-3, sep_ceil)
+
+    traj_xlims = extrema(vcat([xn[1, :] for xn in long_trajectories_p1]..., reference_trajectory[1, :]))
+    traj_ylims = extrema(vcat([xn[2, :] for xn in long_trajectories_p1]..., reference_trajectory[2, :]))
+    traj_zlims = extrema(vcat([xn[3, :] for xn in long_trajectories_p1]..., reference_trajectory[3, :]))
+
+    n_frames = 200
+    anim_duration = 10.0 # seconds
+    frame_indices = round.(Int, range(1, size(reference_trajectory, 2), length = n_frames))
+
+    anim = @animate for idx_g in frame_indices
+        traj_panel = plot(
+            xlabel = "x",
+            ylabel = "y",
+            zlabel = "z",
+            xlims = traj_xlims,
+            ylims = traj_ylims,
+            zlims = traj_zlims,
+            title = "Trajectories",
+            titlefontsize = 28,
+            legend = :topleft,
+            legendfontsize = 16,
+            guidefontsize = 24,
+            tickfontsize = 16,
+            grid = false,
+        )
+        for (i, xn) in enumerate(long_trajectories_p1)
+            plot!(traj_panel, xn[1, 1:idx_g], xn[2, 1:idx_g], xn[3, 1:idx_g], color = colors[i], label = group_labels[i], linewidth = 2)
+        end
+        plot!(
+            traj_panel,
+            reference_trajectory[1, 1:idx_g],
+            reference_trajectory[2, 1:idx_g],
+            reference_trajectory[3, 1:idx_g],
+            color = :black,
+            label = "Reference",
+            linewidth = 4,
+        )
+
+        sep_panel = plot(
+            ylabel = "Separation from reference trajectory",
+            yscale = :log10,
+            xlims = (0, t_axis[end]),
+            ylims = sep_ylims,
+            title = "Separation growth",
+            titlefontsize = 28,
+            legend = false,
+            guidefontsize = 24,
+            tickfontsize = 16,
+            grid = false,
+        )
+        for (i, sep_t) in enumerate(sep_curves)
+            plot!(sep_panel, t_axis[1:idx_g], sep_t[1:idx_g], color = colors[i], linewidth = 2)
+        end
+
+        plot(traj_panel, sep_panel, layout = (1, 2), size = (1600, 700))
+    end
+    gif_path = joinpath(figure_save_directory, "l63_trajectories_and_separation.gif")
+    gif(anim, gif_path, fps = round(Int, n_frames / anim_duration))
+    @info "Saved trajectories + separation animation to $(gif_path)"
+end
 
 # Plot 4: 2D loss surface |E(θ) - E_true| over (ρ, β) -- one continuous simulation, chaining a
 # short spin-up (not a cold restart) into each parameter's 10τ_λ statistics window.
@@ -265,7 +347,9 @@ loss_plot = surface(
     grid = false,
 )
 scatter!(loss_plot, [rho_true], [beta_true], [0.0], color = :white, markershape = :star5, markersize = 16, markerstrokecolor = :black, label = false)
-savefig(loss_plot, joinpath(figure_save_directory, "l63_loss_landscape.png"))
+loss_plot_path = joinpath(figure_save_directory, "l63_loss_landscape.png")
+savefig(loss_plot, loss_plot_path)
+@info "Saved loss landscape figure to $(loss_plot_path)"
 
 # Plot 5: same loss landscape, but from 100τ_λ trajectories -- the longer statistics window averages
 # out more of the chaotic noise, so the surface should look markedly smoother than the 10τ_λ version.
@@ -299,5 +383,7 @@ if make_long_loss_plot
         markerstrokecolor = :black,
         label = false,
     )
-    savefig(loss_plot_long, joinpath(figure_save_directory, "l63_loss_landscape_long.png"))
+    loss_plot_long_path = joinpath(figure_save_directory, "l63_loss_landscape_long.png")
+    savefig(loss_plot_long, loss_plot_long_path)
+    @info "Saved long loss landscape figure to $(loss_plot_long_path)"
 end
