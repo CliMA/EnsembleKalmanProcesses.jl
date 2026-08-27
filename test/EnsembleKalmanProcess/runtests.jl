@@ -2007,7 +2007,7 @@ end
         C = 0.5 * (C + C')  # symmetric
         C0 = copy(C)
 
-        fac = sqrt(eps(eltype(C)))
+        fac = sqrt(eps(eltype(C))) * max(1.0, maximum(abs, diag(C0)))
         add_diagonal_regularization!(C)
         @test all(diag(C) .≈ diag(C0) .+ fac)
         @test all(abs.(C .- Diagonal(diag(C))) .≈ abs.(C0 .- Diagonal(diag(C0))))
@@ -2020,11 +2020,106 @@ end
         A = randn(4, 4)
         A0 = copy(A)
         add_diagonal_regularization!(view(A, 1:2, 1:2))
-        @test diag(A)[1:2] ≈ diag(A0)[1:2] .+ fac
+        fac_A = sqrt(eps(eltype(A))) * max(1.0, maximum(abs, diag(A0)[1:2]))
+        @test diag(A)[1:2] ≈ diag(A0)[1:2] .+ fac_A
         @test diag(A)[3:4] ≈ diag(A0)[3:4] # untouched outside the view
         # the analogous slice-copy call is the bug this pins: it must NOT mutate A
         A_copy_bug = copy(A0)
         add_diagonal_regularization!(A_copy_bug[1:2, 1:2])
         @test A_copy_bug == A0
+
+        # default nugget scales with the matrix, rather than being a scale-blind absolute constant:
+        # a tiny-scaled covariance gets a tiny nugget, not one that swamps every entry
+        C_small = 1e-12 * Diagonal([1.0, 2.0, 3.0])
+        C_small0 = copy(C_small)
+        add_diagonal_regularization!(C_small)
+        added_small = diag(C_small) .- diag(C_small0)
+        @test all(added_small .≈ sqrt(eps(Float64)) * 1.0) # floored at 1, but nowhere near dominating the O(1e-12) entries
+        @test all(diag(C_small0) .+ added_small .≈ diag(C_small)) # consistency of the arithmetic above
+
+        # a large-scaled covariance gets a correspondingly larger (still negligible) nugget
+        C_large = 1e6 * Diagonal([1.0, 2.0, 3.0])
+        C_large0 = copy(C_large)
+        add_diagonal_regularization!(C_large)
+        added_large = diag(C_large) .- diag(C_large0)
+        @test all(added_large .≈ sqrt(eps(Float64)) * 3e6)
+        @test all(added_large .> added_small) # scale-awareness: bigger matrix gets a bigger nugget
     end
+end
+
+@testset "compute_bayes_loss_at_mean normalizes each term by its own dimension" begin
+    rng = Random.MersenneTwister(1)
+    dim_u = 3
+    dim_y = 5
+    N_ens = 20
+    prior_mean = zeros(dim_u)
+    prior_cov = Matrix{Float64}(I, dim_u, dim_u)
+    obs_noise_cov = Matrix{Float64}(I, dim_y, dim_y)
+    y_obs = zeros(dim_y)
+    initial_ensemble = prior_mean .+ randn(rng, dim_u, N_ens)
+    g_ens = randn(rng, dim_y, N_ens)
+
+    process = Inversion(prior_mean, prior_cov)
+    ekp = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, obs_noise_cov, process; rng = copy(rng))
+    EKP.update_ensemble!(ekp, g_ens)
+
+    loss = EKP.compute_loss_at_mean(ekp)
+    bayes_loss = EKP.compute_bayes_loss_at_mean(ekp)
+
+    u = get_u_mean_final(ekp)
+    udiff = reshape(u - prior_mean, :, 1)
+    prior_misfit = dot(udiff, inv(prior_cov) * udiff) / length(u)
+
+    # bayes_loss must equal loss (1/dim(y)-normalized) plus the prior misfit (1/dim(u)-normalized)
+    # independently -- not both terms further divided by the product of the two dimensions
+    @test isapprox(bayes_loss, loss + prior_misfit; rtol = 1e-10)
+
+    # as the prior becomes uninformative, bayes_loss should converge to loss, not loss/dim(u)
+    process_weak = Inversion(prior_mean, 1e8 * prior_cov)
+    ekp_weak = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, obs_noise_cov, process_weak; rng = copy(rng))
+    EKP.update_ensemble!(ekp_weak, g_ens)
+    @test isapprox(EKP.compute_bayes_loss_at_mean(ekp_weak), EKP.compute_loss_at_mean(ekp_weak); rtol = 1e-6)
+end
+
+@testset "compute_crps guards ensemble collapse and drops the dead SVD branch" begin
+    rng = Random.MersenneTwister(2)
+    dim_u = 2
+    dim_y = 4
+    N_ens = 10
+    prior_mean = zeros(dim_u)
+    prior_cov = Matrix{Float64}(I, dim_u, dim_u)
+    obs_noise_cov = Matrix{Float64}(I, dim_y, dim_y)
+    y_obs = ones(dim_y)
+    initial_ensemble = prior_mean .+ randn(rng, dim_u, N_ens)
+
+    process = Inversion(prior_mean, prior_cov)
+    ekp = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, obs_noise_cov, process; rng = copy(rng))
+
+    # a fully collapsed ensemble (every member maps to the same forward output) must not return NaN
+    g_ens_collapsed = repeat(zeros(dim_y), 1, N_ens)
+    EKP.update_ensemble!(ekp, g_ens_collapsed)
+    crps_collapsed = EKP.compute_crps(ekp)
+    @test isfinite(crps_collapsed)
+    @test isapprox(crps_collapsed, mean(abs.(y_obs .- zeros(dim_y))); rtol = 1e-10)
+
+    # a full-rank ensemble (N_ens > dim_y + 1) gives a finite, non-collapsed value
+    ekp2 = EKP.EnsembleKalmanProcess(initial_ensemble, y_obs, obs_noise_cov, process; rng = copy(rng))
+    g_ens_full = randn(rng, dim_y, N_ens)
+    EKP.update_ensemble!(ekp2, g_ens_full)
+    crps_full = EKP.compute_crps(ekp2)
+    @test isfinite(crps_full)
+    @test crps_full > 0
+end
+
+@testset "prior-taking process constructors accept a Samples-only ParameterDistribution" begin
+    # mean(pd)/var(pd) previously returned an n×1 Matrix whenever any block was a `Samples`
+    # distribution, so `Vector(mean(prior))` in these constructors threw MethodError
+    samples_prior = ParameterDistribution(
+        Samples([1.0 2.0 3.0 4.0 5.0; 5.0 4.0 3.0 2.0 1.0]),
+        [no_constraint(), no_constraint()],
+        "samples_prior",
+    )
+    @test Inversion(samples_prior) isa Inversion
+    @test TransformInversion(samples_prior) isa TransformInversion
+    @test GaussNewtonInversion(samples_prior) isa GaussNewtonInversion
 end
