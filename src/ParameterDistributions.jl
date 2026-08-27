@@ -670,9 +670,6 @@ end
 
 logpdf(pd::ParameterDistribution, x::FT) where {FT <: Real} = logpdf(pd, [x])
 
-# a per-block moment (mean/var) may come back as a Real (univariate Parameterized) or an array
-# (Samples, multivariate Parameterized); flatten it to a Vector before concatenating blocks so
-# mean(pd)/var(pd) always return a Vector, regardless of block count/type/composition
 _flatten_moment(x::AbstractArray) = vec(x)
 _flatten_moment(x::Real) = [x]
 
