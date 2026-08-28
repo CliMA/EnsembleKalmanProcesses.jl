@@ -134,23 +134,33 @@ println("LM final estimate: " * string(lm_history[end]) * ", true: " * string(pa
 
 # %% Plot: error convergence
 err_plot = plot_error_convergence(err, lm_err)
-err_plot # displayed inline
+display(err_plot)
 savefig(err_plot, joinpath(figure_save_directory, "l63_error_convergence.png"))
 
 # %% Plot: recovered parameters vs truth
 param_plot = plot_final_parameters(param_names, final_mean, params_true)
-param_plot # displayed inline
+display(param_plot)
 savefig(param_plot, joinpath(figure_save_directory, "l63_final_parameters.png"))
+
+# %% Plot: recovered parameters vs truth (against the prior distributions)
+p = plot(priors, size = (800, 400))
+for (i, sp) in enumerate(p.subplots)
+    vline!(sp, [params_true[i]], lc = "black", lw = 5, label = "ref")
+    vline!(sp, [final_mean[i]], lc = "green", lw = 3, label = "EKI")
+    vline!(sp, [lm_history[end][i]], lc = "magenta", lw = 3, label = "LM")
+end
+display(p)
+savefig(p, joinpath(figure_save_directory, "l63_priors_with_estimates.png"))
 
 # %% Plot: EKI ensemble convergence in (rho, beta) space -- initial vs. final only
 n_eki_iterations = length(err)
 convergence_plot = plot_eki_convergence(priors, ekiobj, n_eki_iterations, lm_history, params_true)
-convergence_plot # displayed inline
+display(convergence_plot)
 savefig(convergence_plot, joinpath(figure_save_directory, "l63_eki_convergence.png"))
 
 # %% Plot: statistics window explanation
 # Shows the full trajectory used for a calibration forward run, with the [T_start, T_end]
 # window used to compute calibration statistics highlighted, for x/y/z in stacked panels.
 stats_window_plot = plot_statistics_window(true_params_config, x0, dt, T, T_start, T_end)
-stats_window_plot # displayed inline
+display(stats_window_plot)
 savefig(stats_window_plot, joinpath(figure_save_directory, "l63_statistics_window.png"))
