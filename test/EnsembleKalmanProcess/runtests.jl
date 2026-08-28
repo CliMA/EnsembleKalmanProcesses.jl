@@ -827,6 +827,38 @@ end
     end
 end
 
+@testset "Stochastic EKI perturbs the imposed prior block" begin
+    # With an uninformative observation, one impose_prior EKI step with stochastic perturbation
+    # should behave like combining the prior with an equally noisy copy of itself, halving the
+    # ensemble covariance. If the prior block is not perturbed (treated as an exact, noise-free
+    # observation instead), the ensemble over-collapses well below that.
+    rng = Random.MersenneTwister(rng_seed)
+    n_obs_lin = 6
+    A_lin = linear_map(rng, n_obs_lin)
+    Γy_lin = 1e6 * Matrix(1.0 * I, n_obs_lin, n_obs_lin) # uninformative: the prior term dominates
+    prior_mean_lin = [0.5, -0.5]
+    prior_cov_lin = [1.0 0.2; 0.2 0.8]
+    y_obs_lin = zeros(n_obs_lin)
+
+    N_ens_lin = 2000
+    initial_ensemble_lin = rand(rng, MvNormal(prior_mean_lin, prior_cov_lin), N_ens_lin)
+    process = Inversion(prior_mean_lin, prior_cov_lin; impose_prior = true, default_multiplicative_inflation = 0.0)
+    ekiobj = EKP.EnsembleKalmanProcess(
+        initial_ensemble_lin,
+        y_obs_lin,
+        Γy_lin,
+        process;
+        rng = copy(rng),
+        scheduler = DefaultScheduler(1.0),
+        failure_handler_method = SampleSuccGauss(),
+        localization_method = Localizers.NoLocalization(),
+        accelerator = DefaultAccelerator(),
+    )
+    g_ens = A_lin * get_u_final(ekiobj)
+    EKP.update_ensemble!(ekiobj, g_ens)
+    @test isapprox(tr(get_u_cov_final(ekiobj)), 0.5 * tr(prior_cov_lin), rtol = 0.2)
+end
+
 
 @testset "UnscentedKalmanInversion and Transform variant" begin
     # Seed for pseudo-random number generator
@@ -1084,6 +1116,120 @@ end
     end
 end
 
+@testset "UKI/UTKI impose_prior fixed point matches the analytic linear-Gaussian posterior" begin
+    # Pins the augmented "prior as extra observation" system to the true posterior precision
+    # A'Γ⁻¹A + Σ₀⁻¹, not the doubled-prior A'Γ⁻¹A + 2Σ₀⁻¹ that results if the observation and
+    # prior blocks of the augmented noise are not scaled identically.
+    rng = Random.MersenneTwister(rng_seed)
+    n_obs_lin = 6
+    A_lin = linear_map(rng, n_obs_lin)
+    Γy_lin = 0.01 * Matrix(1.0 * I, n_obs_lin, n_obs_lin)
+    prior_mean_lin = [0.5, -0.5]
+    prior_cov_lin = [1.0 0.2; 0.2 0.8]
+    y_obs_lin = A_lin * [0.3, 0.1] .+ rand(rng, MvNormal(zeros(n_obs_lin), Γy_lin))
+
+    posterior_cov_lin = inv(Symmetric(A_lin' * (Γy_lin \ A_lin) + inv(prior_cov_lin)))
+    posterior_mean_lin = posterior_cov_lin * (A_lin' * (Γy_lin \ y_obs_lin) + prior_cov_lin \ prior_mean_lin)
+
+    for proc in (
+        Unscented(prior_mean_lin, prior_cov_lin; impose_prior = true),
+        TransformUnscented(prior_mean_lin, prior_cov_lin; impose_prior = true),
+    )
+        ukiobj = EKP.EnsembleKalmanProcess(
+            y_obs_lin,
+            Γy_lin,
+            deepcopy(proc);
+            rng = copy(rng),
+            scheduler = DefaultScheduler(1.0),
+        )
+        for i in 1:100
+            g_ens = A_lin * get_u_final(ukiobj)
+            EKP.update_ensemble!(ukiobj, g_ens)
+        end
+        @test isapprox(get_u_mean_final(ukiobj), posterior_mean_lin, rtol = 1e-4)
+        @test isapprox(get_u_cov_final(ukiobj), posterior_cov_lin, rtol = 1e-2)
+    end
+end
+
+@testset "UKI sigma-point SVD fallback factors the correct (rotated) covariance" begin
+    # When the Cholesky factorization fails, construct_sigma_ensemble falls back to an
+    # SVD-based factor. This pins that factor to actually satisfy L*L' = x_cov (floored),
+    # including for a non-axis-aligned (rotated) covariance. A mildly negative third
+    # eigenvalue (rather than exactly 0) is used so Cholesky reliably fails and the
+    # fallback path is actually exercised.
+    rng = Random.MersenneTwister(rng_seed)
+    Q, _ = qr(randn(rng, 3, 3))
+    Q = Matrix(Q)
+    C = Symmetric(Q * Diagonal([2.0, 1.0, -1e-10]) * Q')
+    @test_throws LinearAlgebra.PosDefException cholesky(Hermitian(Matrix(C)))
+
+    # mirror construct_sigma_ensemble's own flooring rule to build the expected target
+    F_true = svd(Hermitian(Matrix(C)))
+    ind_0 = searchsortedfirst(F_true.S, 1e-8, rev = true)
+    floor_val = ind_0 > 1 ? F_true.S[ind_0 - 1] : 1e-8
+    S_floored = copy(F_true.S)
+    S_floored[ind_0:end] .= floor_val
+    C_floored = Symmetric(F_true.Vt' * Diagonal(S_floored) * F_true.Vt)
+
+    proc = Unscented(zeros(3), Matrix(1.0 * I, 3, 3))
+    sigmas = EKP.construct_sigma_ensemble(proc, zeros(3), Matrix(C))
+    L = (sigmas[:, 2:4] .- sigmas[:, 1]) ./ proc.c_weights'
+    @test isapprox(L * L', C_floored, atol = 1e-8)
+
+    # a fully collapsed covariance must not throw (previously BoundsError at ind_0 == 1)
+    @test EKP.construct_sigma_ensemble(proc, zeros(3), 1e-12 * Matrix(1.0 * I, 3, 3)) isa AbstractMatrix
+end
+
+@testset "UTKI without a prior does not crash" begin
+    # TransformUnscented(u0_mean, uu0_cov) (raw mean/cov constructor, no prior)
+    # leaves prior_mean/prior_cov = nothing; the non-imposing analysis path must
+    # not dereference those fields.
+    rng = Random.MersenneTwister(rng_seed)
+    n_obs_lin = 4
+    A_lin = linear_map(rng, n_obs_lin)
+    Γy_lin = 0.01 * Matrix(1.0 * I, n_obs_lin, n_obs_lin)
+    u0_mean = [1.0, 1.0]
+    uu0_cov = Matrix(1.0 * I, 2, 2)
+    y_obs_lin = A_lin * [0.3, 0.1]
+
+    utkiobj = EKP.EnsembleKalmanProcess(y_obs_lin, Γy_lin, TransformUnscented(u0_mean, uu0_cov); rng = copy(rng))
+    initial_error = norm(get_u_mean_final(utkiobj) - [0.3, 0.1])
+    for i in 1:2
+        g_ens = A_lin * get_u_final(utkiobj)
+        EKP.update_ensemble!(utkiobj, g_ens)
+    end
+    @test norm(get_u_mean_final(utkiobj) - [0.3, 0.1]) < initial_error
+end
+
+@testset "UTKI rejects the standard (non-modified) unscented transform" begin
+    # The square-root form cannot represent the standard transform's nonzero
+    # center covariance weight, so it must be rejected rather than silently
+    # producing a wrong answer relative to Unscented (UKI).
+    prior = ParameterDistribution(
+        Dict("distribution" => Parameterized(Normal(0.0, 1.0)), "constraint" => no_constraint(), "name" => "u"),
+    )
+    @test_throws ArgumentError TransformUnscented(prior; center_is_mean = false)
+    @test_throws ArgumentError TransformUnscented([0.0], Matrix(1.0 * I, 1, 1); center_is_mean = false)
+    @test TransformUnscented(prior) isa TransformUnscented
+
+    # `modified_unscented_transform` is a deprecated alias for `center_is_mean`, kept
+    # for backwards compatibility, and must still enforce the same requirement.
+    @test_throws ArgumentError TransformUnscented(prior; modified_unscented_transform = false)
+    @test_throws ArgumentError TransformUnscented([0.0], Matrix(1.0 * I, 1, 1); modified_unscented_transform = false)
+end
+
+@testset "center_is_mean / modified_unscented_transform alias consistency" begin
+    # The deprecated keyword must produce identical behavior to its replacement.
+    u0_mean, uu0_cov = [0.3, -0.1], [1.0 0.2; 0.2 0.8]
+    p_new = Unscented(u0_mean, uu0_cov; center_is_mean = true)
+    p_old = Unscented(u0_mean, uu0_cov; modified_unscented_transform = true)
+    @test p_new.mean_weights == p_old.mean_weights
+    @test p_new.cov_weights == p_old.cov_weights
+
+    p_new_false = Unscented(u0_mean, uu0_cov; center_is_mean = false)
+    p_old_false = Unscented(u0_mean, uu0_cov; modified_unscented_transform = false)
+    @test p_new_false.mean_weights == p_old_false.mean_weights
+end
 
 @testset "EnsembleTransformKalmanInversion" begin
 
@@ -1284,6 +1430,23 @@ end
     end
 end
 
+@testset "ETKI update stays finite with duplicate ensemble members" begin
+    # Two exact-duplicate ensemble members make I + Y'Γ⁻¹Y near-singular in the
+    # duplicated direction, so the diagonal regularization guard must actually take
+    # effect (previously a no-op: it regularized a discarded range-indexed copy).
+    rng = Random.MersenneTwister(rng_seed)
+    n_obs = 4
+    A_lin = linear_map(rng, n_obs)
+    Γy = 0.1 * Matrix(1.0 * I, n_obs, n_obs)
+    y_obs = zeros(n_obs)
+    N_ens = 10
+    u0 = rand(rng, MvNormal(zeros(2), Matrix(1.0 * I, 2, 2)), N_ens)
+    u0[:, 2] = u0[:, 1] # exact duplicate
+
+    etkiobj = EKP.EnsembleKalmanProcess(u0, y_obs, Γy, TransformInversion(); rng = copy(rng))
+    EKP.update_ensemble!(etkiobj, A_lin * get_u_final(etkiobj))
+    @test all(isfinite, get_u_final(etkiobj))
+end
 
 @testset "Scaling to large observations" begin
     rng = Random.MersenneTwister(rng_seed)
@@ -1648,6 +1811,149 @@ end
     end
 end
 
+@testset "GNKI perturbation scaling preserves the prior spread at Δt = 1" begin
+    # With an uninformative observation and Δt = 1, gnki_update's relaxation step reduces to
+    # returning the perturbed prior draw m ~ N(prior_mean, scaled_prior_cov) unchanged, so the
+    # ensemble covariance after one step should match prior_cov itself -- that only holds if
+    # the perturbation scale is (2/Δt - 1) (which is 1 at Δt = 1), not 2/Δt (which is 2, and
+    # would double the spread).
+    rng = Random.MersenneTwister(rng_seed)
+    n_obs_lin = 6
+    A_lin = linear_map(rng, n_obs_lin)
+    Γy_lin = 1e8 * Matrix(1.0 * I, n_obs_lin, n_obs_lin) # uninformative
+    prior_mean_lin = [0.5, -0.5]
+    prior_cov_lin = [1.0 0.2; 0.2 0.8]
+    y_obs_lin = zeros(n_obs_lin)
+
+    N_ens_lin = 2000
+    initial_ensemble_lin = rand(rng, MvNormal(prior_mean_lin, prior_cov_lin), N_ens_lin)
+    process = GaussNewtonInversion(prior_mean_lin, prior_cov_lin)
+    gnkiobj = EKP.EnsembleKalmanProcess(
+        initial_ensemble_lin,
+        y_obs_lin,
+        Γy_lin,
+        process;
+        rng = copy(rng),
+        scheduler = DefaultScheduler(1.0),
+        failure_handler_method = SampleSuccGauss(),
+        localization_method = Localizers.NoLocalization(),
+    )
+    g_ens = A_lin * get_u_final(gnkiobj)
+    EKP.update_ensemble!(gnkiobj, g_ens)
+    @test isapprox(tr(get_u_cov_final(gnkiobj)), tr(prior_cov_lin), rtol = 0.2)
+
+    # Δt > 1 breaks both the relaxation weight and the perturbation scale; must be rejected.
+    process2 = GaussNewtonInversion(prior_mean_lin, prior_cov_lin)
+    gnkiobj2 = EKP.EnsembleKalmanProcess(
+        initial_ensemble_lin,
+        y_obs_lin,
+        Γy_lin,
+        process2;
+        rng = copy(rng),
+        scheduler = DefaultScheduler(1.5),
+        failure_handler_method = SampleSuccGauss(),
+        localization_method = Localizers.NoLocalization(),
+    )
+    @test_throws ArgumentError EKP.update_ensemble!(gnkiobj2, A_lin * get_u_final(gnkiobj2))
+end
+
+@testset "GNKI update groups partition correctly" begin
+    # Two independent 1-D linear-Gaussian sub-problems, block-diagonal in A, the prior covariance,
+    # and the observation covariance. With update groups {u=[1],g=[1]} and {u=[2],g=[2]}, each
+    # group's update must equal the update of its own single-parameter sub-problem: run the
+    # sub-problems from the same starting RNG state, in the same order the group loop uses
+    # (`EnsembleKalmanProcess.update_ensemble!` processes groups in list order), so the random
+    # draws line up exactly. Before the fix, `gnki_update` read the full (unrestricted) prior and
+    # `update_ensemble!` used the full (unrestricted) observation/noise, so this either
+    # dimension-mismatched or double-counted every parameter against every observation.
+    rng = Random.MersenneTwister(rng_seed)
+    a1, a2 = 2.0, -1.5
+    prior_mean_full = [0.3, -0.7]
+    prior_cov_full = [0.5 0.0; 0.0 1.2]
+    Γy_full = [0.2 0.0; 0.0 0.6]
+    y_obs_full = [1.0, -0.4]
+    N_ens = 50
+
+    initial_ensemble_full = rand(rng, MvNormal(prior_mean_full, prior_cov_full), N_ens)
+    update_rng = Random.MersenneTwister(rng_seed + 1)
+
+    groups = [UpdateGroup([1], [1]), UpdateGroup([2], [2])]
+    joint_process = GaussNewtonInversion(prior_mean_full, prior_cov_full)
+    joint_ekp = EKP.EnsembleKalmanProcess(
+        initial_ensemble_full,
+        y_obs_full,
+        Γy_full,
+        joint_process;
+        rng = copy(update_rng),
+        scheduler = DefaultScheduler(1.0),
+        failure_handler_method = SampleSuccGauss(),
+        localization_method = Localizers.NoLocalization(),
+        update_groups = groups,
+    )
+    g_ens_full = vcat(a1 .* get_u_final(joint_ekp)[1:1, :], a2 .* get_u_final(joint_ekp)[2:2, :])
+    EKP.update_ensemble!(joint_ekp, g_ens_full)
+
+    # Block 1 reference sub-problem, starting from the identical RNG state as the joint run.
+    process1 = GaussNewtonInversion([prior_mean_full[1]], reshape([prior_cov_full[1, 1]], 1, 1))
+    ekp1 = EKP.EnsembleKalmanProcess(
+        initial_ensemble_full[1:1, :],
+        [y_obs_full[1]],
+        reshape([Γy_full[1, 1]], 1, 1),
+        process1;
+        rng = copy(update_rng),
+        scheduler = DefaultScheduler(1.0),
+        failure_handler_method = SampleSuccGauss(),
+        localization_method = Localizers.NoLocalization(),
+    )
+    EKP.update_ensemble!(ekp1, a1 .* get_u_final(ekp1))
+
+    # Block 2 reference sub-problem, continuing on ekp1's now-advanced RNG object so it consumes
+    # exactly the randomness the joint run's group-2 step consumes after group 1 already ran.
+    process2 = GaussNewtonInversion([prior_mean_full[2]], reshape([prior_cov_full[2, 2]], 1, 1))
+    ekp2 = EKP.EnsembleKalmanProcess(
+        initial_ensemble_full[2:2, :],
+        [y_obs_full[2]],
+        reshape([Γy_full[2, 2]], 1, 1),
+        process2;
+        rng = get_rng(ekp1),
+        scheduler = DefaultScheduler(1.0),
+        failure_handler_method = SampleSuccGauss(),
+        localization_method = Localizers.NoLocalization(),
+    )
+    EKP.update_ensemble!(ekp2, a2 .* get_u_final(ekp2))
+
+    @test isapprox(get_u_final(joint_ekp)[1:1, :], get_u_final(ekp1), rtol = 1e-8)
+    @test isapprox(get_u_final(joint_ekp)[2:2, :], get_u_final(ekp2), rtol = 1e-8)
+end
+
+@testset "GNKI with SEC localization does not produce NaN when an output is constant" begin
+    # GNKI regularizes before localizing (matching EKI), so a zero-variance
+    # sample covariance row/column never reaches an unguarded correlation division.
+    rng = Random.MersenneTwister(rng_seed)
+    prior_mean = [0.0, 0.0]
+    prior_cov = Matrix(1.0 * I, 2, 2)
+    Γy = Matrix(1.0 * I, 2, 2)
+    y_obs = [1.0, 2.0]
+    N_ens = 20
+    initial_ensemble = rand(rng, MvNormal(prior_mean, prior_cov), N_ens)
+    process = GaussNewtonInversion(prior_mean, prior_cov)
+    ekpobj = EKP.EnsembleKalmanProcess(
+        initial_ensemble,
+        y_obs,
+        Γy,
+        process;
+        rng = copy(rng),
+        scheduler = DefaultScheduler(1.0),
+        localization_method = Localizers.SEC(1.0),
+    )
+    for i in 1:2
+        u = get_u_final(ekpobj)
+        g_ens = vcat(u[1:1, :], fill(3.0, 1, N_ens)) # second output constant across the ensemble
+        EKP.update_ensemble!(ekpobj, g_ens)
+    end
+    @test all(isfinite, get_u_final(ekpobj))
+end
+
 @testset "LinearSolve" begin
     @testset "safe_linear_solve" begin
         A = randn(5, 5)
@@ -1709,5 +2015,16 @@ end
         C2 = copy(C0)
         add_diagonal_regularization!(C2; regularization_factor = 1e-8)
         @test all(diag(C2) .≈ diag(C0) .+ 1e-8)
+
+        # regularizing a view (as opposed to a range-indexed copy) must mutate the parent
+        A = randn(4, 4)
+        A0 = copy(A)
+        add_diagonal_regularization!(view(A, 1:2, 1:2))
+        @test diag(A)[1:2] ≈ diag(A0)[1:2] .+ fac
+        @test diag(A)[3:4] ≈ diag(A0)[3:4] # untouched outside the view
+        # the analogous slice-copy call is the bug this pins: it must NOT mutate A
+        A_copy_bug = copy(A0)
+        add_diagonal_regularization!(A_copy_bug[1:2, 1:2])
+        @test A_copy_bug == A0
     end
 end
