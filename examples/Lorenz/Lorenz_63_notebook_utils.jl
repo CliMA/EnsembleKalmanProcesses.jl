@@ -162,7 +162,6 @@ function plot_eki_convergence(priors, ekiobj, n_eki_iterations, lm_history, para
         ylabel = "β",
         legend = false,
         size = (800, 622),
-        dpi = 300,
         guidefontsize = 24,
         tickfontsize = 18,
         grid = false,
