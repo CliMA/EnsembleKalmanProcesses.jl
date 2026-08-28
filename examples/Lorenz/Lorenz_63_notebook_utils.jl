@@ -125,7 +125,7 @@ function plot_error_convergence(err, lm_err)
         marker = :circle,
         color = :black,
         label = "EKI",
-        size = (1280, 800),
+        size = (800, 500),
         grid = false,
         guidefontsize = 24,
         tickfontsize = 18,
@@ -138,7 +138,8 @@ function plot_error_convergence(err, lm_err)
 end
 
 function plot_final_parameters(param_names, final_mean, params_true)
-    param_plot = plot(layout = (1, length(param_names)), size = (450 * length(param_names), 400), legend = false)
+    param_plot_height = round(Int, 800 * 400 / (450 * length(param_names)))
+    param_plot = plot(layout = (1, length(param_names)), size = (800, param_plot_height), legend = false)
     for (pp, pname) in enumerate(param_names)
         bar!(param_plot[pp], ["EKI"], [final_mean[pp]], title = pname)
         hline!(param_plot[pp], [params_true[pp]], linestyle = :dash, linecolor = :red)
@@ -160,7 +161,7 @@ function plot_eki_convergence(priors, ekiobj, n_eki_iterations, lm_history, para
         xlabel = "ρ",
         ylabel = "β",
         legend = false,
-        size = (900, 700),
+        size = (800, 622),
         dpi = 300,
         guidefontsize = 24,
         tickfontsize = 18,
@@ -226,5 +227,5 @@ function plot_statistics_window(true_params_config, x0, dt, T, T_start, T_end)
     for p in panels
         vline!(p, [T_start, T_end], linestyle = :dash, linecolor = :red, linewidth = 2)
     end
-    return plot(panels..., layout = (3, 1), size = (900, 750))
+    return plot(panels..., layout = (3, 1), size = (800, 667))
 end
