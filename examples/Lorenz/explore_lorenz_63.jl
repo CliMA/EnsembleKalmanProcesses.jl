@@ -189,16 +189,6 @@ legend_strip = plot(
     grid = false,
 )
 plot!(legend_strip, [NaN], [NaN], color = :orangered, label = "different parameters", linewidth = 3)
-grid_layout = @layout [a{0.08h}; grid(2, 3)]
-grid_plot = plot(
-    legend_strip,
-    butterfly_plots[butterfly_indices]...,
-    layout = grid_layout,
-    size = (400 * n_butterfly_cols, 860),
-)
-grid_plot_path = joinpath(figure_save_directory, "l63_long_time_butterflies.png")
-savefig(grid_plot, grid_plot_path)
-@info "Saved long-time butterflies figure to $(grid_plot_path)"
 
 function energy_integral(xn, dt)
     T = dt * (size(xn, 2) - 1)
@@ -232,6 +222,10 @@ energy_plot = scatter(
     ylabel = "Average size of trajectory",
     grid = false,
     legend = false,
+    guidefontsize = 19,
+    tickfontsize = 16,
+    left_margin = 10Plots.mm,
+    bottom_margin = 10Plots.mm,
 )
 scatter!(
     energy_plot,
@@ -262,9 +256,20 @@ for k in 2:3
         label = false,
     )
 end
-energy_plot_path = joinpath(figure_save_directory, "l63_long_time_energy.png")
-savefig(energy_plot, energy_plot_path)
-@info "Saved long-time energy figure to $(energy_plot_path)"
+combined_layout = @layout [
+    a{0.08h}
+    [grid(2, 3) b]
+]
+combined_plot = plot(
+    legend_strip,
+    butterfly_plots[butterfly_indices]...,
+    energy_plot,
+    layout = combined_layout,
+    size = (400 * n_butterfly_cols + 500, 860),
+)
+combined_plot_path = joinpath(figure_save_directory, "l63_long_time_butterflies_energy.png")
+savefig(combined_plot, combined_plot_path)
+@info "Saved long-time butterflies + energy figure to $(combined_plot_path)"
 
 println("Energy values (different initial conditions, classical params): ", E_values[1:n_runs])
 println("Energy values (parameter perturbations): ", E_values[(n_runs + 1):(2 * n_runs)])
@@ -416,8 +421,8 @@ loss_plot = surface(
     size = (1200, 900),
     dpi = 300,
     legend = false,
-    guidefontsize = 24,
-    tickfontsize = 18,
+    guidefontsize = 18,
+    tickfontsize = 14,
     grid = false,
 )
 scatter!(
@@ -452,8 +457,8 @@ if make_long_loss_plot
         size = (1200, 900),
         dpi = 300,
         legend = false,
-        guidefontsize = 24,
-        tickfontsize = 18,
+        guidefontsize = 18,
+        tickfontsize = 14,
         grid = false,
     )
     scatter!(
