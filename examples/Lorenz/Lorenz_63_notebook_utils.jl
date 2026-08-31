@@ -5,7 +5,11 @@
 ### Preliminaries / filesystem
 ###
 
-function make_output_dirs(root_dir::AbstractString = pwd(); figure_subdir::AbstractString = "output", data_subdir::AbstractString = "output")
+function make_output_dirs(
+    root_dir::AbstractString = pwd();
+    figure_subdir::AbstractString = "output",
+    data_subdir::AbstractString = "output",
+)
     println(root_dir)
     figure_save_directory = joinpath(root_dir, figure_subdir)
     data_save_directory = joinpath(root_dir, data_subdir)
@@ -29,8 +33,8 @@ end
 
 function build_priors(param_names, prior_means, prior_stds, prior_bounds)
     marginals = [
-        constrained_gaussian(param_names[i], prior_means[i], prior_stds[i], prior_bounds[i][1], prior_bounds[i][2]) for
-        i in 1:length(param_names)
+        constrained_gaussian(param_names[i], prior_means[i], prior_stds[i], prior_bounds[i][1], prior_bounds[i][2])
+        for i in 1:length(param_names)
     ]
     return combine_distributions(marginals)
 end
@@ -147,7 +151,15 @@ function plot_final_parameters(param_names, final_mean, params_true)
     return param_plot
 end
 
-function plot_eki_convergence(priors, ekiobj, n_eki_iterations, lm_history, params_true; eki_color = :black, lm_color = :magenta)
+function plot_eki_convergence(
+    priors,
+    ekiobj,
+    n_eki_iterations,
+    lm_history,
+    params_true;
+    eki_color = :black,
+    lm_color = :magenta,
+)
     ϕ_init = get_ϕ(priors, ekiobj, 1)
     ϕ_final = get_ϕ(priors, ekiobj, n_eki_iterations)
 
@@ -168,7 +180,16 @@ function plot_eki_convergence(priors, ekiobj, n_eki_iterations, lm_history, para
         left_margin = 10Plots.mm,
         bottom_margin = 10Plots.mm,
     )
-    scatter!(convergence_plot, ϕ_final[1, :], ϕ_final[2, :], color = eki_color, alpha = 1.0, markersize = 6, markerstrokewidth = 0, label = false)
+    scatter!(
+        convergence_plot,
+        ϕ_final[1, :],
+        ϕ_final[2, :],
+        color = eki_color,
+        alpha = 1.0,
+        markersize = 6,
+        markerstrokewidth = 0,
+        label = false,
+    )
     vline!(convergence_plot, [params_true[1]], linestyle = :dash, linecolor = :red)
     hline!(convergence_plot, [params_true[2]], linestyle = :dash, linecolor = :red)
 

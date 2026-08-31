@@ -121,7 +121,8 @@ runs_sep = build_runs_sep(x0_ic, classical_params, perturbed_params, n_runs)
 growth_trajectories = solve_group(runs_sep, growth_config)
 t_axis = (0:(size(reference_trajectory, 2) - 1)) .* dt ./ lyapunov_time
 
-separation_plot = plot_separation_growth(t_axis, growth_trajectories, reference_trajectory, colors, T_short, lyapunov_time)
+separation_plot =
+    plot_separation_growth(t_axis, growth_trajectories, reference_trajectory, colors, T_short, lyapunov_time)
 display(separation_plot)
 separation_plot_path = joinpath(figure_save_directory, "l63_separation_growth.png")
 savefig(separation_plot, separation_plot_path)
@@ -132,7 +133,15 @@ savefig(separation_plot, separation_plot_path)
 # This takes a little time to render; toggle off with make_gif = false to skip it.
 if make_gif
     long_trajectories_p1 = solve_group(runs, growth_config)
-    anim = build_trajectory_separation_animation(long_trajectories_p1, reference_trajectory, growth_trajectories, t_axis, colors, group_labels, n_frames)
+    anim = build_trajectory_separation_animation(
+        long_trajectories_p1,
+        reference_trajectory,
+        growth_trajectories,
+        t_axis,
+        colors,
+        group_labels,
+        n_frames,
+    )
     gif_path = joinpath(figure_save_directory, "l63_trajectories_and_separation.gif")
     gif(anim, gif_path, fps = round(Int, n_frames / anim_duration))
 end
@@ -158,7 +167,8 @@ savefig(loss_plot, loss_plot_path)
 if make_long_loss_plot
     reference_long_run = lorenz_solve(classical_params, x0_attractor, LorenzConfig(dt, T_long))
     E_ref_long = energy_integral(reference_long_run, dt)
-    loss_grid_long = compute_loss_grid(rho_range, beta_range, x0_ic[1], sigma_true, T_spinup_short, T_long, E_ref_long, dt)
+    loss_grid_long =
+        compute_loss_grid(rho_range, beta_range, x0_ic[1], sigma_true, T_spinup_short, T_long, E_ref_long, dt)
 
     loss_plot_long = plot_loss_landscape(rho_range, beta_range, loss_grid_long, rho_true, beta_true)
     display(loss_plot_long)

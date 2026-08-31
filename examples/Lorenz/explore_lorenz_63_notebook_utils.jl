@@ -36,7 +36,16 @@ function build_perturbed_params(rng, n_runs, sigma_true, rho_true, beta_true, pa
 end
 
 # Solve for the IC perturbation size along `direction` matching the parameter perturbations' short-time separation.
-function calibrate_perturbation_scale(direction, target_sep, classical_params, x0_attractor, short_config, base_short_endpoint; cap = 1.0, max_iter = 40)
+function calibrate_perturbation_scale(
+    direction,
+    target_sep,
+    classical_params,
+    x0_attractor,
+    short_config,
+    base_short_endpoint;
+    cap = 1.0,
+    max_iter = 40,
+)
     sep(scale) = norm(
         lorenz_solve(classical_params, x0_attractor .+ scale .* direction, short_config)[:, end] .- base_short_endpoint,
     )
@@ -52,7 +61,15 @@ end
 # Finds `n_runs` initial-condition perturbations whose short-time (`short_config`) separation from
 # the reference trajectory matches the parameter perturbations' short-time separation, so that Plot 1
 # compares IC and parameter perturbations of matched initial magnitude.
-function calibrate_ic_perturbations(rng, classical_params, x0_attractor, perturbed_params, short_config, n_runs; n_candidate_directions = 40)
+function calibrate_ic_perturbations(
+    rng,
+    classical_params,
+    x0_attractor,
+    perturbed_params,
+    short_config,
+    n_runs;
+    n_candidate_directions = 40,
+)
     base_short_endpoint = lorenz_solve(classical_params, x0_attractor, short_config)[:, end]
     target_short_sep = mean([
         norm(lorenz_solve(pp, x0_attractor, short_config)[:, end] - base_short_endpoint) for pp in perturbed_params
@@ -60,8 +77,14 @@ function calibrate_ic_perturbations(rng, classical_params, x0_attractor, perturb
 
     candidate_directions = [normalize(randn(rng, 3)) for _ in 1:n_candidate_directions]
     calibrated_scales = [
-        calibrate_perturbation_scale(d, target_short_sep, classical_params, x0_attractor, short_config, base_short_endpoint) for
-        d in candidate_directions
+        calibrate_perturbation_scale(
+            d,
+            target_short_sep,
+            classical_params,
+            x0_attractor,
+            short_config,
+            base_short_endpoint,
+        ) for d in candidate_directions
     ]
     valid = findall(!isnothing, calibrated_scales)
     @assert length(valid) >= n_runs "not enough candidate directions reached the target short-time separation within a small perturbation; increase n_candidate_directions or cap"
@@ -76,7 +99,8 @@ end
 # IC-perturbation group (steelblue), the second `n_runs` are the parameter-perturbation group (orangered).
 function run_group_style(n_runs)
     colors = vcat(fill(:steelblue, n_runs), fill(:orangered, n_runs))
-    group_labels = [i == 1 ? "IC perturbation" : (i == n_runs + 1 ? "Parameter perturbation" : false) for i in 1:(2 * n_runs)]
+    group_labels =
+        [i == 1 ? "IC perturbation" : (i == n_runs + 1 ? "Parameter perturbation" : false) for i in 1:(2 * n_runs)]
     return colors, group_labels
 end
 
@@ -140,11 +164,46 @@ function plot_short_time_trajectories(short_trajectories, reference_short, color
     )
     for (i, xn) in enumerate(short_trajectories)
         plot!(p_short, xn[1, :], xn[2, :], xn[3, :], color = colors[i], label = group_labels[i], linewidth = 3)
-        scatter!(p_short, [xn[1, end]], [xn[2, end]], [xn[3, end]], color = colors[i], markershape = :utriangle, markersize = 8, label = false)
+        scatter!(
+            p_short,
+            [xn[1, end]],
+            [xn[2, end]],
+            [xn[3, end]],
+            color = colors[i],
+            markershape = :utriangle,
+            markersize = 8,
+            label = false,
+        )
     end
-    plot!(p_short, reference_short[1, :], reference_short[2, :], reference_short[3, :], color = :black, label = "Reference", linewidth = 3)
-    scatter!(p_short, [reference_short[1, 1]], [reference_short[2, 1]], [reference_short[3, 1]], color = :black, markershape = :circle, markersize = 8, label = false)
-    scatter!(p_short, [reference_short[1, end]], [reference_short[2, end]], [reference_short[3, end]], color = :black, markershape = :utriangle, markersize = 8, label = false)
+    plot!(
+        p_short,
+        reference_short[1, :],
+        reference_short[2, :],
+        reference_short[3, :],
+        color = :black,
+        label = "Reference",
+        linewidth = 3,
+    )
+    scatter!(
+        p_short,
+        [reference_short[1, 1]],
+        [reference_short[2, 1]],
+        [reference_short[3, 1]],
+        color = :black,
+        markershape = :circle,
+        markersize = 8,
+        label = false,
+    )
+    scatter!(
+        p_short,
+        [reference_short[1, end]],
+        [reference_short[2, end]],
+        [reference_short[3, end]],
+        color = :black,
+        markershape = :utriangle,
+        markersize = 8,
+        label = false,
+    )
     return p_short
 end
 
@@ -182,12 +241,7 @@ function plot_long_time_butterflies(long_trajectories, colors, n_runs, n_butterf
     )
     plot!(legend_strip, [NaN], [NaN], color = :orangered, label = "different parameters", linewidth = 3)
     grid_layout = @layout [a{0.08h}; grid(2, n_butterfly_cols)]
-    return plot(
-        legend_strip,
-        butterfly_plots[butterfly_indices]...,
-        layout = grid_layout,
-        size = (800, 573),
-    )
+    return plot(legend_strip, butterfly_plots[butterfly_indices]..., layout = grid_layout, size = (800, 573))
 end
 
 # Plot 2 (part 2): average trajectory size ("energy") vs. statistics-window duration.
@@ -208,10 +262,34 @@ function plot_long_time_energy(E_ic_by_duration, E_param_by_duration, n_runs, du
         grid = false,
         legend = false,
     )
-    scatter!(energy_plot, fill(1 + dodge, n_runs), E_param_by_duration[1], color = :orangered, markersize = 8, markerstrokewidth = 0, label = "Parameters")
+    scatter!(
+        energy_plot,
+        fill(1 + dodge, n_runs),
+        E_param_by_duration[1],
+        color = :orangered,
+        markersize = 8,
+        markerstrokewidth = 0,
+        label = "Parameters",
+    )
     for k in 2:3
-        scatter!(energy_plot, fill(k - dodge, n_runs), E_ic_by_duration[k], color = :steelblue, markersize = 8, markerstrokewidth = 0, label = false)
-        scatter!(energy_plot, fill(k + dodge, n_runs), E_param_by_duration[k], color = :orangered, markersize = 8, markerstrokewidth = 0, label = false)
+        scatter!(
+            energy_plot,
+            fill(k - dodge, n_runs),
+            E_ic_by_duration[k],
+            color = :steelblue,
+            markersize = 8,
+            markerstrokewidth = 0,
+            label = false,
+        )
+        scatter!(
+            energy_plot,
+            fill(k + dodge, n_runs),
+            E_param_by_duration[k],
+            color = :orangered,
+            markersize = 8,
+            markerstrokewidth = 0,
+            label = false,
+        )
     end
     return energy_plot
 end
@@ -241,7 +319,15 @@ end
 
 # Animation: Plot 1's trajectories (left) and Plot 3's separation growth (right) unfolding together,
 # both run out over the full growth window so the two panels stay in sync throughout.
-function build_trajectory_separation_animation(long_trajectories_p1, reference_trajectory, growth_trajectories, t_axis, colors, group_labels, n_frames)
+function build_trajectory_separation_animation(
+    long_trajectories_p1,
+    reference_trajectory,
+    growth_trajectories,
+    t_axis,
+    colors,
+    group_labels,
+    n_frames,
+)
     sep_curves = [
         clamp.([norm(xn[:, k] .- reference_trajectory[:, k]) for k in 1:size(xn, 2)], 1e-12, Inf) for
         xn in growth_trajectories
@@ -272,7 +358,15 @@ function build_trajectory_separation_animation(long_trajectories_p1, reference_t
             grid = false,
         )
         for (i, xn) in enumerate(long_trajectories_p1)
-            plot!(traj_panel, xn[1, 1:idx_g], xn[2, 1:idx_g], xn[3, 1:idx_g], color = colors[i], label = group_labels[i], linewidth = 2)
+            plot!(
+                traj_panel,
+                xn[1, 1:idx_g],
+                xn[2, 1:idx_g],
+                xn[3, 1:idx_g],
+                color = colors[i],
+                label = group_labels[i],
+                linewidth = 2,
+            )
         end
         plot!(
             traj_panel,
@@ -319,6 +413,16 @@ function plot_loss_landscape(rho_range, beta_range, loss_grid, rho_true, beta_tr
         tickfontsize = 18,
         grid = false,
     )
-    scatter!(loss_plot, [rho_true], [beta_true], [0.0], color = :white, markershape = :star5, markersize = 16, markerstrokecolor = :black, label = false)
+    scatter!(
+        loss_plot,
+        [rho_true],
+        [beta_true],
+        [0.0],
+        color = :white,
+        markershape = :star5,
+        markersize = 16,
+        markerstrokecolor = :black,
+        label = false,
+    )
     return loss_plot
 end

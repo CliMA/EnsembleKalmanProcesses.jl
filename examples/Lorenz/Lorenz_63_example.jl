@@ -329,10 +329,7 @@ current_color = :green
 ϕ_prior = ϕ_iters[1]
 
 traj_iters = [
-    [
-        lorenz_solve(EnsembleMemberConfig(sigma_true, ϕ_i[1, j], ϕ_i[2, j]), x0, lorenz_config_settings) for
-        j in 1:N_ens
-    ] for ϕ_i in ϕ_iters
+    [lorenz_solve(EnsembleMemberConfig(sigma_true, ϕ_i[1, j], ϕ_i[2, j]), x0, lorenz_config_settings) for j in 1:N_ens] for ϕ_i in ϕ_iters
 ]
 traj_prior = traj_iters[1]
 
