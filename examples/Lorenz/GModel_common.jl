@@ -347,7 +347,7 @@ function stats(settings, xn, t)
         # Combine
         gt = vcat(ym...)
     else
-        ArgumentError("Setting " * string(settings.stats_type) * " not implemented.")
+        throw(ArgumentError("Setting " * string(settings.stats_type) * " not implemented."))
     end
     return gt
 end

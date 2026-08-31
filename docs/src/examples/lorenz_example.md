@@ -40,7 +40,7 @@ The L96 dynamics are solved with RK4 integration.
 
 ## Structure
 
-The main code is located in `Lorenz_example.jl` which provides the functionality to run the L96 dynamical system, extract time-averaged statistics from the L96 states, and use the time-average statistics for optimization and uncertainty quantification.
+The main code is located in `Lorenz_96_example.jl` which provides the functionality to run the L96 dynamical system, extract time-averaged statistics from the L96 states, and use the time-average statistics for optimization and uncertainty quantification.
 
 The L96 system is solved in `GModel.jl` according to the time integration settings specified in `LSettings` and the L96 parameters specified in `LParams`.
 The types of statistics to be collected are detailed in `GModel.jl`.
@@ -50,7 +50,7 @@ The types of statistics to be collected are detailed in `GModel.jl`.
 
 ### Dynamics settings
 The use of the transient forcing term is with the flag, `dynamics`. Stationary forcing is `dynamics=1` ($A=0$) and transient forcing is used with `dynamics=2` ($A\neq0$).
-The default parameters are specified in `Lorenz_example.jl` and can be modified as necessary.
+The default parameters are specified in `Lorenz_96_example.jl` and can be modified as necessary.
 The system is solved over time horizon $0$ to `tend` at fixed time step `dt`.
 ```julia
 N = 36
@@ -103,7 +103,7 @@ The empirical covariance matrix is constructed.
 The observational noise is prescribed as a Gaussian distribution with prescribed mean and variance.
 
 ## Running the Example
-The L96 parameter estimation can be run using `julia --project Lorenz_example.jl`
+The L96 parameter estimation can be run using `julia --project Lorenz_96_example.jl`
 
 
 ## Solution and Output
