@@ -53,26 +53,26 @@ for i in 1:N_iter
     end
 end
 n_iter = final_it[1]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Begin inversion
-Iteration: 1, Error: 15658.816813567097
-Iteration: 2, Error: 5379.165452458509
-Iteration: 3, Error: 2294.6860078190202
-Iteration: 4, Error: 1391.2621264840645
-Iteration: 5, Error: 774.7117941481014
-Iteration: 6, Error: 469.34472419650206
-Iteration: 7, Error: 277.8296641360497
-Iteration: 8, Error: 179.69520056445097
-Iteration: 9, Error: 138.4714418591611
-Iteration: 10, Error: 117.68890832734404
-Iteration: 11, Error: 101.23630169981566
-Iteration: 12, Error: 86.47789923343171
-Iteration: 13, Error: 82.29934853955791
-Iteration: 14, Error: 80.03766133925595
-Iteration: 15, Error: 78.44129465853527
-Iteration: 16, Error: 76.6362906454454
-Iteration: 17, Error: 74.85191230155111
-Iteration: 18, Error: 73.10756422267647
-Iteration: 19, Error: 71.46814807444099
-Iteration: 20, Error: 69.62552819265693</code></pre><h2 id="Inversion-results"><a class="docs-heading-anchor" href="#Inversion-results">Inversion results</a><a id="Inversion-results-1"></a><a class="docs-heading-anchor-permalink" href="#Inversion-results" title="Permalink"></a></h2><p>We plot first the prior ensemble mean and pointwise variance of the permeability field, and also the pressure field solved with the ensemble mean. Each ensemble member is stored as a column and therefore for uses such as plotting one needs to reshape to the desired dimension.</p><pre><code class="language-julia hljs">gr(size = (1500, 400), legend = false)
+Iteration: 1, Error: 20178.451602552355
+Iteration: 2, Error: 9094.864563369367
+Iteration: 3, Error: 6959.958347953093
+Iteration: 4, Error: 2839.5795555496597
+Iteration: 5, Error: 1278.3476407970531
+Iteration: 6, Error: 575.498465602039
+Iteration: 7, Error: 284.4023383772008
+Iteration: 8, Error: 171.43711780560832
+Iteration: 9, Error: 120.12667046852165
+Iteration: 10, Error: 86.10855806309337
+Iteration: 11, Error: 67.19816956675369
+Iteration: 12, Error: 67.10980101598423
+Iteration: 13, Error: 71.59839061789823
+Iteration: 14, Error: 76.23458343986857
+Iteration: 15, Error: 78.40690680808882
+Iteration: 16, Error: 77.76370631281779
+Iteration: 17, Error: 75.92298553044411
+Iteration: 18, Error: 72.75098445016397
+Iteration: 19, Error: 68.71526672203433
+Iteration: 20, Error: 64.42993956295822</code></pre><h2 id="Inversion-results"><a class="docs-heading-anchor" href="#Inversion-results">Inversion results</a><a id="Inversion-results-1"></a><a class="docs-heading-anchor-permalink" href="#Inversion-results" title="Permalink"></a></h2><p>We plot first the prior ensemble mean and pointwise variance of the permeability field, and also the pressure field solved with the ensemble mean. Each ensemble member is stored as a column and therefore for uses such as plotting one needs to reshape to the desired dimension.</p><pre><code class="language-julia hljs">gr(size = (1500, 400), legend = false)
 
 prior_κ_ens = get_ϕ(prior, ekiobj, 1)
 κ_ens_mean = reshape(mean(prior_κ_ens, dims = 2), N, N)
@@ -83,7 +83,7 @@ h_2d = solve_Darcy_2D(darcy, κ_ens_mean)
 p3 = contour(pts_per_dim, pts_per_dim, h_2d&#39;, fill = true, levels = 15, title = &quot;pressure&quot;, colorbar = true)
 l = @layout [a b c]
 plt = plot(p1, p2, p3, layout = l)
-plt</code></pre><img src="3c0c21ad.svg" alt="Example block output"/><p>Now we plot the final ensemble mean and pointwise variance of the permeability field, and also the pressure field solved with the ensemble mean.</p><pre><code class="language-julia hljs">final_κ_ens = get_ϕ_final(prior, ekiobj) # the `ϕ` indicates that the `params_i` are in the constrained space
+plt</code></pre><img src="b7261977.svg" alt="Example block output"/><p>Now we plot the final ensemble mean and pointwise variance of the permeability field, and also the pressure field solved with the ensemble mean.</p><pre><code class="language-julia hljs">final_κ_ens = get_ϕ_final(prior, ekiobj) # the `ϕ` indicates that the `params_i` are in the constrained space
 κ_ens_mean = reshape(mean(final_κ_ens, dims = 2), N, N)
 p1 = contour(pts_per_dim, pts_per_dim, κ_ens_mean&#39;, fill = true, levels = 15, title = &quot;kappa mean&quot;, colorbar = true)
 κ_ens_ptw_var = reshape(var(final_κ_ens, dims = 2), N, N)
@@ -92,12 +92,12 @@ h_2d = solve_Darcy_2D(darcy, κ_ens_mean)
 p3 = contour(pts_per_dim, pts_per_dim, h_2d&#39;, fill = true, levels = 15, title = &quot;pressure&quot;, colorbar = true)
 l = @layout [a b c]
 plt = plot(p1, p2, p3; layout = l)
-plt</code></pre><img src="b32d71af.svg" alt="Example block output"/><p>We can compare this with the true permeability and pressure field.</p><pre><code class="language-julia hljs">gr(size = (1000, 400), legend = false)
+plt</code></pre><img src="9048e179.svg" alt="Example block output"/><p>We can compare this with the true permeability and pressure field.</p><pre><code class="language-julia hljs">gr(size = (1000, 400), legend = false)
 p1 = contour(pts_per_dim, pts_per_dim, κ_true&#39;, fill = true, levels = 15, title = &quot;kappa true&quot;, colorbar = true)
 p2 = contour(pts_per_dim, pts_per_dim, h_2d_true&#39;, fill = true, levels = 15, title = &quot;pressure true&quot;, colorbar = true)
 l = @layout [a b]
 plt = plot(p1, p2, layout = l)
-plt</code></pre><img src="8029ffdc.svg" alt="Example block output"/><p>Finally the data is saved.</p><pre><code class="language-julia hljs">u_stored = get_u(ekiobj, return_array = false)
+plt</code></pre><img src="f7dfe7d7.svg" alt="Example block output"/><p>Finally the data is saved.</p><pre><code class="language-julia hljs">u_stored = get_u(ekiobj, return_array = false)
 g_stored = get_g(ekiobj, return_array = false)
 @save joinpath(data_save_directory, &quot;parameter_storage.jld2&quot;) u_stored
-@save joinpath(data_save_directory, &quot;data_storage.jld2&quot;) g_stored</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../loss_minimization/">« Minimization Loss</a><a class="docs-footer-nextpage" href="../../examples/lorenz_example/">Lorenz »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 00:38">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+@save joinpath(data_save_directory, &quot;data_storage.jld2&quot;) g_stored</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../loss_minimization/">« Minimization Loss</a><a class="docs-footer-nextpage" href="../../examples/lorenz_example/">Lorenz »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 00:42">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
