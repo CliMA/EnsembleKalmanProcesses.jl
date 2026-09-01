@@ -214,7 +214,7 @@ prior = ParameterDistribution(distribution, constraint, name)
 covT = 2000.0  #time to simulate to calculate a covariance matrix of the system
 cov_solve = lorenz_solve(true_parameters, x0, LorenzConfig(t, covT))
 ic_cov = 0.1 * cov(cov_solve, dims = 2)
-ic_cov_sqrt = sqrt(ic_cov)
+ic_cov_sqrt = sqrt(Symmetric(ic_cov)) # Symmetric ensures a real-valued sqrt despite floating-point asymmetry in `cov`
 
 ########################################################################
 ############################# Running GNKI #############################
@@ -244,6 +244,9 @@ for (rr, rng_seed) in enumerate(rng_seeds)
 
         @info "Ensemble size: $(N_ens)"
         for (kk, method) in enumerate(methods)
+            # Independent copy so every method draws the same sequence of initial-condition
+            # perturbations, rather than each method depleting the shared, mutating `rng`
+            ic_rng = copy(rng)
             if isa(method, Unscented)
                 ekpobj = EKP.EnsembleKalmanProcess(
                     y,
@@ -278,7 +281,7 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 ens_mean = mean(params_i, dims = 2)[:]
                 G_ens_mean = lorenz_forward(
                     EnsembleMemberConfig(ens_mean),
-                    x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, 1),
+                    x0 .+ ic_cov_sqrt * rand(ic_rng, Normal(0.0, 1.0), nx, 1),
                     lorenz_config_settings,
                     observation_config,
                 )
@@ -297,13 +300,13 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                     [
                         lorenz_forward(
                             EnsembleMemberConfig(params_i[:, j]),
-                            (x0 .+ ic_cov_sqrt * rand(rng, Normal(0.0, 1.0), nx, Ne))[:, j],
+                            (x0 .+ ic_cov_sqrt * rand(ic_rng, Normal(0.0, 1.0), nx, Ne))[:, j],
                             lorenz_config_settings,
                             observation_config,
                         ) for j in 1:Ne
                     ]...,
                 )
-                # Update 
+                # Update
                 EKP.update_ensemble!(ekpobj, G_ens)
                 count = count + 1
 
@@ -312,6 +315,16 @@ for (rr, rng_seed) in enumerate(rng_seeds)
                 @info "RMSE (at mean(G(u)): $(RMSE_f)"
                 # Convergence criteria
                 if RMSE_f < tolerance
+                    # Recompute at the post-update ensemble, since params_i/ens_mean/G_ens_mean
+                    # above are from before this iteration's update
+                    params_i = get_ϕ_final(prior, ekpobj)
+                    ens_mean = mean(params_i, dims = 2)[:]
+                    G_ens_mean = lorenz_forward(
+                        EnsembleMemberConfig(ens_mean),
+                        x0 .+ ic_cov_sqrt * rand(ic_rng, Normal(0.0, 1.0), nx, 1),
+                        lorenz_config_settings,
+                        observation_config,
+                    )
                     conv_alg_iters[kk, ee, rr] = count * Ne
                     final_parameters[kk, ee, rr, :] = ens_mean
                     final_model_output[kk, ee, rr, :] = G_ens_mean

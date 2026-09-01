@@ -20,16 +20,18 @@ end
 Each ensemble member `i` runs the Lorenz 96 model with `settings` configuration, and model parameters `lorenz_params[i]`. The runs do not interact with each other, and the user has several options to parallelize.
 
 ## Running examples:
-All of the following example cases are covered in [`distributed_Lorenz_example.jl`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/Lorenz/distributed_Lorenz_example.jl). At the top of file uncomment one of the following options
+
+All of the following example cases are covered in [`distributed_Lorenz_96_example.jl`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/Lorenz/distributed_Lorenz_96_example.jl). At the top of file uncomment one of the following options
 1. `case = "multithread"` 
 2. `case = "pmap"` 
 3. `case = "distfor"` 
+
 
 ### Multithreading, `@threads`
 
 To parallelize with multithreading, julia must call the file with a prespecified number of threads. For example, for 4 threads, 
 ```
-$ julia --project -t 4 distributed_Lorenz_example.jl
+$ julia --project -t 4 distributed_Lorenz_96_example.jl
 ```
 We exploit the multithreading over `N_ens` ensemble members in this example with the following loop in [`GModel_multithread.jl`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/Lorenz/GModel_multithread.jl):
 ```julia
@@ -52,7 +54,7 @@ addprocs(4; exeflags = "--project")
 ```
 and call the file with
 ```
-$ julia --project distributed_Lorenz_example.jl
+$ julia --project distributed_Lorenz_96_example.jl
 ```
 This ensures that we obtain `4` worker processes that are loaded with julia's current environment specified by `--project` (unlike when calling `julia --project -p 4`). We use  `pmap` to apply a function to each element of the list (i.e the ensemble member configurations). For example, see the following code from [`GModel_pmap.jl`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/Lorenz/GModel_pmap.jl),
 ```julia
@@ -75,7 +77,7 @@ addprocs(4; exeflags = "--project")
 ```
 and call the file with
 ```
-$ julia --project distributed_Lorenz_example.jl
+$ julia --project distributed_Lorenz_96_example.jl
 ```
 When using distributed loops, it is necessary to be able to write to shared memory. To do this we use the [SharedArrays](https://docs.julialang.org/en/v1/manual/distributed-computing/#man-shared-arrays) package. For example, see the following distributed loop in [`GModel_distfor`](https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/Lorenz/GModel_distfor.jl) 
 ```julia

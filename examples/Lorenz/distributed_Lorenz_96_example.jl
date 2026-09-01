@@ -4,9 +4,9 @@ case = "multithread" # solve with multithread (must call code with `-t <n_thread
 # case="distfor" #solve with @distributed for across <n_workers> processes 
 
 # To run code, uncomment desired `case`, open a terminal window in this folder and execute:
-#   `julia --project distributed_lorenz_example.jl`
+#   `julia --project distributed_Lorenz_96_example.jl`
 # Note: For `multithread` you need to add -t <n_threads> to the call, i.e.:
-#   `julia --project -t 4 distributed_lorenz_example.jl`
+#   `julia --project -t 4 distributed_Lorenz_96_example.jl`
 
 if case == "multithread"
     include("GModel_multithread.jl") # Contains Lorenz 96 source code
