@@ -2,6 +2,24 @@
 
 This directory contains several self-contained examples based on the Lorenz dynamical systems.
 
+## Running the examples
+
+First instantiate the project:
+```
+cd examples/Lorenz
+julia --project
+```
+```julia
+] instantiate
+```
+Then, from within the same `julia --project` session, run any of the example scripts (excluding the notebooks, see below) with, e.g.,
+```julia
+include("Lorenz_63_example.jl")
+```
+replacing the filename with any of `explore_lorenz_63.jl`, `Lorenz_96_example.jl`, or `Lorenz_96_example_spatial_dep_forcing.jl`.
+
+`distributed_Lorenz_96_example.jl` is run differently, as it demonstrates several parallelization approaches (see [Parallelization](#parallelization) below and [the "Parallelism and HPC" documentation page](https://clima.github.io/EnsembleKalmanProcesses.jl/stable/parallel_hpc/) for full details).
+
 ## Lorenz 63
 
 A detailed Lorenz 63 example, split into two parts:
@@ -20,4 +38,4 @@ Two examples calibrating the Lorenz 96 forcing parameter(s) with EKI:
 
 ## Parallelization
 
-[`distributed_Lorenz_96_example.jl`](distributed_Lorenz_96_example.jl) demonstrates several ways to parallelize the forward map evaluations across ensemble members (multithreading, `pmap`, and `@distributed for`), as described in [`../../docs/src/parallel_hpc.md`](../../docs/src/parallel_hpc.md).
+[`distributed_Lorenz_96_example.jl`](distributed_Lorenz_96_example.jl) demonstrates several ways to parallelize the forward map evaluations across ensemble members (multithreading, `pmap`, and `@distributed for`), as described in [the "Parallelism and HPC" documentation page](https://clima.github.io/EnsembleKalmanProcesses.jl/stable/parallel_hpc/).
