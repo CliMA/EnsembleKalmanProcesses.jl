@@ -210,4 +210,50 @@ include("../EnsembleKalmanProcess/inverse_problem.jl")
               norm(inv_sqrt_Γy * (y_obs .- G(transform_unconstrained_to_constrained(prior, init_means[i]))))
     end
 
+    @testset "sparse_qp uses the passed (Δt-scaled) observation covariance" begin
+        # sparse_qp used to call get_obs_noise_cov(ekp) directly instead of the already Δt-scaled
+        # covariance the caller computed, so the QP's data-misfit weighting silently ignored the
+        # scheduler timestep. With the ℓ1 constraint inactive (γ huge), sparse_qp's output must
+        # match the closed-form unconstrained QP minimizer -(P)⁻¹q (Schneider-Stuart-Wu 3.7/3.14)
+        # for whatever obs_noise_cov is passed in -- and must change when that argument changes.
+        cov_vv_inv = inv([1.0 0.3; 0.3 2.0]) # joint [u; g] precision
+        H_u = reshape([1.0, 0.0], 1, 2)
+        H_g = reshape([0.0, 1.0], 1, 2)
+        v_j = [0.2, 0.9]
+        y_j = [1.5]
+        stub_process = SparseInversion(1e4, 0.0, [1], 0.0) # γ huge: ℓ1 constraint inactive
+        stub_ekp = EKP.EnsembleKalmanProcess(
+            reshape([0.0, 0.1], 1, 2),
+            [0.0],
+            reshape([1.0], 1, 1),
+            stub_process;
+            rng = Random.MersenneTwister(rng_seed),
+        )
+        for scaled_Γ in ([2.0;;], [0.2;;])
+            P = H_g' * (scaled_Γ \ H_g) + cov_vv_inv
+            q = -(cov_vv_inv * v_j + H_g' * (scaled_Γ \ y_j))
+            u_expected = (H_u * (-(P \ q)))[1]
+            u_qp = EKP.sparse_qp(stub_ekp, v_j, cov_vv_inv, H_u, H_g, y_j, scaled_Γ)[1]
+            @test isapprox(u_qp, u_expected, atol = 1e-3)
+        end
+    end
+
+    @testset "SparseInversion rejects nontrivial update groups" begin
+        # update_ensemble! used to ignore u_idx/g_idx entirely, so every update group re-updated
+        # every parameter from every observation (double-counting) instead of throwing.
+        # `process.uc_idx` is defined against the full parameter vector and would need remapping to
+        # support groups properly, so until that's implemented, nontrivial groups must be rejected.
+        stub_process = SparseInversion(10.0)
+        groups = [UpdateGroup([1], [1]), UpdateGroup([2], [2])]
+        stub_ekp = EKP.EnsembleKalmanProcess(
+            reshape([0.0, 0.1, 0.2, -0.1], 2, 2),
+            [0.0, 0.0],
+            Matrix(1.0 * I, 2, 2),
+            stub_process;
+            rng = Random.MersenneTwister(rng_seed),
+            update_groups = groups,
+        )
+        @test_throws ArgumentError EKP.update_ensemble!(stub_ekp, reshape([0.1, 0.2, 0.3, -0.2], 2, 2))
+    end
+
 end

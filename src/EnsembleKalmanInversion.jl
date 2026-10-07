@@ -95,8 +95,8 @@ Constructor for standard non-prior-enforcing `Inversion` process
 Inversion() = Inversion(nothing, nothing, false, 0.0)
 
 function FailureHandler(process::Inversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov) =
-        eki_update(ekp, u, g, y, obs_noise_cov, prior_mean, scaled_prior_cov)
+    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean_ext, scaled_prior_cov) =
+        eki_update(ekp, u, g, y, obs_noise_cov, prior_mean_ext, scaled_prior_cov)
     return FailureHandler{Inversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -108,7 +108,7 @@ Provides a failsafe update that
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::Inversion, method::SampleSuccGauss)
-    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, prior_mean_ext, scaled_prior_cov)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
         u[:, successful_ens] = eki_update(
@@ -117,7 +117,7 @@ function FailureHandler(process::Inversion, method::SampleSuccGauss)
             g[:, successful_ens],
             y[:, successful_ens],
             obs_noise_cov,
-            prior_mean,
+            isnothing(prior_mean_ext) ? nothing : prior_mean_ext[:, successful_ens],
             scaled_prior_cov,
         )
         if !isempty(failed_ens)
@@ -143,21 +143,22 @@ function eki_update(
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
     obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
-    prior_mean::NorAV,
+    prior_mean_ext::NorAM,
     prior_cov::NorAM,
 ) where {
     FT <: Real,
     IT,
     CT <: Real,
     II <: Inversion,
-    NorAV <: Union{Nothing, AbstractVector},
     NorAM <: Union{Nothing, AbstractMatrix},
 }
 
     impose_prior = get_impose_prior(get_process(ekp))
     if impose_prior
         g_ext = [g; u]
-        y_ext = [y; repeat(prior_mean, 1, size(y, 2))]
+        # prior_mean_ext: one column per member, either an exact repeat of the prior mean
+        # or a per-member N(prior_mean, scaled_prior_cov) draw (see update_ensemble! below).
+        y_ext = [y; prior_mean_ext]
 
         cov_est = cov([u; g_ext], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
@@ -221,8 +222,13 @@ function update_ensemble!(
     if impose_prior
         prior_mean = get_prior_mean(get_process(ekp))[u_idx]
         scaled_prior_cov = get_prior_cov(get_process(ekp))[u_idx, u_idx] / get_Δt(ekp)[end]
+        prior_noise = sqrt(scaled_prior_cov) * rand(get_rng(ekp), MvNormal(zeros(length(u_idx)), I), get_N_ens(ekp))
+        # Perturb the prior rows like the data rows below under stochastic EKI, giving the
+        # prior "observation" noise N(0, scaled_prior_cov).
+        prior_mean_ext =
+            add_stochastic_perturbation ? (prior_mean .+ prior_noise) : repeat(prior_mean, 1, get_N_ens(ekp))
     else
-        prior_mean = nothing
+        prior_mean_ext = nothing
         scaled_prior_cov = nothing
     end
 
@@ -243,7 +249,7 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens, prior_mean, scaled_prior_cov)
+    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens, prior_mean_ext, scaled_prior_cov)
 
     return u
 end
