@@ -62,8 +62,9 @@ Construct an `Unscented` process from an initial mean and covariance.
   for non-identifiable (ill-posed) problems where the covariance tracks parameter
   sensitivity rather than posterior uncertainty, or to `1` (or any positive integer)
   for identifiable problems where the covariance converges to the posterior covariance.
-- `modified_unscented_transform`: if `true`, applies the modified UKI quadrature
-  from Huang et al. (2021).
+- `center_is_mean`: if `true` (default; Huang et al. (2021)'s modified UKI quadrature),
+  the mean is exactly the central sigma point; required by `TransformUnscented`.
+- `modified_unscented_transform`: deprecated alias for `center_is_mean`.
 - `impose_prior`: if `true`, uses the augmented-system Tikhonov regularization
   (Chada et al. 2020, Huang et al. 2022), which imposes the prior and is recommended
   for ill-posed problems; disables other regularization automatically.
@@ -77,12 +78,20 @@ function Unscented(
     uu0_cov::MM;
     α_reg::FT = 1.0,
     update_freq::IT = 0,
-    modified_unscented_transform::Bool = true,
+    center_is_mean::Bool = true,
+    modified_unscented_transform::Union{Bool, Nothing} = nothing,
     impose_prior::Bool = false,
     prior_mean::Any = nothing,
     prior_cov::Any = nothing,
     sigma_points::String = "symmetric",
 ) where {FT <: AbstractFloat, IT <: Int, VV <: AbstractVector, MM <: AbstractMatrix}
+    if !isnothing(modified_unscented_transform)
+        Base.depwarn(
+            "keyword `modified_unscented_transform` is deprecated, use `center_is_mean` instead",
+            :Unscented,
+        )
+        center_is_mean = modified_unscented_transform
+    end
 
     u0_mean = FT.(u0_mean)
     uu0_cov = FT.(uu0_cov)
@@ -153,7 +162,7 @@ function Unscented(
 
     end
 
-    if modified_unscented_transform
+    if center_is_mean
         mean_weights[1] = 1.0
         mean_weights[2:N_ens] .= 0.0
     end
@@ -229,8 +238,8 @@ function TransformUnscented(process::UU) where {UU <: Unscented}
         process.r,
         process.update_freq,
         process.impose_prior,
-        process.prior_mean,
-        process.prior_cov,
+        get_prior_mean(process),
+        get_prior_cov(process),
         process.iter,
         [], # buffer
     )
@@ -241,10 +250,34 @@ $(TYPEDSIGNATURES)
 
 Construct a `TransformUnscented` process from an initial mean and covariance.
 
-Accepts the same keyword arguments as `Unscented(u0_mean, uu0_cov; ...)`.
+Accepts the same keyword arguments as `Unscented(u0_mean, uu0_cov; ...)`. Note that
+`center_is_mean = false` is rejected: `TransformUnscented`'s square-root update
+requires the central sigma point to be exactly the mean (see `Unscented`'s docstring).
 """
-function TransformUnscented(u0_mean::VV, uu0_cov::MM; kwargs...) where {VV <: AbstractVector, MM <: AbstractMatrix}
-    process = Unscented(u0_mean, uu0_cov; kwargs...) # use UKI constructor
+function TransformUnscented(
+    u0_mean::VV,
+    uu0_cov::MM;
+    center_is_mean::Bool = true,
+    modified_unscented_transform::Union{Bool, Nothing} = nothing,
+    kwargs...,
+) where {VV <: AbstractVector, MM <: AbstractMatrix}
+    if !isnothing(modified_unscented_transform)
+        Base.depwarn(
+            "keyword `modified_unscented_transform` is deprecated, use `center_is_mean` instead",
+            :TransformUnscented,
+        )
+        center_is_mean = modified_unscented_transform
+    end
+    if !center_is_mean
+        throw(
+            ArgumentError(
+                "TransformUnscented requires center_is_mean = true: the square-root form " *
+                "cannot represent the nonzero covariance contribution of a central sigma " *
+                "point that is not also the mean. Use Unscented(...) for that case.",
+            ),
+        )
+    end
+    process = Unscented(u0_mean, uu0_cov; center_is_mean, kwargs...) # use UKI constructor
     return TransformUnscented(process)
 end
 
@@ -253,9 +286,34 @@ $(TYPEDSIGNATURES)
 
 Construct a `TransformUnscented` process from a `ParameterDistribution`, using its mean
 and covariance (in unconstrained space) as the initial state and default prior.
+
+Note that `center_is_mean = false` is rejected: `TransformUnscented`'s square-root
+update requires the central sigma point to be exactly the mean (see `Unscented`'s
+docstring).
 """
-function TransformUnscented(prior::ParameterDistribution; kwargs...)
-    process = Unscented(prior; kwargs...) # use UKI constructor
+function TransformUnscented(
+    prior::ParameterDistribution;
+    center_is_mean::Bool = true,
+    modified_unscented_transform::Union{Bool, Nothing} = nothing,
+    kwargs...,
+)
+    if !isnothing(modified_unscented_transform)
+        Base.depwarn(
+            "keyword `modified_unscented_transform` is deprecated, use `center_is_mean` instead",
+            :TransformUnscented,
+        )
+        center_is_mean = modified_unscented_transform
+    end
+    if !center_is_mean
+        throw(
+            ArgumentError(
+                "TransformUnscented requires center_is_mean = true: the square-root form " *
+                "cannot represent the nonzero covariance contribution of a central sigma " *
+                "point that is not also the mean. Use Unscented(...) for that case.",
+            ),
+        )
+    end
+    process = Unscented(prior; center_is_mean, kwargs...) # use UKI constructor
     return TransformUnscented(process)
 end
 
@@ -424,9 +482,12 @@ function FailureHandler(process::Unscented, method::SampleSuccGauss)
         verbose = uki.verbose
         if process.impose_prior
             ug_cov_reg = [ug_cov uu_p_cov]
-            gg_cov_reg = [gg_cov ug_cov'; ug_cov uu_p_cov+process.prior_cov[u_idx, u_idx] / get_Δt(uki)[end]]
+            gg_cov_reg = [
+                gg_cov ug_cov'
+                ug_cov uu_p_cov+process.Σ_ν_scale * get_prior_cov(process)[u_idx, u_idx] / get_Δt(uki)[end]
+            ]
             tmp = safe_linear_solve(gg_cov_reg', ug_cov_reg'; verbose)'
-            u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean[u_idx] - u_p_mean]
+            u_mean = u_p_mean + tmp * [obs_mean - g_mean; get_prior_mean(process)[u_idx] - u_p_mean]
             uu_cov = uu_p_cov - tmp * ug_cov_reg'
 
         else
@@ -477,11 +538,14 @@ function construct_sigma_ensemble(
     try
         chol_xx_cov = cholesky(Hermitian(x_cov)).L
     catch
-        _, S, Ut = svd(x_cov)
+        F = svd(Hermitian(x_cov))
+        S = copy(F.S)
         # find the first singular value that is smaller than 1e-8
         ind_0 = searchsortedfirst(S, 1e-8, rev = true)
-        S[ind_0:end] .= S[ind_0 - 1]
-        chol_xx_cov = (qr(sqrt.(S) .* Ut).R)'
+        # floor of 1e-8 covers the fully-collapsed case (ind_0 == 1, nothing above threshold)
+        floor_val = ind_0 > 1 ? S[ind_0 - 1] : 1e-8
+        S[ind_0:end] .= floor_val
+        chol_xx_cov = (qr(sqrt.(S) .* F.Vt).R)'
     end
 
     x = zeros(FT, N_x, N_ens)
@@ -825,10 +889,10 @@ function update_ensemble_analysis!(
         ug_cov_reg = [ug_cov uu_p_cov]
         gg_cov_reg = [
             gg_cov ug_cov'
-            ug_cov uu_p_cov+process.prior_cov[u_idx, u_idx] / get_Δt(uki)[end]
+            ug_cov uu_p_cov+process.Σ_ν_scale * get_prior_cov(process)[u_idx, u_idx] / get_Δt(uki)[end]
         ]
         tmp = safe_linear_solve(gg_cov_reg', ug_cov_reg'; verbose)'
-        u_mean = u_p_mean + tmp * [obs_mean - g_mean; process.prior_mean[u_idx] - u_p_mean]
+        u_mean = u_p_mean + tmp * [obs_mean - g_mean; get_prior_mean(process)[u_idx] - u_p_mean]
         uu_cov = uu_p_cov - tmp * ug_cov_reg'
     else
         tmp = safe_linear_solve(gg_cov', ug_cov'; verbose)'

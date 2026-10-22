@@ -1,6 +1,7 @@
 using Distributions
 using LinearAlgebra
 using Random
+using Statistics
 using Test
 
 using EnsembleKalmanProcesses
@@ -109,4 +110,41 @@ const EKP = EnsembleKalmanProcesses
     end
 
 
+end
+
+@testset "SECNice std_corrs formula matches the Monte Carlo sampling std of a correlation" begin
+    # std(r|ρ) must be even in ρ (mirror-symmetric under ρ → -ρ): pins the
+    # (1 - ρ²)/√N formula against an empirical estimate for ρ < 0, ρ = 0, ρ > 0.
+    rng = Random.MersenneTwister(42)
+    N_ens = 20
+    n_trials = 5000
+    for ρ in (-0.9, 0.0, 0.5)
+        Σ = [1.0 ρ; ρ 1.0]
+        corrs = zeros(n_trials)
+        for k in 1:n_trials
+            X = rand(rng, MvNormal(zeros(2), Σ), N_ens)
+            corrs[k] = cor(X[1, :], X[2, :])
+        end
+        empirical_std = std(corrs)
+        formula_std = (1 - ρ^2) / sqrt(N_ens)
+        @test isapprox(formula_std, empirical_std, rtol = 0.25)
+    end
+end
+
+@testset "SEC-family localizers handle a zero-variance row without NaN/Inf" begin
+    # A row that is constant across the ensemble has exactly zero sample variance;
+    # the correlation-matrix decomposition must not divide by that zero.
+    rng = Random.MersenneTwister(3)
+    n = 4
+    N_ens = 30
+    ens = randn(rng, n, N_ens)
+    ens[2, :] .= 5.0
+    cov_est = cov(ens, dims = 2, corrected = false)
+    p, d, J = 3, 1, N_ens
+    for loc in (Localizer(SEC(1.0), J), Localizer(SECFisher(), J), Localizer(SECNice(), J))
+        cov_localized = loc.localize(cov_est, Float64, p, d, J)
+        @test all(isfinite, cov_localized)
+        @test cov_localized[2, :] == cov_est[2, :]
+        @test cov_localized[:, 2] == cov_est[:, 2]
+    end
 end

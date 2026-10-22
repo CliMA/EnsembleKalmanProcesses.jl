@@ -101,14 +101,15 @@ function sparse_qp(
     cov_vv_inv::AbstractMatrix{FT},
     H_u::AbstractMatrix{FT},
     H_g::AbstractMatrix{FT},
-    y_j::Vector{FT};
+    y_j::Vector{FT},
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}};
     H_uc::AbstractMatrix{FT} = H_u,
 ) where {FT, IT}
     verbose = ekp.verbose
-    obs_noise_cov_inv_H_g = safe_linear_solve(get_obs_noise_cov(ekp), H_g; verbose)
+    obs_noise_cov_inv_H_g = safe_linear_solve(obs_noise_cov, H_g; verbose)
     P = H_g' * obs_noise_cov_inv_H_g + cov_vv_inv
     P = 0.5 * (P + P')
-    obs_noise_cov_inv_y_j = safe_linear_solve(get_obs_noise_cov(ekp), y_j; verbose)
+    obs_noise_cov_inv_y_j = safe_linear_solve(obs_noise_cov, y_j; verbose)
     q = -(cov_vv_inv * v_j + H_g' * obs_noise_cov_inv_y_j)
     N_params = size(H_uc)[1]
     P1 = vcat(
@@ -173,7 +174,7 @@ function sparse_eki_update(
     # Loop over ensemble members to impose sparsity
     Threads.@threads for j in 1:size(u, 2)
         # Solve a quadratic programming problem
-        u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], H_uc = H_uc)
+        u[:, j] = sparse_qp(ekp, v[j, :], cov_vv_inv, H_u, H_g, y[:, j], obs_noise_cov, H_uc = H_uc)
 
         # Prune parameters using threshold
         u[process.uc_idx, j] = u[process.uc_idx, j] .* (abs.(u[process.uc_idx, j]) .> process.threshold_value)
@@ -198,7 +199,21 @@ function update_ensemble!(
     kwargs...,
 ) where {FT, IT}
 
-    # u: N_par × N_ens 
+    # `process.uc_idx` (the ℓ1-constrained parameter indices) is defined against the full parameter
+    # vector, so a nontrivial u_idx/g_idx subset would need it remapped; reject rather than silently
+    # re-updating all parameters from all data on every group.
+    N_par_full = size(get_u_final(ekp), 1)
+    N_obs_full = size(g, 1)
+    if u_idx != collect(1:N_par_full) || g_idx != collect(1:N_obs_full)
+        throw(
+            ArgumentError(
+                "SparseInversion does not support nontrivial update groups (got u_idx = $(u_idx), " *
+                "g_idx = $(g_idx) against $(N_par_full) parameters and $(N_obs_full) observations).",
+            ),
+        )
+    end
+
+    # u: N_par × N_ens
     # g: N_obs × N_ens
     u = get_u_final(ekp)
     N_obs = size(g, 1)
