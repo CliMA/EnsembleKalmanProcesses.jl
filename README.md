@@ -21,8 +21,8 @@ EnsembleKalmanProcesses.jl (EKP) helps you find (locally) optimal parameters `u`
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
 [docs-dev-url]: https://CliMA.github.io/EnsembleKalmanProcesses.jl/dev/
 
-[version-img]: https://juliahub.com/docs/General/EnsembleKalmanProcesses/stable/version.svg
-[version-url]: https://juliahub.com/ui/Packages/General/EnsembleKalmanProcesses
+[version-img]: https://img.shields.io/github/v/release/CliMA/EnsembleKalmanProcesses.jl
+[version-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/releases
 
 [license-img]: https://img.shields.io/badge/license-Apache%202.0-blue.svg
 [license-url]: https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/LICENSE
