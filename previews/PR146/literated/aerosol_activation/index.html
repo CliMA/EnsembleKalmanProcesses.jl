@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Aerosol activation · EnsembleKalmanProcesses.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.039/juliamono-regular.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="EnsembleKalmanProcesses.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">EnsembleKalmanProcesses.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../installation_instructions/">Installation instructions</a></li><li><a class="tocitem" href="../../parameter_distributions/">Prior distributions</a></li><li><a class="tocitem" href="../../observations/">Observations</a></li><li><a class="tocitem" href="../../ensemble_kalman_inversion/">Ensemble Kalman Inversion</a></li><li><a class="tocitem" href="../../ensemble_kalman_sampler/">Ensemble Kalman Sampler</a></li><li><a class="tocitem" href="../../unscented_kalman_inversion/">Unscented Kalman Inversion</a></li><li><input class="collapse-toggle" id="menuitem-8" type="checkbox" checked/><label class="tocitem" for="menuitem-8"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../examples/template_example/">Template</a></li><li><a class="tocitem" href="../../examples/Cloudy_example/">Cloudy</a></li><li><a class="tocitem" href="../../examples/lorenz_example/">Lorenz</a></li><li><a class="tocitem" href="../loss_minimization/">Minimization Loss</a></li><li><a class="tocitem" href="../loss_minimization_sparse_eki/">Sparse Minimization Loss</a></li><li class="is-active"><a class="tocitem" href>Aerosol activation</a><ul class="internal"><li><a class="tocitem" href="#Overview"><span>Overview</span></a></li><li><a class="tocitem" href="#Prerequisites"><span>Prerequisites</span></a></li><li><a class="tocitem" href="#Example"><span>Example</span></a></li></ul></li><li><a class="tocitem" href="../../examples/ClimateMachine_example/">HPC interfacing example: ClimateMachine</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-9" type="checkbox"/><label class="tocitem" for="menuitem-9"><span class="docs-label">API</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../API/EnsembleKalmanProcesses/">EnsembleKalmanProcesses</a></li><li><a class="tocitem" href="../../API/ParameterDistributions/">ParameterDistributions</a></li><li><a class="tocitem" href="../../API/Observations/">Observations</a></li><li><a class="tocitem" href="../../API/DataContainers/">DataContainers</a></li><li><a class="tocitem" href="../../API/Localizers/">Localizers</a></li></ul></li><li><a class="tocitem" href="../../glossary/">Glossary</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Aerosol activation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Aerosol activation</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/examples/AerosolActivation/aerosol_activation.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Aerosol-Activation-Example"><a class="docs-heading-anchor" href="#Aerosol-Activation-Example">Aerosol Activation Example</a><a id="Aerosol-Activation-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Aerosol-Activation-Example" title="Permalink"></a></h1><h2 id="Overview"><a class="docs-heading-anchor" href="#Overview">Overview</a><a id="Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Overview" title="Permalink"></a></h2><p>This example is based on AerosolActivation module which is a part of the   <a href="https://github.com/CliMA/CloudMicrophysics.jl">CloudMicrophysics.jl</a> package. The AerosolActivation module computes the total number and mass   of aerosol particles that get activated and become cloud droplets,   given the atmospheric conditions and   the initial aerosol size distribution and properties. See the AerosolActivation module   <a href="https://clima.github.io/CloudMicrophysics.jl/stable/Aerosol_activation/">docs</a>   for derivation and description of all input parameters.</p><p>In this example we use the ensemble Kalman methods to learn   two parameters that describe the chemical composition of aerosol particles   based on the observed total number and mass of activated particles. The AerosolActivation model is used here in a &quot;perfect model&quot; setting,   meaning that the observations are generated by the same module   we are calibrating.</p><h2 id="Prerequisites"><a class="docs-heading-anchor" href="#Prerequisites">Prerequisites</a><a id="Prerequisites-1"></a><a class="docs-heading-anchor-permalink" href="#Prerequisites" title="Permalink"></a></h2><p>The example depends on some standard Julia libraries,   as well as the CliMA packages:   <a href="https://github.com/CliMA/EnsembleKalmanProcesses.jl">EnsembleKalmanProcess.jl</a>,   <a href="https://github.com/CliMA/CLIMAParameters.jl">CLIMAParameters.jl</a> and   <a href="https://github.com/CliMA/CloudMicrophysics.jl">CloudMicrophysics.jl</a>. To ensure that all the dependencies are met   start Julia using the Project.toml file provided in the example   and run the Julia package manager to download all the dependecies.</p><h2 id="Example"><a class="docs-heading-anchor" href="#Example">Example</a><a id="Example-1"></a><a class="docs-heading-anchor-permalink" href="#Example" title="Permalink"></a></h2><p>We begin by importing some standard Julia modules, the Ensemble Kalman Process modules, CLIMA Parameter modules and Aerosol Activation modules.</p><pre><code class="language-julia hljs">using Plots
+using Distributions
+using LinearAlgebra
+using Random
+rng_seed = 44
+
+import EnsembleKalmanProcesses
+const EKP = EnsembleKalmanProcesses
+
+import CLIMAParameters
+const CP = CLIMAParameters
+struct EarthParameterSet &lt;: CP.AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
+
+import CloudMicrophysics
+const AM = CloudMicrophysics.AerosolModel
+const AA = CloudMicrophysics.AerosolActivation
+
+import Thermodynamics
+const TD = Thermodynamics</code></pre><p>Next, we provide the information about the priors of the parameters we want to learn. We are calibrating two parameters decribing the aerosol properties - namely the aerosol molar mass and the osmotic coefficient.</p><pre><code class="language-julia hljs">parameter_names = [&quot;molar_mass&quot;, &quot;osmotic_coeff&quot;]</code></pre><p>In this test we do know the parameter values. We use them to test the convergence of EKP for aerosol activation.</p><pre><code class="language-julia hljs">molar_mass_true = 0.058443
+osmotic_coeff_true = 0.9
+default_params = [molar_mass_true, osmotic_coeff_true]</code></pre><p>Both parameters have to be positive definite, therefore we define the constraints to be bounded below by zero.</p><pre><code class="language-julia hljs">c1 = EKP.ParameterDistributions.bounded_below(0.0)
+c2 = EKP.ParameterDistributions.bounded_below(0.0)
+constraints = [[c1], [c2]]</code></pre><p>We don&#39;t have any other prior knowledge about the calibrated parameters. Defining the prior distribution in the constrained space to be normal with the mean equal to zero and the standard deviation equal to one, ensures that the default parameter values are well within the assumed prior pdf.</p><pre><code class="language-julia hljs">d1 = EKP.ParameterDistributions.Parameterized(Distributions.Normal(0, 1))
+d2 = EKP.ParameterDistributions.Parameterized(Distributions.Normal(0, 1))
+distributions = [d1, d2]</code></pre><p>This concludes the setup of priors.</p><pre><code class="language-julia hljs">priors = EKP.ParameterDistributions.ParameterDistribution(distributions, constraints, parameter_names)</code></pre><p>Next we define the atmospheric conditions for which the calibration will take place, (air temperature in K, air pressure in Pa vertical velocity in m/s and vapor specific humidity assuming its saturated in kg/kg) This can be changed later to include more than one <span>$(T, p, w)$</span> combination in the calibration process</p><pre><code class="language-julia hljs">T = 283.15
+p = 1e5
+w = 5.0
+p_vs = TD.saturation_vapor_pressure(param_set, T, TD.Liquid())
+q_vs = 1 / (1 - CP.Planet.molmass_ratio(param_set) * (p_vs - p) / p_vs)
+q = TD.PhasePartition(q_vs, 0.0, 0.0)</code></pre><p>We also define the aerosol size distribution (lognormal, 1 mode) with (mean radius in m, geometric stdev, number concentration 1/m³). These can also be changed later to include different initial size distributions.</p><pre><code class="language-julia hljs">r_dry = 0.243e-6
+stdev = 1.4
+N = 100.0 * 1e6 # since 1/cm³ = 1e6 1/m³</code></pre><p>Finally, we define additional parameters that describe the aerosol properties. The chosen aerosol is sea salt.</p><pre><code class="language-julia hljs">dissoc_seasalt = 2.0
+soluble_mass_frac_seasalt = 1.0
+rho_seasalt = 2170.0;</code></pre><p>We define a wrapper function that runs the aerosol activation module with two input parameters that will be calibrated by EKP. The output observations are the number and mass of activated aerosol.</p><pre><code class="language-julia hljs">function run_activation_model(molar_mass_calibrated, osmotic_coeff_calibrated)
+
+    accum_mode_seasalt = AM.Mode_B(
+        r_dry,
+        stdev,
+        N,
+        (1.0,),
+        (soluble_mass_frac_seasalt,),
+        (osmotic_coeff_calibrated,),
+        (molar_mass_calibrated,),
+        (dissoc_seasalt,),
+        (rho_seasalt,),
+        1,
+    )
+
+    aerosol_distr = AM.AerosolDistribution((accum_mode_seasalt,))
+    N_act = AA.total_N_activated(param_set, aerosol_distr, T, p, w, q)
+    M_act = AA.total_M_activated(param_set, aerosol_distr, T, p, w, q)
+    return [N_act, M_act]
+end</code></pre><p>This example is run in a &quot;perfect model setting&quot;, meaning the model that we calibrate is also used to generate observations. We use the total number and mass of activated aerosol particles as our observational data.</p><pre><code class="language-julia hljs">observation_data_names = [&quot;N_act&quot;, &quot;M_act&quot;];</code></pre><p>We generate artificial truth samples based on the default values of parameters we are calibrating.</p><pre><code class="language-julia hljs">n_samples = 10
+G_t = run_activation_model(molar_mass_true, osmotic_coeff_true)
+y_t = zeros(length(G_t), n_samples)
+
+Γy = convert(Array, LinearAlgebra.Diagonal([0.01 * G_t[1], 0.01 * G_t[2]]))
+μ = zeros(length(G_t));</code></pre><p>And add noise to the generated truth sample.</p><pre><code class="language-julia hljs">for i in 1:n_samples
+    y_t[:, i] = G_t .+ rand(Distributions.MvNormal(μ, Γy))
+end
+
+truth_array = EKP.Observations.Observation(y_t, Γy, observation_data_names)</code></pre><p>One could try for the truth to be a mean of the generated array. Or do the calibration for all individual truth samples and then compute the mean of calibrated parameters. For now we are just taking one truth array member.</p><pre><code class="language-julia hljs">truth_sample = truth_array.samples[1];</code></pre><p>We use 50 ensemble members and do 10 iterations.</p><pre><code class="language-julia hljs">N_ens = 50
+N_iter = 10
+
+initial_par = EKP.construct_initial_ensemble(priors, N_ens; rng_seed)
+ekiobj = EKP.EnsembleKalmanProcess(initial_par, truth_sample, truth_array.obs_noise_cov, EKP.Inversion(), Δt = 1)</code></pre><p>Finally, we can run the Ensemble Kalman Process calibration.</p><pre><code class="language-julia hljs">ϕ_n_values = []
+for n in 1:N_iter
+    θ_n = EKP.get_u_final(ekiobj)
+
+    ϕ_n = mapslices(x -&gt; EKP.ParameterDistributions.transform_unconstrained_to_constrained(priors, x), θ_n; dims = 1)
+
+    G_n = [run_activation_model(ϕ_n[:, i]...) for i in 1:N_ens]
+
+    G_ens = hcat(G_n...)
+    EKP.update_ensemble!(ekiobj, G_ens)
+
+    global ϕ_n_values = vcat(ϕ_n_values, [ϕ_n])
+end</code></pre><p>We define some simple functions for plotting the data.</p><pre><code class="language-julia hljs">function plot_ensemble_scatter(id)
+
+    ensemble_member = 1:N_ens
+
+    if id == 1
+        ylabel = &quot;Molar mass [kg/mol]&quot;
+        filename = &quot;molar_mass_scatter.svg&quot;
+    end
+    if id == 2
+        ylabel = &quot;Osmotic coefficient [-]&quot;
+        filename = &quot;osmotic_coeff_scatter.svg&quot;
+    end
+
+    plot(
+        ensemble_member,
+        ϕ_n_values[1][id, 1:N_ens],
+        seriestype = :scatter,
+        xlabel = &quot;Ensemble Number&quot;,
+        ylabel = ylabel,
+        legend = false,
+    )
+
+    for it in 2:N_iter
+        plot!(ensemble_member .+ ((it - 1) * 50), ϕ_n_values[it][id, 1:N_ens], seriestype = :scatter, legend = false)
+    end
+
+    current()
+    savefig(filename)
+end
+
+function plot_ensemble_means(id)
+
+    number_of_iters = 1:N_iter
+    means = zeros(N_iter)
+
+    for it in 1:N_iter
+        means[it] = mean(ϕ_n_values[it][id, 1:N_ens])
+    end
+
+    if id == 1
+        ylabel = &quot;Molar mass [kg/mol]&quot;
+        filename = &quot;molar_mass_average.svg&quot;
+    end
+    if id == 2
+        ylabel = &quot;Osmotic coefficient [-]&quot;
+        filename = &quot;osmotic_coeff_average.svg&quot;
+    end
+
+    plot(
+        number_of_iters,
+        means,
+        markershape = :star5,
+        xticks = number_of_iters,
+        xlabel = &quot;Iteration Number&quot;,
+        ylabel = ylabel,
+        label = &quot;Ensemble Mean&quot;,
+    )
+    hline!([default_params[id]], label = &quot;true value&quot;)
+
+    savefig(filename)
+end</code></pre><p>We plot the ensemble members and the ensemble mean for the molar mass and osmotic coefficient.</p><pre><code class="language-julia hljs">plot_ensemble_scatter(1)
+plot_ensemble_means(1)
+plot_ensemble_scatter(2)
+plot_ensemble_means(2)</code></pre><p><img src="../molar_mass_scatter.svg" alt/> <img src="../osmotic_coeff_scatter.svg" alt/> <img src="../molar_mass_average.svg" alt/> <img src="../osmotic_coeff_average.svg" alt/></p><p>Finally, we test that the parameter values obtained via EnsembleKalmanProcesses.jl are close to the known true parameter values.</p><pre><code class="language-julia hljs">molar_mass_ekp = round(mean(ϕ_n_values[N_iter][1, 1:N_ens]), digits = 6)
+osmotic_coeff_ekp = round(mean(ϕ_n_values[N_iter][2, 1:N_ens]), digits = 6)
+
+println(&quot;Molar mass [kg/mol]: &quot;, molar_mass_ekp, &quot; vs &quot;, molar_mass_true)
+println(&quot;Osmotic coefficient [-]: &quot;, osmotic_coeff_ekp, &quot; vs &quot;, osmotic_coeff_true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Molar mass [kg/mol]: 0.090282 vs 0.058443
+Osmotic coefficient [-]: 0.627664 vs 0.9</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../loss_minimization_sparse_eki/">« Sparse Minimization Loss</a><a class="docs-footer-nextpage" href="../../examples/ClimateMachine_example/">HPC interfacing example: ClimateMachine »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.15 on <span class="colophon-date" title="Tuesday 12 April 2022 01:23">Tuesday 12 April 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
