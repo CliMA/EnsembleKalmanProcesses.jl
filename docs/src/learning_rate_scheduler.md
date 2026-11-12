@@ -9,14 +9,14 @@ In this example we have a model that produces the exponential of a sinusoid ``f(
 We shall compare the following configurations of implemented schedulers. 
 1. Fixed, "long" step `DefaultScheduler(0.5)` - orange
 2. Fixed, "short" step `DefaultScheduler(0.02)` - green
-3. Adaptive timestep (designed originally to ensure EKS remains stable) `EKSStableScheduler()` [Kovachki & Stuart 2018](https://doi.org/10.1088/1361-6420/ab1c3a) - red
-4. Adaptive misfit-controlling step (for finite-time algorithms, terminating at `T=1`) `DataMisfitController(terminate_at=1)` [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) - purple
+3. Adaptive timestep (designed originally to ensure EKS remains stable) `EKSStableScheduler()` [Kovachki19a](@citep) - red
+4. Adaptive misfit-controlling step (for finite-time algorithms, terminating at `T=1`) `DataMisfitController(terminate_at=1)` [Iglesias21a](@citep) - purple
 5. Adaptive misfit-controlling step (continuation beyond terminate condition) `DataMisfitController(on_terminate="continue")` - brown
 
 !!! info "Recommended Scheduler"
     For typical problems [we provide a default scheduler](@ref defaults) depending on the process. For example, when constructing an `Inversion()`-type `EnsembleKalmanProcess`, by default this effectively adds the scheduler
     ```julia
-    scheduler = DataMisfitController(terminate_at = 1) # adaptive step-sizestop at algorithm time "T=1"
+    scheduler = DataMisfitController(terminate_at = 1) # adaptive step-size, stop at algorithm time "T=1"
     ```
 
 To modify the scheduler, use the keyword argument
@@ -26,14 +26,15 @@ ekpobj = EKP.EnsembleKalmanProcess(args...; scheduler = scheduler, kwargs...)
 Several other choices are available:
 ```julia
 scheduler = MutableScheduler(2) # modifiable stepsize at each iteration with default "2"
-scheduler = EKSStableScheduler(numerator=10.0, nugget = 0.01) # Stable for EKS
+scheduler = EKSStableScheduler(10.0, 0.01) # Stable for EKS, with numerator 10.0 and nugget 0.01
 scheduler = DataMisfitController(terminate_at = 1000) # stop at algorithm time "T=1000"
 ```
+With `MutableScheduler`, the stepsize can be changed at any given iteration by passing a new value to `update_ensemble!`, e.g. `update_ensemble!(ekpobj, g_ens; Δt_new = 0.5)`.
 Please see the [learning rate schedulers API](@ref scheduler_api) for defaults and other details
 
 ## [Early termination (with adaptive learning rate)](@id early-terminate)
 
-When using an adaptive learning rate, early termination may be triggered when a scheduler-specific condition is satisfied prior to the final user prescribed `N_iter`. See how to set the termination condition for such schedulers in the [API documentation](@ref scheduler_api). When triggered, early termination is returns a not-`nothing` value from `update_ensembe!(` and can be integrated into the calibration loop as follows
+When using an adaptive learning rate, early termination may be triggered when a scheduler-specific condition is satisfied prior to the final user prescribed `N_iter`. See how to set the termination condition for such schedulers in the [API documentation](@ref scheduler_api). When triggered, early termination returns a non-`nothing` value from `update_ensemble!` and can be integrated into the calibration loop as follows
 
 ```julia
 using EnsembleKalmanProcesses # for get_ϕ_final, update_ensemble!
@@ -61,13 +62,13 @@ Recall, for example for EKI, we perform updates of our ensemble of parameters ``
 `` \theta_{n+1}^{(j)} = \theta_{n}^{(j)} - \dfrac{\Delta t_n}{J}\sum_{k=1}^J \left \langle \mathcal{G}(\theta_n^{(k)}) - \bar{\mathcal{G}}_n \, , \, \Gamma_y^{-1} \left ( \mathcal{G}(\theta_n^{(j)}) - y \right ) \right \rangle \theta_{n}^{(k)},``
 
 where ``\bar{\mathcal{G}}_n`` is the mean value of ``\mathcal{G}(\theta_n)``
-across ensemble members. We denote the current time ``t_n = \sum_{i=1}^n\Delta t_i``, and the termination time as ``T = t_{N_\mathrm{it}}``.
+across ensemble members. Note that this is the continuous-time (vanilla) form of the update; the equation on the [EKI page](@ref eki) is the semi-implicit form that is actually implemented. We denote the current time ``t_n = \sum_{i=1}^n\Delta t_i``, and the termination time as ``T = t_{N_\mathrm{it}}``.
 
 !!! note 
-    Adaptive Schedulers typically try to make the biggest update that controls some measure of this update. For example, `EKSStableScheduler()` controls the frobenius norm of the update, while `DataMisfitController()` controls the Jeffrey divergence between the two steps. Largely they follow a pattern of scheduling very small initial timesteps, leading to much larger steps at later times.
+    Adaptive Schedulers typically try to make the biggest update that controls some measure of this update. For example, `EKSStableScheduler()` controls the Frobenius norm of the update, while `DataMisfitController()` controls the Jeffreys divergence between the two steps. Largely they follow a pattern of scheduling very small initial timesteps, leading to much larger steps at later times.
 
 There are two termination times that the theory indicates are useful
-- ``T=1``: In the linear Gaussian case, the ``\{\theta_{N_\mathrm{it}}\}`` will represent the posterior distribution. In nonlinear case it should still provide an approximation to the posterior distribution. Note that as the posterior does not necessarily optimize the data-misfit we find ``\bar{\theta}_{N_\mathrm{it}}`` (the ensemble mean) provides a conservative estimate of the true parameters, while retaining spread. It is noted in [Iglesias & Yang 2021](https://doi.org/10.1088/1361-6420/abd29b) that with small enough (or well chosen) step-sizes this estimate at ``T=1`` satisfies a discrepancy principle with respect to the observational noise.
+- ``T=1``: In the linear Gaussian case, the ``\{\theta_{N_\mathrm{it}}\}`` will represent the posterior distribution. In nonlinear case it should still provide an approximation to the posterior distribution. Note that as the posterior does not necessarily optimize the data-misfit we find ``\bar{\theta}_{N_\mathrm{it}}`` (the ensemble mean) provides a conservative estimate of the true parameters, while retaining spread. It is noted in [Iglesias21a](@cite) that with small enough (or well chosen) step-sizes this estimate at ``T=1`` satisfies a discrepancy principle with respect to the observational noise.
 - ``T\to \infty``: Though theoretical concerns have been made with respect to continuation beyond ``T=1`` for inversion methods such as EKI, in practice we commonly see better optimization of the data-misfit, and thus better representation ``\bar{\theta}_{N_\mathrm{it}}`` to the true parameters. As expected this procedure leads to ensemble collapse, and so no meaningful information can be taken from the posterior spread, and the optimizer is not likely to be the posterior mode.
 
 

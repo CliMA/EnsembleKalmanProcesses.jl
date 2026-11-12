@@ -18,6 +18,15 @@ export get_grf
 export get_package, spectrum, n_dofs, eval_pts, n_eval_pts, input_dims # for function-based distributions
 
 
+"""
+$(TYPEDEF)
+
+Abstract supertype for function-based parameter distributions, where the parameter is a
+function represented by a finite number of degrees of freedom.
+
+Subtypes:
+- [`GaussianRandomFieldInterface`](@ref): a Gaussian random field distribution.
+"""
 abstract type FunctionParameterDistributionType <: ParameterDistributionType end
 
 """
@@ -74,19 +83,19 @@ end
 """
 $(TYPEDSIGNATURES)
 
-gets the package type used to construct the GRF
+Return the package type used to construct the Gaussian random field (GRF).
 """
 get_package(grfi::GaussianRandomFieldInterface) = grfi.package
 """
 $(TYPEDSIGNATURES)
 
-gets the distribution, i.e. Gaussian random field object
+Return the Gaussian random field object stored in `grfi`.
 """
 get_grf(grfi::GaussianRandomFieldInterface) = grfi.gaussian_random_field
 """
 $(TYPEDSIGNATURES)
 
-gets the, distribution over the coefficients
+Return the distribution over the coefficients.
 """
 get_distribution(grfi::GaussianRandomFieldInterface) = grfi.distribution
 
@@ -233,7 +242,7 @@ sample(rng::AbstractRNG, grfi::GaussianRandomFieldInterface, n_draws::Int) =
 """
 $(TYPEDSIGNATURES)
 
-gets all the constraints of the internally stored coefficient prior distribution of the GRFI
+Return all the constraints of the internally stored coefficient prior distribution of the `GaussianRandomFieldInterface`.
 """
 get_all_constraints(grfi::GaussianRandomFieldInterface) = get_all_constraints(get_distribution(grfi))
 

@@ -5,10 +5,13 @@ These accelerators have been adapted from gradient-based methods in order to acc
 
 - Ensemble Kalman inversion (EKI), `Inversion()`
 - Ensemble transform Kalman inversion (ETKI), `TransformInversion()`
+- Gauss Newton Kalman inversion (GNKI), `GaussNewtonInversion()`
 - Unscented Kalman inversion (UKI), `Unscented()` (experimental, may result in instability)
 - Ensemble Kalman sampler (EKS), `Sampler()` (experimental, may result in instability)
 
-Further theoretical details and experiments of the accelerators, please see [(Vernon, Bach, Dunbar, 2025)](https://doi.org/10.48550/arXiv.2501.08779)
+Note that `Inversion()` and `GaussNewtonInversion()` already default to the `NesterovAccelerator()` (see the [defaults](@ref defaults) page), so no user action is needed for these processes.
+
+For further theoretical details and experiments, please see [Vernon25a](@cite)
 
 ## Using Accelerators
 
@@ -49,7 +52,7 @@ The `NesterovAccelerator()` (shown in blue) has been found to produce the most c
 ![Momentum coefficients](assets/coeff_comparison_ens25.png)
 ![Momentum coefficient values](assets/coeff_evolution_exp_sin.png)
 
-Below is an example of accelerated ETKI convergence on the same problem, using the `NesterovAccelerator()`.
+Below is an example of accelerated ETKI convergence on the same problem, using the `NesterovAccelerator()` (left). The corresponding experiment for UKI is also shown (right).
 
 ![etki momentum](assets/etki_momentum.png) ![uki momentum](assets/uki_momentum.png)
 
@@ -60,23 +63,23 @@ Below is an example of accelerated ETKI convergence on the same problem, using t
 In traditional gradient descent, one iteratively solves for $x^*$, the minimizer of a function $f(x)$, by performing the update step 
 
 ```math
-x_{k+1} = x_{k} + \alpha  \nabla f(x_{k}), 
+x_{k+1} = x_{k} - \alpha  \nabla f(x_{k}), 
 ```
 
 where $\alpha$ is a step size parameter.
 In 1983, Nesterov acceleration (also known as Nesterov momentum) was introduced to accelerate gradient descent. In the modified algorithm, the update step becomes 
 
 ```math
-x_{k+1} = x_{k} + \beta (x_{k} - x_{k-1}) + \alpha  \nabla f(x_{k} + \beta (x_{k} - x_{k-1})), 
+x_{k+1} = x_{k} + \beta (x_{k} - x_{k-1}) - \alpha  \nabla f(x_{k} + \beta (x_{k} - x_{k-1})), 
 ```
 
 where $\beta$ is a momentum coefficient. Intuitively, the method mimics a ball gaining speed while rolling down a constantly-sloped hill.
 
 ### Implementation in EKI Algorithm
 
-The exact implementation, theory, and experiments for this work are available at [(Vernon, Bach, Dunbar, 2025)](https://doi.org/10.48550/arXiv.2501.08779).
+The exact implementation, theory, and experiments for this work are available in [Vernon25a](@cite).
 
-Nesterov acceleration can be used to accelerate gradient flows, as shown by [(Su et al 2016)](https://arxiv.org/abs/1503.01243). EKI, a gradient-free method, can be understood as approximating a form of gradient flow [(Calvello et al 2023)](https://arxiv.org/abs/2209.11371)). Additionally, work by [(Kovachki and Stuart 2021)](https://iopscience.iop.org/article/10.1088/1361-6420/ab1c3a) demonstrated success when using a modified particle-based Nesterov acceleration method. This work inspired the following implementation of accelerators for a variety of EKP processes.
+Nesterov acceleration can be used to accelerate gradient flows, as shown by [Su16a](@cite). EKI, a gradient-free method, can be understood as approximating a form of gradient flow [Calvello25a](@citep). Additionally, work by [Kovachki19a](@cite) demonstrated success when using a modified particle-based Nesterov acceleration method. This work inspired the following implementation of accelerators for a variety of EKP processes.
 
 The traditional update step for EKI is as follows, with $j = 1, ..., J$ denoting the ensemble member and $k$ denoting iteration number.
 ```math
@@ -98,6 +101,6 @@ u_{k+1}^j = v_{k}^j + C_{k}^{u\mathcal{G}} (\frac{1}{\Delta t}\Gamma + C^{\mathc
 
 The momentum coefficient $\beta_k$ here differs for different accelerators.
 
-- In the `NesterovAccelerator()`, we recursively compute $\beta_k$ as $\beta_k = \theta_k(\theta_{k-1}^{-1}-1)$ in the  as derived in ([Su et al](https://jmlr.org/papers/v17/15-084.html)). This implementation has generally been found to be the most effective in most test cases.
-- In the `FirstOrderNesterovAccelerator()`, we compute $\beta_k = 1-3k^{-1}$. This is the coefficient originally used by Nesterov.
+- In the `NesterovAccelerator()`, we recursively compute $\beta_k$ as $\beta_k = \theta_k(\theta_{k-1}^{-1}-1)$ as derived in [Su16a](@cite). This implementation has generally been found to be the most effective in most test cases.
+- In the `FirstOrderNesterovAccelerator()`, we compute $\beta_k = 1-\frac{r}{k+2}$ with default $r = 3$. This is a first-order representation of the coefficient schedule originally used by Nesterov.
 - The `ConstantNesterovAccelerator()` uses a specified constant coefficient, with the default being $\beta_k = 0.9$.

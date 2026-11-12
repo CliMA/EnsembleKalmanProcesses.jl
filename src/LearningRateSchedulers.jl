@@ -105,16 +105,19 @@ end
 """
 $(TYPEDEF)
 
-Scheduler from Iglesias, Yang, 2021, Based on Bayesian Tempering.
-Terminates at `T=1` by default, and at this time, ensemble spread provides a (more) meaningful approximation of posterior uncertainty
-In particular, for parameters ``\\theta_j`` at step ``n``, to calculate the next timestep
-``\\Delta t_n = \\min\\left(\\max\\left(\\frac{J}{2\\Phi}, \\sqrt{\\frac{J}{2\\langle \\Phi, \\Phi \\rangle}}\\right), 1-\\sum^{n-1}_i t_i\\right) `` where ``\\Phi_j = \\|\\Gamma^{-\\frac{1}{2}}(G(\\theta_j) - y)\\|^2``. 
-Cannot be overriden by user provided timesteps.
-By default termination returns `true` from `update_ensemble!` and 
-- if `on_terminate == "stop"`, stops further iteration.
-- if `on_terminate == "continue_fixed"`, continues iteration with the final timestep fixed
-- if `on_terminate == "continue"`, continues the algorithm (though no longer compares to ``1-\\sum^{n-1}_i t_i``) 
-The user may also change the `T` with `terminate_at` keyword.
+Scheduler from Iglesias, Yang, 2021, based on Bayesian tempering. It terminates at
+algorithm time `T = 1` by default; at this time, the ensemble spread provides a (more)
+meaningful approximation of posterior uncertainty. For parameters ``\\theta_j`` at step
+``n``, the next timestep is
+``\\Delta t_n = \\min\\left(\\max\\left(\\frac{J}{2\\Phi}, \\sqrt{\\frac{J}{2\\langle \\Phi, \\Phi \\rangle}}\\right), 1-\\sum^{n-1}_i t_i\\right) `` where ``\\Phi_j = \\|\\Gamma^{-\\frac{1}{2}}(G(\\theta_j) - y)\\|^2``.
+It cannot be overridden by user-provided timesteps. On termination, `update_ensemble!`
+returns `true`, and
+- if `on_terminate == "stop"`, further iteration is stopped;
+- if `on_terminate == "continue_fixed"`, iteration continues with the final timestep fixed;
+- if `on_terminate == "continue"`, the algorithm continues (though it no longer compares to ``1-\\sum^{n-1}_i t_i``).
+The termination time `T` can be changed with the `terminate_at` keyword.
+
+# Fields
 
 $(TYPEDFIELDS)
 """
@@ -123,14 +126,14 @@ struct DataMisfitController{FT, S} <: LearningRateScheduler where {FT <: Abstrac
     iteration::Vector{Int}
     "the algorithm time for termination, default: 1.0"
     terminate_at::FT
-    "the action on termination, default: \"stop\", "
+    "the action on termination, default: \"stop\""
     on_terminate::S
-end # Iglesias Yan 2021
+end # Iglesias, Yang 2021
 
 """
 $(TYPEDSIGNATURES)
 
-Sets `terminate_at = 1.0` and `on_terminate="stop"`
+Construct a `DataMisfitController` with defaults `terminate_at = 1.0` and `on_terminate = "stop"`.
 """
 function DataMisfitController(; terminate_at = 1.0, on_terminate = "stop")
     FT = Float64
@@ -284,7 +287,7 @@ function calculate_timestep!(
     if sum_Δt >= T
         if sum_Δt_min1 < T # "Just reached termination"
             if scheduler.on_terminate == "stop"
-                @warn "Termination condition of scheduler `DataMisfitController` has been exceeded, returning `true` from `update_ensemble!` and preventing futher updates\n Set on_terminate=\"continue\" in `DataMisfitController` to ignore termination"
+                @warn "Termination condition of scheduler `DataMisfitController` has been exceeded, returning `true` from `update_ensemble!` and preventing further updates\n Set on_terminate=\"continue\" in `DataMisfitController` to ignore termination"
                 return true #returns a terminate call
             elseif scheduler.on_terminate == "continue_fixed"
                 @warn "Termination condition of scheduler `DataMisfitController` has been exceeded. \non_terminate=\"continue_fixed\" selected. Proceeding with the final fixed timestep of $(get_Δt(ekp)[end])."

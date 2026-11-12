@@ -64,8 +64,25 @@ struct SVDplusD <: SumOfCovariances
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the `SVD` component of the compact covariance representation `spd`.
+"""
 get_svd_cov(spd::SpD) where {SpD <: SVDplusD} = spd.svd_cov
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the diagonal component of the compact covariance representation `spd`.
+"""
 get_diag_cov(spd::SpD) where {SpD <: SVDplusD} = spd.diag_cov
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the dimension (number of rows) of the covariance representation `spd`.
+"""
 get_cov_size(spd::SpD) where {SpD <: SVDplusD} = size(get_diag_cov(spd), 1)
 Base.size(spd::SpD) where {SpD <: SVDplusD} = size(get_diag_cov(spd))
 
@@ -95,6 +112,11 @@ struct DminusTall{D <: Diagonal, AM <: AbstractMatrix} <: SumOfCovariances
     tall_cov::AM
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the tall-matrix component of the compact covariance representation `dmt`.
+"""
 get_tall_cov(dmt::DmT) where {DmT <: DminusTall} = dmt.tall_cov
 get_diag_cov(dmt::DmT) where {DmT <: DminusTall} = dmt.diag_cov
 get_cov_size(dmt::DmT) where {DmT <: DminusTall} = size(get_diag_cov(dmt), 1)
@@ -293,42 +315,42 @@ end
 """
 $(TYPEDSIGNATURES)
 
-gets the `samples` field from the `Observation` object
+Return the `samples` field of the `Observation`.
 """
 get_samples(o::Observation) = o.samples
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `covs` field from the `Observation` object
+Return the `covs` field of the `Observation`.
 """
 get_covs(o::Observation) = o.covs
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `inv_covs` field from the `Observation` object
+Return the `inv_covs` field of the `Observation`.
 """
 get_inv_covs(o::Observation) = o.inv_covs
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `names` field from the `Observation` object
+Return the `names` field of the `Observation`.
 """
 get_names(o::Observation) = o.names
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `indices` field from the `Observation` object
+Return the `indices` field of the `Observation`.
 """
 get_indices(o::Observation) = o.indices
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `metadata` field from the `Observation` object
+Return the `metadata` field of the `Observation`.
 """
 get_metadata(o::Observation) = o.metadata
 
@@ -502,7 +524,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if `build=true`, returns the stacked vector of observed samples `samples`(default), otherwise it calls `get_samples`
+Return the stacked vector of observed samples `samples` if `build = true` (default); otherwise return the output of `get_samples`.
 """
 function get_obs(o::Observation; build = true)
     if !build # return the blocks directly
@@ -556,6 +578,13 @@ function build_cov!(out, idx, c::DmT) where {DmT <: DminusTall}
 
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Compute the inverse of the covariance representation `a`. For structured representations,
+the inverse is returned in a compact structured form (e.g., the inverse of an `SVDplusD`
+is stored as a `DminusTall`).
+"""
 function inv_cov(a::AM) where {AM <: AbstractMatrix}
     return inv(a)
 end
@@ -599,7 +628,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if `build=true`, returns the block matrix of observation covariances `covs` (default), otherwise it calls `get_covs`
+Return the block matrix of observation covariances `covs` if `build = true` (default); otherwise return the output of `get_covs`.
 """
 function get_obs_noise_cov(o::Observation; build = true)
 
@@ -620,7 +649,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if `build=true`, returns the block matrix of the inverses of the observation covariances `inv_covs` (default), otherwise it calls `get_inv_covs`
+Return the block matrix of the inverses of the observation covariances `inv_covs` if `build = true` (default); otherwise return the output of `get_inv_covs`.
 """
 function get_obs_noise_cov_inv(o::Observation; build = true)
 
@@ -743,20 +772,20 @@ end
 """
 $(TYPEDSIGNATURES)
 
-gets the `minibatches` field from the `FixedMinibatcher` object
+Return the `minibatches` field of the `FixedMinibatcher`.
 """
 get_minibatches(m::FM) where {FM <: FixedMinibatcher} = m.minibatches
 """
 $(TYPEDSIGNATURES)
 
-gets the `method` field from the `FixedMinibatcher` object
+Return the `method` field of the `FixedMinibatcher`.
 """
 get_method(m::FM) where {FM <: FixedMinibatcher} = m.method
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `rng` field from the `FixedMinibatcher` object
+Return the `rng` field of the `FixedMinibatcher`.
 """
 get_rng(m::FM) where {FM <: FixedMinibatcher} = m.rng
 
@@ -831,28 +860,28 @@ RandomFixedSizeMinibatcher(minibatch_size::Int) = RandomFixedSizeMinibatcher(min
 """
 $(TYPEDSIGNATURES)
 
-gets the `minibatch_size` field from the `RandomFixesSizeMinibatcher` object
+Return the `minibatch_size` field of the `RandomFixedSizeMinibatcher`.
 """
 get_minibatch_size(m::RFSM) where {RFSM <: RandomFixedSizeMinibatcher} = m.minibatch_size
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `method` field from the `RandomFixesSizeMinibatcher` object
+Return the `method` field of the `RandomFixedSizeMinibatcher`.
 """
 get_method(m::RFSM) where {RFSM <: RandomFixedSizeMinibatcher} = m.method
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `rng` field from the `RandomFixesSizeMinibatcher` object
+Return the `rng` field of the `RandomFixedSizeMinibatcher`.
 """
 get_rng(m::RFSM) where {RFSM <: RandomFixedSizeMinibatcher} = m.rng
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `minibatches` field from the `RandomFixesSizeMinibatcher` object
+Return the `minibatches` field of the `RandomFixedSizeMinibatcher`.
 """
 get_minibatches(m::RFSM) where {RFSM <: RandomFixedSizeMinibatcher} = m.minibatches
 
@@ -945,42 +974,42 @@ end
 """
 $(TYPEDSIGNATURES)
 
-gets the `observations` field from the `ObservationSeries` object
+Return the `observations` field of the `ObservationSeries`.
 """
 get_observations(os::OS) where {OS <: ObservationSeries} = os.observations
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `minibatches` field from the `ObservationSeries` object
+Return the `minibatches` field of the `ObservationSeries`.
 """
 get_minibatches(os::OS) where {OS <: ObservationSeries} = os.minibatches
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `names` field from the `ObservationSeries` object
+Return the `names` field of the `ObservationSeries`.
 """
 get_names(os::OS) where {OS <: ObservationSeries} = os.names
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `current_minibatch_index` field from the `ObservationSeries` object
+Return the `current_minibatch_index` field of the `ObservationSeries`.
 """
 get_current_minibatch_index(os::OS) where {OS <: ObservationSeries} = os.current_minibatch_index
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `minibatcher` field from the `ObservationSeries` object
+Return the `minibatcher` field of the `ObservationSeries`.
 """
 get_minibatcher(os::OS) where {OS <: ObservationSeries} = os.minibatcher
 
 """
 $(TYPEDSIGNATURES)
 
-gets the `metadata` field from the `ObservationSeries` object
+Return the `metadata` field of the `ObservationSeries`.
 """
 get_metadata(os::OS) where {OS <: ObservationSeries} = os.metadata
 
@@ -1093,7 +1122,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-gets the number of minibatches in an epoch
+Return the number of minibatches in an epoch.
 """
 function get_length_epoch(os::OS) where {OS <: ObservationSeries}
     return length(get_minibatches(os)[1])
@@ -1102,7 +1131,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-returns the minibatch_index `Dict("epoch"=> x, "minibatch" => y)`, for a given `iteration` 
+Return the minibatch index `Dict("epoch" => x, "minibatch" => y)` for a given `iteration`.
 """
 function get_minibatch_index(os::OS, iteration::Int) where {OS <: ObservationSeries}
     len_epoch = get_length_epoch(os)
@@ -1135,7 +1164,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-get the minibatch for a given minibatch index (`Dict("epoch"=> x, "minibatch" => y)`), or iteration `Int`. If `nothing` is provided as an iteration then the current minibatch is returned
+Return the minibatch for a given minibatch index (`Dict("epoch" => x, "minibatch" => y)`) or iteration `Int`. If `nothing` is provided as an iteration, the current minibatch is returned.
 """
 function get_minibatch(os::OS, it_or_mbi::IorDorN) where {OS <: ObservationSeries, IorDorN <: Union{Int, Dict, Nothing}}
     if isnothing(it_or_mbi)
@@ -1153,7 +1182,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-get the current minibatch that is pointed to by the `current_minibatch_indices` field
+Return the current minibatch, pointed to by the `current_minibatch_index` field.
 """
 function get_current_minibatch(os::OS) where {OS <: ObservationSeries}
     minibatches = get_minibatches(os)
@@ -1164,7 +1193,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if `build=true` then gets the observed sample, stacked over the minibatch at `iteration`. `build=false` lists the `samples` for all observations. If `isnothing(iteration)` or not defined then the current iteration is used.
+Return the observed sample, stacked over the minibatch at `iteration`, if `build = true`; if `build = false`, list the `samples` for all observations. If `isnothing(iteration)` or not defined, the current iteration is used.
 """
 function get_obs(os::OS, iteration::IorN; build = true) where {OS <: ObservationSeries, IorN <: Union{Int, Nothing}}
     minibatch = get_minibatch(os, iteration)
@@ -1191,7 +1220,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if `build=true` then gets the observed sample, stacked over the current minibatch. `build=false` lists the `samples` for all observations. 
+Return the observed sample, stacked over the current minibatch, if `build = true`; if `build = false`, list the `samples` for all observations.
 """
 get_obs(os::OS; kwargs...) where {OS <: ObservationSeries} = get_obs(os, nothing; kwargs...)
 
@@ -1199,7 +1228,7 @@ get_obs(os::OS; kwargs...) where {OS <: ObservationSeries} = get_obs(os, nothing
 """
 $(TYPEDSIGNATURES)
 
-if `build=true` then gets the observation covariance matrix, blocked over the minibatch at `iteration`. `build=false` lists the `covs` for all observations. If `isnothing(iteration)` or not defined then the current iteration is used.
+Return the observation covariance matrix, blocked over the minibatch at `iteration`, if `build = true`; if `build = false`, list the `covs` for all observations. If `isnothing(iteration)` or not defined, the current iteration is used.
 """
 function get_obs_noise_cov(
     os::OS,
@@ -1237,7 +1266,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if `build=true` then gets the observation covariance matrix, blocked over the current minibatch. `build=false` lists the `covs` for all observations 
+Return the observation covariance matrix, blocked over the current minibatch, if `build = true`; if `build = false`, list the `covs` for all observations.
 """
 get_obs_noise_cov(os::OS; kwargs...) where {OS <: ObservationSeries} = get_obs_noise_cov(os, nothing; kwargs...)
 
@@ -1245,7 +1274,7 @@ get_obs_noise_cov(os::OS; kwargs...) where {OS <: ObservationSeries} = get_obs_n
 """
 $(TYPEDSIGNATURES)
 
-if `build=true` then gets the inverse of the observation covariance matrix, blocked over minibatch at `iteration`. `build=false` lists the `inv_covs` for all observations. If `isnothing(iteration)` or not defined then the current iteration is used.
+Return the inverse of the observation covariance matrix, blocked over the minibatch at `iteration`, if `build = true`; if `build = false`, list the `inv_covs` for all observations. If `isnothing(iteration)` or not defined, the current iteration is used.
 """
 function get_obs_noise_cov_inv(
     os::OS,
@@ -1283,7 +1312,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-if `build=true` then gets the inverse of the observation covariance matrix, blocked over the current minibatch. `build=false` lists the `inv_covs` for all observations. 
+Return the inverse of the observation covariance matrix, blocked over the current minibatch, if `build = true`; if `build = false`, list the `inv_covs` for all observations.
 """
 get_obs_noise_cov_inv(os::OS; kwargs...) where {OS <: ObservationSeries} = get_obs_noise_cov_inv(os, nothing; kwargs...)
 
@@ -1339,6 +1368,12 @@ end
 
 
 ## Most common operation
+"""
+$(TYPEDSIGNATURES)
+
+Compute the matrix product `A * X`, where `A` is a (block-diagonal collection of)
+covariance representation(s), without explicitly building the full matrix of `A`.
+"""
 function lmul_without_build(A, X::AVorM) where {AVorM <: AbstractVecOrMat}
     a_sizes = zeros(Int, length(A))
     for (i, a) in enumerate(A)

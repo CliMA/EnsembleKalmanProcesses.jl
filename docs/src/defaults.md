@@ -1,4 +1,4 @@
-## [Default Configurations](@id defaults)
+# [Default Configurations](@id defaults)
 
 ## [Recommended Ensemble Size](@id ens-size)
 
@@ -7,12 +7,12 @@ However there are several rules of thumb for calibrating a parameter vector ``\t
 
 Parameter dimension        | Ensemble size 
 --------------------------------|----------------------------------------------------------------
-``\mathrm{dim}(\theta)\leq 10`` | ``N_{\mathrm{ens}} \geq 10 \cdot \mathrm{dim}(\theta)``
+``\mathrm{dim}(\theta) < 10`` | ``N_{\mathrm{ens}} \geq 10 \cdot \mathrm{dim}(\theta)``
 ``10 \leq \mathrm{dim}(\theta)\leq 100`` | ``N_{\mathrm{ens}} = 100``
-``100\leq \mathrm{dim}(\theta)``| ``N_{\mathrm{ens}} = 100`` and [SEC](@ref localization)
+``\mathrm{dim}(\theta) > 100``| ``N_{\mathrm{ens}} = 100`` and [SEC](@ref localization)
 
 !!! note "for the `Unscented` process"
-    [UKI](@ref uki) and [UTKI](@ref utki) always create an ensemble size proportional to `` \mathrm{dim}(\theta)``. It is not configurable by the user, and is retrievable from an `EnsembleKalmanProcess` object `ekp` using `get_N_ens(ekp)`.
+    [UKI](@ref uki) and [UTKI](@ref utki) always create an ensemble of size ``2\cdot\mathrm{dim}(\theta)+1`` (for the default symmetric sigma points). It is not configurable by the user, and is retrievable from an `EnsembleKalmanProcess` object `ekp` using `get_N_ens(ekp)`.
 
 ### Quick links!
 - What does `scheduler = ...` do? See [here.](@ref learning-rate-schedulers)
@@ -30,7 +30,7 @@ To use the defaults, one constructs an Ensemble Kalman Process with
 ```julia
 EnsembleKalmanProcess(initial_parameters, observation, process)
 ```
-and the following configurations (listed below) will be automatically created depending on the `process` type chosen, they are listed as keyword arguments that will be automatically added into `EnsembleKalmanProcess()` on creation. 
+and the following configurations (listed below) will be automatically created depending on the `process` type chosen. They are listed as keyword arguments that will be automatically added into `EnsembleKalmanProcess()` on creation. 
 
 !!! info "Recommended process"
     For the simplest and most flexible update we recommend the `Inversion()` process. 
@@ -72,7 +72,7 @@ accelerator = DefaultAccelerator()
 ## `process <: GaussNewtonInversion` 
 Process documentation [here](@ref gnki)
 ```julia
-scheduler = DataMisfitController(terminate_at = 1)
+scheduler = DefaultScheduler()
 localization_method = Localizers.SECNice()
 failure_handler_method = SampleSuccGauss()
 accelerator = NesterovAccelerator()
@@ -109,8 +109,8 @@ accelerator = DefaultAccelerator()
 
 ## "Vanilla" settings: How to turn off features
 
-As the defaults now implement recent features. The following snippet shows how one can use keyword arguments to construct an EKP with no additional features or variants.
-```
+As the defaults now implement recent features, the following snippet shows how one can use keyword arguments to construct an EKP with no additional features or variants.
+```julia
 EnsembleKalmanProcess(
     initial_parameters,
     observation,

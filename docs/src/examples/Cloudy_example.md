@@ -19,14 +19,14 @@ Cloudy is used here in a "perfect model" (aka "known truth") setting, which mean
 
 ### Prerequisites
 
-In order to run this example, you need to install `Cloudy.jl` (the "#master" lets you install the current master branch):
+In order to run this example, you need to install `Cloudy.jl`:
 ```
-pkg > add Cloudy#master
+pkg > add Cloudy
 ```
 
 ### Structure
 
-The file `Cloudy_example_eki.jl` sets up the inverse problem and solves it using [ensemble Kalman inversion](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/ensemble_kalman_inversion/), and the file `Cloudy_example_uki.jl` does the same using unscented Kalman inversion. The file `DynamicalModel.jl` provides the functionality to run the dynamical model ``\Psi``, which in this example is Cloudy.
+The file `Cloudy_example_eki.jl` sets up the inverse problem and solves it using [ensemble Kalman inversion](@ref eki), and the file `Cloudy_example_uki.jl` does the same using unscented Kalman inversion. The file `DynamicalModel.jl` provides the functionality to run the dynamical model ``\Psi``, which in this example is Cloudy.
 
 
 ### Running the Example
@@ -119,7 +119,7 @@ for i in 1:n_samples
     y_t[:, i] = G_t .+ rand(MvNormal(μ, Γy))
 end
 
-truth = Observation(y_t, Γy, data_names)
+truth = Observation(Dict("samples" => vec(mean(y_t, dims = 2)), "covariances" => Γy, "names" => data_names))
 ```
 
 

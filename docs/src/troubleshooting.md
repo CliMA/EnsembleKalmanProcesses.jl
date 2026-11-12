@@ -36,7 +36,7 @@ metrics = get_error_metrics(ekp)
 
 # get the latest computational parameters
 u = get_u_final(ekp)  
-# where ϕ = transform_unconstrained_to_unconstrained.(prior, get_u_final(ekp))
+# where ϕ = transform_unconstrained_to_constrained(prior, get_u_final(ekp))
 ```
 
 
@@ -74,9 +74,10 @@ If either the loss decreases too slowly/diverges or the final fits appear inadeq
 ## [Common warning/error messages](@id common-messages)
 - ```julia
   Info: "Termination condition of scheduler `DataMisfitController` will be exceeded during the next iteration."
-  Warning: Termination condition of scheduler `DataMisfitController` has been exceeded, returning `true` from `update_ensemble!` and preventing futher updates. Set on_terminate="continue" in `DataMisfitController` to ignore termination
+  Warning: Termination condition of scheduler `DataMisfitController` has been exceeded, returning `true` from `update_ensemble!` and preventing further updates
+   Set on_terminate="continue" in `DataMisfitController` to ignore termination
   ```
-The `DataMisfitController` is an adaptive scheduler that can terminate the algorithm at a given value of algorithm time (rather than juat a given number of iterations). See [here](@ref learning-rate-schedulers) for details on changing the termination condition. Or how to handle this in your iteration loop.
+The `DataMisfitController` is an adaptive scheduler that can terminate the algorithm at a given value of algorithm time (rather than just a given number of iterations). See [here](@ref learning-rate-schedulers) for details on changing the termination condition. Or how to handle this in your iteration loop.
 
 - ```julia
   Warning: Acceleration is experimental for Sampler processes and may affect convergence.
@@ -91,4 +92,4 @@ Both these messages arise when the EKP `update_ensemble!` has detected `NaN`s in
 - ```julia
   Warning: Detected 2 clashes where forward map evaluations are exactly equal (and not NaN), this is likely to cause `LinearAlgebra` difficulty. Please check forward evaluations for bugs.
   ```
-This message arises when forward map evaluations from different paramters produce identical outputs and is usually due to (1) output-clipping practices, or (2) user-error in producing the output matrix for the ensemble and should be checked, as it may cause errors. (If not, the implication is that the model output is completely independent of the parameters) 
+This message arises when forward map evaluations from different parameters produce identical outputs and is usually due to (1) output-clipping practices, or (2) user-error in producing the output matrix for the ensemble and should be checked, as it may cause errors. (If not, the implication is that the model output is completely independent of the parameters) 

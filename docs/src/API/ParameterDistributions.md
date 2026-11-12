@@ -6,6 +6,7 @@ CurrentModule = EnsembleKalmanProcesses.ParameterDistributions
 
 ## ParameterDistributionTypes
 ```@docs
+ParameterDistributionType
 Parameterized
 Samples
 VectorOfParameterized
@@ -13,6 +14,11 @@ VectorOfParameterized
 
 ## Constraints
 ```@docs
+ConstraintType
+NoConstraint
+BoundedBelow
+BoundedAbove
+Bounded
 Constraint
 no_constraint
 bounded_below
@@ -42,18 +48,21 @@ logpdf
 mean
 var
 cov
-transform_constrained_to_unconstrained(::ParameterDistribution, ::AbstractVector)
-transform_constrained_to_unconstrained(::ParameterDistribution, ::AbstractMatrix)
-transform_constrained_to_unconstrained(::ParameterDistribution, ::Dict)
-transform_unconstrained_to_constrained(::ParameterDistribution, ::AbstractVector)
-transform_unconstrained_to_constrained(::ParameterDistribution, ::AbstractMatrix)
-transform_unconstrained_to_constrained(::ParameterDistribution, ::Dict)
+ndims(pd::ParameterDistribution)
+transform_constrained_to_unconstrained(pd::ParameterDistribution, x::AbstractVecOrMat{T}) where {T <: Real}
+transform_constrained_to_unconstrained(pd::ParameterDistribution, x::Dict)
+transform_constrained_to_unconstrained(pd::ParameterDistribution, x)
+transform_unconstrained_to_constrained(pd::ParameterDistribution, x::AbstractVecOrMat{T}) where {T <: Real}
+transform_unconstrained_to_constrained(pd::ParameterDistribution, x::Dict)
+transform_unconstrained_to_constrained(pd::ParameterDistribution, x)
 ```
 
 ## FunctionParameterDistributions
 
 ```@docs
+FunctionParameterDistributionType
 GaussianRandomFieldsPackage
+GRFJL
 GaussianRandomFieldInterface
 ndims(grfi::GaussianRandomFieldInterface)
 get_all_constraints(grfi::GaussianRandomFieldInterface)

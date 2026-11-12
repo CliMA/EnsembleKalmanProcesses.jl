@@ -1,6 +1,6 @@
 # [Inflation](@id inflation)
 Inflation is an approach that slows down collapse in ensemble Kalman methods.
-Two distinct forms of inflation are implemented in this package. Both involve perturbing the ensemble members following the standard update rule of the chosen Kalman process.
+Two distinct forms of inflation are implemented in this package. Both involve perturbing the ensemble members after the standard update of the chosen Kalman process.
 Multiplicative inflation expands ensemble members away from their mean in a
 deterministic manner, whereas additive inflation hinges on the addition of stochastic noise to ensemble members.
 
@@ -11,10 +11,15 @@ The scaling factor ``s`` multiplies the artificial time step ``\Delta t`` in the
 ```
 where `` |B| `` is the mini-batch size and `` |C| `` is the full dataset size.
 
+!!! note "Inflation is gated by `s`"
+    The scaling factor `s` defaults to `0.0` in `update_ensemble!`, and inflation is applied only when `s > 0.0`. Passing `multiplicative_inflation = true` (or `additive_inflation = true`) without also passing a positive `s` therefore does nothing. In addition, the formulas below require ``s \Delta t < 1``; the code throws an error otherwise.
+
+Separately, when the process imposes the prior (`impose_prior = true`, e.g. `Inversion(prior)`), a small automatic multiplicative inflation `default_multiplicative_inflation = 1e-3` is applied at every update, independent of the flags described on this page.
+
 ## Multiplicative Inflation 
 Multiplicative inflation effectively scales parameter vectors in parameter space, such that the perturbed
 ensemble remains in the linear span of the original ensemble. The implemented update equation follows
-[Huang et al, 2022](https://arxiv.org/abs/2204.04386) eqn. 41:
+eqn. 41 of [Huang22b](@cite):
 
 ```math
 \begin{aligned}

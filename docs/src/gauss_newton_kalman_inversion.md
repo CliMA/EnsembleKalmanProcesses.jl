@@ -1,7 +1,10 @@
 # [Gauss Newton Kalman Inversion](@id gnki)
 
 ### What Is It and What Does It Do?
-Gauss Netwon Kalman Inversion (GNKI) ([Chada et al., 2021](https://doi.org/10.48550/arXiv.2010.13299), [Chen & Oliver, 2013](https://doi.org/10.1007/s10596-013-9351-5)), also known as the Iterative Ensemble Kalman Filter with Statistical Linearization, is a derivative-free ensemble optimizaton method based on the Gauss Newton optimization update and the Iterative Extended Kalman Filter (IExKF) ([Jazwinski, 1970](https://books.google.com/books?hl=en&lr=&id=4AqL3vE2J-sC&oi=fnd&pg=PP1&ots=434RD37EaN&sig=MhbgcFsSpqf3UsgqWybtnhBkVDU#v=onepage&q&f=false)).  In the linear case and continuous limit, GNKI recovers the true posterior mean and covariance.  Empirically, GNKI performs well as an optimization algorithm in the nonlinear case.  
+Gauss Newton Kalman Inversion (GNKI) [Chada21a, Chen13c](@citep), also known as the Iterative Ensemble Kalman Filter with Statistical Linearization, is a derivative-free ensemble optimization method based on the Gauss Newton optimization update and the Iterative Extended Kalman Filter (IExKF) [Jazwinski70a](@citep).  In the linear case and continuous limit, GNKI recovers the true posterior mean and covariance.  Empirically, GNKI performs well as an optimization algorithm in the nonlinear case.  
+
+!!! note "Defaults"
+    By default, GNKI is constructed with the `NesterovAccelerator()` accelerator, `SECNice()` localization, and the `DefaultScheduler()`; see the [defaults](@ref defaults) page.
 
 ### Problem Formulation
 
@@ -17,7 +20,7 @@ where ``\mathcal{G}:  \mathbb{R}^p \rightarrow \mathbb{R}^d`` denotes the forwar
 The optimal parameters ``\theta^*`` given relation (1) minimize the loss 
 
  ```math
-\mathcal{L}(\theta, y) = \langle \mathcal{G}(\theta) - y \, , \, \Gamma_y^{-1} \left ( \mathcal{G}(\theta) - y \right ) \rangle + \langle m - \theta \, , \, \Gamma_{\theta}^{-1} \left ( m - \theta  \right ) \rangle,
+\mathcal{L}(\theta, y) = \frac{1}{2} \langle \mathcal{G}(\theta) - y \, , \, \Gamma_y^{-1} \left ( \mathcal{G}(\theta) - y \right ) \rangle + \frac{1}{2} \langle m - \theta \, , \, \Gamma_{\theta}^{-1} \left ( m - \theta  \right ) \rangle,
 ```
 
 where ``m`` is the prior mean and ``\Gamma_{\theta}`` is the prior covariance. 
@@ -54,9 +57,9 @@ Using the ensemble covariance matrices, the update equation from ``n`` to ``n+1`
 \end{aligned}
 ```
 
-where ``y_n^{(j)} \sim \mathcal{N}(y, 2\alpha^{-1}\Gamma_y)`` and ``m_n^{(j)} \sim \mathcal{N}(m, 2\alpha^{-1}\Gamma_{\theta})``.
+where ``y_n^{(j)} \sim \mathcal{N}(y, 2\alpha^{-1}\Gamma_y)`` and ``m_n^{(j)} \sim \mathcal{N}(m, 2\alpha^{-1}\Gamma_{\theta})``, and where ``\alpha = \Delta t_n`` is the timestep from the [learning rate scheduler](@ref learning-rate-schedulers).
 
-## Creating the EKI Object
+## Creating the GNKI Object
 
 We first build a prior distribution (for details of the construction see [here](@ref constrained-gaussian)). 
 Then we build our EKP object with 
@@ -65,7 +68,7 @@ using EnsembleKalmanProcesses
 
 gnkiobj = EnsembleKalmanProcess(args..., GaussNewtonInversion(prior); kwargs...)
 ```
-For general EKP object creation requirements see [Creating the EKI object](@ref eki).  To make updates using the inversion algorithm see [Updating the Ensemble](@ref eki).  
+For general EKP object creation requirements and for how to make updates using the inversion algorithm, see the [Ensemble Kalman Inversion](@ref eki) page.
 
 
 

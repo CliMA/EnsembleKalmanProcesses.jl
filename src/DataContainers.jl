@@ -148,24 +148,30 @@ Returns the sizes of the inputs and ouputs along dimension `idx` (if provided).
 size(pdc::PairedDataContainer, idx::IT) where {IT <: Integer} = size(pdc.inputs, idx), size(pdc.outputs, idx)
 
 """
-    get_data(pdc::PairedDataContainer)
+$(TYPEDSIGNATURES)
 
-Returns both input and output data stored in `pdc` as two matrices.
+Return a copy of the data stored in `dc`.
 """
 get_data(dc::DataContainer) = deepcopy(dc.data)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return both input and output data stored in `pdc` as two matrices.
+"""
 get_data(pdc::PairedDataContainer) = get_inputs(pdc), get_outputs(pdc)
 
 """
-    get_inputs(pdc::PairedDataContainer)
+$(TYPEDSIGNATURES)
 
-Returns input data stored in `pdc`.
+Return the input data stored in `pdc`.
 """
 get_inputs(pdc::PairedDataContainer) = get_data(pdc.inputs)
 
 """
-    get_outputs(pdc::PairedDataContainer)
+$(TYPEDSIGNATURES)
 
-Returns output data stored in `pdc`.
+Return the output data stored in `pdc`.
 """
 get_outputs(pdc::PairedDataContainer) = get_data(pdc.outputs)
 

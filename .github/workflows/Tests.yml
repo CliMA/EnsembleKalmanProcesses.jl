@@ -3,6 +3,7 @@ name: Run Tests
 on:
   pull_request:
   push:
+    branches: [main]
     tags: '*'
 jobs:
   test:

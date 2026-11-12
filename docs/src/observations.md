@@ -3,7 +3,7 @@
 The Observations object facilitates convenient storing, grouping and minibatching over observations.
 
 ## The key objects
-1. The `Observation` is a container for an observed variables ("samples"), their noise covariances ("covariances"), and names ("names"). They are easily stackable to help build larger heterogenous observations
+1. The `Observation` is a container for observed variables ("samples"), their noise covariances ("covariances"), and names ("names"). They are easily stackable to help build larger heterogenous observations
 2. The `Minibatcher` facilitate data streaming (minibatching), where a user can submit large group of observations, that are then batched up and looped over in epochs.
 3. The `ObservationSeries` contains the list of `Observation`s and `Minibatcher` and the utilities to get the current batch etc.
 
@@ -15,7 +15,7 @@ The Observations object facilitates convenient storing, grouping and minibatchin
 
 ## Recommended constructor: A single (stacked) observation
 
-Here the user has data for two independent variables: the five-dimensional `y` and the eight-dimensional `z`. The observational noise of `y` is uncorrelated in all components, while the observations of `z` there is a known correlation.
+Here the user has data for two independent variables: the five-dimensional `y` and the eight-dimensional `z`. The observational noise of `y` is uncorrelated in all components, while for the observations of `z` there is a known correlation.
 
 We recommend users build an `Observation` using the `Dict` constructor and make use of the `combine_observations()` utility.
 ```@example ex1
@@ -169,7 +169,7 @@ Some of the implemented Minibatchers
 
 ## Identifiers
 
-One can additionally provide a vector of `names` to name each `Observation` in the `ObservationSeries` by giving using the `Dict` entry `"names" => names`.
+One can additionally provide a vector of `names` to name each `Observation` in the `ObservationSeries` by using the `Dict` entry `"names" => names`.
 
 To think about the differences between the identifiers for `Observation` and `ObservationSeries` consider an application of observing the average state of a dynamical system over 100 time windows. The time windows will be batched over during the calibration.
 
@@ -193,7 +193,7 @@ get_names(obs)
 
 For most low-dimensional problems (e.g. dim < 5000), the user can simply provide a `UniformScaling`, or an `AbstractMatrix` as they are most familiar, in conjunction with any EKP process.
 
-For high-dimensional problems, the user must first select an output-scalable  `process`. For example, `TransformInversion(...)` (ETKI) or `TransformUnscented(...)` (UTKI)
+For high-dimensional problems, the user must first select an output-scalable `process`. For example, `TransformInversion(...)` (ETKI) or `TransformUnscented(...)` (UTKI)
 
 Next the user must select a scalable storage for the noise covariance matrix in observations as the operational cost of storing and updating very large (non-diagonal) `AbstractMatrix` objects is prohibitive.
 
@@ -250,7 +250,7 @@ for k = 1:n_trials
 end 
 ```
 Let's assume that we then wish to update this with specific batches of size 2, in order. Let's build an `ObservationSeries`!
-```
+```julia
 b_size = 2;
 given_batches = [collect(((i - 1) * b_size + 1):(i * b_size)) for i in 1:n_trials];
 
@@ -258,7 +258,7 @@ minibatcher = FixedMinibatcher(given_batches);
 observation_series = ObservationSeries(Y_obs_vec, minibatcher);
 ```
 This can be passed into a scalable EKI (with some prior)
-```
+```julia
 using EnsembleKalmanProcesses.ParameterDistributions
 prior = constrained_gaussian("example_params", 3, 2, 0, Inf, repeats=3) ;
 
@@ -270,5 +270,5 @@ utki = EnsembleKalmanProcess(observation_series, TransformUnscented(prior));
 
 Some tips:
 - We always recommend adding some regularization (via adding a `Diagonal` or `UniformScaling`) to low-rank covariances.
-- One can further reduce the rank by providing it as a second example `tsvd_cov_from_samples(samples, rank)`.
+- One can further reduce the rank by providing it as a second argument `tsvd_cov_from_samples(samples, rank)`.
 - Details of the `SVDplusD` API, and other methods for creating tsvd objects can be found in the API docs.

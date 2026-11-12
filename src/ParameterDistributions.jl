@@ -244,14 +244,14 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Gets the bounds field from the Constraint.
+Return the `bounds` field of the `Constraint`.
 """
 get_bounds(c::C) where {C <: Constraint} = c.bounds
 
 """
 $(TYPEDSIGNATURES)
 
-Gets the parametric type T.
+Return the parametric type `T` of the `Constraint`.
 """
 get_constraint_type(c::Constraint{T}) where {T} = T
 
@@ -454,14 +454,14 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns a list of ParameterDistribution names.
+Return the list of `ParameterDistribution` names.
 """
 get_name(pd::ParameterDistribution) = pd.name
 
 """
 $(TYPEDSIGNATURES)
 
-The number of dimensions of the parameter space. (Also represents other dimensions of interest for `FunctionParameterDistributionType`s with keyword argument)
+Return the number of dimensions of the parameter space. (Also represents other dimensions of interest for `FunctionParameterDistributionType`s with the keyword argument.)
 """
 function get_dimensions(pd::ParameterDistribution; function_parameter_opt::AbstractString = "dof")
     return [ndims(d, function_parameter_opt = function_parameter_opt) for d in pd.distribution]
@@ -485,7 +485,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-The number of samples in a Samples distribution
+Return the number of samples in a `Samples` distribution.
 """
 function get_n_samples(pd::ParameterDistribution)
     return Dict{String, Any}(pd.name[i] => n_samples(d) for (i, d) in enumerate(pd.distribution))
@@ -494,7 +494,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the (flattened) array of constraints of the parameter distribution. or as a dictionary ("param_name" => constraints)
+Return the flattened array of constraints of the parameter distribution, or a dictionary (`"param_name" => constraints`) if `return_dict = true`.
 """
 function get_all_constraints(pd::ParameterDistribution; return_dict = false)
     if return_dict
@@ -531,7 +531,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns a `Dict` of `ParameterDistribution` distributions, with the parameter names
+Return a `Dict` of `ParameterDistribution` distributions, with the parameter names
 as dictionary keys. For parameters represented by `Samples`, the samples are returned
 as a 2D (`parameter_dimension x n_samples`) array.
 """
@@ -994,7 +994,8 @@ end
 function _mean_std(μ::Real, σ::Real, c::Constraint)
     d = Normal(μ, σ)
     m = [_moment(k, d, c) for k in 1:2]
-    return (m[1], sqrt(m[2] - m[1]^2))
+    # guard against sqrt of a tiny negative value from floating-point cancellation in near-singular integrals
+    return (m[1], sqrt(max(m[2] - m[1]^2, 0.0)))
 end
 function _lognormal_mean_std(μ_u::Real, σ_u::Real)
     # known analytic solution for lognormal distribution
@@ -1009,28 +1010,30 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Constructor for a 1D ParameterDistribution consisting of a transformed Gaussian, constrained
-to have support on [`lower_bound`, `upper_bound`], with first two moments `μ_c` and `σ_c^2`. The 
-moment integrals can't be done in closed form, so we set the parameters of the distribution
-with numerical optimization.
+Construct a 1D `ParameterDistribution` consisting of a transformed Gaussian, constrained
+to have support on [`lower_bound`, `upper_bound`], with first two moments `μ_c` and `σ_c^2`. The
+moment integrals can't be done in closed form, so the parameters of the distribution are
+set with numerical optimization.
 
-kwargs:
-=======
- - `repeats=1` : K-dimensional distribution by stacking `K` independent copies of the defined univariate distribution by setting `repeats = K`.
+# Keyword Arguments
+- `repeats = 1`: build a `K`-dimensional distribution by stacking `K` independent copies
+  of the defined univariate distribution, by setting `repeats = K`.
+- `optim_algorithm = NelderMead()`: `Optim.jl` algorithm used for the moment-matching optimization.
+- `optim_kwargs...`: further keyword arguments passed to the `Optim.Options` of the optimization.
 
-Example usage:
-```
+# Examples
+```julia
 d1 = constrained_gaussian("mean2-sd1-positive", 2.0, 1.0, 0, Inf)
 d2 = constrained_gaussian("4-dim-mean0-sd10", 0.0, 4.0, -Inf, Inf, repeats=4)
 # combine with:
-d = combine_distributions([d1,d2])
+d = combine_distributions([d1, d2])
 ```
 
 !!! note
-    The intended use case is defining priors set from user expertise for use in inference 
+    The intended use case is defining priors set from user expertise for use in inference
     with adequate data, so for the sake of performance we only require that the optimization
-    reproduce `μ_c`, `σ_c` to a loose tolerance (1e-5). Warnings are logged when the optimization
-    fails.
+    reproduce `μ_c`, `σ_c` to a loose tolerance (1% of `σ_c`). Warnings are logged when the
+    optimization fails.
 
 !!! note
     The distribution may be bimodal for `σ_c` large relative to the width of the bound interval.
@@ -1049,6 +1052,7 @@ function constrained_gaussian(
 )
     upper_bound > lower_bound || _throw_cg_bad_bounds(name, lower_bound, upper_bound)
     lower_bound < μ_c < upper_bound || _throw_cg_bad_mean(name, lower_bound, upper_bound, μ_c)
+    σ_c > 0 || _throw_cg_bad_std(name, σ_c)
 
     if isinf(lower_bound)
         if isinf(upper_bound)
@@ -1065,15 +1069,12 @@ function constrained_gaussian(
             # finite interval case; need to solve numerically
             μ_c - σ_c > lower_bound || _throw_cg_std_clips_lower(name, lower_bound, upper_bound, μ_c, σ_c)
             μ_c + σ_c < upper_bound || _throw_cg_std_clips_upper(name, lower_bound, upper_bound, μ_c, σ_c)
-            # 1.2 seems a reasonable tolerance here for solver to converge quickly
-            if (μ_c - 1.2 * σ_c <= lower_bound)
+            # Solver slowdown comes from a *combined* squeeze (both bounds tight at once, pushing
+            # the target toward filling the whole interval), not either bound alone; 1.1 is where
+            # iteration counts start climbing empirically.
+            if (μ_c - 1.1 * σ_c <= lower_bound) && (μ_c + 1.1 * σ_c >= upper_bound)
                 @warn(
-                    "`$(name)`: Target std $(σ_c) puts μ - σ very close to lower bound $(lower_bound), \n The solver may need more iterations to converge, consider decreasing σ"
-                )
-            end
-            if (μ_c + 1.2 * σ_c >= upper_bound)
-                @warn(
-                    "`$(name)`: Target std $(σ_c) puts μ + σ very close to upper bound $(upper_bound), \n The solver may need more iterations to converge, consider decreasing σ"
+                    "`$(name)`: Target std $(σ_c) leaves little room on either side of the mean $(μ_c) within the constraint interval ($(lower_bound), $(upper_bound)); \n The solver may need more iterations to converge, consider decreasing σ"
                 )
             end
             μ_u, σ_u = _constrained_gaussian(
@@ -1128,11 +1129,12 @@ function _constrained_gaussian(
 
     # Optimize parameters; by default this is done in a quick-and-dirty way, without gradient
     # info (simplex method), since we only optimize 2 parameters.
-    # Optimization is finicky since problem becomes singular for large |μ_u|, σ_u: the 
+    # Optimization is finicky since problem becomes singular for large |μ_u|, σ_u: the
     # distribution becomes collapsed against the bounds of the interval.
+    # Residuals are normalized by σ_c so the (dimensionless) loss behaves consistently across scales.
     function _optim_fn(μlogσ::Vector{Float64})
         m, s = _mean_std(μlogσ[1], exp(μlogσ[2]), cons)
-        return (m - μ_c)^2 + (s - σ_c)^2
+        return ((m - μ_c) / σ_c)^2 + ((s - σ_c) / σ_c)^2
     end
 
     opt = optimize(_optim_fn, [init_μ_u, init_logσ_u], optim_algorithm, optim_opts)
@@ -1140,10 +1142,13 @@ function _constrained_gaussian(
     σ_u = exp(Optim.minimizer(opt)[2])
 
     m_c, s_c = _mean_std(μ_u, σ_u, cons)
-    if ~isapprox(μ_c, m_c, atol = 1e-3, rtol = 1e-2)
+    # tolerances are expressed as a fraction of σ_c, the natural scale of the problem, rather than
+    # an absolute value, so small (or large) target moments are checked on equal footing.
+    rel_tol = 1e-2
+    if abs(m_c - μ_c) > rel_tol * σ_c
         @warn "Unable to set constrained mean for `$(name)`: target = $(μ_c), got $(m_c)"
     end
-    if ~isapprox(σ_c, s_c, atol = 1e-3, rtol = 1e-2)
+    if abs(s_c - σ_c) > rel_tol * σ_c
         @warn "Unable to set constrained std for `$(name)`: target = $(σ_c), got $(s_c)"
     end
     return (μ_u, σ_u)
@@ -1178,6 +1183,10 @@ end
             "`$(name)`: target mean μ_c = $(μ_c) is outside the open constraint interval ($(lower_bound), $(upper_bound)); choose μ_c strictly between the bounds.",
         ),
     )
+end
+
+@noinline function _throw_cg_bad_std(name, σ_c)
+    throw(DomainError(σ_c, "`$(name)`: target std σ_c = $(σ_c) must be strictly positive."))
 end
 
 @noinline function _throw_cg_std_clips_lower(name, lower_bound, upper_bound, μ_c, σ_c)

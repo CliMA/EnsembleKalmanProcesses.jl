@@ -50,7 +50,7 @@ The use case `constrained_gaussian()` addresses is when prior information is qua
 
 The parameters of the Gaussian are chosen automatically (depending on the constraint) to reproduce the desired μ and σ — per the use case, other details of the form of the prior distribution shouldn't be important for downstream inference!                
 !!! note "Slow/Failed construction?"
-    The most common case of slow or failed construction is when requested parameters place too much mass at the hard boundary. A typical case is when the requested variance satisfies ``|\sigma| \approx \mathrm{dist}(\mu,\mathrm{boundary})`` Such priors can be defined, but not with our convenience constructor. If this is not the case but you still get failures please let us know!
+    The most common case of slow or failed construction is when requested parameters place too much mass at the hard boundary. A typical case is when the requested variance satisfies ``|\sigma| \approx \mathrm{dist}(\mu,\mathrm{boundary})``. Such priors can be defined, but not with our convenience constructor. If this is not the case but you still get failures please let us know!
  
 
 ### Plotting
@@ -123,13 +123,12 @@ This section provides more details on the components of a `ParameterDistribution
 
 ### ParameterDistributionType
 
-The `ParameterDistributionType` struct wraps four types for specifying different types of prior distributions:
+The abstract type `ParameterDistributionType` has four concrete subtypes for specifying different types of prior distributions:
 
  - The `Parameterized` type is initialized using a Julia `Distributions.jl` object. Samples are drawn randomly from the distribution object.
  - The `VectorOfParameterized` type is initialized with a vector of distributions.
  - The `Samples` type is initialized using a two dimensional array. Samples are drawn randomly (with replacement) from the columns of the provided array.
-
-- The `FunctionParameterDistributionType` struct defines parameters specified as fields over a domain. More detail can be found [here](@ref function-parameter-type).
+ - The `FunctionParameterDistributionType` struct defines parameters specified as fields over a domain. More detail can be found [here](@ref function-parameter-type).
 
 !!! warning
     We recommend that the distributions be unbounded (see next section), as the filtering algorithms in EnsembleKalmanProcesses are not guaranteed to preserve constraints unless defined through the `ConstraintType` mechanism.
@@ -147,7 +146,7 @@ We provide the following predefined constructors which implement mappings that h
 
 These are demonstrated in [ConstraintType Examples](@ref).
 
-Currently we only support multivariate constraints which are the Cartesian product of the one-dimensional `ConstraintType`s. Every component of a multidimensional parameter must have an associated constraint, so, e.g. for a multivariate `ParameterDistributionType` of dimension `p` the user must provide a `p-`dimensional `Array{ConstraintType}`. A `VectorOfParameterized` distribution built with distributions of dimension `p` and `q` has dimension `p+q`.
+Currently we only support multivariate constraints which are the Cartesian product of the one-dimensional `ConstraintType`s. Every component of a multidimensional parameter must have an associated constraint, so, e.g. for a multivariate `ParameterDistributionType` of dimension `p` the user must provide a `p`-dimensional `Array{ConstraintType}`. A `VectorOfParameterized` distribution built with distributions of dimension `p` and `q` has dimension `p+q`.
 
 
 !!! note
@@ -169,7 +168,7 @@ As a subtype of `ParameterDistributionType`, we currently support one option for
 
 - The `GaussianRandomFieldInterface` type is initialized with a Gaussian Random Field object and the GRF package. Currently we support objects from [`GaussianRandomFields.jl`](https://github.com/PieterjanRobbe/GaussianRandomFields.jl) with package `GRFJL()`. Gaussian random fields allow the definition of scalar function distributions defined over a uniform mesh on interval, rectangular, and hyper-rectangular domains.
 
-As with other `ParameterDistribution`s, a function distribution, is built from a name, a `FunctionPameterDistributionType` struct and a constraint, here only one, placed on the scalar output space of the function using a `Constraint()`.
+As with other `ParameterDistribution`s, a function distribution is built from a name, a `FunctionParameterDistributionType` and a constraint, here only one, placed on the scalar output space of the function using a `Constraint()`.
 
 !!! note "constraints"
     The transformation `transform_unconstrained_to_constrained`, will map from (unconstrained) degrees of freedom, to (constrained) evaluations of the function on a numerical grid. In particular, the `transform_constrained_to_unconstrained` is *no longer the inverse* of this map, it now simply maps from constrained evaluations to unconstrained evaluations on the grid.
@@ -211,7 +210,7 @@ We provide [Additional Examples](@ref) below; see also examples in the package `
 
 ## ParameterDistribution methods
 
-These functions typically return a `Dict` with `ParameterDistribution.name` as a keys, or an `Array` if requested:
+These functions typically return a `Dict` with `ParameterDistribution.name` as keys, or an `Array` if requested:
 
  - `get_name`: returns the name(s) of parameters in the `ParameterDistribution`.
  - `get_distribution`: returns the distributions (`ParameterDistributionType` objects) in the `ParameterDistribution`. Note that this is *not* the prior pdf used for inference if nontrivial constraints have been applied.
@@ -411,7 +410,7 @@ name1 = "constrained_mvnormal"
 nothing # hide
 ```
 
-The second parameter is a 2-dimensional one. It is only given by 4 samples in the transformed space - (where one will typically generate samples). It is bounded in the first dimension by the constraint shown, there is a user provided transform for the second dimension - using the default constructor.
+The second parameter is a 2-dimensional one. It is only given by 4 samples in the transformed space - (where one will typically generate samples). It is bounded in the first dimension by the constraint shown. There is a user provided transform for the second dimension - using the default constructor.
 
 ```@example snip5
 d2 = Samples([1.0 5.0 9.0 13.0; 3.0 7.0 11.0 15.0]) # 4 samples of 2D parameter space
@@ -501,7 +500,7 @@ pd = ParameterDistribution(
 ) # The ParameterDistribution with constraint in the output space
 nothing # hide
 ```
-We plot 4 samples of this distribution. Samples are taken over the (30-dimensional) degrees of freedom, and then we apply the `transform_unconstrained_to_costrained` map to (i) build the function distribution, (ii) evaluate it on the numerical grid, and (iii) constrain the output with our prescribed bounds.
+We plot 4 samples of this distribution. Samples are taken over the (30-dimensional) degrees of freedom, and then we apply the `transform_unconstrained_to_constrained` map to (i) build the function distribution, (ii) evaluate it on the numerical grid, and (iii) constrain the output with our prescribed bounds.
 ```@example snip_fun
 shape = [length(pp) for pp in points]
 samples_constrained_flat = [transform_unconstrained_to_constrained(pd, rand(Normal(0,1), dofs)) for i = 1:4] 
@@ -521,7 +520,7 @@ nothing # hide
 ```
 where we vary μ and σ respectively. As noted above, in the presence of a nontrivial constraint, μ and σ will no longer correspond to the mean and standard deviation of the prior distribution (which is taken in the physical, constrained space).
 
-### Without constraints: `"constraint" => no_constraints()`
+### Without constraints: `"constraint" => no_constraint()`
 
 The following specifies a prior based on an unconstrained `Normal(0.5, 1)` distribution:
 
@@ -672,7 +671,7 @@ nothing # hide
 ```
 where `bounded_above(10)` automatically defines the constraint map
 ```@example snip8
-transform_unconstrained_to_constrained(x) = 10 - exp(-x)
+transform_unconstrained_to_constrained(x) = 10 - exp(x)
 nothing # hide
 ```
 The following plots show the effect of varying μ and σ in the physical, constrained space:
@@ -688,7 +687,7 @@ mean_varying = collect(-1:5/(N+1):4)
 sd_varying = collect(0.1:3.9/(N+1):4)
 
 #bounded above by 10.0
-transform_unconstrained_to_constrained(x) = 10 - exp(-x)
+transform_unconstrained_to_constrained(x) = 10 - exp(x)
 
 mean0norm(n) = pdf.(Normal(0, sd_varying[n]), x_eval)
 sd1norm(n) = pdf.(Normal(mean_varying[n], 1), x_eval)
@@ -734,7 +733,7 @@ param_dict = Dict(
 prior = ParameterDistribution(param_dict)
 nothing # hide
 ```
-where `bounded(-1, 5)` automatically defines the constraint map
+where `bounded(5, 10)` automatically defines the constraint map
 ```@example snip9
 transform_unconstrained_to_constrained(x) = 10 - 5 / (exp(x) + 1)
 nothing # hide
