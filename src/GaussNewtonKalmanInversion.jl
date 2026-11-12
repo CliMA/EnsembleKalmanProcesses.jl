@@ -50,7 +50,7 @@ get_prior_cov(process::GaussNewtonInversion) = process.prior_cov
 
 # failure handling
 function FailureHandler(process::GaussNewtonInversion, method::IgnoreFailures)
-    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens) = gnki_update(ekp, u, g, y, obs_noise_cov)
+    failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, u_idx) = gnki_update(ekp, u, g, y, obs_noise_cov, u_idx)
     return FailureHandler{GaussNewtonInversion, IgnoreFailures}(failsafe_update)
 end
 
@@ -63,11 +63,17 @@ Provides a failsafe update that
  - updates the failed ensemble by sampling from the updated successful ensemble.
 """
 function FailureHandler(process::GaussNewtonInversion, method::SampleSuccGauss)
-    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens)
+    function failsafe_update(ekp, u, g, y, obs_noise_cov, failed_ens, u_idx)
         successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
         n_failed = length(failed_ens)
-        u[:, successful_ens] =
-            gnki_update(ekp, u[:, successful_ens], g[:, successful_ens], y[:, successful_ens], obs_noise_cov)
+        u[:, successful_ens] = gnki_update(
+            ekp,
+            u[:, successful_ens],
+            g[:, successful_ens],
+            y[:, successful_ens],
+            obs_noise_cov,
+            u_idx,
+        )
         if !isempty(failed_ens)
             u[:, failed_ens] = sample_empirical_gaussian(get_rng(ekp), u[:, successful_ens], n_failed)
         end
@@ -92,26 +98,29 @@ function gnki_update(
     g::AbstractMatrix{FT},
     y::AbstractMatrix{FT},
     scaled_obs_noise_cov::Union{AbstractMatrix{CT}, UniformScaling{CT}},
+    u_idx::Vector{Int},
 ) where {FT <: Real, IT, CT <: Real, GNI <: GaussNewtonInversion}
     N_ens_successful = size(g, 2)
     cov_est = cov([u; g], dims = 2, corrected = false) # [(N_par + N_obs)×(N_par + N_obs)]
 
+    add_diagonal_regularization!(cov_est)
     cov_localized = get_localizer(ekp).localize(cov_est, FT, size(u, 1), size(g, 1), get_N_ens(ekp))
-    add_diagonal_regularization!(cov_localized)
 
     cov_uu, cov_ug, cov_gg = get_cov_blocks(cov_localized, size(u, 1))
     process = get_process(ekp)
-    prior_mean = process.prior_mean
-    prior_cov = process.prior_cov
+    prior_mean = get_prior_mean(process)[u_idx]
+    prior_cov = get_prior_cov(process)[u_idx, u_idx]
 
     #perturbed mean
     Δt = get_Δt(ekp)[end]
     N_par = size(u, 1)
-    scaled_prior_cov = 2 * prior_cov / Δt
+    # keeps the relaxation update's stationary covariance equal to the true posterior at every Δt ∈ (0,1]
+    perturbation_scale = 2 / Δt - 1
+    scaled_prior_cov = perturbation_scale * prior_cov
 
     m_noise = sqrt(scaled_prior_cov) * rand(get_rng(ekp), MvNormal(zeros(N_par), I), N_ens_successful)
     m = (prior_mean .+ m_noise)
-    obs_noise_cov = scaled_obs_noise_cov * Δt / 2
+    obs_noise_cov = scaled_obs_noise_cov / perturbation_scale
 
     verbose = ekp.verbose
     cov_uu_inv_m_minus_u = safe_linear_solve(cov_uu, m .- u; verbose)
@@ -148,12 +157,21 @@ function update_ensemble!(
     kwargs...,
 ) where {FT, IT, GNI <: GaussNewtonInversion}
 
+    Δt = get_Δt(ekp)[end]
+    if Δt > 1
+        throw(
+            ArgumentError(
+                "GaussNewtonInversion update and perturbation scaling both require Δt ∈ (0, 1]; got Δt = $(Δt). Reduce the scheduler's timestep so it does not exceed 1.",
+            ),
+        )
+    end
+
     if !(isa(get_accelerator(ekp), DefaultAccelerator))
         add_stochastic_perturbation = false # doesn't play well with accelerator, but not needed
     else
         add_stochastic_perturbation = deterministic_forward_map
     end
-    # u: N_par × N_ens 
+    # u: N_par × N_ens
     # g: N_obs × N_ens
     u = get_u_final(ekp)[u_idx, :]
     g = g[g_idx, :]
@@ -163,13 +181,13 @@ function update_ensemble!(
 
     fh = get_failure_handler(ekp)
 
-    # Scale noise using Δt / 2
-    scaled_obs_noise_cov = 2 * get_obs_noise_cov(ekp) / get_Δt(ekp)[end]
+    # Scale noise using (2/Δt - 1), MUST match later pertubation scale in gnki_update.
+    scaled_obs_noise_cov = (2 / Δt - 1) * obs_noise_cov
     noise = sqrt(scaled_obs_noise_cov) * rand(get_rng(ekp), MvNormal(zeros(N_obs), I), get_N_ens(ekp))
 
     # Add obs (N_obs) to each column of noise (N_obs × N_ens) if
     # G is deterministic, else just repeat the observation
-    y = add_stochastic_perturbation ? (get_obs(ekp) .+ noise) : repeat(get_obs(ekp), 1, get_N_ens(ekp))
+    y = add_stochastic_perturbation ? (obs_mean .+ noise) : repeat(obs_mean, 1, get_N_ens(ekp))
 
     if isnothing(failed_ens)
         _, failed_ens = split_indices_by_success(g)
@@ -178,7 +196,7 @@ function update_ensemble!(
         @info "$(length(failed_ens)) particle failure(s) detected. Handler used: $(nameof(typeof(fh).parameters[2]))."
     end
 
-    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens)
+    u = fh.failsafe_update(ekp, u, g, y, scaled_obs_noise_cov, failed_ens, u_idx)
 
     return u
 end

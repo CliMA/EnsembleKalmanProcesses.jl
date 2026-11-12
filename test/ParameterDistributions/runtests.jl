@@ -542,6 +542,38 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
     end
 
+    @testset "statistics functions: mean/var shape consistency" begin
+        # mean(pd)/var(pd) must always return a flat Vector, regardless of block count/type,
+        # so downstream code (e.g. `Vector(mean(prior))`) never has to guard against a Matrix
+        u_single_param = ParameterDistribution(Parameterized(Normal(0.0, 1.0)), no_constraint(), "single_param")
+        @test mean(u_single_param) isa AbstractVector
+        @test var(u_single_param) isa AbstractVector
+        @test length(mean(u_single_param)) == 1
+
+        u_single_sample_1d = ParameterDistribution(Samples([1.0 2.0 3.0 4.0]), no_constraint(), "single_sample_1d")
+        @test mean(u_single_sample_1d) isa AbstractVector
+        @test var(u_single_sample_1d) isa AbstractVector
+        @test length(mean(u_single_sample_1d)) == 1
+
+        u_single_sample_2d = ParameterDistribution(
+            Samples([1.0 2.0 3.0 4.0; 4.0 3.0 2.0 1.0]),
+            [no_constraint(), no_constraint()],
+            "single_sample_2d",
+        )
+        @test mean(u_single_sample_2d) isa AbstractVector
+        @test var(u_single_sample_2d) isa AbstractVector
+        @test length(mean(u_single_sample_2d)) == 2
+
+        u_mixed = combine_distributions([u_single_param, u_single_sample_2d])
+        @test mean(u_mixed) isa AbstractVector
+        @test var(u_mixed) isa AbstractVector
+        @test length(mean(u_mixed)) == 3
+        @test length(var(u_mixed)) == 3
+
+        @test Vector(mean(u_single_sample_2d)) == mean(u_single_sample_2d)
+        @test Vector(mean(u_mixed)) == mean(u_mixed)
+    end
+
     @testset "statistics functions: explict RNG" begin
 
         # setup for the tests:

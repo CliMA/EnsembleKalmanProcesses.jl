@@ -41,9 +41,14 @@ function safe_linear_solve!(x::AbstractVecOrMat, A::AbstractMatrix, b::AbstractV
 end
 
 """
-    add_diagonal_regularization!(cov_matrix; regularization_factor=sqrt(eps(eltype(cov_matrix))))
+    add_diagonal_regularization!(cov_matrix; regularization_factor=sqrt(eps(eltype(cov_matrix))) * max(one(eltype(cov_matrix)), maximum(abs, diag(cov_matrix))))
 
 Add diagonal regularization to a covariance matrix to prevent singular matrix issues.
+
+The default regularization scales with the matrix's own diagonal magnitude (floored at `1`) so
+that it stays negligible on small-scaled problems and effective on large-scaled ones, rather than
+being a bare `sqrt(eps())` that can dominate a covariance whose entries are far below `1` in
+magnitude.
 
 # Arguments
 - `cov_matrix`: The covariance matrix to regularize (modified in-place).
@@ -51,7 +56,8 @@ Add diagonal regularization to a covariance matrix to prevent singular matrix is
 """
 function add_diagonal_regularization!(
     cov_matrix::AbstractMatrix;
-    regularization_factor::Union{Real, Nothing} = sqrt(eps(eltype(cov_matrix))),
+    regularization_factor::Real = sqrt(eps(eltype(cov_matrix))) *
+                                   max(one(eltype(cov_matrix)), maximum(abs, diag(cov_matrix))),
 )
     cov_matrix[diagind(cov_matrix)] .+= regularization_factor
     return cov_matrix
